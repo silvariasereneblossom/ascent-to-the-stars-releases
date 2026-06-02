@@ -541,7 +541,7 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v0.37';
+const GAME_VERSION = 'v0.38';
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
 const ELEMENT_ZH   = { metal:'金', wood:'木', water:'水', fire:'火', earth:'土' };
@@ -5942,7 +5942,7 @@ const SOUL_UPGRADES = {
   insight: { name: 'Soul Insight',     zh: '魂悟', per: 0.04, baseCost: 3, costMult: 1.4, fmt: r => `+${Math.round(r * 4)}% combat insight` },
   memory:  { name: 'Inherited Memory', zh: '宿忆', per: 120,  baseCost: 5, costMult: 1.5, fmt: r => `+${r * 120} starting insight each life` },
 };
-function defaultMeta() { return { souls: 0, lives: 0, up: { cult: 0, body: 0, insight: 0, memory: 0 }, settings: { noAgeDeath: false } }; }
+function defaultMeta() { return { souls: 0, lives: 0, up: { cult: 0, body: 0, insight: 0, memory: 0 }, settings: { noAgeDeath: false, music: true, musicVol: 0.6 } }; }
 function loadMeta() {
   try {
     const raw = localStorage.getItem('atts-meta');
@@ -5951,8 +5951,10 @@ function loadMeta() {
     if (!m || typeof m !== 'object') return defaultMeta();
     m.souls = m.souls || 0; m.lives = m.lives || 0; m.up = m.up || {};
     ['cult', 'body', 'insight', 'memory'].forEach(k => { m.up[k] = m.up[k] || 0; });
-    if (!m.settings || typeof m.settings !== 'object') m.settings = { noAgeDeath: false };
+    if (!m.settings || typeof m.settings !== 'object') m.settings = {};
     if (m.settings.noAgeDeath == null) m.settings.noAgeDeath = false;
+    if (m.settings.music == null) m.settings.music = true;
+    if (typeof m.settings.musicVol !== 'number') m.settings.musicVol = 0.6;
     return m;
   } catch (e) { return defaultMeta(); }
 }
@@ -5985,6 +5987,79 @@ function metaStartInsight() { return (META.up.memory || 0) * SOUL_UPGRADES.memor
 // Global (cross-life) settings live in META so the Config screen works before any character exists.
 function noAgeDeathOn() { return !!(META.settings && META.settings.noAgeDeath); }
 let META = loadMeta();
+
+// ============================================================
+// Music — authentic guqin recordings (CC BY-SA 3.0; performed by Charlie Huang,
+// via Wikimedia Commons), streamed from the public mirror's `audio` release.
+// Plain HTML5 <audio>, so no Java/APK change and no CORS needed. Autoplay policy:
+// playback is primed on the first user gesture. On/off + volume persist in
+// META.settings (cross-life). Attribution is shown in the Config panel.
+// ============================================================
+const MUSIC_BASE = 'https://github.com/silvariasereneblossom/ascent-to-the-stars-releases/releases/download/audio/';
+const TRACKS = [
+  { file: 'jiu-kuang.ogg',       zh: '酒狂',     title: 'Drunken Ecstasy',                       src: 'Shenqi Mipu, 1425' },
+  { file: 'qiu-feng-ci.ogg',     zh: '秋風詞',   title: 'Ode of the Autumn Wind',                src: "Mei'an Qinpu, 1931" },
+  { file: 'zuiyu-changwan.ogg',  zh: '醉漁唱晚', title: 'Evening Song of the Drunken Fisherman', src: 'Tianwen Ge Qinpu, 1876' },
+  { file: 'yangguan-sandie.ogg', zh: '陽關三疊', title: 'Three Refrains on the Yang Pass',       src: 'c. 1867' },
+  { file: 'pei-lan.ogg',         zh: '佩蘭',     title: 'Admiring the Orchid',                   src: 'Tianwen Ge Qinpu, 1876' },
+];
+const MUSIC = { el: null, idx: 0, started: false, fails: 0 };
+function musicEnabled() { return !!(META.settings && META.settings.music); }
+function musicVolume() { return (META.settings && typeof META.settings.musicVol === 'number') ? META.settings.musicVol : 0.6; }
+function ensureMusicEl() {
+  if (MUSIC.el) return MUSIC.el;
+  const a = document.createElement('audio');
+  a.preload = 'none';
+  a.volume = musicVolume();
+  a.addEventListener('playing', () => { MUSIC.fails = 0; });
+  a.addEventListener('ended', () => { MUSIC.idx = (MUSIC.idx + 1) % TRACKS.length; playCurrentTrack(); });
+  a.addEventListener('error', () => {
+    MUSIC.fails++;
+    if (MUSIC.fails > TRACKS.length) { MUSIC.fails = 0; return; }  // likely offline — stop retrying
+    MUSIC.idx = (MUSIC.idx + 1) % TRACKS.length;
+    if (musicEnabled() && MUSIC.started) setTimeout(playCurrentTrack, 800);
+  });
+  if (document.body && document.body.appendChild) document.body.appendChild(a);
+  MUSIC.el = a;
+  return a;
+}
+function playCurrentTrack() {
+  const a = ensureMusicEl();
+  a.src = MUSIC_BASE + TRACKS[MUSIC.idx].file;
+  a.volume = musicVolume();
+  const p = a.play();
+  if (p && p.catch) p.catch(() => {});  // autoplay rejection: retries on the next gesture
+}
+function startMusic() { if (!musicEnabled()) return; ensureMusicEl(); playCurrentTrack(); }
+function stopMusic() { if (MUSIC.el) MUSIC.el.pause(); }
+function toggleMusic() {
+  if (!META.settings) META.settings = {};
+  META.settings.music = !META.settings.music;
+  saveMeta();
+  MUSIC.started = true;
+  if (META.settings.music) startMusic(); else stopMusic();
+  render();
+}
+function nextTrack() {
+  MUSIC.idx = (MUSIC.idx + 1) % TRACKS.length;
+  MUSIC.started = true; MUSIC.fails = 0;
+  if (musicEnabled()) startMusic();
+}
+function setMusicVolume(v) {
+  if (!META.settings) META.settings = {};
+  META.settings.musicVol = v;
+  saveMeta();
+  if (MUSIC.el) MUSIC.el.volume = v;
+}
+// Browsers/WebViews block audio until a user gesture — start on the first tap anywhere.
+function primeMusicOnGesture() {
+  if (MUSIC.started) return;
+  MUSIC.started = true;
+  if (musicEnabled()) startMusic();
+}
+if (typeof document !== 'undefined' && document.addEventListener) {
+  document.addEventListener('pointerdown', primeMusicOnGesture);
+}
 
 // Soul Altar — spend souls between lives. Shown on the landing/death screen once the soul has
 // lived at least one life. Appended by renderLanding.
@@ -8292,7 +8367,40 @@ function buildConfigPanel() {
   lsBtn.textContent = noDeath ? 'OFF — enable' : 'ON — disable';
   lsBtn.onclick = () => { if (!META.settings) META.settings = {}; META.settings.noAgeDeath = !META.settings.noAgeDeath; saveMeta(); render(); };
   lsBtns.appendChild(lsBtn); lsRow.appendChild(lsBtns); cfgP.appendChild(lsRow);
+  appendMusicControls(cfgP);
   return cfgP;
+}
+
+// Music controls — shared by the title-screen Config panel and the in-game Config tab.
+function appendMusicControls(cfgP) {
+  const musOn = musicEnabled();
+  const now = TRACKS[MUSIC.idx] || TRACKS[0];
+  const musRow = document.createElement('div'); musRow.className = 'consumable-row';
+  musRow.innerHTML = `<div class="consumable-info">
+      <div class="consumable-name">Music <span style="color:var(--ink-soft);font-size:0.75rem">古琴</span></div>
+      <div class="consumable-desc">Authentic guqin recordings stream from the mirror. ${musOn ? 'Now playing: <em>' + now.zh + ' &middot; ' + now.title + '</em> &middot; <span style="font-size:0.72rem">' + now.src + '</span>.' : 'Currently off.'}</div>
+    </div>`;
+  const musBtns = document.createElement('div'); musBtns.className = 'consumable-buttons';
+  const mBtn = document.createElement('button'); mBtn.className = musOn ? 'gold' : 'ghost'; mBtn.textContent = musOn ? 'On' : 'Off';
+  mBtn.onclick = toggleMusic;
+  musBtns.appendChild(mBtn);
+  if (musOn) {
+    const nBtn = document.createElement('button'); nBtn.className = 'ghost'; nBtn.textContent = 'Next';
+    nBtn.onclick = () => { nextTrack(); render(); };
+    musBtns.appendChild(nBtn);
+  }
+  musRow.appendChild(musBtns); cfgP.appendChild(musRow);
+  const volWrap = document.createElement('div'); volWrap.style.cssText = 'margin:0.1rem 0 0.3rem';
+  volWrap.innerHTML = `<label style="font-size:0.76rem;color:var(--ink-soft)">Music volume</label>`;
+  const vol = document.createElement('input');
+  vol.type = 'range'; vol.min = '0'; vol.max = '1'; vol.step = '0.05'; vol.value = String(musicVolume());
+  vol.style.cssText = 'width:100%;display:block;margin-top:0.2rem';
+  vol.oninput = e => setMusicVolume(parseFloat(e.target.value));
+  volWrap.appendChild(vol); cfgP.appendChild(volWrap);
+  const cred = document.createElement('p');
+  cred.style.cssText = 'font-size:0.72rem;color:var(--ink-soft);margin:0.3rem 0 0;line-height:1.45';
+  cred.innerHTML = `<strong>Music credits.</strong> Guqin performed by Charlie Huang (Charles R Tsua), via <a href="https://commons.wikimedia.org/wiki/Category:Guqin" style="color:var(--ink-soft)">Wikimedia Commons</a>, licensed <a href="https://creativecommons.org/licenses/by-sa/3.0/" style="color:var(--ink-soft)">CC BY-SA 3.0</a>. Pieces from historical qinpu (1425&ndash;1931); files unmodified.`;
+  cfgP.appendChild(cred);
 }
 
 // ============================================================
@@ -8764,6 +8872,12 @@ function renderCharSheet() {
   menuBtn.style.cssText = 'font-size:0.8rem;padding:0.25rem 0.7rem';
   menuBtn.textContent = 'Menu';
   menuBtn.onclick = () => { atTitle = true; render(); };
+  const musQuick = document.createElement('button');
+  musQuick.className = 'ghost';
+  musQuick.style.cssText = 'font-size:0.8rem;padding:0.25rem 0.7rem';
+  musQuick.textContent = musicEnabled() ? '♪ On' : '♪ Off';
+  musQuick.onclick = toggleMusic;
+  menuRow.appendChild(musQuick);
   menuRow.appendChild(menuBtn);
   app.appendChild(menuRow);
   const h = state.heritages[state.selectedHeritage];
@@ -9916,7 +10030,7 @@ function renderCharSheet() {
   lsBtn.textContent = noDeath ? 'OFF — enable' : 'ON — disable';
   lsBtn.onclick = () => { if (!META.settings) META.settings = {}; META.settings.noAgeDeath = !META.settings.noAgeDeath; saveMeta(); render(); };
   lsBtns.appendChild(lsBtn); lsRow.appendChild(lsBtns); cfgP.appendChild(lsRow);
-  appendPanel(cfgP, 'config');
+  appendPanel(buildConfigPanel(), 'config');  // unified: the in-game tab shows the same panel as the title screen
   const reBtn = document.getElementById('random-encounter');
   if (reBtn) reBtn.onclick = () => {
     const enc = rollMarketEncounter();
