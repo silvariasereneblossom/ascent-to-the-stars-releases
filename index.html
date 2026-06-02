@@ -4258,6 +4258,7 @@ function finalizeAscension(boonId) {
   const school = SCHOOLS[keptSchool];
   fresh.weapon = school.weapon;
   fresh.loadout = school.techniques.slice();
+  fresh.activeSkills = school.techniques.slice();  // Wave 1d: reset active set on ascension
   fresh.passiveTick = Date.now();
 
   applyBoonsPostConfirm(fresh);
@@ -6050,6 +6051,8 @@ function newCharacter(seed, childhood = null) {
     freePoints: 0,
     freeAlloc: Object.fromEntries(STAT_KEYS.map(k => [k, 0])),
     refine: {},
+    // Wave 1d: active-ability slots (combat-usable subset of the loadout; cap grows by realm).
+    activeSkills: [],
   };
 }
 
@@ -6346,8 +6349,43 @@ function buyTechnique(techId) {
   if ((state.base.materials.spirit_stone || 0) < cost) return false;
   state.base.materials.spirit_stone -= cost;
   state.loadout.push(techId);
+  // Wave 1d: auto-slot the new technique into an Active Ability slot if one's free.
+  if (!state.activeSkills) state.activeSkills = [];
+  if (state.activeSkills.length < activeSlotsForRealm(state) && !state.activeSkills.includes(techId)) {
+    state.activeSkills.push(techId);
+  }
   saveChar();
   return true;
+}
+
+// Wave 1d: Active Ability slots. Combat uses your slotted ACTIVE set (a subset of the loadout
+// library), and the cap grows with realm (+1 at Golden Core, +1 at Nascent Soul). This also
+// makes bought realm-gated techniques actually usable — initCombat previously used only the 4
+// base school techniques, so purchased techs never reached combat.
+function activeSlotsForRealm(char) {
+  const t = (char && char.realm && char.realm.tierIdx) || 0;
+  return 4 + (t >= 4 ? 1 : 0) + (t >= 5 ? 1 : 0);  // base 4; +1 Golden Core (tier 4); +1 Nascent Soul (tier 5)
+}
+function activeSkillsList(char) {
+  const cap = activeSlotsForRealm(char);
+  let arr = (char.activeSkills || []).filter(tid => TECHNIQUES[tid] && (char.loadout || []).includes(tid));
+  arr = arr.filter((tid, i) => arr.indexOf(tid) === i);  // dedupe
+  if (!arr.length) {
+    const school = SCHOOLS[char.selectedSchool];
+    arr = school ? school.techniques.slice() : [];   // safety fallback so combat is never empty
+  }
+  return arr.slice(0, cap);
+}
+function toggleActiveSkill(tid) {
+  if (!state.activeSkills) state.activeSkills = [];
+  if (!TECHNIQUES[tid] || !(state.loadout || []).includes(tid)) return;
+  const i = state.activeSkills.indexOf(tid);
+  if (i >= 0) state.activeSkills.splice(i, 1);
+  else {
+    if (state.activeSkills.length >= activeSlotsForRealm(state)) return;  // cap enforced
+    state.activeSkills.push(tid);
+  }
+  saveChar();
 }
 
 function computeMaxHP(char) {
@@ -6887,7 +6925,7 @@ function initCombat(enemyIdOrIds) {
   if (!enemies.length) return;
   const weapon = WEAPONS[state.weapon];
   const school = SCHOOLS[state.selectedSchool];
-  const loadout = school.techniques.slice();
+  const loadout = activeSkillsList(state);  // Wave 1d: combat uses the slotted active set (was school.techniques)
   const mods = computeMods(state);
   const rb = realmBonusFor(state);
   const weaponMult = activeBuffValue('weapon_mult', 1);
@@ -7999,6 +8037,7 @@ function renderCreation() {
     const school = SCHOOLS[state.selectedSchool];
     state.weapon = school.weapon;
     state.loadout = school.techniques.slice();
+    state.activeSkills = school.techniques.slice();  // Wave 1d: default active set = the 4 base techs
     state.passiveTick = Date.now();
     applyHeritagePostConfirm(state);
     applyChildhoodPostConfirm(state);
@@ -8756,25 +8795,38 @@ function renderCharSheet() {
 
   appendPanel(fP, 'forge');
 
-  // Loadout panel
+  // Loadout panel — Active Ability slots (Wave 1d: cap grows +1 at Golden Core, +1 at Nascent Soul)
   const lP = document.createElement('div');
   lP.className = 'panel';
+  if (!state.activeSkills) state.activeSkills = school.techniques.slice();
+  const activeCap = activeSlotsForRealm(state);
+  const activeCount = state.activeSkills.length;
   let loadoutHTML = `<h3>${school.name}</h3>
-    <p style="font-size:0.85rem;color:var(--ink-soft);margin:0 0 0.6rem">${school.flavor}</p>
+    <p style="font-size:0.85rem;color:var(--ink-soft);margin:0 0 0.4rem">${school.flavor}</p>
+    <p style="font-size:0.82rem;color:var(--ink-soft);margin:0 0 0.5rem">Active Abilities <strong style="color:var(--gold)">${activeCount}/${activeCap}</strong> — only active techniques can be used in combat. Tap to slot / unslot. Slots grow +1 at Golden Core and +1 at Nascent Soul.</p>
     <div class="tech-list">`;
   state.loadout.forEach(tid => {
     const t = TECHNIQUES[tid];
+    if (!t) return;
     const effQi = Math.ceil(t.qi * (mods.schoolQiMult[t.school] || 1));
     const effHp = t.hpCost ? Math.ceil(t.hpCost * mods.hpCostMult) : 0;
     const meta = [`${effQi} qi`, `${t.cd} turn cd`];
     if (effHp) meta.push(`${effHp} HP cost`);
-    loadoutHTML += `<div class="tech-entry tip" data-tip="${escapeTip(t.desc)}">
-      <div><span class="name">${t.name}</span><span class="zh">${t.zh}</span> <span style="color:var(--ink-soft);font-size:0.75rem">[${meta.join(' · ')}]</span></div>
+    const isActive = state.activeSkills.includes(tid);
+    const full = !isActive && activeCount >= activeCap;
+    const tag = isActive
+      ? '<span class="rarity-tag" style="background:rgba(184,134,11,0.18);border-color:var(--gold)">active</span>'
+      : (full ? '<span class="rarity-tag" style="opacity:0.7">slots full</span>' : '<span class="rarity-tag" style="opacity:0.7">tap to slot</span>');
+    loadoutHTML += `<div class="tech-entry tip" data-tip="${escapeTip(t.desc)}" data-skill="${tid}" style="cursor:${full ? 'default' : 'pointer'};${isActive ? 'border-left:3px solid var(--gold);padding-left:0.4rem;' : (full ? 'opacity:0.55;' : '')}">
+      <div><span class="name">${t.name}</span><span class="zh">${t.zh}</span> <span style="color:var(--ink-soft);font-size:0.75rem">[${meta.join(' · ')}]</span> ${tag}</div>
       <div class="desc">${t.desc}</div>
     </div>`;
   });
   loadoutHTML += `</div>`;
   lP.innerHTML = loadoutHTML;
+  lP.querySelectorAll('[data-skill]').forEach(el => {
+    el.onclick = () => { toggleActiveSkill(el.getAttribute('data-skill')); render(); };
+  });
   appendPanel(lP, 'self');
 
   // --- Armor panel ---
@@ -9399,6 +9451,9 @@ try {
       if (parsed.freePoints == null) parsed.freePoints = 0;
       if (!parsed.freeAlloc) parsed.freeAlloc = Object.fromEntries(STAT_KEYS.map(k => [k, 0]));
       if (!parsed.refine) parsed.refine = {};
+      // Wave 1d: active-ability slots. Existing chars get their 4 base school techs as the active
+      // set (preserves current combat behavior; bought techs become slottable, a buff not a nerf).
+      if (!parsed.activeSkills) parsed.activeSkills = (SCHOOLS[parsed.selectedSchool] ? SCHOOLS[parsed.selectedSchool].techniques.slice() : []);
       state = parsed;
     }
   }
