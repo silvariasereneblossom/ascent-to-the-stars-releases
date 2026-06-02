@@ -2386,6 +2386,7 @@ function computeMods(char) {
   });
   applyArmorToMods(mods, char);
   applyArtifactsToMods(mods, char);
+  applyDestiniesToMods(mods, char);
   applyArraysToMods(mods, char);
   applyWeaponsToMods(mods, char);
   return mods;
@@ -4273,6 +4274,7 @@ function rollBoonChoices() {
 }
 
 let pendingAscension = null;  // { choices: [boonIds] } — shown in ascension modal
+let pendingDestiny = null;    // { choices: [destinyIds] } — shown in the destiny-choice modal (Wave 2a)
 
 function beginAscension() {
   if (!canAscend()) return;
@@ -5324,6 +5326,76 @@ function applyArtifactsToMods(mods, char) {
 }
 
 // ============================================================
+// Destinies (Wave 2a) — Tale-of-Immortal-style "pick 1 of N at each breakthrough".
+// You may claim one destiny per realm tier reached (tierIdx - destinyPicks available).
+// Effects flow through computeMods via mergeMods (numeric channels only). Some are CHAINS
+// (a higher tier `replaces` the lower); `keystone` flags rule-changing picks; rarity is
+// cosmetic and decoupled from power. Per-life — reset on ascension/reincarnation.
+// ============================================================
+const DESTINIES = {
+  d_iron_hide:    { name: 'Iron Hide',          zh: '铁皮命', rarity: 'common', minTier: 0, mods: { hpBonus: 80 }, desc: '+80 max HP.' },
+  d_keen:         { name: 'Keen Instinct',      zh: '利觉', rarity: 'common', minTier: 0, mods: { weaponBonus: 6 }, desc: '+6 weapon power.' },
+  d_swift_breath: { name: 'Swift Breath',       zh: '疾息', rarity: 'common', minTier: 0, mods: { cultMult: 1.10 }, desc: '+10% cultivation rate.' },
+  d_deep_well:    { name: 'Deep Dantian',       zh: '深丹', rarity: 'common', minTier: 0, mods: { qiBonus: 50, qiRegenBonus: 2 }, desc: '+50 max qi, +2 qi regen per turn.' },
+  d_bright_eye:   { name: 'Bright-Eyed',        zh: '明目命', rarity: 'rare', minTier: 1, mods: { insightMult: 1.20 }, desc: '+20% insight from all sources.' },
+  d_first_blood:  { name: 'First Blood',        zh: '先血', rarity: 'rare', minTier: 1, keystone: true, mods: { firstStrikeBonus: 0.50 }, desc: 'Keystone: +50% damage on the first turn of every fight.' },
+  d_edge_of_fate: { name: 'Edge of Fate',       zh: '命刃', rarity: 'rare', minTier: 1, keystone: true, mods: { critChance: 0.15 }, desc: 'Keystone: +15% critical-strike chance.' },
+  d_stoneward:    { name: 'Stone Ward',         zh: '石护', rarity: 'rare', minTier: 1, mods: { incomingMult: 0.90 }, desc: '-10% incoming damage.' },
+  d_blood_1:      { name: 'Blood Sip',          zh: '吸血一', rarity: 'rare', minTier: 1, mods: { lifestealPct: 0.06 }, desc: 'Heal 6% of damage dealt. (Chain I)' },
+  d_blood_2:      { name: 'Blood Feast',        zh: '血宴', rarity: 'legendary', minTier: 3, requires: 'd_blood_1', replaces: 'd_blood_1', mods: { lifestealPct: 0.14 }, desc: 'Heal 14% of damage dealt. Replaces Blood Sip. (Chain II)' },
+  d_blood_3:      { name: 'Blood Sovereign',    zh: '血君', rarity: 'divine', minTier: 5, requires: 'd_blood_2', replaces: 'd_blood_2', mods: { lifestealPct: 0.25 }, desc: 'Heal 25% of damage dealt. Replaces Blood Feast. (Chain III)' },
+  d_desperate:    { name: 'Cornered Beast',     zh: '困兽', rarity: 'legendary', minTier: 3, keystone: true, mods: { lowHpBonus: 0.40, flatDR: 12 }, desc: 'Keystone: below 33% HP, +40% damage; always +12 flat damage reduction.' },
+  d_warlord:      { name: "Warlord's Edge",     zh: '战王锋', rarity: 'legendary', minTier: 3, mods: { weaponBonus: 20, strikeDamageMult: 1.15 }, desc: '+20 weapon power, +15% strike damage.' },
+  d_dao_clarity:  { name: 'Dao Clarity',        zh: '道澄', rarity: 'legendary', minTier: 4, mods: { cultMult: 1.35, insightMult: 1.25 }, desc: '+35% cultivation rate, +25% insight.' },
+  d_heaven_defy:  { name: 'Heaven-Defying Will', zh: '逆天志', rarity: 'divine', minTier: 5, keystone: true, mods: { weaponBonus: 30, hpBonus: 300, cultMult: 1.25, incomingMult: 0.90 }, desc: 'Keystone: +30 weapon power, +300 max HP, +25% cultivation, -10% incoming.' },
+};
+
+function applyDestiniesToMods(mods, char) {
+  (char.destinies || []).forEach(id => {
+    const d = DESTINIES[id];
+    if (d && d.mods) mergeMods(mods, d.mods);
+  });
+}
+function destinyPicksAvailable() {
+  if (!state || !state.realm) return 0;
+  return Math.max(0, (state.realm.tierIdx || 0) - (state.destinyPicks || 0));
+}
+function eligibleDestinies() {
+  const owned = state.destinies || [];
+  return Object.keys(DESTINIES).filter(id => {
+    if (owned.includes(id)) return false;
+    const d = DESTINIES[id];
+    if ((state.realm.tierIdx || 0) < (d.minTier || 0)) return false;
+    if (d.requires && !owned.includes(d.requires)) return false;
+    return true;
+  });
+}
+function rollDestinyChoices() {
+  const pool = eligibleDestinies();
+  for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); const t = pool[i]; pool[i] = pool[j]; pool[j] = t; }
+  return pool.slice(0, 3);
+}
+function openDestinyChoice() {
+  if (destinyPicksAvailable() <= 0) return;
+  const choices = rollDestinyChoices();
+  if (!choices.length) return;
+  pendingDestiny = { choices };
+  render();
+}
+function chooseDestiny(id) {
+  if (!pendingDestiny || !pendingDestiny.choices.includes(id)) return;
+  const d = DESTINIES[id];
+  if (!d) return;
+  if (!state.destinies) state.destinies = [];
+  if (d.replaces) state.destinies = state.destinies.filter(x => x !== d.replaces);  // chain upgrade
+  state.destinies.push(id);
+  state.destinyPicks = (state.destinyPicks || 0) + 1;  // counts the pick even on a chain replace
+  pendingDestiny = null;
+  saveChar();
+  render();
+}
+
+// ============================================================
 // Arrays (v0.22) — built fixtures inside the House. Provide passive bonuses while active.
 // Capacity scales with realm; player builds up to the cap, dismantles to free slots.
 // ============================================================
@@ -6106,6 +6178,10 @@ function newCharacter(seed, childhood = null) {
     refine: {},
     // Wave 1d: active-ability slots (combat-usable subset of the loadout; cap grows by realm).
     activeSkills: [],
+    // Wave 2a: destinies picked at breakthroughs (per-life). destinyPicks counts picks made
+    // (so chain "replaces" upgrades don't grant free extra picks).
+    destinies: [],
+    destinyPicks: 0,
   };
 }
 
@@ -7743,6 +7819,7 @@ function render() {
   h1.innerHTML = 'Ascent to the Stars<span class="sub">步步登天</span>';
   app.appendChild(h1);
   if (pendingAscension)      return renderAscension();
+  if (pendingDestiny)        return renderDestiny();
   if (combat)                return renderCombat();
   if (!state)                return renderLanding();
   if (state.childhood && state.childhood.step !== 'complete') return renderChildhood();
@@ -7771,6 +7848,32 @@ function renderAscension() {
   cancel.innerHTML = `<div class="button-row"><button class="ghost" id="cancel-asc">Step back — I am not ready</button></div>`;
   app.appendChild(cancel);
   document.getElementById('cancel-asc').onclick = () => { pendingAscension = null; render(); };
+}
+
+// Wave 2a: destiny-choice modal — pick one of three at a breakthrough fork.
+function renderDestiny() {
+  const p = document.createElement('div');
+  p.className = 'panel offline-banner';
+  p.innerHTML = `<h2 style="color:var(--gold)">A Fork in Fate</h2>
+    <p>The breakthrough has loosened the threads of your destiny. Choose one path — it binds to your soul for this life.</p>
+    <p style="font-size:0.85rem;color:var(--ink-soft)">Destinies last this life only (re-chosen each rebirth). Rarity is the dao's whisper, not a measure of worth.</p>`;
+  app.appendChild(p);
+  pendingDestiny.choices.forEach(id => {
+    const d = DESTINIES[id];
+    if (!d) return;
+    const card = document.createElement('div');
+    card.className = 'school-card';
+    const rc = d.rarity === 'divine' ? 'legendary' : d.rarity;
+    card.innerHTML = `<div class="school-name">${d.name} <span style="color:var(--ink-soft);font-weight:normal;font-size:0.85rem">${d.zh}</span> <span class="rarity-tag rarity-${rc}">${d.rarity}</span>${d.keystone ? ' <span class="rarity-tag" style="border-color:#9a6cc4;color:#c79cf0">keystone</span>' : ''}</div>
+      <div class="school-mods">${d.desc}</div>`;
+    card.onclick = () => chooseDestiny(id);
+    app.appendChild(card);
+  });
+  const cancel = document.createElement('div');
+  cancel.className = 'panel';
+  cancel.innerHTML = `<div class="button-row"><button class="ghost" id="cancel-destiny">Decide later</button></div>`;
+  app.appendChild(cancel);
+  document.getElementById('cancel-destiny').onclick = () => { pendingDestiny = null; render(); };
 }
 
 // ============================================================
@@ -8262,6 +8365,14 @@ function renderCharSheet() {
     }).join('');
     html += `<div style="margin:0 0 0.8rem">${chips}</div>`;
   }
+  if (state.destinies && state.destinies.length) {
+    const dchips = state.destinies.map(id => {
+      const d = DESTINIES[id];
+      if (!d) return '';
+      return `<span class="buff-chip tip" data-tip="${escapeTip(d.desc)}" style="background:rgba(120,80,160,0.15);border-color:#9a6cc4">${d.name}${d.keystone ? ' ✦' : ''}</span>`;
+    }).join('');
+    html += `<div style="margin:0 0 0.8rem">${dchips}</div>`;
+  }
   STATS.forEach(s => {
     html += `<div class="stat-row">
       <div><span class="stat-name">${s.name}</span><span class="stat-zh">${s.zh}</span><div class="stat-desc">${s.desc}</div></div>
@@ -8306,6 +8417,10 @@ function renderCharSheet() {
     </div>
     <div class="realm-bar"><div class="realm-bar-fill" id="insight-bar" style="width:${progressPct}%"></div></div>
     <p style="font-size:0.85rem;color:var(--ink-soft);margin:0.2rem 0 0.6rem;font-style:italic">${tier.flavor}</p>`;
+  if (destinyPicksAvailable() > 0 && eligibleDestinies().length) {
+    realmHTML += `<div class="button-row" style="margin-top:0.4rem"><button class="gold" id="choose-destiny">Choose a Destiny (${destinyPicksAvailable()} available)</button></div>
+      <p style="font-size:0.78rem;color:#c79cf0;margin-top:0.3rem">A breakthrough has opened a fork in your fate.</p>`;
+  }
   if (info) {
     const can = state.realm.insight >= info.cost;
     realmHTML += `<div class="button-row">
@@ -8343,6 +8458,8 @@ function renderCharSheet() {
   renderTabBar();
   const advBtn = document.getElementById('advance');
   if (advBtn) advBtn.onclick = () => { tryAdvanceRealm(); render(); };
+  const cdBtn = document.getElementById('choose-destiny');
+  if (cdBtn) cdBtn.onclick = () => openDestinyChoice();
   const ascBtn = document.getElementById('ascend-btn');
   if (ascBtn) ascBtn.onclick = () => beginAscension();
   const stopBtn = document.getElementById('stop-cult');
@@ -9552,6 +9669,11 @@ try {
       // Wave 1d: active-ability slots. Existing chars get their 4 base school techs as the active
       // set (preserves current combat behavior; bought techs become slottable, a buff not a nerf).
       if (!parsed.activeSkills) parsed.activeSkills = (SCHOOLS[parsed.selectedSchool] ? SCHOOLS[parsed.selectedSchool].techniques.slice() : []);
+      // Wave 2a: destinies. Existing chars start with none and destinyPicks 0, so
+      // availablePicks = tierIdx — they may immediately claim one destiny per realm already
+      // reached (a fair catch-up; new chars accrue one pick per future breakthrough).
+      if (!parsed.destinies) parsed.destinies = [];
+      if (parsed.destinyPicks == null) parsed.destinyPicks = 0;
       state = parsed;
     }
   }
