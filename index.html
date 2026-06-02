@@ -5604,6 +5604,29 @@ function realmRunExtract(collapsed) {
 }
 
 // ============================================================
+// Lifespan + body-quench (Wave 3c) — gentle mortality tension. Age advances ONLY during ACTIVE
+// cultivation (meditating at a location); idling, passive cultivation, and offline NEVER age you.
+// Each realm grants a far larger lifespan, so progressing keeps you well ahead — only stalling at
+// one realm for a very long time risks old age, which is death -> reincarnation (souls intact),
+// not a hard loss. Surviving a Heavenly tribulation permanently tempers the body (+HP).
+// ============================================================
+const REALM_LIFESPAN = [80, 150, 250, 500, 1000, 2000, 5000];   // years, by realm tierIdx
+const AGE_PER_SEC = 0.04;   // ~25 seconds of active cultivation per in-world year
+function lifespanMax() {
+  const t = (state.realm && state.realm.tierIdx) || 0;
+  return (REALM_LIFESPAN[t] || REALM_LIFESPAN[REALM_LIFESPAN.length - 1]) + (state.lifespanBonus || 0);
+}
+function advanceAge(seconds) {
+  if (!state || !state.confirmed) return;
+  state.age = (state.age || 16) + seconds * AGE_PER_SEC;
+  if (state.age >= lifespanMax()) {
+    dieRun('the weight of years', 'No pill bought another breath. The body returned to dust at the end of its span — but the dao, and the soul, remember.', state.name);
+  }
+}
+// Body-quench: each Heavenly tribulation survived permanently tempers the flesh.
+function bodyQuenchHPAdd() { return (state.bodyQuench || 0) * 120; }
+
+// ============================================================
 // Arrays (v0.22) — built fixtures inside the House. Provide passive bonuses while active.
 // Capacity scales with realm; player builds up to the cap, dismantles to free slots.
 // ============================================================
@@ -6480,6 +6503,10 @@ function newCharacter(seed, childhood = null) {
     // Wave 3b: secret-realm dive (active run state + entry cooldown).
     realmRun: null,
     lastRealmRun: 0,
+    // Wave 3c: lifespan (gentle mortality clock) + body-quench (tribulations survived).
+    age: 16,
+    lifespanBonus: 0,
+    bodyQuench: 0,
   };
 }
 
@@ -6820,7 +6847,7 @@ function computeMaxHP(char) {
   // each scaled together so tier curve stays the same shape, just taller.
   const base = 63 + char.finalStats.body * 7 + Math.round(realmBonusFor(char).hp * 1.4);
   const mods = computeMods(char);
-  return base + activeBuffValue('hp_max_add', 0) + boonHPAdd() + skillHPAdd() + (mods.hpBonus || 0) + metaHPAdd();
+  return base + activeBuffValue('hp_max_add', 0) + boonHPAdd() + skillHPAdd() + (mods.hpBonus || 0) + metaHPAdd() + bodyQuenchHPAdd();
 }
 function computeMaxQi(char) {
   const mods = computeMods(char);
@@ -7156,7 +7183,7 @@ function tickCultivation() {
   if (elapsed >= 0.1) {
     const gain = cultivationRate() * elapsed;
     addInsight(gain);
-    if (state.cultivating) state.cultivating.lastTick = now;
+    if (state.cultivating) { state.cultivating.lastTick = now; advanceAge(elapsed); if (!state) return; }  // Wave 3c: age only on active cultivation; advanceAge may end the life
     else state.passiveTick = now;
   }
 
@@ -7869,7 +7896,8 @@ function checkDeath() {
       state.realm.tierIdx = pendingTribulation.targetTier;
       state.realm.layer = 1;
       state.realmDefeats = 0;  // v0.25: breakthrough resets defeat counter
-      pushLog('reward', `Realm breakthrough: ${REALMS[state.realm.tierIdx].name}!`);
+      state.bodyQuench = (state.bodyQuench || 0) + 1;  // Wave 3c: surviving the tribulation tempers the body
+      pushLog('reward', `Realm breakthrough: ${REALMS[state.realm.tierIdx].name}! The tribulation's fire tempers your body — now +${bodyQuenchHPAdd()} max HP for life.`);
       if (state.tribulationFails && state.tribulationFails[combat.enemyId]) {
         state.tribulationFails[combat.enemyId] = 0;
       }
@@ -8720,6 +8748,7 @@ function renderCharSheet() {
     </div>
     <div class="realm-bar"><div class="realm-bar-fill" id="insight-bar" style="width:${progressPct}%"></div></div>
     <p style="font-size:0.85rem;color:var(--ink-soft);margin:0.2rem 0 0.6rem;font-style:italic">${tier.flavor}</p>`;
+  realmHTML += `<p class="tip" data-tip="Age advances only while actively cultivating at a location (idling and offline are safe). Each realm greatly extends your lifespan; reaching it is death by old age — which reincarnates you with your souls intact." style="font-size:0.8rem;color:var(--ink-soft);margin:0 0 0.4rem">Age <strong>${Math.floor(state.age || 16)}</strong> / lifespan <strong>${lifespanMax()}</strong> years${state.bodyQuench ? ` · body tempered ×${state.bodyQuench} (+${bodyQuenchHPAdd()} HP)` : ''}</p>`;
   if (destinyPicksAvailable() > 0 && eligibleDestinies().length) {
     realmHTML += `<div class="button-row" style="margin-top:0.4rem"><button class="gold" id="choose-destiny">Choose a Destiny (${destinyPicksAvailable()} available)</button></div>
       <p style="font-size:0.78rem;color:#c79cf0;margin-top:0.3rem">A breakthrough has opened a fork in your fate.</p>`;
@@ -10106,6 +10135,10 @@ try {
       if (parsed.lastOpportunity == null) parsed.lastOpportunity = 0;  // Wave 3a
       if (parsed.realmRun === undefined) parsed.realmRun = null;       // Wave 3b
       if (parsed.lastRealmRun == null) parsed.lastRealmRun = 0;
+      // Wave 3c: lifespan + body-quench. Existing chars get a fresh age-16 clock (no retro-aging).
+      if (parsed.age == null) parsed.age = 16;
+      if (parsed.lifespanBonus == null) parsed.lifespanBonus = 0;
+      if (parsed.bodyQuench == null) parsed.bodyQuench = 0;
       state = parsed;
     }
   }
