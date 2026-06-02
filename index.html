@@ -5731,6 +5731,7 @@ function dieRun(cause, prose, charName) {
     lifetimeInsight: (state && state.lifetimeInsight) || 0,
     childhoodSnapshot: (state && state.childhood) ? JSON.parse(JSON.stringify(state.childhood)) : null,
   };
+  lastDeath.soulsEarned = bankSoulsOnDeath(lastDeath.lifetimeInsight);  // Wave 2c: bank cross-life souls
   try { localStorage.removeItem('atts-char'); } catch (e) {}
   state = null;
   combat = null;
@@ -5754,6 +5755,85 @@ function reincarnateChar() {
   state.reincarnatedFrom = { name: lastDeath.name, lifetimeInsight: lastDeath.lifetimeInsight };
   lastDeath = null;
   render();
+}
+
+// ============================================================
+// Soul meta (Wave 2c) — the CROSS-LIFE prestige layer. Persists in localStorage['atts-meta'],
+// SEPARATE from the per-life 'atts-char' (wiped on death). Each death banks SOULS (scaled by
+// lifetime insight); spend them between lives on permanent aptitudes that strengthen EVERY
+// future life (reincarnated or fresh). This is what turns death into long-term progress.
+// ============================================================
+const SOUL_UPGRADES = {
+  cult:    { name: 'Soul Cultivation', zh: '魂修', per: 0.04, baseCost: 3, costMult: 1.4, fmt: r => `+${Math.round(r * 4)}% cultivation rate` },
+  body:    { name: 'Soul Body',        zh: '魂体', per: 40,   baseCost: 2, costMult: 1.4, fmt: r => `+${r * 40} max HP` },
+  insight: { name: 'Soul Insight',     zh: '魂悟', per: 0.04, baseCost: 3, costMult: 1.4, fmt: r => `+${Math.round(r * 4)}% combat insight` },
+  memory:  { name: 'Inherited Memory', zh: '宿忆', per: 120,  baseCost: 5, costMult: 1.5, fmt: r => `+${r * 120} starting insight each life` },
+};
+function defaultMeta() { return { souls: 0, lives: 0, up: { cult: 0, body: 0, insight: 0, memory: 0 } }; }
+function loadMeta() {
+  try {
+    const raw = localStorage.getItem('atts-meta');
+    if (!raw) return defaultMeta();
+    const m = JSON.parse(raw);
+    if (!m || typeof m !== 'object') return defaultMeta();
+    m.souls = m.souls || 0; m.lives = m.lives || 0; m.up = m.up || {};
+    ['cult', 'body', 'insight', 'memory'].forEach(k => { m.up[k] = m.up[k] || 0; });
+    return m;
+  } catch (e) { return defaultMeta(); }
+}
+function saveMeta() { try { localStorage.setItem('atts-meta', JSON.stringify(META)); } catch (e) {} }
+function bankSoulsOnDeath(lifetimeInsight) {
+  const earned = Math.max(1, Math.floor(Math.sqrt(Math.max(0, lifetimeInsight || 0)) / 8));
+  META.souls += earned;
+  META.lives += 1;
+  saveMeta();
+  return earned;
+}
+function soulUpgradeCost(key) {
+  const u = SOUL_UPGRADES[key];
+  if (!u) return Infinity;
+  return Math.floor(u.baseCost * Math.pow(u.costMult, (META.up[key] || 0)));
+}
+function buySoulUpgrade(key) {
+  const u = SOUL_UPGRADES[key];
+  if (!u) return;
+  const cost = soulUpgradeCost(key);
+  if (META.souls < cost) return;
+  META.souls -= cost;
+  META.up[key] = (META.up[key] || 0) + 1;
+  saveMeta();
+}
+function metaCultMult()    { return 1 + (META.up.cult || 0) * SOUL_UPGRADES.cult.per; }
+function metaHPAdd()       { return (META.up.body || 0) * SOUL_UPGRADES.body.per; }
+function metaInsightMult() { return 1 + (META.up.insight || 0) * SOUL_UPGRADES.insight.per; }
+function metaStartInsight() { return (META.up.memory || 0) * SOUL_UPGRADES.memory.per; }
+let META = loadMeta();
+
+// Soul Altar — spend souls between lives. Shown on the landing/death screen once the soul has
+// lived at least one life. Appended by renderLanding.
+function appendSoulAltar() {
+  if (!(META.lives > 0 || META.souls > 0 || Object.values(META.up).some(v => v > 0))) return;
+  const sp = document.createElement('div');
+  sp.className = 'panel';
+  sp.innerHTML = `<h3 style="color:#c79cf0">Soul Altar <span style="font-weight:normal;color:var(--ink-soft);font-size:0.85rem">魂台</span></h3>
+    <p style="font-size:0.85rem;color:var(--ink-soft);margin:0 0 0.5rem">Souls endure beyond death. Spend them on aptitudes that strengthen <em>every</em> life to come. Souls: <strong style="color:#c79cf0">${META.souls}</strong> · Lives lived: ${META.lives}</p>`;
+  Object.keys(SOUL_UPGRADES).forEach(key => {
+    const u = SOUL_UPGRADES[key];
+    const rank = META.up[key] || 0;
+    const cost = soulUpgradeCost(key);
+    const row = document.createElement('div'); row.className = 'consumable-row';
+    row.innerHTML = `<div class="consumable-info">
+        <div class="consumable-name">${u.name} <span style="color:var(--ink-soft);font-size:0.75rem">${u.zh}</span> <span style="color:#c79cf0;font-size:0.78rem">Rank ${rank}</span></div>
+        <div class="consumable-desc">Now: ${u.fmt(rank)}. Next: ${u.fmt(rank + 1)}.</div>
+      </div>`;
+    const btns = document.createElement('div'); btns.className = 'consumable-buttons';
+    const b = document.createElement('button');
+    b.textContent = `Cultivate Soul (${cost})`;
+    b.disabled = META.souls < cost;
+    b.onclick = () => { buySoulUpgrade(key); render(); };
+    btns.appendChild(b); row.appendChild(btns); sp.appendChild(row);
+  });
+  app.appendChild(sp);
 }
 let cultivationTimer = null;
 let lastCultSaveAt = 0;
@@ -6588,7 +6668,7 @@ function computeMaxHP(char) {
   // each scaled together so tier curve stays the same shape, just taller.
   const base = 63 + char.finalStats.body * 7 + Math.round(realmBonusFor(char).hp * 1.4);
   const mods = computeMods(char);
-  return base + activeBuffValue('hp_max_add', 0) + boonHPAdd() + skillHPAdd() + (mods.hpBonus || 0);
+  return base + activeBuffValue('hp_max_add', 0) + boonHPAdd() + skillHPAdd() + (mods.hpBonus || 0) + metaHPAdd();
 }
 function computeMaxQi(char) {
   const mods = computeMods(char);
@@ -6891,7 +6971,7 @@ function cultivationRate() {
   // Wave 1: spirit-root grade (gentle, upside-only) + foundation quality (set at breakthroughs).
   const rootGrade = (state.spiritRoot && state.spiritRoot.grade) || 1;
   const foundation = state.foundationQuality || 1;
-  return (base + statBonus) * method.mult * locMult * realmMult * cultBuff * boonCultivationMult() * skillCultivationMult() * heritageCult * gearCult * rootGrade * foundation * sectRankMult();
+  return (base + statBonus) * method.mult * locMult * realmMult * cultBuff * boonCultivationMult() * skillCultivationMult() * heritageCult * gearCult * rootGrade * foundation * sectRankMult() * metaCultMult();
 }
 
 function startCultivation(locationId) {
@@ -7529,7 +7609,7 @@ function grantEnemyDefeatRewards(e) {
   const enemyData = ENEMIES[e.id];
   const hmVictory = heritageMech();
   const rewardScale = (e.scale && e.scale.reward) || 1;
-  const insight = Math.round(enemyData.insightReward * rewardScale * boonInsightMult() * skillCombatInsightMult() * (combat.player.mods.insightMult || 1) * ((SCHOOLS[state.selectedSchool] && SCHOOLS[state.selectedSchool].insightFromKillsMult) || 1) * (hmVictory.combatInsightMult || 1) * combatInsightMult(combat));
+  const insight = Math.round(enemyData.insightReward * rewardScale * boonInsightMult() * skillCombatInsightMult() * (combat.player.mods.insightMult || 1) * ((SCHOOLS[state.selectedSchool] && SCHOOLS[state.selectedSchool].insightFromKillsMult) || 1) * (hmVictory.combatInsightMult || 1) * combatInsightMult(combat) * metaInsightMult());
   addInsight(insight);
   state.sectKills = (state.sectKills || 0) + 1;  // Wave 2b: progress toward the sect hunt bounty
   const drop = rollInscriptionDrop();
@@ -7956,7 +8036,7 @@ function renderLanding() {
     dp.innerHTML = `<h2 style="color:var(--gold)">A Cultivator Has Fallen</h2>
       <p style="margin:0.5rem 0"><strong>${lastDeath.name}</strong> — ${lastDeath.cause}</p>
       <p style="margin:0.4rem 0;font-style:italic;color:var(--ink-soft)">${lastDeath.prose}</p>
-      <p style="font-size:0.78rem;color:var(--ink-soft);margin-top:0.6rem">Lifetime insight: <strong>${Math.floor(lastDeath.lifetimeInsight || 0).toLocaleString()}</strong>.</p>`;
+      <p style="font-size:0.78rem;color:var(--ink-soft);margin-top:0.6rem">Lifetime insight: <strong>${Math.floor(lastDeath.lifetimeInsight || 0).toLocaleString()}</strong>.${lastDeath.soulsEarned ? ` Your soul carried <strong style="color:#c79cf0">${lastDeath.soulsEarned}</strong> soul${lastDeath.soulsEarned === 1 ? '' : 's'} onward.` : ''}</p>`;
     if (canReincarnate) {
       const row = document.createElement('div');
       row.className = 'button-row';
@@ -7980,6 +8060,7 @@ function renderLanding() {
       dp.innerHTML += `<p style="font-size:0.78rem;color:var(--ink-soft);margin-top:0.6rem">The save is gone. The road resumes for whoever walks it next.</p>`;
     }
     app.appendChild(dp);
+    appendSoulAltar();  // Wave 2c: spend banked souls before the next life
     if (canReincarnate) return; // Skip the default Begin Cultivation panel when death-screen choices are present
   }
   const p = document.createElement('div');
@@ -7997,6 +8078,7 @@ function renderLanding() {
     state = newPreCharacter((Date.now() ^ Math.floor(Math.random()*1e9)) >>> 0);
     render();
   };
+  if (!lastDeath) appendSoulAltar();  // Wave 2c: also offer the altar on the fresh-start screen
 }
 
 // ============================================================
@@ -8262,6 +8344,7 @@ function renderCreation() {
     state.weapon = school.weapon;
     state.loadout = school.techniques.slice();
     state.activeSkills = school.techniques.slice();  // Wave 1d: default active set = the 4 base techs
+    state.realm.insight += metaStartInsight();  // Wave 2c: Inherited Memory head-start (souls meta)
     state.passiveTick = Date.now();
     applyHeritagePostConfirm(state);
     applyChildhoodPostConfirm(state);
