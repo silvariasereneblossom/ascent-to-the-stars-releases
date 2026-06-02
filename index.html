@@ -5396,6 +5396,67 @@ function chooseDestiny(id) {
 }
 
 // ============================================================
+// Sect (Wave 2b) — your school as a joinable org. Earn CONTRIBUTION from sect duties; spend it
+// on capabilities (sect-taught techniques) + resources. Lifetime contribution sets your RANK,
+// which grants a small passive cultivation bonus. Per-life (reset on ascension/reincarnation).
+// ============================================================
+const SECT_RANKS = [
+  { name: 'Outer Disciple', zh: '外门弟子', at: 0 },
+  { name: 'Inner Disciple', zh: '内门弟子', at: 500 },
+  { name: 'Core Disciple',  zh: '核心弟子', at: 2500 },
+  { name: 'Sect Elder',     zh: '长老',     at: 10000 },
+  { name: 'Grand Elder',    zh: '太上长老', at: 40000 },
+];
+const SLAY_BOUNTY_N = 10;
+function grantContribution(n) {
+  state.contribution = (state.contribution || 0) + n;
+  state.contributionLifetime = (state.contributionLifetime || 0) + n;
+}
+function sectRankIdx() {
+  const lt = (state && state.contributionLifetime) || 0;
+  let idx = 0;
+  for (let i = 0; i < SECT_RANKS.length; i++) if (lt >= SECT_RANKS[i].at) idx = i;
+  return idx;
+}
+function sectRankMult() { return 1 + sectRankIdx() * 0.05; }  // +5% cultivation per rank above Outer
+function slayBountyReward() { return 40 + ((state.realm && state.realm.tierIdx) || 0) * 20; }
+function claimSlayBounty() {
+  if ((state.sectKills || 0) < SLAY_BOUNTY_N) return;
+  state.sectKills -= SLAY_BOUNTY_N;
+  grantContribution(slayBountyReward());
+  saveChar();
+}
+function tributeStones(n) {
+  n = n || 10;
+  if ((state.base.materials.spirit_stone || 0) < n) return;
+  state.base.materials.spirit_stone -= n;
+  if (state.base.materials.spirit_stone <= 0) delete state.base.materials.spirit_stone;
+  grantContribution(n * 2);
+  saveChar();
+}
+function exchangeContribForStones() {
+  const cost = 50;
+  if ((state.contribution || 0) < cost) return;
+  state.contribution -= cost;
+  state.base.materials.spirit_stone = (state.base.materials.spirit_stone || 0) + 20;
+  saveChar();
+}
+function sectTechCost(t) { return Math.max(20, Math.round((t.cost || 100) * 0.8)); }
+function buySectTechnique(techId) {
+  const t = TECHNIQUES[techId];
+  if (!t || t.school !== state.selectedSchool || !(t.minRealmTier > 0)) return;
+  if (state.realm.tierIdx < t.minRealmTier) return;
+  if (state.loadout.includes(techId)) return;
+  const cost = sectTechCost(t);
+  if ((state.contribution || 0) < cost) return;
+  state.contribution -= cost;
+  state.loadout.push(techId);
+  if (!state.activeSkills) state.activeSkills = [];
+  if (state.activeSkills.length < activeSlotsForRealm(state) && !state.activeSkills.includes(techId)) state.activeSkills.push(techId);
+  saveChar();
+}
+
+// ============================================================
 // Arrays (v0.22) — built fixtures inside the House. Provide passive bonuses while active.
 // Capacity scales with realm; player builds up to the cap, dismantles to free slots.
 // ============================================================
@@ -6182,6 +6243,11 @@ function newCharacter(seed, childhood = null) {
     // (so chain "replaces" upgrades don't grant free extra picks).
     destinies: [],
     destinyPicks: 0,
+    // Wave 2b: sect economy (per-life). contribution = spendable; lifetime sets rank; sectKills
+    // tracks the hunt bounty.
+    contribution: 0,
+    contributionLifetime: 0,
+    sectKills: 0,
   };
 }
 
@@ -6825,7 +6891,7 @@ function cultivationRate() {
   // Wave 1: spirit-root grade (gentle, upside-only) + foundation quality (set at breakthroughs).
   const rootGrade = (state.spiritRoot && state.spiritRoot.grade) || 1;
   const foundation = state.foundationQuality || 1;
-  return (base + statBonus) * method.mult * locMult * realmMult * cultBuff * boonCultivationMult() * skillCultivationMult() * heritageCult * gearCult * rootGrade * foundation;
+  return (base + statBonus) * method.mult * locMult * realmMult * cultBuff * boonCultivationMult() * skillCultivationMult() * heritageCult * gearCult * rootGrade * foundation * sectRankMult();
 }
 
 function startCultivation(locationId) {
@@ -7465,6 +7531,7 @@ function grantEnemyDefeatRewards(e) {
   const rewardScale = (e.scale && e.scale.reward) || 1;
   const insight = Math.round(enemyData.insightReward * rewardScale * boonInsightMult() * skillCombatInsightMult() * (combat.player.mods.insightMult || 1) * ((SCHOOLS[state.selectedSchool] && SCHOOLS[state.selectedSchool].insightFromKillsMult) || 1) * (hmVictory.combatInsightMult || 1) * combatInsightMult(combat));
   addInsight(insight);
+  state.sectKills = (state.sectKills || 0) + 1;  // Wave 2b: progress toward the sect hunt bounty
   const drop = rollInscriptionDrop();
   if (drop) state.inscriptions.owned.push(drop);
   const armorDrop = rollArmorDrop(enemyData);
@@ -7801,6 +7868,7 @@ function renderTabBar() {
     { id: 'garden',   label: 'House' },
     { id: 'forge',    label: 'Forge' },
     { id: 'market',   label: 'Market' },
+    { id: 'sect',     label: 'Sect' },
     { id: 'journeys', label: 'Journeys' },
   ];
   tabs.forEach(t => {
@@ -9333,6 +9401,75 @@ function renderCharSheet() {
     <p style="font-size:0.85rem;color:var(--ink-soft);margin:0 0 0.4rem">A wandering encounter from somewhere along the road. Could be anything; could be no one. (Drops are normal; no cultivation reward.)</p>
     <div class="button-row"><button id="random-encounter">Walk a Stretch</button></div>`;
   appendPanel(roadP, 'market');
+
+  // --- Sect Hall (Wave 2b): contribution economy + duties + sect-taught techniques ---
+  const sectP = document.createElement('div');
+  sectP.className = 'panel';
+  const rankIdx = sectRankIdx();
+  const rank = SECT_RANKS[rankIdx];
+  const nextRank = SECT_RANKS[rankIdx + 1];
+  const contrib = state.contribution || 0;
+  const lifetime = state.contributionLifetime || 0;
+  sectP.innerHTML = `<h3>${school.name} — Sect Hall <span style="font-weight:normal;color:var(--ink-soft);font-size:0.85rem">宗门</span></h3>
+    <p style="font-size:0.85rem;color:var(--ink-soft);margin:0 0 0.5rem">Rank: <strong style="color:var(--gold)">${rank.name}</strong> <span style="font-size:0.8rem">${rank.zh}</span> · Contribution: <strong style="color:var(--gold)">${contrib.toLocaleString()}</strong> · Rank bonus: +${rankIdx * 5}% cultivation${nextRank ? ` · Next rank at ${nextRank.at.toLocaleString()} lifetime (you have ${lifetime.toLocaleString()})` : ' · highest rank reached'}</p>
+    <div style="font-weight:bold;margin:0.3rem 0">Sect Duties</div>`;
+  // Hunt bounty
+  const kills = Math.min(state.sectKills || 0, SLAY_BOUNTY_N);
+  const slayReady = (state.sectKills || 0) >= SLAY_BOUNTY_N;
+  const slayRow = document.createElement('div');
+  slayRow.className = 'consumable-row';
+  slayRow.innerHTML = `<div class="consumable-info">
+      <div class="consumable-name">Hunt Bounty <span style="color:var(--ink-soft);font-size:0.75rem">猎赏</span></div>
+      <div class="consumable-desc">Defeat ${SLAY_BOUNTY_N} foes for ${slayBountyReward()} contribution. Progress: ${kills}/${SLAY_BOUNTY_N}.</div>
+    </div>`;
+  const slayBtns = document.createElement('div'); slayBtns.className = 'consumable-buttons';
+  const slayBtn = document.createElement('button');
+  slayBtn.textContent = slayReady ? `Claim (+${slayBountyReward()})` : `${kills}/${SLAY_BOUNTY_N}`;
+  slayBtn.disabled = !slayReady;
+  slayBtn.onclick = () => { claimSlayBounty(); render(); };
+  slayBtns.appendChild(slayBtn); slayRow.appendChild(slayBtns); sectP.appendChild(slayRow);
+  // Tribute
+  const stonesHave = state.base.materials.spirit_stone || 0;
+  const tribRow = document.createElement('div'); tribRow.className = 'consumable-row';
+  tribRow.innerHTML = `<div class="consumable-info">
+      <div class="consumable-name">Tribute Spirit Stones <span style="color:var(--ink-soft);font-size:0.75rem">纳贡</span></div>
+      <div class="consumable-desc">Donate 10 spirit stones for 20 contribution. You have ${stonesHave}.</div>
+    </div>`;
+  const tribBtns = document.createElement('div'); tribBtns.className = 'consumable-buttons';
+  const tribBtn = document.createElement('button');
+  tribBtn.textContent = 'Tribute 10'; tribBtn.disabled = stonesHave < 10;
+  tribBtn.onclick = () => { tributeStones(10); render(); };
+  tribBtns.appendChild(tribBtn); tribRow.appendChild(tribBtns); sectP.appendChild(tribRow);
+  // Store
+  const storeHdr = document.createElement('div');
+  storeHdr.style.cssText = 'font-weight:bold;margin:0.6rem 0 0.3rem';
+  storeHdr.textContent = 'Sect Store — spend contribution';
+  sectP.appendChild(storeHdr);
+  const exRow = document.createElement('div'); exRow.className = 'consumable-row';
+  exRow.innerHTML = `<div class="consumable-info"><div class="consumable-name">Resource Requisition <span style="color:var(--ink-soft);font-size:0.75rem">领资</span></div><div class="consumable-desc">Spend 50 contribution for 20 spirit stones.</div></div>`;
+  const exBtns = document.createElement('div'); exBtns.className = 'consumable-buttons';
+  const exBtn = document.createElement('button'); exBtn.textContent = 'Requisition (50)'; exBtn.disabled = contrib < 50;
+  exBtn.onclick = () => { exchangeContribForStones(); render(); };
+  exBtns.appendChild(exBtn); exRow.appendChild(exBtns); sectP.appendChild(exRow);
+  Object.entries(TECHNIQUES).filter(([, t]) => t.minRealmTier && t.school === state.selectedSchool).forEach(([tid, tech]) => {
+    const owned = state.loadout.includes(tid);
+    const tierMet = state.realm.tierIdx >= tech.minRealmTier;
+    const cost = sectTechCost(tech);
+    const row = document.createElement('div'); row.className = 'consumable-row';
+    row.innerHTML = `<div class="consumable-info">
+        <div class="consumable-name">${tech.name} <span style="color:var(--ink-soft);font-size:0.75rem">${tech.zh || ''}</span></div>
+        <div class="consumable-desc">${tech.desc || ''}</div>
+        <div class="consumable-desc"><strong>${REALMS[tech.minRealmTier].name}+</strong> · ${cost} contribution · ${tech.qi} qi · ${tech.cd} cd</div>
+      </div>`;
+    const tbtns = document.createElement('div'); tbtns.className = 'consumable-buttons';
+    const tb = document.createElement('button');
+    if (owned) { tb.textContent = 'Learned'; tb.disabled = true; }
+    else if (!tierMet) { tb.textContent = `Locked (${REALMS[tech.minRealmTier].name})`; tb.disabled = true; }
+    else if (contrib < cost) { tb.textContent = `Need ${cost}`; tb.disabled = true; }
+    else { tb.textContent = `Learn (${cost})`; tb.onclick = () => { buySectTechnique(tid); render(); }; }
+    tbtns.appendChild(tb); row.appendChild(tbtns); sectP.appendChild(row);
+  });
+  appendPanel(sectP, 'sect');
   const reBtn = document.getElementById('random-encounter');
   if (reBtn) reBtn.onclick = () => {
     const enc = rollMarketEncounter();
@@ -9674,6 +9811,10 @@ try {
       // reached (a fair catch-up; new chars accrue one pick per future breakthrough).
       if (!parsed.destinies) parsed.destinies = [];
       if (parsed.destinyPicks == null) parsed.destinyPicks = 0;
+      // Wave 2b: sect economy.
+      if (parsed.contribution == null) parsed.contribution = 0;
+      if (parsed.contributionLifetime == null) parsed.contributionLifetime = 0;
+      if (parsed.sectKills == null) parsed.sectKills = 0;
       state = parsed;
     }
   }
