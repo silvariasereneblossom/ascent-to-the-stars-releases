@@ -5519,6 +5519,91 @@ function seekOpportunity() {
 }
 
 // ============================================================
+// Secret Realms (Wave 3b) — a push-your-luck roguelike dive. Descend floor by floor; each floor
+// is a trial vs your MIGHT (or a safe treasure cache). Banked rewards escalate with depth;
+// failing a trial wounds you, and 3 wounds collapse the realm. You ALWAYS keep what you've banked
+// — gentle, no character death inside. Extract anytime to leave safely. Milestone floors (every 5)
+// open an inheritance (a relic + an insight windfall). Resolved abstractly (no live combat).
+// ============================================================
+const REALM_RUN_CD_MS = 12 * 60 * 1000;
+const REALM_RUN_MAX_WOUNDS = 3;
+function realmRunReadyAt() { return (state.lastRealmRun || 0) + REALM_RUN_CD_MS; }
+function realmRunReady() { return Date.now() >= realmRunReadyAt(); }
+// A single "power" number for abstract dive checks: weapon power + a slice of HP + total stats.
+function cultivatorMight() {
+  const w = WEAPONS[state.weapon];
+  const rb = realmBonusFor(state);
+  const mods = computeMods(state);
+  const wp = (w ? w.power : 0) + refineWeaponBonus(state) + rb.weapon + (mods.weaponBonus || 0) + boonWeaponAdd() + skillWeaponAdd();
+  const statSum = state.finalStats ? Object.values(state.finalStats).reduce((a, b) => a + b, 0) : 0;
+  return Math.round(wp + computeMaxHP(state) / 15 + statSum);
+}
+function realmRunDifficulty(floor) {
+  const t = state.realm.tierIdx || 0;
+  return Math.round((18 + floor * 7) * (1 + t * 0.7));
+}
+function enterRealmRun() {
+  if (!realmRunReady() || state.realmRun) return;
+  state.realmRun = { floor: 0, insight: 0, stones: 0, relics: [], wounds: 0, log: 'You step through the rift into a sealed pocket of the world.' };
+  saveChar(); render();
+}
+function realmRunDescend() {
+  const run = state.realmRun;
+  if (!run) return;
+  run.floor++;
+  const floor = run.floor;
+  const t = state.realm.tierIdx || 0;
+  if (floor % 3 === 0) {
+    // Safe treasure cache.
+    const ins = Math.round((30 + floor * 12) * (1 + t * 0.5));
+    const st = 3 + floor + t * 2;
+    run.insight += ins; run.stones += st;
+    run.log = `Floor ${floor}: a quiet treasure vault — banked +${ins} insight, +${st} stones.`;
+  } else {
+    // Trial vs Might.
+    const might = cultivatorMight();
+    const diff = realmRunDifficulty(floor);
+    const luck = (state.finalStats && state.finalStats.luck) || 0;
+    const winChance = Math.max(0.1, Math.min(0.95, might / (might + diff) + luck * 0.01));
+    if (Math.random() < winChance) {
+      const ins = Math.round((40 + floor * 16) * (1 + t * 0.5));
+      const st = 4 + floor + t * 2;
+      run.insight += ins; run.stones += st;
+      run.log = `Floor ${floor}: you overcome the guardian — banked +${ins} insight, +${st} stones.`;
+    } else {
+      run.wounds++;
+      run.log = `Floor ${floor}: the guardian wounds you (${run.wounds}/${REALM_RUN_MAX_WOUNDS}).`;
+      if (run.wounds >= REALM_RUN_MAX_WOUNDS) {
+        run.log += ' The realm collapses — you are cast out, but keep all you banked.';
+        realmRunExtract(true);
+        return;
+      }
+    }
+  }
+  if (floor % 5 === 0) {
+    // Inheritance milestone.
+    const ids = Object.keys(ARTIFACTS);
+    const relicId = ids[Math.floor(Math.random() * ids.length)];
+    run.relics.push(relicId);
+    const bonus = Math.round((100 + floor * 40) * (1 + t * 0.5));
+    run.insight += bonus;
+    run.log += ` An inheritance opens at the heart of floor ${floor}: <strong>${ARTIFACTS[relicId].name}</strong> + ${bonus} insight.`;
+  }
+  saveChar(); render();
+}
+function realmRunExtract(collapsed) {
+  const run = state.realmRun;
+  if (!run) return;
+  addInsight(run.insight);
+  if (run.stones) state.base.materials.spirit_stone = (state.base.materials.spirit_stone || 0) + run.stones;
+  run.relics.forEach(id => { if (ARTIFACTS[id]) state.artifacts.owned.push(id); });
+  state.lastRealmRunSummary = `${collapsed ? 'Cast out of the secret realm' : 'You withdraw from the secret realm'} after ${run.floor} floor${run.floor === 1 ? '' : 's'} — gained ${Math.round(run.insight)} insight, ${run.stones} stones${run.relics.length ? `, ${run.relics.length} relic${run.relics.length === 1 ? '' : 's'}` : ''}.`;
+  state.realmRun = null;
+  state.lastRealmRun = Date.now();
+  saveChar(); render();
+}
+
+// ============================================================
 // Arrays (v0.22) — built fixtures inside the House. Provide passive bonuses while active.
 // Capacity scales with realm; player builds up to the cap, dismantles to free slots.
 // ============================================================
@@ -6392,6 +6477,9 @@ function newCharacter(seed, childhood = null) {
     sectKills: 0,
     // Wave 3a: fortune-encounter cooldown timer.
     lastOpportunity: 0,
+    // Wave 3b: secret-realm dive (active run state + entry cooldown).
+    realmRun: null,
+    lastRealmRun: 0,
   };
 }
 
@@ -9642,6 +9730,34 @@ function renderCharSheet() {
   fbtns.appendChild(fbtn);
   fortP.appendChild(fbtns);
   appendPanel(fortP, 'market');
+
+  // --- Secret Realm (Wave 3b: push-your-luck roguelike dive) ---
+  const srP = document.createElement('div');
+  srP.className = 'panel';
+  if (state.realmRun) {
+    const run = state.realmRun;
+    srP.innerHTML = `<h3>Secret Realm <span style="font-weight:normal;color:var(--ink-soft);font-size:0.85rem">秘境</span></h3>
+      <p style="font-size:0.85rem;margin:0 0 0.3rem">Floor <strong style="color:var(--gold)">${run.floor}</strong> · Banked: <strong>${Math.round(run.insight)}</strong> insight, ${run.stones} stones${run.relics.length ? `, ${run.relics.length} relic${run.relics.length === 1 ? '' : 's'}` : ''} · Wounds ${run.wounds}/${REALM_RUN_MAX_WOUNDS}</p>
+      <p style="font-size:0.85rem;color:var(--ink-soft);margin:0 0 0.5rem;font-style:italic">${run.log}</p>`;
+    const row = document.createElement('div'); row.className = 'button-row';
+    const deeper = document.createElement('button'); deeper.className = 'gold'; deeper.textContent = 'Press Deeper';
+    deeper.onclick = () => realmRunDescend();
+    const extract = document.createElement('button'); extract.className = 'ghost'; extract.textContent = 'Extract (keep loot)';
+    extract.onclick = () => realmRunExtract(false);
+    row.appendChild(deeper); row.appendChild(extract); srP.appendChild(row);
+  } else {
+    const srReady = realmRunReady();
+    let srHTML = `<h3>Secret Realm <span style="font-weight:normal;color:var(--ink-soft);font-size:0.85rem">秘境</span></h3>
+      <p style="font-size:0.85rem;color:var(--ink-soft);margin:0 0 0.5rem">A rift into a sealed pocket realm. Descend for escalating loot and inheritances — but three wounds collapse it. <strong>Extract anytime to keep what you've banked</strong> (death here only ejects you). Your Might: <strong>${cultivatorMight()}</strong>.</p>`;
+    if (state.lastRealmRunSummary) srHTML += `<p style="font-size:0.85rem;margin:0 0 0.5rem;color:var(--gold)">${state.lastRealmRunSummary}</p>`;
+    srP.innerHTML = srHTML;
+    const row = document.createElement('div'); row.className = 'button-row';
+    const enter = document.createElement('button'); enter.className = 'gold';
+    if (srReady) { enter.textContent = 'Enter the Secret Realm'; enter.onclick = () => enterRealmRun(); }
+    else { const mins = Math.max(1, Math.ceil((realmRunReadyAt() - Date.now()) / 60000)); enter.textContent = `Rift sealed (${mins}m)`; enter.disabled = true; }
+    row.appendChild(enter); srP.appendChild(row);
+  }
+  appendPanel(srP, 'journeys');
   const reBtn = document.getElementById('random-encounter');
   if (reBtn) reBtn.onclick = () => {
     const enc = rollMarketEncounter();
@@ -9988,6 +10104,8 @@ try {
       if (parsed.contributionLifetime == null) parsed.contributionLifetime = 0;
       if (parsed.sectKills == null) parsed.sectKills = 0;
       if (parsed.lastOpportunity == null) parsed.lastOpportunity = 0;  // Wave 3a
+      if (parsed.realmRun === undefined) parsed.realmRun = null;       // Wave 3b
+      if (parsed.lastRealmRun == null) parsed.lastRealmRun = 0;
       state = parsed;
     }
   }
