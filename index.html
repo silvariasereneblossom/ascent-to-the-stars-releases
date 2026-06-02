@@ -539,6 +539,9 @@ const STAT_KEYS = STATS.map(s => s.key);
 // Five Elements (Wuxing) — Wave 1 cultivation-identity system.
 // Tuning is deliberately GENTLE/accessible (counters are a mild nudge, never brutal).
 // ============================================================
+// Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
+// in-game (shown in the title bar + the Config tab).
+const GAME_VERSION = 'v0.36';
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
 const ELEMENT_ZH   = { metal:'金', wood:'木', water:'水', fire:'火', earth:'土' };
@@ -5619,7 +5622,7 @@ function lifespanMax() {
 function advanceAge(seconds) {
   if (!state || !state.confirmed) return;
   state.age = (state.age || 16) + seconds * AGE_PER_SEC;
-  if (state.age >= lifespanMax()) {
+  if (state.age >= lifespanMax() && !(state.settings && state.settings.noAgeDeath)) {
     dieRun('the weight of years', 'No pill bought another breath. The body returned to dust at the end of its span — but the dao, and the soul, remember.', state.name);
   }
 }
@@ -6507,6 +6510,8 @@ function newCharacter(seed, childhood = null) {
     age: 16,
     lifespanBonus: 0,
     bodyQuench: 0,
+    // Wave 3 / config: player-facing settings.
+    settings: { noAgeDeath: false },
   };
 }
 
@@ -8130,6 +8135,7 @@ function renderTabBar() {
     { id: 'market',   label: 'Market' },
     { id: 'sect',     label: 'Sect' },
     { id: 'journeys', label: 'Journeys' },
+    { id: 'config',   label: 'Config' },
   ];
   tabs.forEach(t => {
     const b = document.createElement('button');
@@ -8144,7 +8150,7 @@ function renderTabBar() {
 function render() {
   app.innerHTML = '';
   const h1 = document.createElement('h1');
-  h1.innerHTML = 'Ascent to the Stars<span class="sub">步步登天</span>';
+  h1.innerHTML = 'Ascent to the Stars<span class="sub">步步登天</span><span style="font-size:0.6rem;color:var(--ink-soft);margin-left:0.5rem;vertical-align:middle;font-weight:normal">' + GAME_VERSION + '</span>';
   app.appendChild(h1);
   if (pendingAscension)      return renderAscension();
   if (pendingDestiny)        return renderDestiny();
@@ -9787,6 +9793,34 @@ function renderCharSheet() {
     row.appendChild(enter); srP.appendChild(row);
   }
   appendPanel(srP, 'journeys');
+
+  // --- Config / Settings tab ---
+  const cfgP = document.createElement('div');
+  cfgP.className = 'panel';
+  cfgP.innerHTML = `<h3>Config <span style="font-weight:normal;color:var(--ink-soft);font-size:0.85rem">设置</span></h3>
+    <p style="font-size:0.85rem;margin:0 0 0.4rem">Version <strong style="color:var(--gold)">${GAME_VERSION}</strong></p>
+    <p style="font-size:0.82rem;color:var(--ink-soft);margin:0 0 0.5rem">Updates arrive over-the-air. If the version above looks old after a content push, <strong>fully close the app</strong> (swipe it out of recents — not just Home) and reopen; the first launch downloads the update, the next applies it. Souls persist through all of it: <strong>${META.souls}</strong> souls · ${META.lives} lives.</p>`;
+  // Update button — only when the APK shell exposes the native bridge (forward-compatible).
+  if (window.AttsNative && typeof window.AttsNative.checkForUpdate === 'function') {
+    const updRow = document.createElement('div'); updRow.className = 'button-row';
+    const updBtn = document.createElement('button'); updBtn.className = 'gold'; updBtn.textContent = 'Check for Updates Now';
+    updBtn.onclick = () => { try { window.AttsNative.checkForUpdate(); } catch (e) {} };
+    updRow.appendChild(updBtn); cfgP.appendChild(updRow);
+  }
+  // Lifespan old-age-death toggle (gentle tuning per operator).
+  const noDeath = !!(state.settings && state.settings.noAgeDeath);
+  const lsRow = document.createElement('div'); lsRow.className = 'consumable-row';
+  lsRow.innerHTML = `<div class="consumable-info">
+      <div class="consumable-name">Old-Age Death</div>
+      <div class="consumable-desc">When ON, reaching your lifespan ends the life (old age → reincarnation, souls intact). When OFF, lifespan still shows but never kills you. Age only advances during active cultivation.</div>
+    </div>`;
+  const lsBtns = document.createElement('div'); lsBtns.className = 'consumable-buttons';
+  const lsBtn = document.createElement('button');
+  lsBtn.className = noDeath ? 'ghost' : 'gold';
+  lsBtn.textContent = noDeath ? 'OFF — enable' : 'ON — disable';
+  lsBtn.onclick = () => { if (!state.settings) state.settings = {}; state.settings.noAgeDeath = !state.settings.noAgeDeath; saveChar(); render(); };
+  lsBtns.appendChild(lsBtn); lsRow.appendChild(lsBtns); cfgP.appendChild(lsRow);
+  appendPanel(cfgP, 'config');
   const reBtn = document.getElementById('random-encounter');
   if (reBtn) reBtn.onclick = () => {
     const enc = rollMarketEncounter();
@@ -10139,6 +10173,7 @@ try {
       if (parsed.age == null) parsed.age = 16;
       if (parsed.lifespanBonus == null) parsed.lifespanBonus = 0;
       if (parsed.bodyQuench == null) parsed.bodyQuench = 0;
+      if (!parsed.settings) parsed.settings = { noAgeDeath: false };
       state = parsed;
     }
   }
