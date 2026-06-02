@@ -6045,6 +6045,11 @@ function newCharacter(seed, childhood = null) {
     // + foundation quality (gentle, upside-only multiplier improved at each breakthrough).
     spiritRoot: rollSpiritRoot(rng),
     foundationQuality: 1.0,
+    // Wave 1b: Hero's-Adventure reserve stat points (banked, respec-friendly) + per-weapon
+    // refine levels (own-many, invest in favorites).
+    freePoints: 0,
+    freeAlloc: Object.fromEntries(STAT_KEYS.map(k => [k, 0])),
+    refine: {},
   };
 }
 
@@ -6078,13 +6083,39 @@ function finalStats(st) {
     }
   }
   STAT_KEYS.forEach(k => {
-    const v = st.baseStats[k] + st.allocation[k] + (h[k] || 0) + latent;
+    const v = st.baseStats[k] + st.allocation[k] + (h[k] || 0) + latent + ((st.freeAlloc && st.freeAlloc[k]) || 0);
     out[k] = Math.max(6, v);
   });
   return out;
 }
 
 const allocated = st => STAT_KEYS.reduce((a,k) => a + st.allocation[k], 0);
+
+// Wave 1b: reserve stat points (Hero's-Adventure "reserve XP pool" — banked, allocate later,
+// respec freely). Earned on each tier breakthrough; spent into the 6 stats; fully refundable.
+const REALM_FREE_POINTS = 3;
+function allocFreePoint(statKey, delta) {
+  if (!state) return;
+  if (!state.freeAlloc) state.freeAlloc = Object.fromEntries(STAT_KEYS.map(k => [k, 0]));
+  if (!STAT_KEYS.includes(statKey)) return;
+  if (delta > 0) {
+    if ((state.freePoints || 0) <= 0) return;
+    state.freePoints--; state.freeAlloc[statKey] = (state.freeAlloc[statKey] || 0) + 1;
+  } else {
+    if ((state.freeAlloc[statKey] || 0) <= 0) return;
+    state.freeAlloc[statKey]--; state.freePoints = (state.freePoints || 0) + 1;
+  }
+  if (state.confirmed) state.finalStats = finalStats(state);
+  saveChar();
+}
+function respecFreePoints() {
+  if (!state || !state.freeAlloc) return;
+  let returned = 0;
+  STAT_KEYS.forEach(k => { returned += state.freeAlloc[k] || 0; state.freeAlloc[k] = 0; });
+  state.freePoints = (state.freePoints || 0) + returned;
+  if (state.confirmed) state.finalStats = finalStats(state);
+  saveChar();
+}
 
 // ============================================================
 // Active buffs (from pills/potions)
@@ -6138,6 +6169,52 @@ function secondaryWeaponPowerBonus(char) {
     const w = WEAPONS[wid];
     return sum + (w ? Math.round(w.power * 0.75) : 0);
   }, 0);
+}
+
+// Wave 1b: weapon refinement (Hero's-Adventure "own many, invest in favorites"). Gentle —
+// NO failure, NO destruction. Each level adds REFINE_WEAPON_PCT of the weapon's base power
+// (secondaries at 0.75x, matching the secondary-power rule). Cost scales with level + rarity.
+const REFINE_WEAPON_PCT = 0.08;
+const REFINE_CAP = 10;
+const REFINE_RARITY_MULT = { common: 1, rare: 2, legendary: 4, divine: 8 };
+function refineCost(wid, lvl) {
+  const w = WEAPONS[wid];
+  const next = (lvl || 0) + 1;
+  const rm = (w && REFINE_RARITY_MULT[w.rarity]) || 1;
+  return { spirit_iron: next * 2 * rm, spirit_stone: Math.max(1, Math.ceil(next * rm * 0.5)) };
+}
+function canRefine(wid) {
+  if (!WEAPONS[wid]) return false;
+  const lvl = (state.refine && state.refine[wid]) || 0;
+  if (lvl >= REFINE_CAP) return false;
+  const cost = refineCost(wid, lvl);
+  return Object.entries(cost).every(([m, n]) => (state.base.materials[m] || 0) >= n);
+}
+function refineWeapon(wid) {
+  if (!canRefine(wid)) return;
+  const lvl = (state.refine && state.refine[wid]) || 0;
+  const cost = refineCost(wid, lvl);
+  Object.entries(cost).forEach(([m, n]) => {
+    state.base.materials[m] = (state.base.materials[m] || 0) - n;
+    if (state.base.materials[m] <= 0) delete state.base.materials[m];
+  });
+  if (!state.refine) state.refine = {};
+  state.refine[wid] = lvl + 1;
+  saveChar();
+}
+// Total refine power bonus from currently-equipped weapons (primary full, secondaries 0.75x).
+function refineWeaponBonus(char) {
+  const eq = equippedWeapons(char);
+  if (!eq.length) return 0;
+  let bonus = 0;
+  eq.forEach((wid, idx) => {
+    const w = WEAPONS[wid];
+    const lvl = (char.refine && char.refine[wid]) || 0;
+    if (!w || !lvl) return;
+    const per = w.power * REFINE_WEAPON_PCT * lvl;
+    bonus += idx === 0 ? per : per * 0.75;
+  });
+  return Math.round(bonus);
 }
 
 // Auto-equipped artifacts. Highest "power" (sum of mod magnitudes as a tie-breaker) up to
@@ -6244,6 +6321,8 @@ function tryAdvanceRealm() {
     q = Math.min(1.30, Math.max(1.0, q));
     state.foundationQuality = Math.max(state.foundationQuality || 1.0, q);
     state.lastFoundationRoll = q;
+    // Wave 1b: award reserve stat points on each tier breakthrough.
+    state.freePoints = (state.freePoints || 0) + REALM_FREE_POINTS;
     // Recompute finalStats in case a heritage latent bonus kicks in at this tier.
     if (state.confirmed) state.finalStats = finalStats(state);
   }
@@ -6820,7 +6899,7 @@ function initCombat(enemyIdOrIds) {
     qiMax: computeMaxQi(state), qi: computeMaxQi(state),
     spiritMax: computeMaxSpirit(state), spirit: computeMaxSpirit(state),
     postureMax: 60, posture: 0, broken: 0,
-    weaponPower: Math.round((weapon.power + secondaryWeaponPowerBonus(state) + rb.weapon + mods.weaponBonus + boonWeaponAdd() + skillWeaponAdd()) * weaponMult * (mods.weaponMultFlat || 1)),
+    weaponPower: Math.round((weapon.power + secondaryWeaponPowerBonus(state) + refineWeaponBonus(state) + rb.weapon + mods.weaponBonus + boonWeaponAdd() + skillWeaponAdd()) * weaponMult * (mods.weaponMultFlat || 1)),
     loadout,
     cooldowns: Object.fromEntries(loadout.map(id => [id, 0])),
     buffs: { incomingMult: 1, incomingTurns: 0, nextDamageMult: 1, nextDamageTurns: 0 },
@@ -8101,7 +8180,7 @@ function renderCharSheet() {
   const mods = computeMods(state);
   const rb = realmBonusFor(state);
   const wpnMult = activeBuffValue('weapon_mult', 1);
-  const wpnPower = Math.round((weapon.power + rb.weapon + mods.weaponBonus) * wpnMult);
+  const wpnPower = Math.round((weapon.power + refineWeaponBonus(state) + rb.weapon + mods.weaponBonus) * wpnMult);
   html += `<div style="margin-top:0.8rem;font-size:0.88rem">
     <strong>Body</strong> ${hpMax} HP &middot;
     <strong>Qi Pool</strong> ${qiMax} &middot;
@@ -8176,6 +8255,36 @@ function renderCharSheet() {
   if (ascBtn) ascBtn.onclick = () => beginAscension();
   const stopBtn = document.getElementById('stop-cult');
   if (stopBtn) stopBtn.onclick = () => { stopCultivation(); render(); };
+
+  // --- Cultivation Points panel (Wave 1b: reserve stat points; only shown once you have any) ---
+  const totalFreeAlloc = STAT_KEYS.reduce((a, k) => a + ((state.freeAlloc && state.freeAlloc[k]) || 0), 0);
+  if ((state.freePoints || 0) > 0 || totalFreeAlloc > 0) {
+    const fpP = document.createElement('div');
+    fpP.className = 'panel';
+    let fpHtml = `<h3>Cultivation Points <span style="font-weight:normal;color:var(--ink-soft);font-size:0.85rem">修为点</span></h3>
+      <p style="font-size:0.85rem;color:var(--ink-soft);margin:0 0 0.5rem">Unspent: <strong style="color:var(--gold)">${state.freePoints || 0}</strong>. Earned on each breakthrough — allocate into any stat, and respec freely anytime.</p>`;
+    STATS.forEach(s => {
+      const a = (state.freeAlloc && state.freeAlloc[s.key]) || 0;
+      fpHtml += `<div class="stat-row">
+        <div><span class="stat-name">${s.name}</span> <span class="stat-zh">${s.zh}</span>${a ? ` <span style="color:var(--gold)">+${a}</span>` : ''}</div>
+        <div style="display:flex;gap:0.3rem;align-items:center">
+          <button class="ghost small" data-fpm="${s.key}" ${a > 0 ? '' : 'disabled'}>−</button>
+          <button class="ghost small" data-fpp="${s.key}" ${(state.freePoints || 0) > 0 ? '' : 'disabled'}>+</button>
+        </div>
+      </div>`;
+    });
+    fpHtml += `<div class="button-row" style="margin-top:0.5rem"><button class="ghost small" id="fp-respec" ${totalFreeAlloc > 0 ? '' : 'disabled'}>Respec (return ${totalFreeAlloc})</button></div>`;
+    fpP.innerHTML = fpHtml;
+    app.appendChild(fpP);
+    STATS.forEach(s => {
+      const pb = fpP.querySelector(`[data-fpp="${s.key}"]`);
+      if (pb) pb.onclick = () => { allocFreePoint(s.key, 1); render(); };
+      const mb = fpP.querySelector(`[data-fpm="${s.key}"]`);
+      if (mb) mb.onclick = () => { allocFreePoint(s.key, -1); render(); };
+    });
+    const rsp = document.getElementById('fp-respec');
+    if (rsp) rsp.onclick = () => { respecFreePoints(); render(); };
+  }
 
   // --- Skill tree panel (Self tab) ---
   const skP = document.createElement('div');
@@ -8573,6 +8682,48 @@ function renderCharSheet() {
   fP.appendChild(subNav);
 
   if (state.ui.forgeTab === 'weapons') {
+    // Wave 1b: weapon refinement — invest materials into equipped weapons (no failure).
+    const refHdr = document.createElement('div');
+    refHdr.innerHTML = `<div style="font-weight:bold;margin:0.2rem 0">Refine — Equipped Weapons <span style="color:var(--ink-soft);font-weight:normal;font-size:0.8rem">炼器</span></div>
+      <p style="font-size:0.8rem;color:var(--ink-soft);margin:0 0 0.4rem">Pour materials into a weapon to raise its power — no failure, invest in the blades you favor. Each level adds ${Math.round(REFINE_WEAPON_PCT*100)}% of base power (off-hands 0.75x).</p>`;
+    fP.appendChild(refHdr);
+    const eqw = equippedWeapons(state);
+    if (!eqw.length) {
+      const none = document.createElement('div');
+      none.className = 'consumable-desc';
+      none.style.cssText = 'opacity:0.7;margin-bottom:0.5rem';
+      none.textContent = 'No weapon equipped.';
+      fP.appendChild(none);
+    }
+    eqw.forEach((wid, idx) => {
+      const w = WEAPONS[wid];
+      if (!w) return;
+      const lvl = (state.refine && state.refine[wid]) || 0;
+      const atCap = lvl >= REFINE_CAP;
+      const can = canRefine(wid);
+      const bonusNow = Math.round(w.power * REFINE_WEAPON_PCT * lvl * (idx === 0 ? 1 : 0.75));
+      const cost = refineCost(wid, lvl);
+      const costStr = Object.entries(cost).map(([m, n]) => `${n}× ${MATERIALS[m] ? MATERIALS[m].name : m}`).join(', ');
+      const row = document.createElement('div');
+      row.className = 'consumable-row';
+      row.innerHTML = `<div style="flex:1 1 auto">
+        <div class="consumable-name">${w.name}${lvl ? ` <span style="color:var(--gold)">+${lvl}</span>` : ''} <span class="rarity-tag" style="opacity:0.8">${idx === 0 ? 'primary' : 'off-hand'}</span></div>
+        <div class="consumable-desc">Power ${w.power}${bonusNow ? ` <span style="color:var(--gold)">(+${bonusNow} refined)</span>` : ''}. ${atCap ? '<strong>Max refinement reached.</strong>' : `Next +1: ${costStr}.`}</div>
+      </div>`;
+      if (!atCap) {
+        const btn = document.createElement('button');
+        btn.className = 'small ' + (can ? 'gold' : 'ghost');
+        btn.textContent = 'Refine +1';
+        btn.disabled = !can;
+        btn.onclick = () => { refineWeapon(wid); render(); };
+        row.appendChild(btn);
+      }
+      fP.appendChild(row);
+    });
+    const divider = document.createElement('div');
+    divider.style.cssText = 'border-top:1px solid rgba(120,120,120,0.3);margin:0.6rem 0 0.4rem';
+    divider.innerHTML = `<div style="font-weight:bold;margin:0.3rem 0 0.2rem">Forge New Weapons</div>`;
+    fP.appendChild(divider);
     ARTIFACT_RECIPES.forEach(recipe => fP.appendChild(buildWeaponRecipeRow(recipe)));
   } else if (state.ui.forgeTab === 'armor') {
     ARMOR_RECIPES.forEach(recipe => fP.appendChild(buildArmorRecipeRow(recipe)));
@@ -9244,6 +9395,10 @@ try {
         parsed.spiritRoot = { elements: [schoolEl], element: schoolEl, grade: 1.0, gradeName: 'Common', dual: false };
       }
       if (parsed.foundationQuality == null) parsed.foundationQuality = 1.0;
+      // Wave 1b: reserve stat points + weapon refine levels.
+      if (parsed.freePoints == null) parsed.freePoints = 0;
+      if (!parsed.freeAlloc) parsed.freeAlloc = Object.fromEntries(STAT_KEYS.map(k => [k, 0]));
+      if (!parsed.refine) parsed.refine = {};
       state = parsed;
     }
   }
