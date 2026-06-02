@@ -5457,6 +5457,68 @@ function buySectTechnique(techId) {
 }
 
 // ============================================================
+// Fortune / Opportunity encounters (Wave 3a) — the payoff for the FORTUNE stat. A manual
+// "Seek Opportunity" venture (real-time cooldown) rolls a fortuitous encounter; higher Fortune
+// tilts the weighting toward better outcomes and unlocks the rare inheritance jackpot.
+// Tuned gentle: outcomes are positive-to-neutral (no harsh penalties).
+// ============================================================
+const OPPORTUNITY_CD_MS = 5 * 60 * 1000;
+function opportunityReadyAt() { return (state.lastOpportunity || 0) + OPPORTUNITY_CD_MS; }
+function opportunityReady() { return Date.now() >= opportunityReadyAt(); }
+const FORTUNE_EVENTS = [
+  { id: 'quiet', good: false, base: 8, resolve() {
+    return 'The road is quiet. You return with little but a clearer mind.'; } },
+  { id: 'stones', good: true, base: 10, resolve() {
+    const n = 5 + (state.realm.tierIdx || 0) * 6;
+    state.base.materials.spirit_stone = (state.base.materials.spirit_stone || 0) + n;
+    return `You stumble on a hidden cache — <strong>${n} spirit stones</strong>.`; } },
+  { id: 'materials', good: true, base: 8, resolve() {
+    const ids = ['spirit_iron', 'qi_wood', 'spirit_stone'];
+    const id = ids[Math.floor(Math.random() * ids.length)];
+    const n = 3 + (state.realm.tierIdx || 0) * 2;
+    state.base.materials[id] = (state.base.materials[id] || 0) + n;
+    const nm = (MATERIALS[id] && MATERIALS[id].name) || id;
+    return `A spirit-rich hollow yields <strong>${n}× ${nm}</strong>.`; } },
+  { id: 'insight', good: true, base: 8, resolve() {
+    const info = advanceInfo(state);
+    const n = Math.max(20, Math.floor((info ? info.cost : 1000) * 0.06));
+    addInsight(n);
+    return `An ancient stele gives a flash of comprehension — <strong>+${n} insight</strong>.`; } },
+  { id: 'master', good: true, base: 3, resolve() {
+    state.freePoints = (state.freePoints || 0) + 1;
+    return 'A hidden master weighs your heart and, satisfied, imparts a gift — <strong>+1 Cultivation Point</strong>.'; } },
+  { id: 'relic', good: true, base: 2, resolve() {
+    const ids = Object.keys(ARTIFACTS);
+    const id = ids[Math.floor(Math.random() * ids.length)];
+    state.artifacts.owned.push(id);
+    return `You unearth a forgotten treasure — <strong>${ARTIFACTS[id].name}</strong> (artifact).`; } },
+  { id: 'inheritance', good: true, base: 1, luckGate: 8, resolve() {
+    const info = advanceInfo(state);
+    const ins = Math.max(100, Math.floor((info ? info.cost : 2000) * 0.25));
+    addInsight(ins);
+    META.souls += 1; saveMeta();
+    return `A dead immortal's inheritance opens to you — <strong>+${ins} insight</strong> and <strong>+1 soul</strong> carried beyond death.`; } },
+];
+function seekOpportunity() {
+  if (!opportunityReady()) return;
+  const luck = (state.finalStats && state.finalStats.luck) || 0;
+  const pool = FORTUNE_EVENTS.filter(ev => !ev.luckGate || luck >= ev.luckGate);
+  const weighted = pool.map(ev => {
+    let w = ev.base;
+    if (ev.good) w *= (1 + luck * 0.04);     // Fortune tilts toward good outcomes
+    else w *= 1 / (1 + luck * 0.03);         // ...and away from quiet/empty ones
+    return { ev, w };
+  });
+  const total = weighted.reduce((s, x) => s + x.w, 0);
+  let r = Math.random() * total, pick = weighted[weighted.length - 1].ev;
+  for (const x of weighted) { r -= x.w; if (r <= 0) { pick = x.ev; break; } }
+  state.lastOpportunityResult = pick.resolve();
+  state.lastOpportunity = Date.now();
+  saveChar();
+  render();
+}
+
+// ============================================================
 // Arrays (v0.22) — built fixtures inside the House. Provide passive bonuses while active.
 // Capacity scales with realm; player builds up to the cap, dismantles to free slots.
 // ============================================================
@@ -6328,6 +6390,8 @@ function newCharacter(seed, childhood = null) {
     contribution: 0,
     contributionLifetime: 0,
     sectKills: 0,
+    // Wave 3a: fortune-encounter cooldown timer.
+    lastOpportunity: 0,
   };
 }
 
@@ -9553,6 +9617,31 @@ function renderCharSheet() {
     tbtns.appendChild(tb); row.appendChild(tbtns); sectP.appendChild(row);
   });
   appendPanel(sectP, 'sect');
+
+  // --- Wandering / Seek Opportunity (Wave 3a: the Fortune-stat payoff) ---
+  const fortP = document.createElement('div');
+  fortP.className = 'panel';
+  const oppReady = opportunityReady();
+  const luckVal = (state.finalStats && state.finalStats.luck) || 0;
+  let fortHTML = `<h3>Wandering <span style="font-weight:normal;color:var(--ink-soft);font-size:0.85rem">奇遇</span></h3>
+    <p style="font-size:0.85rem;color:var(--ink-soft);margin:0 0 0.5rem">Venture off the path in search of fortuitous encounters. Your <strong>Fortune (${luckVal})</strong> tilts fate toward better outcomes — and high Fortune can open a dead immortal's inheritance.</p>`;
+  if (state.lastOpportunityResult) fortHTML += `<p style="font-size:0.88rem;margin:0 0 0.5rem;color:var(--gold)">${state.lastOpportunityResult}</p>`;
+  fortP.innerHTML = fortHTML;
+  const fbtns = document.createElement('div');
+  fbtns.className = 'button-row';
+  const fbtn = document.createElement('button');
+  fbtn.className = 'gold';
+  if (oppReady) {
+    fbtn.textContent = 'Seek Opportunity';
+    fbtn.onclick = () => seekOpportunity();
+  } else {
+    const mins = Math.max(1, Math.ceil((opportunityReadyAt() - Date.now()) / 60000));
+    fbtn.textContent = `Rest (${mins}m)`;
+    fbtn.disabled = true;
+  }
+  fbtns.appendChild(fbtn);
+  fortP.appendChild(fbtns);
+  appendPanel(fortP, 'market');
   const reBtn = document.getElementById('random-encounter');
   if (reBtn) reBtn.onclick = () => {
     const enc = rollMarketEncounter();
@@ -9898,6 +9987,7 @@ try {
       if (parsed.contribution == null) parsed.contribution = 0;
       if (parsed.contributionLifetime == null) parsed.contributionLifetime = 0;
       if (parsed.sectKills == null) parsed.sectKills = 0;
+      if (parsed.lastOpportunity == null) parsed.lastOpportunity = 0;  // Wave 3a
       state = parsed;
     }
   }
