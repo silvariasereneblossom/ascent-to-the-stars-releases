@@ -3836,6 +3836,25 @@ const SKILLS = [
   { id: 'stat_all_2', name: 'Daoist Mind', zh: '道心', category: 'Stats', cost: 3000000, minTier: 6,
     requires: ['stat_all_1'], effect: { kind: 'stat_add_all', value: 5 },
     desc: '+5 to every stat permanently.' },
+
+  // ---- Endless Path: repeatable, ever-scaling passives (Wave 1e). Stored as ranks in
+  // state.skillRanks; each rank costs more insight (cost * costMult^rank) and adds a small
+  // bonus. The long-game "number-go-up" growth vector. All use already-wired effect kinds. ----
+  { id: 'rep_cult', name: 'Ceaseless Breathing', zh: '无尽息', category: 'Endless Path', cost: 2000, costMult: 1.5, minTier: 1, repeatable: true,
+    effect: { kind: 'cultivation_mult', value: 0.02 },
+    desc: '+2% cultivation rate per rank. Rank it endlessly as insight allows.' },
+  { id: 'rep_hp', name: 'Endless Tempering', zh: '无尽炼体', category: 'Endless Path', cost: 1500, costMult: 1.45, minTier: 1, repeatable: true,
+    effect: { kind: 'hp_add', value: 25 },
+    desc: '+25 max HP per rank.' },
+  { id: 'rep_weapon', name: 'Whetstone Heart', zh: '砺心', category: 'Endless Path', cost: 3000, costMult: 1.5, minTier: 1, repeatable: true,
+    effect: { kind: 'weapon_add', value: 2 },
+    desc: '+2 weapon power per rank.' },
+  { id: 'rep_insight', name: 'Compounding Insight', zh: '积悟', category: 'Endless Path', cost: 4000, costMult: 1.5, minTier: 2, repeatable: true,
+    effect: { kind: 'combat_insight_mult', value: 0.02 },
+    desc: '+2% combat insight per rank.' },
+  { id: 'rep_dr', name: 'Layered Ward', zh: '层护', category: 'Endless Path', cost: 5000, costMult: 1.6, minTier: 2, repeatable: true, maxRank: 25,
+    effect: { kind: 'incoming_mult_perm', value: 0.01 },
+    desc: '-1% damage taken per rank (caps at 25 ranks = -25%).' },
 ];
 
 // ============================================================
@@ -4007,19 +4026,50 @@ function foreachLearnedSkill(fn) {
     if (s) fn(s);
   });
 }
+// Wave 1e: repeatable "Endless Path" skills are ranked in state.skillRanks (not state.skills).
+// Each getter folds in the rank-scaled contribution alongside the one-time skills/books.
+function foreachRepeatable(fn) {
+  const ranks = state.skillRanks || {};
+  Object.keys(ranks).forEach(id => {
+    const s = findSkillDef(id);
+    if (s && s.repeatable && ranks[id] > 0) fn(s, ranks[id]);
+  });
+}
+function repeatableRank(id) { return (state.skillRanks && state.skillRanks[id]) || 0; }
+function repeatableCost(skill) {
+  return Math.floor(skill.cost * Math.pow(skill.costMult || 1.5, repeatableRank(skill.id)));
+}
+function canRankUp(skill) {
+  if (!skill || !skill.repeatable) return false;
+  if (!meetsSkillReq(skill)) return false;
+  if (skill.maxRank && repeatableRank(skill.id) >= skill.maxRank) return false;
+  return state.realm.insight >= repeatableCost(skill);
+}
+function rankUpSkill(id) {
+  const skill = findSkillDef(id);
+  if (!skill || !canRankUp(skill)) return;
+  state.realm.insight -= repeatableCost(skill);
+  if (!state.skillRanks) state.skillRanks = {};
+  state.skillRanks[id] = repeatableRank(id) + 1;
+  saveChar();
+}
+
 function skillCultivationMult() {
   let m = 1;
   foreachLearnedSkill(s => { if (s.effect.kind === 'cultivation_mult') m *= s.effect.value; });
+  foreachRepeatable((s, rank) => { if (s.effect.kind === 'cultivation_mult') m *= (1 + s.effect.value * rank); });
   return m;
 }
 function skillHPAdd() {
   let total = 0;
   foreachLearnedSkill(s => { if (s.effect.kind === 'hp_add') total += s.effect.value; });
+  foreachRepeatable((s, rank) => { if (s.effect.kind === 'hp_add') total += s.effect.value * rank; });
   return total;
 }
 function skillWeaponAdd() {
   let total = 0;
   foreachLearnedSkill(s => { if (s.effect.kind === 'weapon_add') total += s.effect.value; });
+  foreachRepeatable((s, rank) => { if (s.effect.kind === 'weapon_add') total += s.effect.value * rank; });
   return total;
 }
 function skillPlantSpeedMult() {
@@ -4030,11 +4080,13 @@ function skillPlantSpeedMult() {
 function skillCombatInsightMult() {
   let m = 1;
   foreachLearnedSkill(s => { if (s.effect.kind === 'combat_insight_mult') m *= s.effect.value; });
+  foreachRepeatable((s, rank) => { if (s.effect.kind === 'combat_insight_mult') m *= (1 + s.effect.value * rank); });
   return m;
 }
 function skillIncomingMultPerm() {
   let m = 1;
   foreachLearnedSkill(s => { if (s.effect.kind === 'incoming_mult_perm') m *= s.effect.value; });
+  foreachRepeatable((s, rank) => { if (s.effect.kind === 'incoming_mult_perm') m *= Math.max(0.1, 1 - s.effect.value * rank); });
   return m;
 }
 
@@ -6031,6 +6083,7 @@ function newCharacter(seed, childhood = null) {
     ascensions: 0,
     ascensionBoons: [],
     skills: [],
+    skillRanks: {},
     foundBooks: [],
     childhood: childhoodCopy,
     tribulationFails: {},
@@ -8341,6 +8394,50 @@ function renderCharSheet() {
     hdr.textContent = cat;
     skP.appendChild(hdr);
     skills.forEach(sk => {
+      if (sk.repeatable) {
+        // Wave 1e: Endless Path repeatable node — rank up for stacking passive growth.
+        const rank = repeatableRank(sk.id);
+        const cap = sk.maxRank || Infinity;
+        const atCap = rank >= cap;
+        const cost = repeatableCost(sk);
+        const met = meetsSkillReq(sk);
+        const v = sk.effect.value * rank;
+        let cur = '';
+        if (rank > 0) {
+          if (sk.effect.kind === 'cultivation_mult') cur = `now +${Math.round(v * 100)}% cultivation`;
+          else if (sk.effect.kind === 'hp_add') cur = `now +${v} max HP`;
+          else if (sk.effect.kind === 'weapon_add') cur = `now +${v} weapon power`;
+          else if (sk.effect.kind === 'combat_insight_mult') cur = `now +${Math.round(v * 100)}% combat insight`;
+          else if (sk.effect.kind === 'incoming_mult_perm') cur = `now -${Math.round(v * 100)}% damage taken`;
+        }
+        const reason = [];
+        if (!met && state.realm.tierIdx < (sk.minTier || 0)) reason.push(`Requires ${REALMS[sk.minTier].name}`);
+        else if (met && !atCap && state.realm.insight < cost) reason.push(`Need ${cost.toLocaleString()} insight`);
+        const node = document.createElement('div');
+        node.className = 'skill-node tip' + (rank > 0 ? ' unlocked' : (met ? '' : ' locked'));
+        node.setAttribute('data-tip', sk.desc);
+        const left = document.createElement('div');
+        left.style.flex = '1 1 60%';
+        left.innerHTML = `<div class="skill-name">${sk.name} <span style="color:var(--ink-soft);font-weight:normal;font-size:0.8rem">${sk.zh}</span> <span style="color:var(--gold);font-size:0.78rem">Rank ${rank}${cap !== Infinity ? '/' + cap : ''}</span></div>
+          <div class="skill-desc">${sk.desc}${cur ? ` <span style="color:var(--gold)">(${cur})</span>` : ''}</div>
+          ${reason.length ? `<div class="skill-desc" style="color:var(--crimson)">${reason.join(' · ')}</div>` : ''}`;
+        node.appendChild(left);
+        const right = document.createElement('div');
+        right.style.textAlign = 'right';
+        if (atCap) {
+          right.innerHTML = `<span class="rarity-tag rarity-legendary">maxed</span>`;
+        } else {
+          const btn = document.createElement('button');
+          btn.className = 'small gold';
+          btn.textContent = `Rank Up (${cost.toLocaleString()})`;
+          btn.disabled = !canRankUp(sk);
+          btn.onclick = () => { rankUpSkill(sk.id); render(); };
+          right.appendChild(btn);
+        }
+        node.appendChild(right);
+        skP.appendChild(node);
+        return;
+      }
       const unlocked = hasSkill(sk.id);
       const canBuy = !unlocked && canUnlockSkill(sk);
       const reasonNotMet = [];
@@ -9409,6 +9506,7 @@ try {
       if (parsed.ascensions === undefined) parsed.ascensions = 0;
       if (!parsed.ascensionBoons) parsed.ascensionBoons = [];
       if (!parsed.skills) parsed.skills = [];
+      if (!parsed.skillRanks) parsed.skillRanks = {};
       if (!parsed.foundBooks) parsed.foundBooks = [];
       if (!parsed.armor) parsed.armor = newArmorState();
       if (!parsed.armor.equipped) parsed.armor.equipped = newArmorState().equipped;
