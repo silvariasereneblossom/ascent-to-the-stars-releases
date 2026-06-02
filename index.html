@@ -535,6 +535,73 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Heritages
 // ============================================================
+// ============================================================
+// Five Elements (Wuxing) — Wave 1 cultivation-identity system.
+// Tuning is deliberately GENTLE/accessible (counters are a mild nudge, never brutal).
+// ============================================================
+const ELEMENTS = ['metal','wood','water','fire','earth'];
+const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
+const ELEMENT_ZH   = { metal:'金', wood:'木', water:'水', fire:'火', earth:'土' };
+// Destruction (ke) cycle: key OVERCOMES value.
+const ELEMENT_DESTROYS  = { wood:'earth', earth:'water', water:'fire', fire:'metal', metal:'wood' };
+// Generation (sheng) cycle: key FEEDS value (reserved for cultivation-environment synergy).
+const ELEMENT_GENERATES = { wood:'fire', fire:'earth', earth:'metal', metal:'water', water:'wood' };
+const ELEMENT_COUNTER_BONUS = 0.20;   // you overcome the foe's element: +20% (gentle)
+const ELEMENT_COUNTER_MALUS = 0.15;   // the foe overcomes yours: -15% (gentle)
+
+function hashStr(s) {
+  let h = 0; s = String(s);
+  for (let i = 0; i < s.length; i++) { h = (h * 31 + s.charCodeAt(i)) | 0; }
+  return h;
+}
+function elementLabel(el) { return el ? `${ELEMENT_NAME[el]} ${ELEMENT_ZH[el]}` : ''; }
+// Multiplier on the ATTACKER's outgoing damage given the two elements.
+function elementCounter(attackerEl, defenderEl) {
+  if (!attackerEl || !defenderEl) return 1;
+  if (ELEMENT_DESTROYS[attackerEl] === defenderEl) return 1 + ELEMENT_COUNTER_BONUS;
+  if (ELEMENT_DESTROYS[defenderEl] === attackerEl) return 1 - ELEMENT_COUNTER_MALUS;
+  return 1;
+}
+// A cultivator can carry 1-2 elements (dual root); use the most favorable matchup.
+function bestElementCounter(attackerEls, defenderEl) {
+  const arr = Array.isArray(attackerEls) ? attackerEls : [attackerEls];
+  if (!arr.length) return 1;
+  return Math.max.apply(null, arr.map(e => elementCounter(e, defenderEl)));
+}
+function playerElements(st) {
+  if (st && st.spiritRoot && st.spiritRoot.elements && st.spiritRoot.elements.length) return st.spiritRoot.elements.slice();
+  if (st && st.spiritRoot && st.spiritRoot.element) return [st.spiritRoot.element];
+  return [];
+}
+// School element tags (flavor + reserved for cultivation-environment synergy). The player's
+// COMBAT element comes from their spirit root, not the school — innate root vs sect art.
+const SCHOOL_ELEMENTS = {
+  azure_sword:'metal', iron_body:'earth', whispering_array:'earth', crimson_flame:'fire',
+  moonlit_water:'water', silent_daggers:'metal', demon_heart:'fire', starfall:'metal',
+  verdant_monastery:'wood', thunder_hammer:'metal', cloud_traveler:'water', bone_reed:'wood',
+  jade_inkwell:'earth', dragonforge:'fire', chain_saint:'metal',
+};
+function schoolElement(schoolId) { return SCHOOL_ELEMENTS[schoolId] || 'earth'; }
+
+// Spirit Root — rolled at chargen. element(s) drive combat counters; grade is a GENTLE,
+// upside-only cultivation multiplier (never a penalty, so a "bad" roll is never crippling).
+function rollSpiritRoot(rng) {
+  const r = rng();
+  let grade;
+  if      (r < 0.04) grade = { name:'Heavenly', mult:1.25 };
+  else if (r < 0.20) grade = { name:'Pure',     mult:1.15 };
+  else if (r < 0.50) grade = { name:'Clear',    mult:1.07 };
+  else               grade = { name:'Common',   mult:1.00 };
+  const e1 = ELEMENTS[Math.floor(rng() * ELEMENTS.length)];
+  let elements = [e1];
+  if (rng() < 0.12) {  // uncommon dual root — flexible counters
+    let e2 = ELEMENTS[Math.floor(rng() * ELEMENTS.length)], guard = 0;
+    while (e2 === e1 && guard++ < 12) e2 = ELEMENTS[Math.floor(rng() * ELEMENTS.length)];
+    if (e2 !== e1) elements = [e1, e2];
+  }
+  return { elements, element: e1, grade: grade.mult, gradeName: grade.name, dual: elements.length > 1 };
+}
+
 const HERITAGES = [
   { name: 'Mortal Born', rarity: 'common',
     mods: { spirit:1, body:1, mind:1, sense:1, luck:1, will:1 },
@@ -5974,6 +6041,10 @@ function newCharacter(seed, childhood = null) {
     // every insight gain — feeds the reincarnation bonus (15% of lifetime).
     realmDefeats: 0,
     lifetimeInsight: 0,
+    // Wave 1: spirit root (element drives combat counters; grade is a gentle cult mult)
+    // + foundation quality (gentle, upside-only multiplier improved at each breakthrough).
+    spiritRoot: rollSpiritRoot(rng),
+    foundationQuality: 1.0,
   };
 }
 
@@ -6133,6 +6204,7 @@ function realmLabel(char) {
 function tryAdvanceRealm() {
   const info = advanceInfo(state);
   if (!info || state.realm.insight < info.cost) return false;
+  const preInsight = state.realm.insight;  // Wave 1: captured before deduction for foundation-quality calc
 
   // Tribulation check on realm transitions (demon school is not judged by the heavens)
   const currentSchool = SCHOOLS[state.selectedSchool];
@@ -6161,6 +6233,17 @@ function tryAdvanceRealm() {
     state.realm.layer = 1;
     // v0.25: breakthrough resets the defeat counter — fresh realm, fresh slate.
     state.realmDefeats = 0;
+    // Wave 1: gentle "foundation quality" — a permanent, upside-only cultivation multiplier.
+    // Better prep (over-cultivating past the cost, a cultivation buff active, a fine spirit
+    // root) yields a higher foundation; a rushed breakthrough is NEVER penalized (floor 1.0).
+    // Stored as a running max so it only ever improves — the opposite of ACS's brutal gate.
+    const surplusRatio = info.cost > 0 ? Math.min(1, (preInsight - info.cost) / info.cost) : 0;
+    const buffBonus = activeBuffValue('cultivation_mult', 1) > 1 ? 0.05 : 0;
+    const rootBonus = (((state.spiritRoot && state.spiritRoot.grade) || 1) - 1) * 0.5;
+    let q = 1.0 + surplusRatio * 0.20 + buffBonus + rootBonus;
+    q = Math.min(1.30, Math.max(1.0, q));
+    state.foundationQuality = Math.max(state.foundationQuality || 1.0, q);
+    state.lastFoundationRoll = q;
     // Recompute finalStats in case a heritage latent bonus kicks in at this tier.
     if (state.confirmed) state.finalStats = finalStats(state);
   }
@@ -6493,7 +6576,10 @@ function cultivationRate() {
     * (hm.cultInsightMult || 1)
     * ((hm.schoolCultMult && hm.schoolCultMult[state.selectedSchool]) || 1);
   const gearCult = computeMods(state).cultMult || 1;
-  return (base + statBonus) * method.mult * locMult * realmMult * cultBuff * boonCultivationMult() * skillCultivationMult() * heritageCult * gearCult;
+  // Wave 1: spirit-root grade (gentle, upside-only) + foundation quality (set at breakthroughs).
+  const rootGrade = (state.spiritRoot && state.spiritRoot.grade) || 1;
+  const foundation = state.foundationQuality || 1;
+  return (base + statBonus) * method.mult * locMult * realmMult * cultBuff * boonCultivationMult() * skillCultivationMult() * heritageCult * gearCult * rootGrade * foundation;
 }
 
 function startCultivation(locationId) {
@@ -6668,6 +6754,7 @@ function buildEnemyCombat(enemyId) {
     id: enemyData.id,
     archetype: enemyData.archetype,
     kind: enemyData.kind || enemyKindFor(enemyId),  // v0.23 creature type for vs-kind weapon mods
+    element: enemyData.element || enemyElementFor(enemyId),  // Wave 1: five-element affinity
     isElite,
     hpMax: scaledHpMax, hp: scaledHpMax,
     qiMax: scaledQiMax, qi: scaledQiMax,
@@ -6698,6 +6785,20 @@ function enemyKindFor(enemyId) {
   return 'human';
 }
 
+// Wave 1: five-element affinity for enemies, inferred by id substring (explicit
+// ENEMIES[].element overrides). Deterministic hash fallback so every foe has an element.
+const ENEMY_ELEMENT_HINTS = [
+  ['fire',  /flame|fire|ember|phoenix|ash|sun|blaze|crimson|brazier|lava|scorch/i],
+  ['water', /water|frost|ice|coral|tide|moon|mist|fen|sea|snow|lake|wave|rain|siren/i],
+  ['wood',  /briar|grove|vine|verdant|petal|bloom|leaf|forest|wood|reed|thorn/i],
+  ['metal', /iron|steel|blade|sword|saber|dagger|bell|gold|disc|chain|needle|spear|arrow/i],
+  ['earth', /stone|rock|mountain|earth|bone|jade|dust|clay|corpse|tomb|cliff|sand|grid/i],
+];
+function enemyElementFor(enemyId) {
+  for (const [el, rx] of ENEMY_ELEMENT_HINTS) if (rx.test(enemyId)) return el;
+  return ELEMENTS[Math.abs(hashStr(enemyId)) % ELEMENTS.length];
+}
+
 // v0.19 Phase 3: initCombat now accepts a single enemyId OR an array of enemyIds (multi-enemy
 // encounter). combat.enemies[] is always the array; combat.enemy is a back-compat pointer to
 // the current "primary target" (first alive enemy), kept up to date as enemies fall.
@@ -6726,6 +6827,8 @@ function initCombat(enemyIdOrIds) {
     baseIncoming,
     effects: [],
     mods,
+    elements: playerElements(state),               // Wave 1: five-element counters
+    element: (playerElements(state)[0] || null),
   };
   combat = {
     turn: 1,
@@ -6914,6 +7017,12 @@ function applyPlayerOutgoingMods(p, dmg, target, ctx) {
   if (m.lowHpBonus && p.hp > 0 && p.hp / p.hpMax < 0.33) dmg *= 1 + m.lowHpBonus;
   if (target && target.kind && m.vsKindMult && m.vsKindMult[target.kind]) {
     dmg *= 1 + m.vsKindMult[target.kind];
+  }
+  // Wave 1: Five-Element counter (gentle). Overcoming the foe's element = +20%; being
+  // overcome = -15%. Dual roots take the most favorable matchup.
+  if (target && target.element && p.elements && p.elements.length) {
+    const em = bestElementCounter(p.elements, target.element);
+    if (em !== 1) { dmg *= em; ctx.elementMult = em; }
   }
   if (m.critChance > 0 && Math.random() < m.critChance) {
     dmg *= (m.critMult || 1.5);
@@ -7999,6 +8108,16 @@ function renderCharSheet() {
     <strong>Spirit</strong> ${spMax} &middot;
     <strong>Weapon Power</strong> ${wpnPower}
   </div>`;
+  if (state.spiritRoot) {
+    const sr = state.spiritRoot;
+    const rootEls = (sr.elements && sr.elements.length ? sr.elements : [sr.element]).map(elementLabel).join(' / ');
+    const gradePct = Math.round(((sr.grade || 1) - 1) * 100);
+    const foundPct = Math.round(((state.foundationQuality || 1) - 1) * 100);
+    html += `<div style="margin-top:0.4rem;font-size:0.88rem">
+      <strong>Spirit Root</strong> <span class="tip" data-tip="Your innate element drives Five-Element combat counters: +${Math.round(ELEMENT_COUNTER_BONUS*100)}% damage when you overcome a foe's element, -${Math.round(ELEMENT_COUNTER_MALUS*100)}% when overcome. Grade is a gentle, upside-only cultivation multiplier.">${rootEls} &middot; ${sr.gradeName || 'Common'} (${gradePct>=0?'+':''}${gradePct}% cult)</span> &middot;
+      <strong>Foundation</strong> <span class="tip" data-tip="Quality of your cultivation base, set when you break through. A permanent, upside-only multiplier on cultivation speed — better breakthrough prep raises it, and it never drops.">+${foundPct}% cult</span>
+    </div>`;
+  }
   html += `<p style="margin-top:1rem;font-style:italic;color:var(--ink-soft)">${h.flavor}</p>`;
   p.innerHTML = html;
   app.appendChild(p);  // always visible (header)
@@ -9030,11 +9149,22 @@ function renderCombatant(c, side) {
   const brokenTag = broken
     ? `<span class="broken-banner tip" data-tip="Posture broken: qi damage to this combatant is doubled for ${c.broken} more turn${c.broken===1?'':'s'}.">Posture Broken — ${c.broken}</span>`
     : '';
+  // Wave 1: five-element badge + (for the player) the live matchup vs the primary target.
+  const elKey = c.element || (c.elements && c.elements[0]);
+  const elStr = (c.elements && c.elements.length > 1) ? c.elements.map(elementLabel).join(' / ') : elementLabel(elKey);
+  const elBadge = elKey ? `<span class="rarity-tag tip" data-tip="Five-Element affinity. Overcoming a foe's element: +${Math.round(ELEMENT_COUNTER_BONUS*100)}% damage. Being overcome: -${Math.round(ELEMENT_COUNTER_MALUS*100)}%.">${elStr}</span>` : '';
+  let matchup = '';
+  if (side === 'player' && combat && combat.enemy && combat.enemy.element && c.elements && c.elements.length) {
+    const em = bestElementCounter(c.elements, combat.enemy.element);
+    if (em > 1) matchup = `<span class="rarity-tag rarity-legendary tip" data-tip="Your element overcomes ${elementLabel(combat.enemy.element)} — +${Math.round((em-1)*100)}% damage to it.">≻ ${ELEMENT_NAME[combat.enemy.element]} +${Math.round((em-1)*100)}%</span>`;
+    else if (em < 1) matchup = `<span class="rarity-tag rarity-rare tip" data-tip="${elementLabel(combat.enemy.element)} overcomes your element — ${Math.round((em-1)*100)}% damage to it.">≺ ${ELEMENT_NAME[combat.enemy.element]} ${Math.round((em-1)*100)}%</span>`;
+  }
   panel.innerHTML = `
     <h3>
       <span>${c.name}</span>
       <span class="subtitle">${side === 'player' ? 'you' : 'enemy'}</span>
     </h3>
+    ${(elBadge || matchup) ? `<div style="margin:0.2rem 0">${elBadge} ${matchup}</div>` : ''}
     ${broken ? `<div>${brokenTag}</div>` : ''}
     ${effTags ? `<div style="margin:0.2rem 0">${effTags}</div>` : ''}
     ${bar('HP', c.hp, c.hpMax, 'bar-hp', 'Body vitality. Reaches 0 = defeat.')}
@@ -9107,6 +9237,13 @@ try {
       // Best-effort backfill for legacy saves: floor at current realm.insight; even
       // if low, the player won't feel cheated since they didn't earn the lifetime bonus.
       if (parsed.lifetimeInsight == null) parsed.lifetimeInsight = parsed.realm ? (parsed.realm.insight || 0) : 0;
+      // Wave 1: five-element spirit root + foundation quality. Existing chars get an element
+      // matching their school (no cultivation-speed change — grade 1.0, foundation 1.0).
+      if (!parsed.spiritRoot) {
+        const schoolEl = schoolElement(parsed.selectedSchool);
+        parsed.spiritRoot = { elements: [schoolEl], element: schoolEl, grade: 1.0, gradeName: 'Common', dual: false };
+      }
+      if (parsed.foundationQuality == null) parsed.foundationQuality = 1.0;
       state = parsed;
     }
   }
