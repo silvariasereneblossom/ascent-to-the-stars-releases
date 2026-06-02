@@ -541,7 +541,7 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v0.38';
+const GAME_VERSION = 'v0.39';
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
 const ELEMENT_ZH   = { metal:'金', wood:'木', water:'水', fire:'火', earth:'土' };
@@ -5996,12 +5996,15 @@ let META = loadMeta();
 // META.settings (cross-life). Attribution is shown in the Config panel.
 // ============================================================
 const MUSIC_BASE = 'https://github.com/silvariasereneblossom/ascent-to-the-stars-releases/releases/download/audio/';
+// Traditional Chinese instrumental ensemble (erhu, dizi, guzheng, yangqin + percussion),
+// composed by PeriTune, CC BY 4.0. Calm/ambient first, heroic Wuxia tracks after.
 const TRACKS = [
-  { file: 'jiu-kuang.ogg',       zh: '酒狂',     title: 'Drunken Ecstasy',                       src: 'Shenqi Mipu, 1425' },
-  { file: 'qiu-feng-ci.ogg',     zh: '秋風詞',   title: 'Ode of the Autumn Wind',                src: "Mei'an Qinpu, 1931" },
-  { file: 'zuiyu-changwan.ogg',  zh: '醉漁唱晚', title: 'Evening Song of the Drunken Fisherman', src: 'Tianwen Ge Qinpu, 1876' },
-  { file: 'yangguan-sandie.ogg', zh: '陽關三疊', title: 'Three Refrains on the Yang Pass',       src: 'c. 1867' },
-  { file: 'pei-lan.ogg',         zh: '佩蘭',     title: 'Admiring the Orchid',                   src: 'Tianwen Ge Qinpu, 1876' },
+  { file: 'Shenxian.mp3',          zh: '神仙',   title: 'Shenxian',            note: 'elegant, mystical' },
+  { file: 'Chinatown_Healing.mp3', zh: '中華街', title: 'Chinatown (Healing)', note: 'calm erhu & guzheng' },
+  { file: 'Folk_Chinese.mp3',      zh: '民乐',   title: 'Folk Chinese',        note: 'lively ensemble' },
+  { file: 'Wuxia.mp3',             zh: '武侠',   title: 'Wuxia',               note: 'heroic' },
+  { file: 'Wuxia2.mp3',            zh: '武侠',   title: 'Wuxia II',            note: 'heroic' },
+  { file: 'Wuxia3.mp3',            zh: '武侠',   title: 'Wuxia III',           note: 'heroic' },
 ];
 const MUSIC = { el: null, idx: 0, started: false, fails: 0 };
 function musicEnabled() { return !!(META.settings && META.settings.music); }
@@ -8377,8 +8380,8 @@ function appendMusicControls(cfgP) {
   const now = TRACKS[MUSIC.idx] || TRACKS[0];
   const musRow = document.createElement('div'); musRow.className = 'consumable-row';
   musRow.innerHTML = `<div class="consumable-info">
-      <div class="consumable-name">Music <span style="color:var(--ink-soft);font-size:0.75rem">古琴</span></div>
-      <div class="consumable-desc">Authentic guqin recordings stream from the mirror. ${musOn ? 'Now playing: <em>' + now.zh + ' &middot; ' + now.title + '</em> &middot; <span style="font-size:0.72rem">' + now.src + '</span>.' : 'Currently off.'}</div>
+      <div class="consumable-name">Music <span style="color:var(--ink-soft);font-size:0.75rem">民乐</span></div>
+      <div class="consumable-desc">A traditional Chinese ensemble — erhu, dizi, guzheng — streams from the mirror. ${musOn ? 'Now playing: <em>' + now.zh + ' &middot; ' + now.title + '</em> &middot; <span style="font-size:0.72rem">' + now.note + '</span>.' : 'Currently off.'}</div>
     </div>`;
   const musBtns = document.createElement('div'); musBtns.className = 'consumable-buttons';
   const mBtn = document.createElement('button'); mBtn.className = musOn ? 'gold' : 'ghost'; mBtn.textContent = musOn ? 'On' : 'Off';
@@ -8399,7 +8402,7 @@ function appendMusicControls(cfgP) {
   volWrap.appendChild(vol); cfgP.appendChild(volWrap);
   const cred = document.createElement('p');
   cred.style.cssText = 'font-size:0.72rem;color:var(--ink-soft);margin:0.3rem 0 0;line-height:1.45';
-  cred.innerHTML = `<strong>Music credits.</strong> Guqin performed by Charlie Huang (Charles R Tsua), via <a href="https://commons.wikimedia.org/wiki/Category:Guqin" style="color:var(--ink-soft)">Wikimedia Commons</a>, licensed <a href="https://creativecommons.org/licenses/by-sa/3.0/" style="color:var(--ink-soft)">CC BY-SA 3.0</a>. Pieces from historical qinpu (1425&ndash;1931); files unmodified.`;
+  cred.innerHTML = `<strong>Music credits.</strong> Traditional Chinese ensemble by <a href="https://peritune.com" style="color:var(--ink-soft)">PeriTune</a>, licensed <a href="https://creativecommons.org/licenses/by/4.0/" style="color:var(--ink-soft)">CC BY 4.0</a>. Erhu, dizi, guzheng, yangqin &amp; percussion; files unmodified.`;
   cfgP.appendChild(cred);
 }
 
