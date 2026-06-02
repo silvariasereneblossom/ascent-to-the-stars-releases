@@ -6050,6 +6050,8 @@ function newCharacter(seed, childhood = null) {
     freePoints: 0,
     freeAlloc: Object.fromEntries(STAT_KEYS.map(k => [k, 0])),
     refine: {},
+    // Wave 1c: battle stance — ordered technique priority list the auto-battler casts.
+    stance: [],
   };
 }
 
@@ -7075,7 +7077,7 @@ function autoCombatTick() {
     return;
   }
   state.autoCombat.dailyMinutes += AUTO_TICK_MS / 60000; // 1.5s -> 0.025 min
-  playerStrike({ auto: true });
+  playerAutoAction();
 }
 
 function setAutoCombat(on) {
@@ -7086,6 +7088,35 @@ function setAutoCombat(on) {
   }
   saveChar();
 }
+
+// Wave 1c: the auto-battler "brain". Casts the first ready + affordable technique in the
+// player's Battle Stance (priority order); falls back to a strike if none are castable.
+function playerAutoAction() {
+  if (!combat || combat.over) return;
+  const p = combat.player;
+  const stance = (state.stance || []).filter(tid => p.loadout.includes(tid));
+  for (const tid of stance) {
+    const tech = TECHNIQUES[tid];
+    if (!tech || p.cooldowns[tid] > 0) continue;
+    const qiCost = effectiveQiCost(p, tech);
+    if (p.qi < qiCost) continue;
+    const hpCost = effectiveHpCost(p, tech);
+    if (hpCost && p.hp <= hpCost) continue;
+    playerTechnique(tid, { auto: true });
+    return;
+  }
+  playerStrike({ auto: true });
+}
+
+// Wave 1c: Battle Stance editing (the auto-cast priority list).
+function toggleStanceTech(tid) {
+  if (!state.stance) state.stance = [];
+  const i = state.stance.indexOf(tid);
+  if (i >= 0) state.stance.splice(i, 1);
+  else state.stance.push(tid);
+  saveChar();
+}
+function clearStance() { state.stance = []; saveChar(); }
 
 // v0.23: applies crit / first-strike / low-HP / vs-kind to outgoing damage.
 // Mutates ctx.crit so the log line can mark the hit. Returns scaled damage.
@@ -7176,8 +7207,9 @@ function effectiveHpCost(p, tech) {
   return Math.ceil(tech.hpCost * p.mods.hpCostMult);
 }
 
-function playerTechnique(techId) {
+function playerTechnique(techId, opts) {
   if (combat.over) return;
+  const isAuto = !!(opts && opts.auto);
   const p = combat.player, e = combat.enemy;
   const tech = TECHNIQUES[techId];
   if (p.cooldowns[techId] > 0) return;
@@ -7191,6 +7223,9 @@ function playerTechnique(techId) {
   p.cooldowns[techId] = tech.cd + 1;
 
   let dmg = p.weaponPower * (tech.damage || 0) * (p.mods.techDamageMult || 1);
+  // Wave 1c: auto-battler-cast techniques carry the same penalty + insight taint as auto-strikes,
+  // so active play still beats auto (preserves the v0.24b balance).
+  if (isAuto) { combat.autoUsed = true; dmg *= (1 - autoDamagePenalty(state.realm.tierIdx || 0)); }
   const hm0 = heritageMech();
   if (hm0.schoolDamageMult && hm0.schoolDamageMult[tech.school]) dmg *= hm0.schoolDamageMult[tech.school];
   if (p.mods.schoolDamageMult && p.mods.schoolDamageMult[tech.school]) dmg *= p.mods.schoolDamageMult[tech.school];
@@ -8756,11 +8791,13 @@ function renderCharSheet() {
 
   appendPanel(fP, 'forge');
 
-  // Loadout panel
+  // Loadout panel + Battle Stance editor (Wave 1c: auto-battler casts the stance in order)
   const lP = document.createElement('div');
   lP.className = 'panel';
+  if (!state.stance) state.stance = [];
   let loadoutHTML = `<h3>${school.name}</h3>
-    <p style="font-size:0.85rem;color:var(--ink-soft);margin:0 0 0.6rem">${school.flavor}</p>
+    <p style="font-size:0.85rem;color:var(--ink-soft);margin:0 0 0.4rem">${school.flavor}</p>
+    <p style="font-size:0.82rem;color:var(--ink-soft);margin:0 0 0.5rem">Tap a technique to add it to your <strong style="color:var(--gold)">Battle Stance</strong> — the priority order the auto-battler casts (first ready + affordable each turn, else a strike). Tap again to remove.</p>
     <div class="tech-list">`;
   state.loadout.forEach(tid => {
     const t = TECHNIQUES[tid];
@@ -8768,13 +8805,21 @@ function renderCharSheet() {
     const effHp = t.hpCost ? Math.ceil(t.hpCost * mods.hpCostMult) : 0;
     const meta = [`${effQi} qi`, `${t.cd} turn cd`];
     if (effHp) meta.push(`${effHp} HP cost`);
-    loadoutHTML += `<div class="tech-entry tip" data-tip="${escapeTip(t.desc)}">
-      <div><span class="name">${t.name}</span><span class="zh">${t.zh}</span> <span style="color:var(--ink-soft);font-size:0.75rem">[${meta.join(' · ')}]</span></div>
+    const order = state.stance.indexOf(tid);
+    const inStance = order >= 0;
+    loadoutHTML += `<div class="tech-entry tip" data-tip="${escapeTip(t.desc)}" data-stance="${tid}" style="cursor:pointer;${inStance ? 'border-left:3px solid var(--gold);padding-left:0.4rem;' : ''}">
+      <div><span class="name">${t.name}</span><span class="zh">${t.zh}</span> <span style="color:var(--ink-soft);font-size:0.75rem">[${meta.join(' · ')}]</span>${inStance ? ` <span class="rarity-tag" style="background:rgba(184,134,11,0.18);border-color:var(--gold)">stance #${order + 1}</span>` : ''}</div>
       <div class="desc">${t.desc}</div>
     </div>`;
   });
   loadoutHTML += `</div>`;
+  if (state.stance.length) loadoutHTML += `<div class="button-row" style="margin-top:0.4rem"><button class="ghost small" id="stance-clear">Clear Stance (${state.stance.length})</button></div>`;
   lP.innerHTML = loadoutHTML;
+  lP.querySelectorAll('[data-stance]').forEach(el => {
+    el.onclick = () => { toggleStanceTech(el.getAttribute('data-stance')); render(); };
+  });
+  const sclBtn = lP.querySelector('#stance-clear');
+  if (sclBtn) sclBtn.onclick = () => { clearStance(); render(); };
   appendPanel(lP, 'self');
 
   // --- Armor panel ---
@@ -9233,9 +9278,11 @@ function renderCombat() {
     const penPct = Math.round(autoDamagePenalty(tierIdx) * 100);
     const banner = document.createElement('div');
     banner.style.cssText = 'grid-column: 1 / -1; background: rgba(58,42,28,0.4); border: 1px solid var(--ink-soft); padding: 0.45rem 0.6rem; border-radius: 3px; font-size: 0.78rem; display:flex;justify-content:space-between;align-items:center;gap:0.5rem;';
+    const stanceN = (state.stance || []).filter(tid => combat.player.loadout.includes(tid)).length;
+    const stanceNote = stanceN ? `casts your ${stanceN}-technique stance, else strikes` : 'strikes only — set a Battle Stance in your school panel to auto-cast techniques';
     const status = ac.active
-      ? `<strong style="color:var(--gold)">Auto-combat ON</strong> — ${penPct === 0 ? 'no damage penalty' : '-' + penPct + '% strike damage'}, kills give 12.5% insight (vs 4x baseline). ${minutesLeft.toFixed(1)}m left today.`
-      : `Auto-combat: ${penPct === 0 ? 'no damage penalty' : '-' + penPct + '% strike damage'}, 12.5% insight, strikes only. ${minutesLeft.toFixed(1)}m left today.`;
+      ? `<strong style="color:var(--gold)">Auto-combat ON</strong> — ${stanceNote}; ${penPct === 0 ? 'no damage penalty' : '-' + penPct + '% damage'}, kills give 12.5% insight. ${minutesLeft.toFixed(1)}m left today.`
+      : `Auto-combat: ${stanceNote}; ${penPct === 0 ? 'no damage penalty' : '-' + penPct + '% damage'}, 12.5% insight. ${minutesLeft.toFixed(1)}m left today.`;
     const btn = document.createElement('button');
     btn.className = 'small ' + (ac.active ? 'gold' : 'ghost');
     btn.textContent = ac.active ? 'Stop Auto' : 'Start Auto';
@@ -9399,6 +9446,7 @@ try {
       if (parsed.freePoints == null) parsed.freePoints = 0;
       if (!parsed.freeAlloc) parsed.freeAlloc = Object.fromEntries(STAT_KEYS.map(k => [k, 0]));
       if (!parsed.refine) parsed.refine = {};
+      if (!parsed.stance) parsed.stance = [];
       state = parsed;
     }
   }
