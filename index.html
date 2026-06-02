@@ -541,7 +541,7 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v0.36';
+const GAME_VERSION = 'v0.37';
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
 const ELEMENT_ZH   = { metal:'金', wood:'木', water:'水', fire:'火', earth:'土' };
@@ -5622,7 +5622,7 @@ function lifespanMax() {
 function advanceAge(seconds) {
   if (!state || !state.confirmed) return;
   state.age = (state.age || 16) + seconds * AGE_PER_SEC;
-  if (state.age >= lifespanMax() && !(state.settings && state.settings.noAgeDeath)) {
+  if (state.age >= lifespanMax() && !noAgeDeathOn()) {
     dieRun('the weight of years', 'No pill bought another breath. The body returned to dust at the end of its span — but the dao, and the soul, remember.', state.name);
   }
 }
@@ -5942,7 +5942,7 @@ const SOUL_UPGRADES = {
   insight: { name: 'Soul Insight',     zh: '魂悟', per: 0.04, baseCost: 3, costMult: 1.4, fmt: r => `+${Math.round(r * 4)}% combat insight` },
   memory:  { name: 'Inherited Memory', zh: '宿忆', per: 120,  baseCost: 5, costMult: 1.5, fmt: r => `+${r * 120} starting insight each life` },
 };
-function defaultMeta() { return { souls: 0, lives: 0, up: { cult: 0, body: 0, insight: 0, memory: 0 } }; }
+function defaultMeta() { return { souls: 0, lives: 0, up: { cult: 0, body: 0, insight: 0, memory: 0 }, settings: { noAgeDeath: false } }; }
 function loadMeta() {
   try {
     const raw = localStorage.getItem('atts-meta');
@@ -5951,6 +5951,8 @@ function loadMeta() {
     if (!m || typeof m !== 'object') return defaultMeta();
     m.souls = m.souls || 0; m.lives = m.lives || 0; m.up = m.up || {};
     ['cult', 'body', 'insight', 'memory'].forEach(k => { m.up[k] = m.up[k] || 0; });
+    if (!m.settings || typeof m.settings !== 'object') m.settings = { noAgeDeath: false };
+    if (m.settings.noAgeDeath == null) m.settings.noAgeDeath = false;
     return m;
   } catch (e) { return defaultMeta(); }
 }
@@ -5980,6 +5982,8 @@ function metaCultMult()    { return 1 + (META.up.cult || 0) * SOUL_UPGRADES.cult
 function metaHPAdd()       { return (META.up.body || 0) * SOUL_UPGRADES.body.per; }
 function metaInsightMult() { return 1 + (META.up.insight || 0) * SOUL_UPGRADES.insight.per; }
 function metaStartInsight() { return (META.up.memory || 0) * SOUL_UPGRADES.memory.per; }
+// Global (cross-life) settings live in META so the Config screen works before any character exists.
+function noAgeDeathOn() { return !!(META.settings && META.settings.noAgeDeath); }
 let META = loadMeta();
 
 // Soul Altar — spend souls between lives. Shown on the landing/death screen once the soul has
@@ -7270,6 +7274,7 @@ function updateLiveDisplay() {
 // Combat state + model
 // ============================================================
 let combat = null;
+let atTitle = true;  // title screen / main menu — shown at boot and reachable in-game via the Menu button
 
 // v0.19 Phase 3: builds a single enemy combat object from data.
 // v0.19 Phase 3: encounter generator. Mixes singles, 2 mooks, solo elites, and elite + 2 mooks
@@ -8155,6 +8160,7 @@ function render() {
   if (pendingAscension)      return renderAscension();
   if (pendingDestiny)        return renderDestiny();
   if (combat)                return renderCombat();
+  if (atTitle)               return renderTitle();
   if (!state)                return renderLanding();
   if (state.childhood && state.childhood.step !== 'complete') return renderChildhood();
   if (!state.confirmed)      return renderCreation();
@@ -8211,6 +8217,85 @@ function renderDestiny() {
 }
 
 // ============================================================
+// Title screen / main menu
+// Boot lands here; reachable in-game via the Menu button. Hosts Continue/Begin,
+// the shared Config panel (version + updates + settings), and the Soul Altar.
+// ============================================================
+function renderTitle() {
+  const intro = document.createElement('div');
+  intro.className = 'panel';
+  intro.innerHTML = `<p style="margin:0;color:var(--ink-soft)">Mortal clay, endless heavens. A path lies before you &mdash; forged in qi, watered by will, walked alone.</p>`;
+  app.appendChild(intro);
+
+  const actP = document.createElement('div');
+  actP.className = 'panel';
+  app.appendChild(actP);
+  const hasChar = !!(state && state.confirmed);
+  if (hasChar) {
+    actP.innerHTML = `<p style="margin:0 0 0.6rem"><strong>${state.name}</strong> &middot; ${realmLabel(state)}</p>`;
+    const row = document.createElement('div'); row.className = 'button-row';
+    const cont = document.createElement('button'); cont.className = 'gold'; cont.textContent = 'Continue Cultivation';
+    cont.onclick = () => { atTitle = false; render(); };
+    row.appendChild(cont); actP.appendChild(row);
+    const row2 = document.createElement('div'); row2.className = 'button-row'; row2.style.marginTop = '0.4rem';
+    const nl = document.createElement('button'); nl.className = 'ghost'; nl.textContent = 'Abandon & Start a New Life';
+    nl.onclick = () => {
+      if (confirm('Abandon ' + state.name + ' and begin a new life? This cannot be undone.')) {
+        lastDeath = null;
+        state = newPreCharacter((Date.now() ^ Math.floor(Math.random() * 1e9)) >>> 0);
+        atTitle = false; render();
+      }
+    };
+    row2.appendChild(nl); actP.appendChild(row2);
+  } else {
+    actP.innerHTML = `<p style="margin:0 0 0.6rem;color:var(--ink-soft)">No cultivator yet walks the path.</p>`;
+    const row = document.createElement('div'); row.className = 'button-row';
+    const beg = document.createElement('button'); beg.className = 'gold'; beg.textContent = 'Begin Cultivation';
+    beg.onclick = () => {
+      lastDeath = null;
+      state = newPreCharacter((Date.now() ^ Math.floor(Math.random() * 1e9)) >>> 0);
+      atTitle = false; render();
+    };
+    row.appendChild(beg); actP.appendChild(row);
+  }
+
+  app.appendChild(buildConfigPanel());
+  appendSoulAltar();
+}
+
+// Shared Config / Settings panel — used by BOTH the title screen and the in-game Config tab.
+// Intentionally does NOT depend on `state`, so it works before any character exists.
+function buildConfigPanel() {
+  const cfgP = document.createElement('div');
+  cfgP.className = 'panel';
+  cfgP.innerHTML = `<h3>Config <span style="font-weight:normal;color:var(--ink-soft);font-size:0.85rem">设置</span></h3>
+    <p style="font-size:0.85rem;margin:0 0 0.4rem">Version <strong style="color:var(--gold)">${GAME_VERSION}</strong></p>
+    <p style="font-size:0.82rem;color:var(--ink-soft);margin:0 0 0.5rem">Updates arrive over-the-air. If the version above looks old after a content push, <strong>fully close the app</strong> (swipe it out of recents &mdash; not just Home) and reopen; the first launch downloads the update, the next applies it. Souls persist through all of it: <strong>${META.souls}</strong> souls &middot; ${META.lives} lives.</p>
+    <p style="font-size:0.78rem;margin:0 0 0.5rem"><a href="https://github.com/silvariasereneblossom/ascent-to-the-stars-releases/releases/latest/download/AscentToTheStars.apk" style="color:var(--gold);text-decoration:underline">Download / update the Android APK</a> <span style="color:var(--ink-soft)">(reinstalling always pulls the newest build)</span></p>`;
+  // Native one-tap update — only when the APK shell exposes the bridge (forward-compatible).
+  if (window.AttsNative && typeof window.AttsNative.checkForUpdate === 'function') {
+    const updRow = document.createElement('div'); updRow.className = 'button-row';
+    const updBtn = document.createElement('button'); updBtn.className = 'gold'; updBtn.textContent = 'Check for Updates Now';
+    updBtn.onclick = () => { try { window.AttsNative.checkForUpdate(); } catch (e) {} };
+    updRow.appendChild(updBtn); cfgP.appendChild(updRow);
+  }
+  // Lifespan old-age-death toggle (global preference; persists across lives via META).
+  const noDeath = noAgeDeathOn();
+  const lsRow = document.createElement('div'); lsRow.className = 'consumable-row';
+  lsRow.innerHTML = `<div class="consumable-info">
+      <div class="consumable-name">Old-Age Death</div>
+      <div class="consumable-desc">When ON, reaching your lifespan ends the life (old age &rarr; reincarnation, souls intact). When OFF, lifespan still shows but never kills you. Age only advances during active cultivation. This preference is global and persists across lives.</div>
+    </div>`;
+  const lsBtns = document.createElement('div'); lsBtns.className = 'consumable-buttons';
+  const lsBtn = document.createElement('button');
+  lsBtn.className = noDeath ? 'ghost' : 'gold';
+  lsBtn.textContent = noDeath ? 'OFF — enable' : 'ON — disable';
+  lsBtn.onclick = () => { if (!META.settings) META.settings = {}; META.settings.noAgeDeath = !META.settings.noAgeDeath; saveMeta(); render(); };
+  lsBtns.appendChild(lsBtn); lsRow.appendChild(lsBtns); cfgP.appendChild(lsRow);
+  return cfgP;
+}
+
+// ============================================================
 // Landing
 // ============================================================
 function renderLanding() {
@@ -8255,7 +8340,7 @@ function renderLanding() {
     <p>Mortal clay, endless heavens. A path lies before you — forged in qi, watered by will, walked alone. How far you climb depends on fate, flesh, and the cold judgement of the dao.</p>
     <div class="button-row"><button id="begin">Begin Cultivation</button></div>
     <p style="margin-top:0.8rem;font-size:0.75rem;color:var(--ink-soft);text-align:center">
-      <a href="https://github.com/silvariasereneblossom/ascent-to-the-stars/releases/latest/download/AscentToTheStars.apk" style="color:var(--ink-soft);text-decoration:underline">Download Android APK</a>
+      <a href="https://github.com/silvariasereneblossom/ascent-to-the-stars-releases/releases/latest/download/AscentToTheStars.apk" style="color:var(--ink-soft);text-decoration:underline">Download Android APK</a>
     </p>
   `;
   app.appendChild(p);
@@ -8670,6 +8755,17 @@ function weaponModBlurb(w) {
 // ============================================================
 function renderCharSheet() {
   ensurePlots();
+  // Menu button — return to the title screen (Continue, Config, Updates, Soul Altar).
+  const menuRow = document.createElement('div');
+  menuRow.className = 'button-row';
+  menuRow.style.cssText = 'justify-content:flex-end;margin:-0.4rem 0 0.4rem';
+  const menuBtn = document.createElement('button');
+  menuBtn.className = 'ghost';
+  menuBtn.style.cssText = 'font-size:0.8rem;padding:0.25rem 0.7rem';
+  menuBtn.textContent = 'Menu';
+  menuBtn.onclick = () => { atTitle = true; render(); };
+  menuRow.appendChild(menuBtn);
+  app.appendChild(menuRow);
   const h = state.heritages[state.selectedHeritage];
   const school = SCHOOLS[state.selectedSchool];
   const weapon = WEAPONS[state.weapon];
@@ -9807,8 +9903,8 @@ function renderCharSheet() {
     updBtn.onclick = () => { try { window.AttsNative.checkForUpdate(); } catch (e) {} };
     updRow.appendChild(updBtn); cfgP.appendChild(updRow);
   }
-  // Lifespan old-age-death toggle (gentle tuning per operator).
-  const noDeath = !!(state.settings && state.settings.noAgeDeath);
+  // Lifespan old-age-death toggle (global preference; persists across lives via META).
+  const noDeath = noAgeDeathOn();
   const lsRow = document.createElement('div'); lsRow.className = 'consumable-row';
   lsRow.innerHTML = `<div class="consumable-info">
       <div class="consumable-name">Old-Age Death</div>
@@ -9818,7 +9914,7 @@ function renderCharSheet() {
   const lsBtn = document.createElement('button');
   lsBtn.className = noDeath ? 'ghost' : 'gold';
   lsBtn.textContent = noDeath ? 'OFF — enable' : 'ON — disable';
-  lsBtn.onclick = () => { if (!state.settings) state.settings = {}; state.settings.noAgeDeath = !state.settings.noAgeDeath; saveChar(); render(); };
+  lsBtn.onclick = () => { if (!META.settings) META.settings = {}; META.settings.noAgeDeath = !META.settings.noAgeDeath; saveMeta(); render(); };
   lsBtns.appendChild(lsBtn); lsRow.appendChild(lsBtns); cfgP.appendChild(lsRow);
   appendPanel(cfgP, 'config');
   const reBtn = document.getElementById('random-encounter');
