@@ -8349,7 +8349,7 @@ function buildConfigPanel() {
   cfgP.innerHTML = `<h3>Config <span style="font-weight:normal;color:var(--ink-soft);font-size:0.85rem">设置</span></h3>
     <p style="font-size:0.85rem;margin:0 0 0.4rem">Version <strong style="color:var(--gold)">${GAME_VERSION}</strong></p>
     <p style="font-size:0.82rem;color:var(--ink-soft);margin:0 0 0.5rem">Updates arrive over-the-air. If the version above looks old after a content push, <strong>fully close the app</strong> (swipe it out of recents &mdash; not just Home) and reopen; the first launch downloads the update, the next applies it. Souls persist through all of it: <strong>${META.souls}</strong> souls &middot; ${META.lives} lives.</p>
-    <p style="font-size:0.78rem;margin:0 0 0.5rem"><a href="https://github.com/silvariasereneblossom/ascent-to-the-stars-releases/releases/latest/download/AscentToTheStars.apk" style="color:var(--gold);text-decoration:underline">Download / update the Android APK</a> <span style="color:var(--ink-soft)">(reinstalling always pulls the newest build)</span></p>`;
+    <p style="font-size:0.78rem;margin:0 0 0.5rem"><a href="https://github.com/silvariasereneblossom/ascent-to-the-stars-releases/releases/download/live/AscentToTheStars.apk" style="color:var(--gold);text-decoration:underline">Download / update the Android APK</a> <span style="color:var(--ink-soft)">(reinstalling always pulls the newest build)</span></p>`;
   // Native one-tap update — only when the APK shell exposes the bridge (forward-compatible).
   if (window.AttsNative && typeof window.AttsNative.checkForUpdate === 'function') {
     const updRow = document.createElement('div'); updRow.className = 'button-row';
@@ -8451,7 +8451,7 @@ function renderLanding() {
     <p>Mortal clay, endless heavens. A path lies before you — forged in qi, watered by will, walked alone. How far you climb depends on fate, flesh, and the cold judgement of the dao.</p>
     <div class="button-row"><button id="begin">Begin Cultivation</button></div>
     <p style="margin-top:0.8rem;font-size:0.75rem;color:var(--ink-soft);text-align:center">
-      <a href="https://github.com/silvariasereneblossom/ascent-to-the-stars-releases/releases/latest/download/AscentToTheStars.apk" style="color:var(--ink-soft);text-decoration:underline">Download Android APK</a>
+      <a href="https://github.com/silvariasereneblossom/ascent-to-the-stars-releases/releases/download/live/AscentToTheStars.apk" style="color:var(--ink-soft);text-decoration:underline">Download Android APK</a>
     </p>
   `;
   app.appendChild(p);
