@@ -541,7 +541,7 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v0.41';
+const GAME_VERSION = 'v0.42';
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
 const ELEMENT_ZH   = { metal:'金', wood:'木', water:'水', fire:'火', earth:'土' };
@@ -5996,35 +5996,59 @@ let META = loadMeta();
 // META.settings (cross-life). Attribution is shown in the Config panel.
 // ============================================================
 const MUSIC_BASE = 'https://github.com/silvariasereneblossom/ascent-to-the-stars-releases/releases/download/audio/';
-// Calm / relaxing CHINESE instrumental music. All redistributable (CC), slow & meditative.
-// Sources: PeriTune (CC BY 4.0), Kevin MacLeod / incompetech (CC BY), and authentic acoustic
-// erhu/gaohu recordings by Zhang Peijian via Wikimedia Commons (CC BY-SA 4.0). Sources
-// interleaved; the iconic-but-melancholic Erquan Yingyue is placed last.
-const TRACKS = [
-  { file: 'Shenxian.mp3',              title: 'Shenxian',                note: 'elegant guzheng & erhu' },
-  { file: 'Shenyang.mp3',              title: 'Shenyang',                note: 'erhu, pipa & yangqin' },
-  { file: 'Taohua.mp3',                title: 'Taohua',                  note: 'calm erhu & dizi' },
-  { file: 'TeaRoots.mp3',              title: 'Tea Roots',               note: 'mellow erhu' },
-  { file: 'Chinatown_Healing.mp3',     title: 'Chinatown (Healing)',     note: 'serene erhu & guzheng' },
-  { file: 'GuzhengCity.mp3',           title: 'Guzheng City',            note: 'calm guzheng' },
-  { file: 'rain-on-banana-leaves.ogg', title: 'Rain on Banana Leaves',   note: 'Cantonese erhu' },
-  { file: 'interlocking-rings.ogg',    title: 'Interlocking Rings',      note: 'gentle gaohu' },
-  { file: 'erquan-yingyue.ogg',        title: 'Moon Over Second Spring', note: 'erhu, contemplative' },
-];
-const MUSIC = { el: null, idx: 0, started: false, fails: 0 };
+// Context-aware playlists. menu = calm Chinese (idle/menu); battle = intense (regular
+// combat); boss = epic (boss-tier 'elite' enemies + tribulations). All redistributable (CC):
+// PeriTune CC BY 4.0, Kevin MacLeod CC BY, Zhang Peijian via Wikimedia CC BY-SA 4.0, and
+// Scott Buckley CC BY 4.0 (battle/boss orchestral). Erquan Yingyue is placed last in menu.
+const TRACKS = {
+  menu: [
+    { file: 'Shenxian.mp3',              title: 'Shenxian',                note: 'elegant guzheng & erhu' },
+    { file: 'Shenyang.mp3',              title: 'Shenyang',                note: 'erhu, pipa & yangqin' },
+    { file: 'Taohua.mp3',                title: 'Taohua',                  note: 'calm erhu & dizi' },
+    { file: 'TeaRoots.mp3',              title: 'Tea Roots',               note: 'mellow erhu' },
+    { file: 'Chinatown_Healing.mp3',     title: 'Chinatown (Healing)',     note: 'serene erhu & guzheng' },
+    { file: 'GuzhengCity.mp3',           title: 'Guzheng City',            note: 'calm guzheng' },
+    { file: 'rain-on-banana-leaves.ogg', title: 'Rain on Banana Leaves',   note: 'Cantonese erhu' },
+    { file: 'interlocking-rings.ogg',    title: 'Interlocking Rings',      note: 'gentle gaohu' },
+    { file: 'erquan-yingyue.ogg',        title: 'Moon Over Second Spring', note: 'erhu, contemplative' },
+  ],
+  battle: [
+    { file: 'Wuxia.mp3',         title: 'Wuxia',          note: 'heroic erhu & orchestra' },
+    { file: 'Wuxia2.mp3',        title: 'Wuxia II',       note: 'driving, martial' },
+    { file: 'IntoTheWilds.mp3',  title: 'Into the Wilds', note: 'heroic orchestral' },
+  ],
+  boss: [
+    { file: 'Wuxia3.mp3',         title: 'Wuxia III',         note: 'grand, climactic' },
+    { file: 'SongOfTheForge.mp3', title: 'Song of the Forge', note: 'epic war march & choir' },
+    { file: 'Aphelion.mp3',       title: 'Aphelion',          note: 'building to epic' },
+  ],
+};
+const MUSIC = { el: null, cat: 'menu', idx: 0, started: false, fails: 0 };
 function musicEnabled() { return !!(META.settings && META.settings.music); }
 function musicVolume() { return (META.settings && typeof META.settings.musicVol === 'number') ? META.settings.musicVol : 0.6; }
+function musicList() { return TRACKS[MUSIC.cat] || TRACKS.menu; }
+function currentTrack() { const l = musicList(); return l[MUSIC.idx % l.length] || l[0]; }
+// Which playlist the current game state calls for: a tribulation OR a boss-tier ('elite'
+// archetype) enemy => boss; any other active combat => battle; otherwise => menu.
+function musicCategoryFor() {
+  if (typeof combat !== 'undefined' && combat) {
+    if (combat.tribulation) return 'boss';
+    if (combat.enemies && combat.enemies.some(e => e && ENEMY_ARCHETYPES[e.id] === 'elite')) return 'boss';
+    return 'battle';
+  }
+  return 'menu';
+}
 function ensureMusicEl() {
   if (MUSIC.el) return MUSIC.el;
   const a = document.createElement('audio');
   a.preload = 'none';
   a.volume = musicVolume();
   a.addEventListener('playing', () => { MUSIC.fails = 0; });
-  a.addEventListener('ended', () => { MUSIC.idx = (MUSIC.idx + 1) % TRACKS.length; playCurrentTrack(); });
+  a.addEventListener('ended', () => { MUSIC.idx = (MUSIC.idx + 1) % musicList().length; playCurrentTrack(); });
   a.addEventListener('error', () => {
     MUSIC.fails++;
-    if (MUSIC.fails > TRACKS.length) { MUSIC.fails = 0; return; }  // likely offline — stop retrying
-    MUSIC.idx = (MUSIC.idx + 1) % TRACKS.length;
+    if (MUSIC.fails > musicList().length) { MUSIC.fails = 0; return; }  // likely offline — stop retrying
+    MUSIC.idx = (MUSIC.idx + 1) % musicList().length;
     if (musicEnabled() && MUSIC.started) setTimeout(playCurrentTrack, 800);
   });
   if (document.body && document.body.appendChild) document.body.appendChild(a);
@@ -6033,13 +6057,31 @@ function ensureMusicEl() {
 }
 function playCurrentTrack() {
   const a = ensureMusicEl();
-  a.src = MUSIC_BASE + TRACKS[MUSIC.idx].file;
+  a.src = MUSIC_BASE + currentTrack().file;
   a.volume = musicVolume();
   const p = a.play();
   if (p && p.catch) p.catch(() => {});  // autoplay rejection: retries on the next gesture
 }
-function startMusic() { if (!musicEnabled()) return; ensureMusicEl(); playCurrentTrack(); }
+function startMusic() {
+  if (!musicEnabled()) return;
+  ensureMusicEl();
+  MUSIC.cat = musicCategoryFor();
+  if (MUSIC.idx >= musicList().length) MUSIC.idx = 0;
+  playCurrentTrack();
+}
 function stopMusic() { if (MUSIC.el) MUSIC.el.pause(); }
+// Switch playlists when the game context changes (combat start/end, boss, tribulation).
+// Cheap no-op unless the category actually changed; called from render().
+function syncMusicToContext() {
+  if (!musicEnabled() || !MUSIC.started) return;
+  const want = musicCategoryFor();
+  if (want === MUSIC.cat) return;
+  MUSIC.cat = want;
+  MUSIC.fails = 0;
+  const l = musicList();
+  MUSIC.idx = l.length > 1 ? Math.floor(Math.random() * l.length) : 0;
+  playCurrentTrack();
+}
 function toggleMusic() {
   if (!META.settings) META.settings = {};
   META.settings.music = !META.settings.music;
@@ -6049,9 +6091,9 @@ function toggleMusic() {
   render();
 }
 function nextTrack() {
-  MUSIC.idx = (MUSIC.idx + 1) % TRACKS.length;
   MUSIC.started = true; MUSIC.fails = 0;
-  if (musicEnabled()) startMusic();
+  MUSIC.idx = (MUSIC.idx + 1) % musicList().length;
+  if (musicEnabled()) { ensureMusicEl(); playCurrentTrack(); }
 }
 function setMusicVolume(v) {
   if (!META.settings) META.settings = {};
@@ -8240,6 +8282,7 @@ function render() {
   const h1 = document.createElement('h1');
   h1.innerHTML = 'Ascent to the Stars<span class="sub">步步登天</span><span style="font-size:0.6rem;color:var(--ink-soft);margin-left:0.5rem;vertical-align:middle;font-weight:normal">' + GAME_VERSION + '</span>';
   app.appendChild(h1);
+  syncMusicToContext();  // swap menu/battle/boss playlists when the game context changes
   if (pendingAscension)      return renderAscension();
   if (pendingDestiny)        return renderDestiny();
   if (combat)                return renderCombat();
@@ -8382,11 +8425,12 @@ function buildConfigPanel() {
 // Music controls — shared by the title-screen Config panel and the in-game Config tab.
 function appendMusicControls(cfgP) {
   const musOn = musicEnabled();
-  const now = TRACKS[MUSIC.idx] || TRACKS[0];
+  const now = currentTrack();
+  const catLabel = ({ menu: 'Menu', battle: 'Battle', boss: 'Boss' })[MUSIC.cat] || 'Menu';
   const musRow = document.createElement('div'); musRow.className = 'consumable-row';
   musRow.innerHTML = `<div class="consumable-info">
       <div class="consumable-name">Music <span style="color:var(--ink-soft);font-size:0.75rem">古韵</span></div>
-      <div class="consumable-desc">A calm Chinese ensemble — guzheng, erhu, dizi, pipa — streams from the mirror. ${musOn ? 'Now playing: <em>' + now.title + '</em> &middot; <span style="font-size:0.72rem">' + now.note + '</span>.' : 'Currently off.'}</div>
+      <div class="consumable-desc">Context-aware: calm Chinese in menus, intense in battle, epic for bosses &amp; tribulations. ${musOn ? 'Now playing &middot; <strong>' + catLabel + '</strong>: <em>' + now.title + '</em> <span style="font-size:0.72rem">' + now.note + '</span>.' : 'Currently off.'}</div>
     </div>`;
   const musBtns = document.createElement('div'); musBtns.className = 'consumable-buttons';
   const mBtn = document.createElement('button'); mBtn.className = musOn ? 'gold' : 'ghost'; mBtn.textContent = musOn ? 'On' : 'Off';
@@ -8407,7 +8451,7 @@ function appendMusicControls(cfgP) {
   volWrap.appendChild(vol); cfgP.appendChild(volWrap);
   const cred = document.createElement('p');
   cred.style.cssText = 'font-size:0.72rem;color:var(--ink-soft);margin:0.3rem 0 0;line-height:1.45';
-  cred.innerHTML = `<strong>Music credits.</strong> Calm Chinese instrumentals from <a href="https://peritune.com" style="color:var(--ink-soft)">PeriTune</a> (CC BY 4.0) &amp; <a href="https://incompetech.com" style="color:var(--ink-soft)">Kevin MacLeod</a> (CC BY), plus authentic erhu/gaohu by Zhang Peijian via <a href="https://commons.wikimedia.org" style="color:var(--ink-soft)">Wikimedia Commons</a> (CC BY-SA 4.0). Files unmodified.`;
+  cred.innerHTML = `<strong>Music credits.</strong> Menu: <a href="https://peritune.com" style="color:var(--ink-soft)">PeriTune</a> (CC BY 4.0), <a href="https://incompetech.com" style="color:var(--ink-soft)">Kevin MacLeod</a> (CC BY), and Zhang Peijian via <a href="https://commons.wikimedia.org" style="color:var(--ink-soft)">Wikimedia Commons</a> (CC BY-SA 4.0). Battle/boss: PeriTune &amp; <a href="https://www.scottbuckley.com.au" style="color:var(--ink-soft)">Scott Buckley</a> (CC BY 4.0). Files unmodified.`;
   cfgP.appendChild(cred);
 }
 
