@@ -541,7 +541,7 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v0.42';
+const GAME_VERSION = 'v0.43';
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
 const ELEMENT_ZH   = { metal:'金', wood:'木', water:'水', fire:'火', earth:'土' };
@@ -9575,9 +9575,38 @@ function renderCharSheet() {
     });
     const divider = document.createElement('div');
     divider.style.cssText = 'border-top:1px solid rgba(120,120,120,0.3);margin:0.6rem 0 0.4rem';
-    divider.innerHTML = `<div style="font-weight:bold;margin:0.3rem 0 0.2rem">Forge New Weapons</div>`;
+    divider.innerHTML = `<div style="font-weight:bold;margin:0.3rem 0 0.2rem">Forge New Weapons</div>
+      <p style="font-size:0.78rem;color:var(--ink-soft);margin:0 0 0.3rem">Only weapons at your realm or below are shown.</p>`;
     fP.appendChild(divider);
-    ARTIFACT_RECIPES.forEach(recipe => fP.appendChild(buildWeaponRecipeRow(recipe)));
+    // School-weapon filter: show only this school's weapon type. Realm gate: hide weapons above your realm.
+    const schoolForge = SCHOOLS[state.selectedSchool];
+    const myKind = (schoolForge && WEAPONS[schoolForge.weapon]) ? WEAPONS[schoolForge.weapon].kind : null;
+    const mineOnly = !!(state.ui && state.ui.forgeWeaponMine);
+    if (myKind) {
+      const filtRow = document.createElement('div');
+      filtRow.className = 'button-row';
+      filtRow.style.cssText = 'margin:0 0 0.5rem;justify-content:flex-start';
+      const fb = document.createElement('button');
+      fb.className = (mineOnly ? 'gold' : 'ghost') + ' small';
+      fb.textContent = mineOnly ? `My weapon type only (${myKind})` : 'Showing all weapon types';
+      fb.onclick = () => { if (!state.ui) state.ui = {}; state.ui.forgeWeaponMine = !state.ui.forgeWeaponMine; saveChar(); render(); };
+      filtRow.appendChild(fb);
+      fP.appendChild(filtRow);
+    }
+    const forgeTier = state.realm.tierIdx;
+    const visibleRecipes = ARTIFACT_RECIPES.filter(r =>
+      (r.minRealmTier || 0) <= forgeTier &&
+      (!mineOnly || !myKind || (WEAPONS[r.id] && WEAPONS[r.id].kind === myKind)));
+    if (!visibleRecipes.length) {
+      const none = document.createElement('div');
+      none.className = 'consumable-desc';
+      none.style.cssText = 'opacity:0.7;margin:0.2rem 0';
+      none.textContent = mineOnly
+        ? 'No weapons of your type are forgeable at your realm yet.'
+        : 'No weapons are forgeable at your realm yet.';
+      fP.appendChild(none);
+    }
+    visibleRecipes.forEach(recipe => fP.appendChild(buildWeaponRecipeRow(recipe)));
   } else if (state.ui.forgeTab === 'armor') {
     ARMOR_RECIPES.forEach(recipe => fP.appendChild(buildArmorRecipeRow(recipe)));
   } else {
