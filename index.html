@@ -541,7 +541,7 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v0.43';
+const GAME_VERSION = 'v0.44';
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
 const ELEMENT_ZH   = { metal:'金', wood:'木', water:'水', fire:'火', earth:'土' };
@@ -1105,6 +1105,117 @@ const WEAPONS = {
   primordial_fist: { name: 'Primordial Dao Fist', zh: '初道拳', power: 38, slots: 5, kind: 'unarmed', rarity: 'divine',
     desc: 'Knuckle-plates carved from the bone of a being the heavens do not acknowledge. Each strike is a correction.',
     apply: m => { m.flatDR += 10; m.critChance += 0.12; m.hpBonus += 250; m.lifestealPct += 0.10; } },
+
+  // ============================================================
+  // v0.44 high-realm craftables — Golden Core (t4) / Nascent Soul (t5) / Spirit Severing (t6).
+  // One clear upgrade per kind at t4 and t5; the 7 kinds without a divine boss-drop also get a
+  // t6 capstone. Gated + filterable in the Forge. Divine drops remain the rarest pinnacle.
+  // ============================================================
+  // -- Sword --
+  gilt_core_sword: { name: 'Gilt-Core Longsword', zh: '鎏心长剑', power: 30, slots: 4, kind: 'sword', rarity: 'legendary',
+    desc: 'A longsword with a vein of molten gold sealed down its spine. It keeps an edge no whetstone gave it.',
+    apply: m => { m.critChance += 0.10; m.critMult += 0.20; } },
+  starfall_sword: { name: 'Starfall Sword', zh: '陨星剑', power: 40, slots: 4, kind: 'sword', rarity: 'legendary',
+    desc: 'Folded from the iron of a fallen star a thousand times. Each fold remembers the descent.',
+    apply: m => { m.critChance += 0.12; m.critMult += 0.30; m.qiOnKill += 5; } },
+  // -- Saber --
+  goldscale_saber: { name: 'Goldscale Saber', zh: '金鳞刀', power: 30, slots: 4, kind: 'saber', rarity: 'legendary',
+    desc: 'A broad saber clad in overlapping gold scales. It drinks first and asks nothing after.',
+    apply: m => { m.lifestealPct += 0.12; m.firstStrikeBonus += 0.25; } },
+  crimson_soul_saber: { name: 'Crimson-Soul Saber', zh: '赤魂刀', power: 40, slots: 4, kind: 'saber', rarity: 'legendary',
+    desc: 'Quenched in something that was not water. The blade flushes red when blood is near.',
+    apply: m => { m.lifestealPct += 0.16; m.firstStrikeBonus += 0.30; m.critChance += 0.06; } },
+  nine_abyss_saber: { name: 'Nine-Abyss Saber', zh: '九渊刀', power: 48, slots: 5, kind: 'saber', rarity: 'legendary',
+    desc: 'Forged at the floor of nine stacked demon-rifts. Light falls into it and does not climb back out.',
+    apply: m => { m.lifestealPct += 0.20; m.firstStrikeBonus += 0.35; m.critChance += 0.10; } },
+  // -- Unarmed --
+  adamant_fists: { name: 'Adamant Body Fists', zh: '金刚拳套', power: 30, slots: 4, kind: 'unarmed', rarity: 'legendary',
+    desc: 'Gauntlets grown, not forged — bone tempered nine times until it rings like jade.',
+    apply: m => { m.flatDR += 6; m.hpBonus += 90; } },
+  mountain_root_fists: { name: 'Mountain-Root Fists', zh: '山根拳套', power: 40, slots: 4, kind: 'unarmed', rarity: 'legendary',
+    desc: 'Stone-heavy plates that root the wearer to the earth. To move them is to move the mountain.',
+    apply: m => { m.flatDR += 9; m.hpBonus += 140; m.critChance += 0.06; } },
+  // -- Focus --
+  jade_resonance_fan: { name: 'Jade Resonance Fan', zh: '玉鸣扇', power: 28, slots: 4, kind: 'focus', rarity: 'legendary',
+    desc: 'Ribs of singing jade. Each sweep leaves a note hanging in the air that the qi obeys.',
+    apply: m => { m.qiBonus += 24; m.spiritDamageMult *= 1.18; } },
+  starchart_focus: { name: 'Starchart Talisman', zh: '星图符', power: 38, slots: 4, kind: 'focus', rarity: 'legendary',
+    desc: 'A folded talisman inked with a map of stars that have not yet risen.',
+    apply: m => { m.qiBonus += 36; m.spiritDamageMult *= 1.24; m.qiRegenBonus += 5; } },
+  dao_speaking_seal: { name: 'Dao-Speaking Seal', zh: '道言印', power: 46, slots: 5, kind: 'focus', rarity: 'legendary',
+    desc: 'A heavy seal that, pressed to air, prints a word the world is obliged to read.',
+    apply: m => { m.qiBonus += 50; m.spiritDamageMult *= 1.32; m.spiritBonus += 18; } },
+  // -- Polearm --
+  cloudpiercer_spear: { name: 'Cloudpiercer Spear', zh: '穿云枪', power: 30, slots: 4, kind: 'polearm', rarity: 'legendary',
+    desc: 'A spear so straight it seems to thread the clouds. The first thrust always lands first.',
+    apply: m => { m.firstStrikeBonus += 0.40; m.critChance += 0.06; } },
+  dragoncoil_spear: { name: 'Dragoncoil Spear', zh: '蟠龙枪', power: 40, slots: 4, kind: 'polearm', rarity: 'legendary',
+    desc: 'The haft is wound with a dragon-tendon that tightens before the strike, as if eager.',
+    apply: m => { m.firstStrikeBonus += 0.45; m.critChance += 0.08; m.critMult += 0.20; } },
+  skyrend_spear: { name: 'Sky-Rending Spear', zh: '裂天枪', power: 48, slots: 5, kind: 'polearm', rarity: 'legendary',
+    desc: 'Raised against the heavens once and left a scar across the sky that has not closed.',
+    apply: m => { m.firstStrikeBonus += 0.55; m.critChance += 0.10; m.critMult += 0.30; } },
+  // -- Dagger --
+  venomfang_dagger: { name: 'Venomfang Dagger', zh: '毒牙匕', power: 28, slots: 4, kind: 'dagger', rarity: 'legendary',
+    desc: 'A fang-shaped blade with a hollow groove. What it leaves behind finishes the work.',
+    apply: m => { m.critChance += 0.12; m.critMult += 0.22; } },
+  shadowcut_dagger: { name: 'Shadowcut Dagger', zh: '影断匕', power: 38, slots: 4, kind: 'dagger', rarity: 'legendary',
+    desc: 'A blade that casts no reflection. It is between the heartbeats that it does its work.',
+    apply: m => { m.critChance += 0.15; m.critMult += 0.30; m.firstStrikeBonus += 0.20; } },
+  fatecut_dagger: { name: 'Fate-Cutting Dagger', zh: '断命匕', power: 46, slots: 5, kind: 'dagger', rarity: 'legendary',
+    desc: 'Short, plain, and absolute. It does not cut flesh so much as the thread above it.',
+    apply: m => { m.critChance += 0.18; m.critMult += 0.40; m.firstStrikeBonus += 0.25; } },
+  // -- Bow --
+  windsong_bow: { name: 'Windsong Longbow', zh: '风吟弓', power: 30, slots: 4, kind: 'bow', rarity: 'legendary',
+    desc: 'Drawn, it hums a single clear note; loosed, the note arrives before the arrow.',
+    apply: m => { m.firstStrikeBonus += 0.45; m.critChance += 0.06; } },
+  sunpiercer_bow: { name: 'Sunpiercer Bow', zh: '贯日弓', power: 40, slots: 4, kind: 'bow', rarity: 'legendary',
+    desc: 'Its limbs are gilded so the arrow flies out of the glare. They never see it coming.',
+    apply: m => { m.firstStrikeBonus += 0.50; m.critChance += 0.08; m.critMult += 0.20; } },
+  heavenfall_bow: { name: 'Heaven-Fall Bow', zh: '落天弓', power: 48, slots: 5, kind: 'bow', rarity: 'legendary',
+    desc: 'Tall as its wielder and twice as patient. Its arc passes through heaven before it falls.',
+    apply: m => { m.firstStrikeBonus += 0.60; m.critChance += 0.10; m.critMult += 0.30; } },
+  // -- Staff --
+  spiritvein_staff: { name: 'Spiritvein Staff', zh: '灵脉杖', power: 28, slots: 4, kind: 'staff', rarity: 'legendary',
+    desc: 'A staff threaded with a living vein of qi that pulses warm under the palm.',
+    apply: m => { m.qiBonus += 24; m.qiRegenBonus += 6; } },
+  worldtree_staff: { name: 'Worldtree Staff', zh: '世树杖', power: 38, slots: 4, kind: 'staff', rarity: 'legendary',
+    desc: 'Cut from a branch that remembers being a forest. It still tries, faintly, to grow.',
+    apply: m => { m.qiBonus += 36; m.qiRegenBonus += 9; m.spiritDamageMult *= 1.18; } },
+  primordial_bough: { name: 'Primordial Bough', zh: '原木杖', power: 46, slots: 5, kind: 'staff', rarity: 'legendary',
+    desc: 'Older than the idea of wood. Held overnight, it puts out a single impossible leaf.',
+    apply: m => { m.qiBonus += 50; m.qiRegenBonus += 12; m.spiritBonus += 18; } },
+  // -- Hammer --
+  mountainbreak_maul: { name: 'Mountainbreak Maul', zh: '裂山锤', power: 32, slots: 4, kind: 'hammer', rarity: 'legendary',
+    desc: 'A head the size of a millstone. Stance, shield, and resolve break in that order.',
+    apply: m => { m.postureBreakBonus += 2; m.flatDR += 5; } },
+  thunderlord_hammer: { name: 'Thunderlord Hammer', zh: '雷君锤', power: 42, slots: 4, kind: 'hammer', rarity: 'legendary',
+    desc: 'Each blow lands twice — once with iron, once with the thunder that follows it down.',
+    apply: m => { m.postureBreakBonus += 3; m.flatDR += 7; m.hpBonus += 90; } },
+  // -- Chakram --
+  mirrorwheel_chakram: { name: 'Mirrorwheel Chakram', zh: '镜轮', power: 28, slots: 4, kind: 'chakram', rarity: 'legendary',
+    desc: 'A polished ring that shows the throw a half-second before it happens.',
+    apply: m => { m.critChance += 0.10; m.critMult += 0.22; } },
+  stormring_chakram: { name: 'Stormring Chakram', zh: '风暴轮', power: 38, slots: 4, kind: 'chakram', rarity: 'legendary',
+    desc: 'Two rings spinning against each other, fast enough to pull a wind in after them.',
+    apply: m => { m.critChance += 0.13; m.critMult += 0.30; m.firstStrikeBonus += 0.20; } },
+  // -- Greatsword --
+  ironwill_greatsword: { name: 'Ironwill Greatsword', zh: '铁意巨剑', power: 32, slots: 4, kind: 'greatsword', rarity: 'legendary',
+    desc: 'A slab of dark iron more wall than blade. What it guards does not fall.',
+    apply: m => { m.flatDR += 6; m.postureBreakBonus += 2; } },
+  worldcleaver: { name: 'Worldcleaver', zh: '裂世巨剑', power: 42, slots: 4, kind: 'greatsword', rarity: 'legendary',
+    desc: 'Swung in full only once a fight, and once is the plan. The cornered grow teeth on this blade.',
+    apply: m => { m.flatDR += 8; m.lowHpBonus += 0.30; m.postureBreakBonus += 2; } },
+  mountainfall_greatsword: { name: 'Mountainfall Greatsword', zh: '崩山巨剑', power: 50, slots: 5, kind: 'greatsword', rarity: 'legendary',
+    desc: 'Lifting it is a tribulation; landing it is a verdict. The earth takes a moment to recover.',
+    apply: m => { m.flatDR += 11; m.lowHpBonus += 0.35; m.postureBreakBonus += 3; } },
+  // -- Chain --
+  soulbind_chain: { name: 'Soulbind Chain', zh: '缚魂链', power: 30, slots: 4, kind: 'chain', rarity: 'legendary',
+    desc: 'Prayer-iron links that close around spirit and demon alike and refuse to be reasoned with.',
+    apply: m => { if (!m.vsKindMult) m.vsKindMult = {}; m.vsKindMult.spirit = (m.vsKindMult.spirit || 0) + 0.25; m.vsKindMult.demonic = (m.vsKindMult.demonic || 0) + 0.18; } },
+  heaven_binding_chain: { name: 'Heaven-Binding Chain', zh: '缚天链', power: 40, slots: 4, kind: 'chain', rarity: 'legendary',
+    desc: 'Long enough to wrap a tribulation cloud, were one foolish or great enough to try.',
+    apply: m => { if (!m.vsKindMult) m.vsKindMult = {}; m.vsKindMult.spirit = (m.vsKindMult.spirit || 0) + 0.30; m.vsKindMult.demonic = (m.vsKindMult.demonic || 0) + 0.25; m.postureBreakBonus += 2; } },
 };
 
 // ============================================================
@@ -4957,6 +5068,51 @@ const ARTIFACT_RECIPES = [
   { id: 'oathbreaker_saber',    materials: { spirit_iron: 9, dragon_scale: 2, spirit_stone: 6 },    minRealmTier: 2, minLayer: 2 },
   { id: 'titan_grief_hammer',   materials: { spirit_iron: 12, dragon_scale: 2, ancient_rust: 3 },   minRealmTier: 2, minLayer: 4 },
   { id: 'thousand_mile_chain',  materials: { spirit_iron: 10, soul_ember: 3, spirit_stone: 5 },     minRealmTier: 2, minLayer: 4 },
+
+  // ---- v0.44 high-realm craftables (Golden Core t4 / Nascent Soul t5 / Spirit Severing t6) ----
+  // Sword
+  { id: 'gilt_core_sword',         materials: { spirit_iron: 8, spirit_stone: 6, dragon_scale: 2 },           minRealmTier: 4 },
+  { id: 'starfall_sword',          materials: { star_iron: 6, spirit_stone: 10, heavenly_jade: 2 },           minRealmTier: 5 },
+  // Saber
+  { id: 'goldscale_saber',         materials: { spirit_iron: 9, spirit_stone: 6, dragon_scale: 2 },           minRealmTier: 4 },
+  { id: 'crimson_soul_saber',      materials: { abyssal_ash: 4, spirit_stone: 10, demon_core_shard: 1 },      minRealmTier: 5 },
+  { id: 'nine_abyss_saber',        materials: { demon_core_shard: 2, spirit_stone: 14, primordial_stone: 2 }, minRealmTier: 6 },
+  // Unarmed
+  { id: 'adamant_fists',           materials: { spirit_iron: 10, spirit_stone: 6, dragon_scale: 2 },          minRealmTier: 4 },
+  { id: 'mountain_root_fists',     materials: { spirit_iron: 12, spirit_stone: 10, primordial_stone: 2 },     minRealmTier: 5 },
+  // Focus
+  { id: 'jade_resonance_fan',      materials: { qi_wood: 6, spirit_stone: 6, heavenly_jade: 2 },              minRealmTier: 4 },
+  { id: 'starchart_focus',         materials: { moonshadow_silk: 4, spirit_stone: 10, heavenly_jade: 2 },     minRealmTier: 5 },
+  { id: 'dao_speaking_seal',       materials: { heavenly_jade: 3, spirit_stone: 14, dao_crystal: 1 },         minRealmTier: 6 },
+  // Polearm
+  { id: 'cloudpiercer_spear',      materials: { spirit_iron: 8, cloud_silk: 3, spirit_stone: 6 },             minRealmTier: 4 },
+  { id: 'dragoncoil_spear',        materials: { spirit_iron: 10, dragon_scale: 2, spirit_stone: 10 },         minRealmTier: 5 },
+  { id: 'skyrend_spear',           materials: { star_iron: 6, spirit_stone: 14, sky_essence: 2 },             minRealmTier: 6 },
+  // Dagger
+  { id: 'venomfang_dagger',        materials: { spirit_iron: 6, abyssal_ash: 3, spirit_stone: 6 },            minRealmTier: 4 },
+  { id: 'shadowcut_dagger',        materials: { moonshadow_silk: 4, spirit_stone: 10, demon_core_shard: 1 },  minRealmTier: 5 },
+  { id: 'fatecut_dagger',          materials: { demon_core_shard: 2, spirit_stone: 14, dao_crystal: 1 },      minRealmTier: 6 },
+  // Bow
+  { id: 'windsong_bow',            materials: { qi_wood: 6, cloud_silk: 3, star_iron: 3 },                    minRealmTier: 4 },
+  { id: 'sunpiercer_bow',          materials: { star_iron: 6, spirit_stone: 10, phoenix_feather: 2 },         minRealmTier: 5 },
+  { id: 'heavenfall_bow',          materials: { star_iron: 8, spirit_stone: 14, sky_essence: 2 },             minRealmTier: 6 },
+  // Staff
+  { id: 'spiritvein_staff',        materials: { qi_wood: 8, verdant_bark: 4, spirit_stone: 6 },               minRealmTier: 4 },
+  { id: 'worldtree_staff',         materials: { verdant_bark: 6, spirit_stone: 10, heavenly_jade: 2 },        minRealmTier: 5 },
+  { id: 'primordial_bough',        materials: { heavenly_jade: 2, spirit_stone: 14, primordial_stone: 2 },    minRealmTier: 6 },
+  // Hammer
+  { id: 'mountainbreak_maul',      materials: { spirit_iron: 12, thunder_shard: 3, spirit_stone: 6 },         minRealmTier: 4 },
+  { id: 'thunderlord_hammer',      materials: { spirit_iron: 14, thunder_shard: 5, spirit_stone: 10 },        minRealmTier: 5 },
+  // Chakram
+  { id: 'mirrorwheel_chakram',     materials: { spirit_iron: 7, cloud_silk: 3, spirit_stone: 6 },             minRealmTier: 4 },
+  { id: 'stormring_chakram',       materials: { thunder_shard: 4, cloud_silk: 4, spirit_stone: 10 },          minRealmTier: 5 },
+  // Greatsword
+  { id: 'ironwill_greatsword',     materials: { spirit_iron: 12, ancient_rust: 3, spirit_stone: 6 },          minRealmTier: 4 },
+  { id: 'worldcleaver',            materials: { spirit_iron: 14, ancient_rust: 5, spirit_stone: 10 },         minRealmTier: 5 },
+  { id: 'mountainfall_greatsword', materials: { ancient_rust: 6, spirit_stone: 14, primordial_stone: 2 },     minRealmTier: 6 },
+  // Chain
+  { id: 'soulbind_chain',          materials: { spirit_iron: 9, soul_ember: 3, spirit_stone: 6 },             minRealmTier: 4 },
+  { id: 'heaven_binding_chain',    materials: { soul_ember: 5, spirit_stone: 10, demon_core_shard: 1 },       minRealmTier: 5 },
 ];
 
 // ============================================================
