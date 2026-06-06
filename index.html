@@ -541,7 +541,7 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v0.44';
+const GAME_VERSION = 'v0.45';
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
 const ELEMENT_ZH   = { metal:'金', wood:'木', water:'水', fire:'火', earth:'土' };
@@ -1963,6 +1963,99 @@ const TECHNIQUES = {
     desc: 'A formation drawn beneath every opponent at once. AOE qi-cost-up. (NS+)',
     logHit: (a,t) => `${a} draws a single line; nine glyphs ignite in a perfect ring under everyone present.` },
 
+  // ============ v0.45: school signature techniques (5th base slot). Each delivers the
+  // school's signature status effect / gameplan piece. effectPower scales DOT ticks off
+  // the player's weapon power; effectStacks applies N stacks at once. ============
+  azure_third_cut: {
+    name: 'Third Cut Remembers', zh: '三斩记', school: 'azure_sword',
+    qi: 8, cd: 2, damage: 2.2, postureBuild: 16, intentStacks: 2,
+    desc: 'A cut informed by the two before it. ST. Grants +2 Sword Intent stacks on hit.',
+    logHit: (a,t) => `${a}'s blade arrives where the first two cuts taught it to — ${t} is already there.` },
+  iron_avalanche: {
+    name: 'Avalanche Guard', zh: '崩山守', school: 'iron_body',
+    qi: 7, cd: 3, damage: 0, postureBuild: 8,
+    buff: { incomingMult: 0.45, turns: 2, reflectPct: 0.35 },
+    desc: 'Become the mountainside. Incoming damage 45% for 2 rounds, and 35% of what lands is returned.',
+    logHit: (a,t) => `${a} sets their shoulders; the next blows will regret their courage.` },
+  array_entangle: {
+    name: 'Five-Direction Entanglement', zh: '五方缚阵', school: 'whispering_array', target: 'aoe',
+    qi: 14, cd: 2, damage: 0.9, postureBuild: 10,
+    effect: 'entangle', effectValue: 10, effectTurns: 2,
+    desc: 'Glyphs close from five directions at once. AOE. Entangles: 10 qi drained per turn and meditation is sealed.',
+    logHit: (a,t) => `Five glyphs ignite in a ring; every direction ${t} considers is already written against.` },
+  flame_ashfall: {
+    name: 'Ashfall', zh: '灰落', school: 'crimson_flame', target: 'aoe',
+    qi: 13, cd: 2, damage: 1.5, postureBuild: 12,
+    effect: 'burn', effectPower: 0.18, effectTurns: 3, effectStacks: 2,
+    desc: 'The air itself catches. AOE. Applies 2 Burn stacks — fire that ticks past qi shields.',
+    logHit: (a,t) => `Ash falls upward around ${a}; everything it touches begins, politely, to burn.` },
+  water_undertow: {
+    name: 'Undertow', zh: '暗潮', school: 'moonlit_water', target: 'aoe',
+    qi: 12, cd: 2, damage: 1.4, postureBuild: 18,
+    effect: 'chill', effectValue: 0.30, effectTurns: 2,
+    desc: 'The cold below the wave. AOE. Chills every opponent: their damage drops 30% for 2 turns.',
+    logHit: (a,t) => `The floor of the world turns to cold water; ${t} moves slower coming out than going in.` },
+  dagger_venom: {
+    name: 'Seven-Step Venom', zh: '七步毒', school: 'silent_daggers',
+    qi: 9, cd: 2, damage: 1.5, postureBuild: 10,
+    effect: 'poison', effectPower: 0.10, effectTurns: 4, effectStacks: 3,
+    desc: 'Seven steps, they say, before the legs answer to someone else. ST. Applies 3 Poison stacks.',
+    logHit: (a,t) => `${a}'s blade barely touches ${t}. That is the bad news.` },
+  demon_parasite: {
+    name: 'Parasite Brand', zh: '寄生印', school: 'demon_heart',
+    qi: 10, cd: 2, damage: 1.7, postureBuild: 12,
+    effect: 'leech', effectPower: 0.22, effectTurns: 3,
+    desc: 'A brand that eats in your name. ST. The wound feeds you each turn for 3 turns.',
+    logHit: (a,t) => `${a} presses a character into ${t} that means, roughly, "mine".` },
+  star_mark: {
+    name: 'Marking Shot', zh: '定星矢', school: 'starfall',
+    qi: 7, cd: 2, damage: 1.6, postureBuild: 12,
+    effect: 'mark', effectValue: 0.25, effectTurns: 3,
+    desc: 'An arrow that names its target. ST. Marked: takes +25% damage from you for 3 turns.',
+    logHit: (a,t) => `${a}'s arrow lodges shallow — a small wound, and a fixed address.` },
+  grove_bloom: {
+    name: 'Verdant Communion', zh: '翠林同息', school: 'verdant_monastery', target: 'aoe',
+    qi: 11, cd: 3, damage: 1.0, postureBuild: 12,
+    selfBuff: { regrowthPct: 0.06, turns: 3 },
+    desc: 'Borrow the patience of trees. AOE strike, and you regrow 6% max HP per turn for 3 turns.',
+    logHit: (a,t) => `Green light moves through ${a} like sap rising; the staff falls on ${t} almost as an afterthought.` },
+  thunder_roll: {
+    name: 'Rolling Thunder', zh: '滚雷', school: 'thunder_hammer', target: 'aoe',
+    qi: 15, cd: 3, damage: 1.7, postureBuild: 26,
+    effect: 'shock', effectValue: 0, effectTurns: 1, effectChance: 0.35,
+    desc: 'The hammer-fall that keeps falling. AOE, heavy posture. 35% chance to Shock each target (loses its next action).',
+    logHit: (a,t) => `${a}'s hammer lands once; the sound lands several more times.` },
+  cloud_mistwalk: {
+    name: 'Mistwalk', zh: '雾行', school: 'cloud_traveler',
+    qi: 8, cd: 3, damage: 0, postureBuild: 0,
+    buff: { dodgeChance: 0.40, turns: 2, nextDamageMult: 1.5 },
+    desc: 'Step into the weather. +40% dodge for 2 rounds, and your next attack carries +50%.',
+    logHit: (a,t) => `${a} is somewhere in the mist. The mist is everywhere.` },
+  reed_chorus: {
+    name: 'Marrow Chorus', zh: '髓合唱', school: 'bone_reed', target: 'aoe',
+    qi: 12, cd: 2, damage: 0.7, directSpirit: 12, postureBuild: 10,
+    effect: 'resonance', effectValue: 8, effectTurns: 3,
+    desc: 'Every bone hums the same note. AOE spirit damage; Resonance drains spirit each turn. Empty spirit = soul-broken (+30% damage taken).',
+    logHit: (a,t) => `${a} plays a chord no single flute should manage; ${t}'s skeleton joins in against its will.` },
+  ink_silence: {
+    name: 'Character of Silence', zh: '默字', school: 'jade_inkwell',
+    qi: 13, cd: 3, damage: 1.1, postureBuild: 10,
+    effect: 'silence', effectValue: 0, effectTurns: 2,
+    desc: 'One character, perfectly drawn. ST. Silenced: the enemy cannot use techniques for 2 turns.',
+    logHit: (a,t) => `${a} writes "hush" in the air between them; ${t} opens their mouth and nothing arrives.` },
+  forge_slag: {
+    name: 'Slagrender', zh: '熔渣裂', school: 'dragonforge',
+    qi: 12, cd: 2, damage: 2.4, postureBuild: 20,
+    effect: 'sunder', effectValue: 0.06, effectTurns: 3, effectStacks: 2,
+    desc: 'Strike the armor as if it were ore. ST. Applies 2 Sunder stacks: +6% damage taken each, and armor stops counting.',
+    logHit: (a,t) => `${a}'s blade treats ${t}'s guard as raw material, and begins refining.` },
+  chain_litany: {
+    name: 'Litany of Links', zh: '链祷', school: 'chain_saint', target: 'aoe',
+    qi: 14, cd: 2, damage: 1.3, postureBuild: 14,
+    effect: 'oathbound', effectPower: 0.35, effectTurns: 3,
+    desc: 'A prayer said in iron. AOE. Oath-bound enemies take backlash damage every time they use a technique.',
+    logHit: (a,t) => `${a} recites; the chain punctuates. Everything standing is now party to the contract.` },
+
   // ---- Spirit Severing (tier 6) ----
   heart_demon_purge: {
     name: 'Heart-Demon Purge', zh: '清心驱魔', school: 'demon_heart', minRealmTier: 6, cost: 2500,
@@ -1983,48 +2076,48 @@ const SCHOOLS = {
   azure_sword: {
     name: 'Azure Sword Sect', zh: '青锋剑派',
     weapon: 'iron_sword',
-    techniques: ['azure_flash','azure_thousand','azure_severing','azure_stance'],
-    specialty: 'Swift combo pressure. Cheap builders stack posture, Rippling Thousand breaks stance, Mountain-Severing finishes through the broken window.',
+    techniques: ['azure_flash','azure_thousand','azure_severing','azure_stance','azure_third_cut'],
+    specialty: 'PURE SINGLE-TARGET, ramping damage. Every technique hit builds Sword Intent (+8% damage per stack, max 5); chain techniques into a crescendo and spend the peak on Mountain-Severing Edge.',
     bestStats: ['spirit','mind'],
     flavor: 'High on a jade peak, the sword remembers itself. Students sleep beside their blades.',
   },
   iron_body: {
     name: 'Iron Body Hall', zh: '铁身堂',
     weapon: 'bare_fists',
-    techniques: ['iron_palm','iron_stone','iron_bloodbone','iron_stance'],
-    specialty: 'Body refinement. Bleeds damage through qi shields, burns HP for devastation, tanks hits in stance.',
+    techniques: ['iron_palm','iron_stone','iron_bloodbone','iron_stance','iron_avalanche'],
+    specialty: 'PURE SINGLE-TARGET tank. Iron Skin passively blunts every hit and reflects 15% of damage taken; stack stances to become unmovable, then spend your own blood on Bloodbone finishers.',
     bestStats: ['body','will'],
     flavor: 'Flesh is the only scripture that never lies. The hall floor is stained brown from four centuries of training.',
   },
   whispering_array: {
     name: 'Whispering Array Pavilion', zh: '低语阵阁',
     weapon: 'array_fan',
-    techniques: ['array_binding','array_soul','array_severing','array_anchor'],
-    specialty: 'Control and attrition. Drains enemy qi, attacks Spirit directly, breaks stance with formation strikes.',
+    techniques: ['array_binding','array_soul','array_severing','array_anchor','array_entangle'],
+    specialty: 'PURE AOE control. Entangle whole packs (qi drain + meditation sealed), knot meridians, and let Lingering Glyphs stretch every debuff a turn longer. Wins slow and absolute.',
     bestStats: ['mind','sense'],
     flavor: 'The dao is not fought. It is arranged, and then witnessed. Ink is their sword; paper is their shield.',
   },
   crimson_flame: {
     name: 'Crimson Flame Pagoda', zh: '赤炎塔',
     weapon: 'ashen_blade',
-    techniques: ['flame_slash','burning_rend','phoenix_cry','ember_stance'],
-    specialty: 'Burst and burn. Cheap fire builders stack posture, Burning Rend bleeds through shields, Phoenix Cry pays HP for a single apocalyptic cleave.',
+    techniques: ['flame_slash','burning_rend','phoenix_cry','ember_stance','flame_ashfall'],
+    specialty: 'PURE AOE damage-over-time. Everburn makes every technique hit stack Burn — fire that ticks straight past qi shields. Spread it wide with Ashfall, then watch the field cook.',
     bestStats: ['body','spirit'],
     flavor: 'At the pagoda\'s peak, a brazier has burned for nine centuries without fuel. Disciples learn to match it.',
   },
   moonlit_water: {
     name: 'Moonlit Water Sect', zh: '月水派',
     weapon: 'frostbloom_spear',
-    techniques: ['frozen_edge','tide_sweep','cold_moon_binding','mirror_stance'],
-    specialty: 'Defense and attrition. Enormous posture pressure, hard qi drains, a stance that shrugs off 65% of incoming damage.',
+    techniques: ['frozen_edge','tide_sweep','cold_moon_binding','mirror_stance','water_undertow'],
+    specialty: 'MIXED defense and attrition. Deep Cold chills everything you touch (-20% enemy damage); Undertow chills the whole field. Outlast, drain, and break stance at your leisure.',
     bestStats: ['mind','will'],
     flavor: 'A sect of spear-masters who cultivate beside a mountain lake that never freezes, though snow falls into it year-round.',
   },
   silent_daggers: {
     name: 'Silent Daggers Sect', zh: '寂刃宗',
     weapon: 'shadow_dagger',
-    techniques: ['silent_cut','assassin_flurry','killing_intent','death_mark'],
-    specialty: 'Precision and pressure. Silent Cut bleeds through defenses, Assassin\'s Flurry tears shields, Killing Intent triples a finishing blow.',
+    techniques: ['silent_cut','assassin_flurry','killing_intent','death_mark','dagger_venom'],
+    specialty: 'PURE SINGLE-TARGET assassin. Coated Blades poison on every technique hit (stacking, ignores qi shields) and crit 10% more often. Stack venom, amplify with Killing Intent, watch them fall mid-swing.',
     bestStats: ['sense','luck'],
     flavor: 'No sect hall. No gates. Students find a note tucked under a pillow and follow it, or they don\'t.',
   },
@@ -2035,8 +2128,8 @@ const SCHOOLS = {
   demon_heart: {
     name: 'Demon Heart Palace', zh: '魔心殿',
     weapon: 'dark_saber',
-    techniques: ['demon_reap','demon_devour','demon_seal','demon_ascendant'],
-    specialty: 'Demonic path. Cultivation is halved — but you feast on the life of the slain, and the heavens have stopped sending tribulations.',
+    techniques: ['demon_reap','demon_devour','demon_seal','demon_ascendant','demon_parasite'],
+    specialty: 'PURE SINGLE-TARGET sustain. Hungry Dao returns 15% of all damage as your own HP; Parasite Brand makes the wound itself feed you. Cultivation is halved — but you feast on the slain, and the heavens have stopped sending tribulations.',
     bestStats: ['spirit','will'],
     flavor: 'High on a black stone plateau where no birds fly. The palace has no doors. Students arrive by conviction.',
     isDemon: true,
@@ -2045,88 +2138,88 @@ const SCHOOLS = {
   starfall: {
     name: 'Starfall Archers', zh: '坠星射',
     weapon: 'starlight_bow',
-    techniques: ['star_arrow','starfall_volley','pierce_the_sky','lunar_sight'],
-    specialty: 'Ranged precision. Cheap arrows bleed posture, Pierce the Sky shreds qi shields, Lunar Sight amplifies a single perfect shot.',
+    techniques: ['star_arrow','starfall_volley','pierce_the_sky','lunar_sight','star_mark'],
+    specialty: 'MIXED precision crits. Hunter\'s Eye crits 12% more often and every crit Marks the target (+20% damage from you). Mark, then unload — with one volley kept for crowds.',
     bestStats: ['sense','luck'],
     flavor: 'A sect of archers who cultivate atop a night-dark peak, memorizing constellations by touch.',
   },
   verdant_monastery: {
     name: 'Verdant Monastery', zh: '翠林寺',
     weapon: 'grove_staff',
-    techniques: ['grove_strike','root_bind','greenwave_sweep','heartwood_stance'],
-    specialty: 'Rooted defense and qi drain. Heartwood Stance shrugs off blows; Root-Bind strangles casters.',
+    techniques: ['grove_strike','root_bind','greenwave_sweep','heartwood_stance','grove_bloom'],
+    specialty: 'MIXED regeneration tank. Sap of the Grove regrows 3% max HP every round — more under Verdant Communion. Root casters dry while you simply refuse to die.',
     bestStats: ['body','mind'],
     flavor: 'A monastery woven into a grove that has been a monastery longer than the monks. The trees are considered elder disciples.',
   },
   thunder_hammer: {
     name: 'Thunder Hammer Forge', zh: '雷锤炉',
     weapon: 'storm_hammer',
-    techniques: ['storm_smash','thunder_pin','anvil_fall','forge_stance'],
-    specialty: 'Heavy pressure and shield-piercing. Forge Stance multiplies a decisive hammer-fall; Anvil Fall pays HP for catastrophe.',
+    techniques: ['storm_smash','thunder_pin','anvil_fall','forge_stance','thunder_roll'],
+    specialty: 'PURE AOE posture-breaker. Aftershock adds +25% posture damage and every stance you break also Shocks (loses its next action). Break one, stun one, repeat across the field.',
     bestStats: ['body','spirit'],
     flavor: 'A hall of forge-priests. The great anvil at the centre has not been struck by anyone except the sect\'s founder in four hundred years.',
   },
   cloud_traveler: {
     name: 'Cloud Travelers Guild', zh: '游云门',
     weapon: 'drifting_chakram',
-    techniques: ['cloud_ring','spiraling_vortex','skyline_cut','gust_step'],
-    specialty: 'Mobility and drain. Gust Step ducks a round; Spiraling Vortex strangles qi casters from distance.',
+    techniques: ['cloud_ring','spiraling_vortex','skyline_cut','gust_step','cloud_mistwalk'],
+    specialty: 'PURE AOE evasion. Like the Wind dodges 15% of everything, always; Mistwalk raises it to a coin flip. Untouchable chip damage that strangles casters from a distance.',
     bestStats: ['sense','luck'],
     flavor: 'A loose guild of wandering cultivators. No halls, no meetings, but a shared trick of stepping where wind is.',
   },
   bone_reed: {
     name: 'Bone Reed Hermitage', zh: '骨笛隐',
     weapon: 'bone_flute',
-    techniques: ['reed_whisper','spine_drum','hollow_song','grieving_note'],
-    specialty: 'Soul-damage attrition. Every technique is also a song; every song is a cut.',
+    techniques: ['reed_whisper','spine_drum','hollow_song','grieving_note','reed_chorus'],
+    specialty: 'PURE AOE soul-breaker. Hollow Resonance deepens all spirit damage +30%; empty a spirit pool and that enemy is soul-broken, taking +30% from everything. Kill the soul first — the body follows.',
     bestStats: ['mind','sense'],
     flavor: 'A single cave on a cliff, furnished with seven flutes and a brass kettle. Students arrive by sound.',
   },
   jade_inkwell: {
     name: 'Jade Inkwell Academy', zh: '玉墨院',
     weapon: 'ink_brush',
-    techniques: ['inkstroke','binding_character','final_contract','calligraphy_stance'],
-    specialty: 'Writ and binding. Binding Character locks the enemy\'s techniques; Final Contract ends discussions.',
+    techniques: ['inkstroke','binding_character','final_contract','calligraphy_stance','ink_silence'],
+    specialty: 'MIXED seal-and-punish. Silence enemies outright, tax their qi, and let Red-Ink Authority collect: +15% damage to anything under one of your writs.',
     bestStats: ['mind','luck'],
     flavor: 'A lecture hall with three hundred desks. The master does not teach; she corrects calligraphy, quietly, and it amounts to the same thing.',
   },
   dragonforge: {
     name: 'Dragonforge Conclave', zh: '龙炉阁',
     weapon: 'forge_greatsword',
-    techniques: ['forge_slash','heatfold_cleave','anvilbreak','dragon_stance'],
-    specialty: 'Heavy weapon cleaving. Dragon Stance pairs with Anvilbreak for devastating burst.',
+    techniques: ['forge_slash','heatfold_cleave','anvilbreak','dragon_stance','forge_slag'],
+    specialty: 'PURE SINGLE-TARGET armor-melter. Moltenwake Sunders with every technique hit: +6% damage taken per stack and enemy armor stops counting. Slow swings; each lands heavier than the last.',
     bestStats: ['body','spirit'],
     flavor: 'A sect-forge built around a caldera. The greatswords they make are said to still remember the mountain they came from.',
   },
   chain_saint: {
     name: 'Chain-Saint Cloister', zh: '链圣禅',
     weapon: 'holy_chain',
-    techniques: ['chain_lash','binding_wrap','soul_pull','oath_stance'],
-    specialty: 'Chain control and soul attacks. Binding Wrap drains qi; Soul Pull hooks directly into divine sense.',
+    techniques: ['chain_lash','binding_wrap','soul_pull','oath_stance','chain_litany'],
+    specialty: 'PURE AOE punisher. Oathbrand binds everything your techniques touch — bound enemies take backlash damage every time they dare use a technique. Their own strength becomes the sentence.',
     bestStats: ['spirit','body'],
     flavor: 'A cloister of wandering oath-keepers. Disciples swear their first vow to the chain itself; the chain keeps them to it.',
   },
 };
 
-// v0.19 Phase 3: every school gets a role identity (single / aoe / mixed) and a small set of
-// techniques marked target:'aoe'. AOE schools have 2 AOE techs; mixed schools have 1.
-// Single-target schools have none — they reward focusing primary targets.
+// v0.19 Phase 3 / reworked v0.45: every school has a hard role identity (single / aoe / mixed)
+// and techniques marked target:'aoe'. Pure single-target schools have NO AOE — they reward
+// focusing the primary target; pure AOE schools have 3; mixed schools 1-2.
 const SCHOOL_ROLES = {
   azure_sword:        { role: 'single', aoeTechs: [] },
   iron_body:          { role: 'single', aoeTechs: [] },
-  whispering_array:   { role: 'aoe',    aoeTechs: ['array_binding', 'array_severing'] },
-  crimson_flame:      { role: 'aoe',    aoeTechs: ['burning_rend', 'phoenix_cry'] },
-  moonlit_water:      { role: 'mixed',  aoeTechs: ['tide_sweep'] },
+  whispering_array:   { role: 'aoe',    aoeTechs: ['array_binding', 'array_severing', 'array_entangle'] },
+  crimson_flame:      { role: 'aoe',    aoeTechs: ['burning_rend', 'phoenix_cry', 'flame_ashfall'] },
+  moonlit_water:      { role: 'mixed',  aoeTechs: ['tide_sweep', 'water_undertow'] },
   silent_daggers:     { role: 'single', aoeTechs: [] },
-  demon_heart:        { role: 'mixed',  aoeTechs: ['demon_reap'] },
+  demon_heart:        { role: 'single', aoeTechs: [] },  // v0.45: was mixed; now the pure-ST sustain school
   starfall:           { role: 'mixed',  aoeTechs: ['starfall_volley'] },
-  verdant_monastery:  { role: 'mixed',  aoeTechs: ['greenwave_sweep'] },
-  thunder_hammer:     { role: 'aoe',    aoeTechs: ['storm_smash', 'anvil_fall'] },
+  verdant_monastery:  { role: 'mixed',  aoeTechs: ['greenwave_sweep', 'grove_bloom'] },
+  thunder_hammer:     { role: 'aoe',    aoeTechs: ['storm_smash', 'anvil_fall', 'thunder_roll'] },
   cloud_traveler:     { role: 'aoe',    aoeTechs: ['cloud_ring', 'spiraling_vortex'] },
-  bone_reed:          { role: 'aoe',    aoeTechs: ['hollow_song', 'grieving_note'] },
+  bone_reed:          { role: 'aoe',    aoeTechs: ['hollow_song', 'grieving_note', 'reed_chorus'] },
   jade_inkwell:       { role: 'mixed',  aoeTechs: ['binding_character'] },
-  dragonforge:        { role: 'mixed',  aoeTechs: ['heatfold_cleave'] },
-  chain_saint:        { role: 'aoe',    aoeTechs: ['chain_lash', 'binding_wrap'] },
+  dragonforge:        { role: 'single', aoeTechs: [] },  // v0.45: was mixed; now the pure-ST armor-melter
+  chain_saint:        { role: 'aoe',    aoeTechs: ['chain_lash', 'binding_wrap', 'chain_litany'] },
 };
 Object.entries(SCHOOL_ROLES).forEach(([id, info]) => {
   if (SCHOOLS[id]) SCHOOLS[id].role = info.role;
@@ -2134,6 +2227,138 @@ Object.entries(SCHOOL_ROLES).forEach(([id, info]) => {
     if (TECHNIQUES[tid]) TECHNIQUES[tid].target = 'aoe';
   });
 });
+// v0.45: demon_heart and dragonforge went pure-ST — strip stale AOE tags from their techs.
+['demon_reap', 'heatfold_cleave'].forEach(tid => { if (TECHNIQUES[tid]) delete TECHNIQUES[tid].target; });
+
+// ============================================================
+// v0.45: School Kits — each school's always-on passive + machine-readable hook data.
+// The combat engine reads these via schoolKit(). Text fields surface in the school card,
+// the Loadout panel, and chargen.
+// ============================================================
+const SCHOOL_KITS = {
+  azure_sword: {
+    passiveName: 'Sword Intent', passiveZh: '剑意',
+    passiveDesc: 'Each technique hit builds Sword Intent: +8% damage per stack (max 5). Meditating sheathes the blade — stacks reset.',
+    intentPerHit: 1,
+  },
+  iron_body: {
+    passiveName: 'Iron Skin', passiveZh: '铁肤',
+    passiveDesc: 'Flat damage reduction that grows with realm, and 15% of all damage you take is reflected back at the attacker.',
+    reflectPct: 0.15, flatDRPerTier: 2, flatDRBase: 2,
+  },
+  whispering_array: {
+    passiveName: 'Lingering Glyphs', passiveZh: '余纹',
+    passiveDesc: 'Every status effect you inflict lasts +1 turn.',
+    debuffTurnsBonus: 1,
+  },
+  crimson_flame: {
+    passiveName: 'Everburn', passiveZh: '不熄',
+    passiveDesc: 'Technique hits add a Burn stack (fire DOT that ignores qi shields; stacks to 5).',
+    onTechHit: { kind: 'burn', power: 0.12, turns: 3 },
+  },
+  moonlit_water: {
+    passiveName: 'Deep Cold', passiveZh: '深寒',
+    passiveDesc: 'Technique hits Chill the target: -20% outgoing damage for 2 turns.',
+    onTechHit: { kind: 'chill', value: 0.20, turns: 2 },
+  },
+  silent_daggers: {
+    passiveName: 'Coated Blades', passiveZh: '淬刃',
+    passiveDesc: '+10% critical chance, and technique hits add a Poison stack (DOT that ignores qi shields; stacks to 8).',
+    critBonus: 0.10, onTechHit: { kind: 'poison', power: 0.08, turns: 4 },
+  },
+  demon_heart: {
+    passiveName: 'Hungry Dao', passiveZh: '饥道',
+    passiveDesc: '15% of all damage you deal returns to you as HP.',
+    lifestealBonus: 0.15,
+  },
+  starfall: {
+    passiveName: "Hunter's Eye", passiveZh: '猎瞳',
+    passiveDesc: '+12% critical chance; your critical hits Mark the target (+20% damage from you, 3 turns).',
+    critBonus: 0.12, markOnCrit: { value: 0.20, turns: 3 },
+  },
+  verdant_monastery: {
+    passiveName: 'Sap of the Grove', passiveZh: '林髓',
+    passiveDesc: 'Regrow 3% of max HP at the end of every round.',
+    regenPct: 0.03,
+  },
+  thunder_hammer: {
+    passiveName: 'Aftershock', passiveZh: '余震',
+    passiveDesc: '+25% posture damage, and breaking a stance also Shocks the target (it loses its next action).',
+    postureBonus: 0.25, shockOnBreak: true,
+  },
+  cloud_traveler: {
+    passiveName: 'Like the Wind', passiveZh: '如风',
+    passiveDesc: '15% chance to completely evade any incoming attack.',
+    dodgeChance: 0.15,
+  },
+  bone_reed: {
+    passiveName: 'Hollow Resonance', passiveZh: '空鸣',
+    passiveDesc: 'All your spirit damage +30%. Enemies whose spirit you empty are soul-broken: +30% damage taken from everything.',
+    spiritDamageBonus: 0.30,
+  },
+  jade_inkwell: {
+    passiveName: 'Red-Ink Authority', passiveZh: '朱批',
+    passiveDesc: '+15% damage to enemies under any of your status effects.',
+    ampVsDebuffed: 0.15,
+  },
+  dragonforge: {
+    passiveName: 'Moltenwake', passiveZh: '熔迹',
+    passiveDesc: 'Technique hits Sunder: +6% damage taken per stack (max 5), and Sundered armor stops counting.',
+    onTechHit: { kind: 'sunder', value: 0.06, turns: 3 },
+  },
+  chain_saint: {
+    passiveName: 'Oathbrand', passiveZh: '誓烙',
+    passiveDesc: 'Technique hits Oath-bind for 2 turns: bound enemies take backlash damage whenever they use a technique.',
+    onTechHit: { kind: 'oathbound', power: 0.25, turns: 2 },
+  },
+};
+function schoolKit(schoolId) {
+  return SCHOOL_KITS[schoolId || (state && state.selectedSchool)] || {};
+}
+
+// v0.45: status-effect registry — display label + tooltip per kind. Anything in a combatant's
+// effects[] array renders from this table; the engine hooks live in the combat-flow functions.
+const STATUS_INFO = {
+  qi_drain:   { label: 'drain',       tip: ef => `Losing ${ef.value} qi per turn. ${ef.turns} turn(s) left.` },
+  qi_cost_up: { label: 'knotted',     tip: ef => `Technique qi costs ×${ef.value}. ${ef.turns} turn(s) left.` },
+  bleed:      { label: 'bleed',       tip: ef => `Bleeding ${ef.value} HP per turn. ${ef.turns} turn(s) left.` },
+  burn:       { label: 'burn',        tip: ef => `Burning: ${ef.value} HP per turn, ignores qi shield. ${ef.turns} turn(s) left.` },
+  poison:     { label: 'poison',      tip: ef => `Poisoned: ${ef.value} HP per turn, ignores qi shield. ${ef.turns} turn(s) left.` },
+  chill:      { label: 'chill',       tip: ef => `Chilled: outgoing damage -${Math.round(ef.value*100)}%. ${ef.turns} turn(s) left.` },
+  shock:      { label: 'shocked',     tip: ef => `Shocked: loses its next action.` },
+  sunder:     { label: 'sunder',      tip: ef => `Sundered: +${Math.round(ef.value*100)}% damage taken and armor (flat DR) negated. ${ef.turns} turn(s) left.` },
+  mark:       { label: 'marked',      tip: ef => `Marked: +${Math.round(ef.value*100)}% damage taken from the hunter. ${ef.turns} turn(s) left.` },
+  leech:      { label: 'leeched',     tip: ef => `Leeched: losing ${ef.value} HP per turn to the attacker, who heals for it. ${ef.turns} turn(s) left.` },
+  entangle:   { label: 'entangled',   tip: ef => `Entangled: losing ${ef.value} qi per turn and meditation is sealed. ${ef.turns} turn(s) left.` },
+  silence:    { label: 'silenced',    tip: ef => `Silenced: cannot use techniques. ${ef.turns} turn(s) left.` },
+  resonance:  { label: 'resonance',   tip: ef => `Resonating: losing ${ef.value} spirit per turn. ${ef.turns} turn(s) left.` },
+  oathbound:  { label: 'oath-bound',  tip: ef => `Oath-bound: takes ${ef.value} backlash damage whenever it uses a technique. ${ef.turns} turn(s) left.` },
+};
+// Stacking caps per status kind (1 = refresh-only, no stacking).
+const STATUS_STACK_CAP = { burn: 5, poison: 8, sunder: 5, bleed: 3 };
+
+// Apply a status to a combatant's effects[] with per-kind stacking semantics:
+// stackable kinds accumulate value up to their cap; refresh-only kinds keep the strongest
+// value; shock cannot be re-applied while present (no stunlocks). Returns true if applied.
+function applyStatusTo(tgt, kind, value, turns, name) {
+  if (!tgt.effects) tgt.effects = [];
+  const cap = STATUS_STACK_CAP[kind] || 1;
+  const existing = tgt.effects.find(ef => ef.kind === kind);
+  if (existing) {
+    if (kind === 'shock') return false;
+    if (cap > 1 && (existing.stacks || 1) < cap) {
+      existing.stacks = (existing.stacks || 1) + 1;
+      existing.value += value;
+    } else if (cap === 1) {
+      existing.value = Math.max(existing.value, value);
+    }
+    existing.turns = Math.max(existing.turns, turns);
+    existing.name = name || existing.name;
+    return true;
+  }
+  tgt.effects.push({ kind, value, turns, name, stacks: 1 });
+  return true;
+}
 
 // ============================================================
 // Cultivation methods
@@ -2503,7 +2728,23 @@ function computeMods(char) {
   applyDestiniesToMods(mods, char);
   applyArraysToMods(mods, char);
   applyWeaponsToMods(mods, char);
+  applySchoolKitToMods(mods, char);
   return mods;
+}
+
+// v0.45: always-on school-passive stat channels (the status-applying hooks live in the
+// combat flow; this covers the pure number bonuses so they also show on the char panel).
+function applySchoolKitToMods(mods, char) {
+  const kit = SCHOOL_KITS[char.selectedSchool];
+  if (!kit) return;
+  if (kit.critBonus)         mods.critChance = (mods.critChance || 0) + kit.critBonus;
+  if (kit.lifestealBonus)    mods.lifestealPct = (mods.lifestealPct || 0) + kit.lifestealBonus;
+  if (kit.postureBonus)      mods.postureMult = (mods.postureMult || 1) * (1 + kit.postureBonus);
+  if (kit.spiritDamageBonus) mods.spiritDamageMult = (mods.spiritDamageMult || 1) * (1 + kit.spiritDamageBonus);
+  if (kit.flatDRBase != null) {
+    const t = (char.realm && char.realm.tierIdx) || 0;
+    mods.flatDR = (mods.flatDR || 0) + kit.flatDRBase + (kit.flatDRPerTier || 0) * t;
+  }
 }
 
 // v0.23: each WEAPONS entry can carry an apply(m, ctx) hook. The primary weapon's
@@ -4953,6 +5194,93 @@ const CONSUMABLES = {
     effects: [{ kind: 'weapon_mult', value: 1.75, durationMin: 15 }],
     desc: '+75% weapon power for 15 minutes. A cold, black tonic taken by demon-path cultivators.',
   },
+
+  // ============ v0.45: realm-kit fill-ins (12 new) ============
+  // Every realm tier now offers a full kit: cultivation pill, HP pill, weapon potion,
+  // defense potion. These fill the gaps at Mortal / QC / CF / GC / NS / SS.
+  riverstone_tea: {
+    name: 'Riverstone Tea', zh: '河石茶', kind: 'potion', rarity: 'common',
+    recipe: { qi_grass: 1, sunpetal: 2 },
+    effects: [{ kind: 'incoming_mult', value: 0.85, durationMin: 15 }],
+    desc: '-15% incoming damage for 15 minutes. Brewed over smooth stones; tastes of patience.',
+  },
+  frostbell_tonic: {
+    name: 'Frostbell Tonic', zh: '霜铃饮', kind: 'potion', rarity: 'common',
+    recipe: { frostbell: 2, qi_grass: 1 },
+    minRealmTier: 1, minLayer: 1,
+    effects: [{ kind: 'weapon_mult', value: 1.25, durationMin: 12 }],
+    desc: '+25% weapon power for 12 minutes. Rings faintly in the cup before it is drunk.',
+  },
+  windreed_pill: {
+    name: 'Windreed Pill', zh: '风苇丹', kind: 'pill', rarity: 'common',
+    recipe: { windreed: 2, body_root: 2 },
+    minRealmTier: 1, minLayer: 3,
+    effects: [{ kind: 'hp_max_add', value: 60, durationMin: 40 }],
+    desc: '+60 max HP for 40 minutes. Light, hollow, surprisingly filling.',
+  },
+  lotus_veil_draught: {
+    name: 'Lotus-Veil Draught', zh: '莲幕饮', kind: 'potion', rarity: 'rare',
+    recipe: { jade_lotus: 2, frostbell: 2 },
+    minRealmTier: 1, minLayer: 4,
+    effects: [{ kind: 'incoming_mult', value: 0.65, durationMin: 8 }],
+    desc: '-35% incoming damage for 8 minutes. The world reaches you through a curtain of petals.',
+  },
+  voidfire_tonic: {
+    name: 'Voidfire Tonic', zh: '虚火剂', kind: 'potion', rarity: 'legendary',
+    recipe: { void_fennel: 2, phoenix_petal: 1 },
+    minRealmTier: 3,
+    effects: [{ kind: 'weapon_mult', value: 2.0, durationMin: 8 }],
+    desc: '+100% weapon power for 8 minutes. Burns with a flame that casts no light.',
+  },
+  phoenix_down_pill: {
+    name: 'Phoenix-Down Pill', zh: '凤绒丹', kind: 'pill', rarity: 'legendary',
+    recipe: { phoenix_petal: 2, dragonmint: 2 },
+    minRealmTier: 3, minLayer: 2,
+    effects: [{ kind: 'hp_max_add', value: 200, durationMin: 45 }],
+    desc: '+200 max HP for 45 minutes. Warm going down, warmer staying there.',
+  },
+  twin_river_pill: {
+    name: 'Twin-River Pill', zh: '双江丹', kind: 'pill', rarity: 'legendary',
+    recipe: { void_fennel: 3, dragonmint: 2, jade_lotus: 2 },
+    minRealmTier: 3, minLayer: 2,
+    effects: [{ kind: 'stat_perm', statKey: 'mind', value: 1 }, { kind: 'stat_perm', statKey: 'sense', value: 1 }],
+    desc: 'Permanently +1 Perception and +1 Divine Sense. Two rivers, one source.',
+  },
+  cloudbank_pill: {
+    name: 'Cloudbank Pill', zh: '云库丹', kind: 'pill', rarity: 'legendary',
+    recipe: { golden_cloud_cap: 2, starvine: 2 },
+    minRealmTier: 4,
+    effects: [{ kind: 'cultivation_mult', value: 2.5, durationMin: 60 }],
+    desc: '+150% cultivation rate for a full 60 minutes. For the long, settled sessions.',
+  },
+  ghostshell_draught: {
+    name: 'Ghostshell Draught', zh: '鬼壳饮', kind: 'potion', rarity: 'legendary',
+    recipe: { ghost_spring_orchid: 2, soulfire_moss: 2 },
+    minRealmTier: 5,
+    effects: [{ kind: 'incoming_mult', value: 0.4, durationMin: 12 }],
+    desc: '-60% incoming damage for 12 minutes. Blows arrive as if remembered rather than felt.',
+  },
+  soulroot_pill: {
+    name: 'Soulroot Pill', zh: '魂根丹', kind: 'pill', rarity: 'legendary',
+    recipe: { soulfire_moss: 3, tri_dao_sage: 2, starvine: 2 },
+    minRealmTier: 5, minLayer: 2,
+    effects: [{ kind: 'hp_max_add', value: 800, durationMin: 60 }],
+    desc: '+800 max HP for 60 minutes. The nascent soul lends the body its certainty.',
+  },
+  world_pillar_pill: {
+    name: 'World-Pillar Pill', zh: '世柱丹', kind: 'pill', rarity: 'divine',
+    recipe: { heaven_root: 3, primordial_sage: 2 },
+    minRealmTier: 6,
+    effects: [{ kind: 'hp_max_add', value: 2000, durationMin: 60 }],
+    desc: '+2000 max HP for 60 minutes. For one hour, you are load-bearing.',
+  },
+  dao_sealed_draught: {
+    name: 'Dao-Sealed Draught', zh: '封道饮', kind: 'potion', rarity: 'divine',
+    recipe: { dao_lily: 2, heaven_root: 2, ghost_spring_orchid: 2 },
+    minRealmTier: 6, minLayer: 2,
+    effects: [{ kind: 'incoming_mult', value: 0.25, durationMin: 10 }],
+    desc: '-75% incoming damage for 10 minutes. The heavens agree, briefly, to look away.',
+  },
 };
 
 // ============================================================
@@ -6180,6 +6508,9 @@ const TRACKS = {
   ],
 };
 const MUSIC = { el: null, cat: 'menu', idx: 0, started: false, fails: 0 };
+// True while the element is actually trying to play (paused flips back to true if
+// play() is rejected by autoplay policy, so this is safe to poll from gestures).
+function musicActuallyPlaying() { return !!(MUSIC.el && !MUSIC.el.paused); }
 function musicEnabled() { return !!(META.settings && META.settings.music); }
 function musicVolume() { return (META.settings && typeof META.settings.musicVol === 'number') ? META.settings.musicVol : 0.6; }
 function musicList() { return TRACKS[MUSIC.cat] || TRACKS.menu; }
@@ -6222,7 +6553,9 @@ function startMusic() {
   if (!musicEnabled()) return;
   ensureMusicEl();
   MUSIC.cat = musicCategoryFor();
-  if (MUSIC.idx >= musicList().length) MUSIC.idx = 0;
+  // v0.45: pick a random track whenever playback (re)starts — login, unpause, re-enable.
+  const l = musicList();
+  MUSIC.idx = l.length > 1 ? Math.floor(Math.random() * l.length) : 0;
   playCurrentTrack();
 }
 function stopMusic() { if (MUSIC.el) MUSIC.el.pause(); }
@@ -6257,14 +6590,24 @@ function setMusicVolume(v) {
   saveMeta();
   if (MUSIC.el) MUSIC.el.volume = v;
 }
-// Browsers/WebViews block audio until a user gesture — start on the first tap anywhere.
+// Browsers/WebViews block audio until a user gesture. v0.45 fix: the old hook listened on
+// pointerdown, which does NOT count as a user-activation event in Chrome/WebView (only
+// pointerup / click / keydown do) — so the primed play() was rejected, MUSIC.started latched
+// true, and nothing ever retried until the user toggled music off/on (a real click).
+// Now: listen on pointerup, and keep retrying on every tap until playback actually starts.
 function primeMusicOnGesture() {
-  if (MUSIC.started) return;
+  if (!musicEnabled() || musicActuallyPlaying()) return;
   MUSIC.started = true;
-  if (musicEnabled()) startMusic();
+  startMusic();
 }
 if (typeof document !== 'undefined' && document.addEventListener) {
-  document.addEventListener('pointerdown', primeMusicOnGesture);
+  document.addEventListener('pointerup', primeMusicOnGesture);
+}
+// APKs with versionCode >= 5 set setMediaPlaybackRequiresUserGesture(false), so autoplay on
+// open works with zero taps. Try it; on older shells / browsers the rejection is silent and
+// the pointerup hook above picks playback up on the first tap instead.
+if (typeof document !== 'undefined') {
+  setTimeout(() => { if (musicEnabled() && !musicActuallyPlaying()) { MUSIC.started = true; startMusic(); } }, 400);
 }
 
 // Soul Altar — spend souls between lives. Shown on the landing/death screen once the soul has
@@ -7108,7 +7451,8 @@ function buyTechnique(techId) {
 // base school techniques, so purchased techs never reached combat.
 function activeSlotsForRealm(char) {
   const t = (char && char.realm && char.realm.tierIdx) || 0;
-  return 4 + (t >= 4 ? 1 : 0) + (t >= 5 ? 1 : 0);  // base 4; +1 Golden Core (tier 4); +1 Nascent Soul (tier 5)
+  // v0.45: base 5 (was 4) — schools gained a 5th signature base technique.
+  return 5 + (t >= 4 ? 1 : 0) + (t >= 5 ? 1 : 0);  // +1 Golden Core (tier 4); +1 Nascent Soul (tier 5)
 }
 function activeSkillsList(char) {
   const cap = activeSlotsForRealm(char);
@@ -7685,9 +8029,12 @@ function initCombat(enemyIdOrIds) {
     weaponPower: Math.round((weapon.power + secondaryWeaponPowerBonus(state) + refineWeaponBonus(state) + rb.weapon + mods.weaponBonus + boonWeaponAdd() + skillWeaponAdd()) * weaponMult * (mods.weaponMultFlat || 1)),
     loadout,
     cooldowns: Object.fromEntries(loadout.map(id => [id, 0])),
-    buffs: { incomingMult: 1, incomingTurns: 0, nextDamageMult: 1, nextDamageTurns: 0 },
+    buffs: { incomingMult: 1, incomingTurns: 0, nextDamageMult: 1, nextDamageTurns: 0,
+             reflectPct: 0, reflectTurns: 0, dodgeChance: 0, dodgeTurns: 0,
+             regrowthPct: 0, regrowthTurns: 0 },
     baseIncoming,
     effects: [],
+    swordIntent: 0,  // v0.45: Azure Sword ramping passive
     mods,
     elements: playerElements(state),               // Wave 1: five-element counters
     element: (playerElements(state)[0] || null),
@@ -7729,7 +8076,21 @@ function dealDamage(target, amount, opts) {
   let hpDmg = opts.directHP || 0;
   let spiritDmg = opts.directSpirit || 0;
 
+  // v0.45 dodge (Like the Wind / Mistwalk): the player can evade an attack outright.
+  if (combat && target === combat.player) {
+    const dodge = playerDodgeChance(target);
+    if (dodge > 0 && Math.random() < dodge) {
+      pushLog('posture', `  → ${target.name} is elsewhere — the blow finds only wind.`);
+      return { qiAbsorbed: 0, hpDamage: 0, spiritDamage: 0, dodged: true };
+    }
+  }
+
   if (target.broken > 0 && !opts.ignorePostureBreak) qiDmg *= 2;
+  // v0.45 Sunder: melted armor — bonus damage taken, and flat DR is negated below.
+  const sunderEf = (target.effects || []).find(ef => ef.kind === 'sunder');
+  if (sunderEf) { qiDmg *= 1 + sunderEf.value; hpDmg *= 1 + sunderEf.value; }
+  // v0.45 soul-break: a combatant whose spirit pool is empty takes +30% from everything.
+  if (target.spiritMax > 0 && target.spirit <= 0) { qiDmg *= 1.3; hpDmg *= 1.3; }
   let incoming = (target.buffs.incomingMult || 1) * (target.baseIncoming || 1);
   // Player-only heritage mitigations
   if (combat && target === combat.player) {
@@ -7749,9 +8110,10 @@ function dealDamage(target, amount, opts) {
 
   // v0.23 flatDR — applied after multipliers, capped at 40% of incoming.
   // Player reads from mods; enemies can carry a target.flatDR (set in initCombat for elites).
-  const targetDR = (combat && target === combat.player)
+  // v0.45: Sundered targets lose their flat DR entirely (the armor has been melted off).
+  const targetDR = sunderEf ? 0 : ((combat && target === combat.player)
     ? (combat.player.mods.flatDR || 0)
-    : (target.flatDR || 0);
+    : (target.flatDR || 0));
   if (targetDR > 0) {
     const cap = (qiDmg + hpDmg) * 0.4;
     let dr = Math.min(targetDR, cap);
@@ -7798,12 +8160,20 @@ function applyPosture(target, amount, isBreaker, breakDuration) {
 }
 
 function damageLogLine(res, target) {
+  if (res.dodged) return `  → evaded! [${target.name}]`;
   const parts = [];
   if (res.qiAbsorbed) parts.push(`${res.qiAbsorbed} qi shield`);
   if (res.hpDamage)   parts.push(`${res.hpDamage} body`);
   if (res.spiritDamage) parts.push(`${res.spiritDamage} spirit`);
   if (!parts.length) return `  → (no damage)`;
   return `  → ${parts.join(', ')} [${target.name}]`;
+}
+
+// v0.45: total dodge chance — school passive (Like the Wind) + active Mistwalk buff. Capped 75%.
+function playerDodgeChance(p) {
+  let c = schoolKit().dodgeChance || 0;
+  if (p.buffs && p.buffs.dodgeTurns > 0) c += p.buffs.dodgeChance || 0;
+  return Math.min(0.75, c);
 }
 
 // ============================================================
@@ -7872,8 +8242,11 @@ function setAutoCombat(on) {
 
 // v0.23: applies crit / first-strike / low-HP / vs-kind to outgoing damage.
 // Mutates ctx.crit so the log line can mark the hit. Returns scaled damage.
+// v0.45: also folds in school-kit hooks — crit bonuses, Mark consumption, Red-Ink
+// Authority (+dmg vs debuffed), Hunter's Eye (crits apply Mark), Sword Intent stacks.
 function applyPlayerOutgoingMods(p, dmg, target, ctx) {
   const m = p.mods;
+  const kit = schoolKit();
   const turn = (combat && combat.turn) || 1;
   if (m.firstStrikeBonus && turn <= 1) dmg *= 1 + m.firstStrikeBonus;
   if (m.lowHpBonus && p.hp > 0 && p.hp / p.hpMax < 0.33) dmg *= 1 + m.lowHpBonus;
@@ -7886,11 +8259,45 @@ function applyPlayerOutgoingMods(p, dmg, target, ctx) {
     const em = bestElementCounter(p.elements, target.element);
     if (em !== 1) { dmg *= em; ctx.elementMult = em; }
   }
+  // v0.45 Sword Intent (Azure): +8% per stack on everything the player swings.
+  if (p.swordIntent > 0) dmg *= 1 + 0.08 * p.swordIntent;
+  // v0.45 Mark (Starfall): the marked target takes bonus damage from the player.
+  if (target && target.effects) {
+    const mark = target.effects.find(ef => ef.kind === 'mark');
+    if (mark) dmg *= 1 + mark.value;
+    // v0.45 Red-Ink Authority (Jade Inkwell): +dmg to anything under one of your writs.
+    if (kit.ampVsDebuffed && target.effects.length > 0) dmg *= 1 + kit.ampVsDebuffed;
+  }
   if (m.critChance > 0 && Math.random() < m.critChance) {
     dmg *= (m.critMult || 1.5);
     ctx.crit = true;
+    // v0.45 Hunter's Eye (Starfall): crits brand the target with Mark.
+    if (kit.markOnCrit && target && target.effects) {
+      applyStatusTo(target, 'mark', kit.markOnCrit.value, kit.markOnCrit.turns, "Hunter's Eye");
+    }
   }
   return dmg;
+}
+
+// v0.45: shared on-hit hook for school passives that apply statuses (Everburn, Coated
+// Blades, Deep Cold, Moltenwake, Oathbrand). Fires once per technique hit per target.
+function applySchoolOnHit(p, tgt) {
+  const kit = schoolKit();
+  if (!kit.onTechHit || !tgt || tgt.hp <= 0) return;
+  const h = kit.onTechHit;
+  const value = h.power ? Math.max(1, Math.round(p.weaponPower * h.power)) : h.value;
+  const turns = h.turns + (kit.debuffTurnsBonus || 0);
+  applyStatusTo(tgt, h.kind, value, turns, kit.passiveName);
+}
+
+// v0.45: per-application value for a technique-carried status. effectPower scales the
+// DOT tick off weapon power (so DOTs stay relevant as enemy HP scales by realm);
+// resonance scales gently by tier since spirit pools are small.
+function playerStatusValue(p, tech) {
+  if (tech.effectPower) return Math.max(1, Math.round(p.weaponPower * tech.effectPower));
+  let v = tech.effectValue || 0;
+  if (tech.effect === 'resonance') v = Math.round(v * (1 + (state.realm.tierIdx || 0) * 0.5));
+  return v;
 }
 
 // v0.23: lifesteal + qi-on-hit-style triggers fired after a successful hit.
@@ -8002,6 +8409,7 @@ function playerTechnique(techId) {
   const directSpiritAmt = (tech.directSpirit || 0) * (p.mods.spiritDamageMult || 1);
   const postureAmtBase = Math.round((tech.postureBuild || 0) * p.mods.postureMult * (hm0.postureDamageMult || 1));
 
+  const kit = schoolKit();
   targets.forEach(tgt => {
     let tdmg = dmg * targetDmgMult;
     const ctx = {};
@@ -8015,22 +8423,43 @@ function playerTechnique(techId) {
       if (ctx.crit) pushLog('posture', `  → critical strike!`);
       pushLog('hurt', damageLogLine(res, tgt));
       applyPostHitTriggers(p, res);
+      // v0.45: school passive on-hit statuses (Everburn / Coated Blades / Deep Cold /
+      // Moltenwake / Oathbrand) ride along on every damaging technique hit.
+      if (!res.dodged) applySchoolOnHit(p, tgt);
     }
     if (postureAmtBase || tech.postureBreak) {
       const broke = applyPosture(tgt, postureAmtBase, tech.postureBreak, 3 + p.mods.postureBreakBonus);
-      if (broke) pushLog('posture', `${tgt.name}'s stance shatters! Qi damage doubled for ${tgt.broken} turns.`);
+      if (broke) {
+        pushLog('posture', `${tgt.name}'s stance shatters! Qi damage doubled for ${tgt.broken} turns.`);
+        // v0.45 Aftershock (Thunder Hammer): breaks also stun.
+        if (kit.shockOnBreak && applyStatusTo(tgt, 'shock', 0, 1, kit.passiveName)) {
+          pushLog('posture', `  → ${tgt.name} is shocked — it cannot act next turn!`);
+        }
+      }
     }
+    // v0.45: technique-carried statuses route through applyStatusTo (stacking semantics,
+    // weapon-power-scaled DOT values, Lingering Glyphs duration bonus, effectChance rolls).
     if (tech.effect) {
-      tgt.effects.push({
-        kind: tech.effect,
-        value: tech.effectValue,
-        turns: tech.effectTurns,
-        name: tech.name,
-      });
+      if (!(tech.effectChance && Math.random() >= tech.effectChance)) {
+        const value = playerStatusValue(p, tech);
+        const turns = tech.effectTurns + (kit.debuffTurnsBonus || 0);
+        const n = tech.effectStacks || 1;
+        let applied = false;
+        for (let i = 0; i < n; i++) applied = applyStatusTo(tgt, tech.effect, value, turns, tech.name) || applied;
+        if (applied && STATUS_INFO[tech.effect]) {
+          pushLog('flavor', `  → ${tgt.name}: ${STATUS_INFO[tech.effect].label}${n > 1 ? ` ×${n}` : ''}.`);
+        }
+      }
     }
   });
-  if (tech.effect === 'qi_drain') pushLog('flavor', `The glyph sings softly, siphoning breath.`);
-  if (tech.effect === 'qi_cost_up') pushLog('flavor', `Their meridians twist against them.`);
+
+  // v0.45 Sword Intent (Azure): single-target technique hits build the edge.
+  if (kit.intentPerHit && !isAoe && dmg > 0) {
+    const gain = (tech.intentStacks || kit.intentPerHit);
+    const before = p.swordIntent || 0;
+    p.swordIntent = Math.min(5, before + gain);
+    if (p.swordIntent > before) pushLog('posture', `  → Sword Intent ${p.swordIntent}/5 (+${Math.round(p.swordIntent*8)}% damage).`);
+  }
 
   if (tech.buff) {
     if (tech.buff.nextDamageMult) {
@@ -8041,6 +8470,21 @@ function playerTechnique(techId) {
       p.buffs.incomingMult = tech.buff.incomingMult;
       p.buffs.incomingTurns = tech.buff.turns || 1;
     }
+    // v0.45: new self-buff channels — reflect (Avalanche Guard) and dodge (Mistwalk).
+    if (tech.buff.reflectPct) {
+      p.buffs.reflectPct = tech.buff.reflectPct;
+      p.buffs.reflectTurns = tech.buff.turns || 1;
+    }
+    if (tech.buff.dodgeChance) {
+      p.buffs.dodgeChance = tech.buff.dodgeChance;
+      p.buffs.dodgeTurns = tech.buff.turns || 1;
+    }
+  }
+  // v0.45: Verdant Communion-style regrowth (heal-over-time on self).
+  if (tech.selfBuff && tech.selfBuff.regrowthPct) {
+    p.buffs.regrowthPct = tech.selfBuff.regrowthPct;
+    p.buffs.regrowthTurns = tech.selfBuff.turns || 1;
+    pushLog('heal', `  → Regrowth: +${Math.round(tech.selfBuff.regrowthPct*100)}% max HP per turn for ${p.buffs.regrowthTurns} turns.`);
   }
 
   endPlayerAction();
@@ -8058,6 +8502,11 @@ function playerMeditate() {
   p.buffs.incomingTurns = 1;
   pushLog('line', `${p.name} folds inward, drawing heaven-qi through open meridians.`);
   pushLog('heal', `  → +${p.qi - before} qi (vulnerable until next turn)`);
+  // v0.45 Sword Intent: meditating sheathes the blade — the edge is lost.
+  if (p.swordIntent > 0) {
+    pushLog('flavor', `  → The gathered Sword Intent disperses with the breath.`);
+    p.swordIntent = 0;
+  }
   endPlayerAction();
 }
 
@@ -8276,20 +8725,60 @@ function handleTribulationFailure(enemyId, charName, enemyData) {
 // v0.19 Phase 3: every alive enemy in combat.enemies takes a turn (in their array order).
 // Effects tick per-enemy. AI runs from ENEMIES[e.id].ai. Defeated enemies are skipped.
 // Stops early if checkDeath fires combat.over (e.g. player died from a bleed at start).
+// v0.45: shared status ticker for both sides. Handles every DOT/drain kind; fixes the
+// latent bug where enemy-side bleed (Azure-Thread Severing) never actually ticked.
+// opts.healTarget receives the HP drained by leech ticks.
+function tickCombatantEffects(c, opts) {
+  opts = opts || {};
+  c.effects = c.effects.filter(ef => {
+    if (ef.kind === 'qi_drain' || ef.kind === 'entangle') {
+      const before = c.qi;
+      c.qi = Math.max(0, c.qi - ef.value);
+      if (before > c.qi) pushLog('hurt', `  → ${c.name} bleeds ${before - c.qi} qi to ${ef.name}.`);
+    }
+    if (ef.kind === 'burn' || ef.kind === 'poison' || ef.kind === 'bleed' || ef.kind === 'leech') {
+      const before = c.hp;
+      c.hp = Math.max(0, c.hp - ef.value);
+      const lost = before - c.hp;
+      if (lost > 0) {
+        const label = (STATUS_INFO[ef.kind] && STATUS_INFO[ef.kind].label) || ef.kind;
+        pushLog('hurt', `  → ${c.name} loses ${lost} hp to ${ef.name} (${label}${ef.stacks > 1 ? ` ×${ef.stacks}` : ''}).`);
+        if (combat && c === combat.player) c.lastHpHit = Math.max(c.lastHpHit || 0, lost);
+        if (ef.kind === 'leech' && opts.healTarget && opts.healTarget.hp > 0) {
+          const ht = opts.healTarget;
+          const beforeHeal = ht.hp;
+          ht.hp = Math.min(ht.hpMax, ht.hp + lost);
+          if (ht.hp > beforeHeal) pushLog('heal', `  → +${ht.hp - beforeHeal} hp drained through ${ef.name}.`);
+        }
+      }
+    }
+    if (ef.kind === 'resonance') {
+      const before = c.spirit;
+      c.spirit = Math.max(0, c.spirit - ef.value);
+      if (before > c.spirit) {
+        pushLog('hurt', `  → ${c.name}'s spirit frays by ${before - c.spirit} (${ef.name}).`);
+        if (c.spirit <= 0 && before > 0) pushLog('posture', `  → ${c.name} is soul-broken! +30% damage taken.`);
+      }
+    }
+    ef.turns--;
+    return ef.turns > 0;
+  });
+}
+
 function enemyTurn() {
   const p = combat.player;
   for (const e of combat.enemies) {
     if (e.hp <= 0) continue;
     if (combat.over) break;
-    e.effects = e.effects.filter(ef => {
-      if (ef.kind === 'qi_drain') {
-        const before = e.qi;
-        e.qi = Math.max(0, e.qi - ef.value);
-        if (before > 0) pushLog('hurt', `  → ${e.name} bleeds ${before - e.qi} qi to the ${ef.name}.`);
-      }
-      ef.turns--;
-      return ef.turns > 0;
-    });
+    // Shock must be read before the tick (a 1-turn shock expires during it).
+    const shocked = e.effects.some(ef => ef.kind === 'shock');
+    tickCombatantEffects(e, { healTarget: p });
+    if (e.hp <= 0) continue;  // a DOT finished it — rewards granted in checkDeath
+    if (shocked) {
+      pushLog('posture', `${e.name} is shocked — it staggers, and its turn passes.`);
+      e.buffs.incomingMult = 1;
+      continue;
+    }
     const enemyData = ENEMIES[e.id];
     if (enemyData) enemyData.ai(e, p);
     e.buffs.incomingMult = 1;
@@ -8301,25 +8790,64 @@ function enemyTickCDs(e) {
 }
 function enemyCanUse(e, techId) {
   const tech = e.techniques[techId];
+  // v0.45: silenced enemies cannot use techniques at all.
+  if (e.effects.some(ef => ef.kind === 'silence')) return false;
   const up = e.effects.find(ef => ef.kind === 'qi_cost_up');
   const cost = up ? Math.ceil(tech.qi * up.value) : tech.qi;
   return e.cooldowns[techId] === 0 && e.qi >= cost;
 }
+// v0.45: Chill reduces a combatant's outgoing damage.
+function chillMult(c) {
+  const ef = (c.effects || []).find(x => x.kind === 'chill');
+  return ef ? Math.max(0, 1 - ef.value) : 1;
+}
+// v0.45: Iron Skin / Avalanche Guard — reflect a share of damage taken back at the attacker.
+function applyPlayerReflect(e, res) {
+  const p = combat.player;
+  let pct = schoolKit().reflectPct || 0;
+  if (p.buffs && p.buffs.reflectTurns > 0) pct += p.buffs.reflectPct || 0;
+  const taken = (res.hpDamage || 0) + (res.qiAbsorbed || 0);
+  if (pct <= 0 || taken <= 0 || res.dodged || e.hp <= 0) return;
+  const r = Math.round(taken * pct);
+  if (r > 0) {
+    e.hp = Math.max(0, e.hp - r);
+    pushLog('hurt', `  → ${e.name} takes ${r} reflected damage (Iron Skin).`);
+  }
+}
 function enemyUseTech(e, p, techId) {
   const tech = e.techniques[techId];
+  // v0.45 safety: some per-enemy AIs call enemyUseTech directly — a silenced enemy
+  // falls back to a plain strike instead.
+  if (e.effects.some(ef => ef.kind === 'silence')) {
+    pushLog('flavor', `${e.name} reaches for a technique — the seal holds. It lashes out plainly instead.`);
+    const res = dealDamage(p, e.weaponPower * chillMult(e), {});
+    pushLog('hurt', damageLogLine(res, p));
+    applyPlayerReflect(e, res);
+    return;
+  }
   const up = e.effects.find(ef => ef.kind === 'qi_cost_up');
   const cost = up ? Math.ceil(tech.qi * up.value) : tech.qi;
   e.qi -= cost;
   e.cooldowns[techId] = tech.cd + 1;
-  const dmg = e.weaponPower * (tech.damage || 0);
+  // v0.45 Oathbrand backlash: bound enemies pay in blood for every technique used.
+  const oath = e.effects.find(ef => ef.kind === 'oathbound');
+  if (oath) {
+    e.hp = Math.max(0, e.hp - oath.value);
+    pushLog('hurt', `  → ${e.name} takes ${oath.value} backlash — the oath collects (${oath.name}).`);
+    if (e.hp <= 0) { pushLog('posture', `${e.name} is undone by its own vow.`); return; }
+  }
+  const dmg = e.weaponPower * (tech.damage || 0) * chillMult(e);
   pushLog('line', tech.logHit(e.name, p.name));
   if (dmg > 0 || tech.directHP || tech.directSpirit) {
+    const cm = chillMult(e);
     const res = dealDamage(p, dmg, {
-      directHP: tech.directHP || 0,
-      directSpirit: tech.directSpirit || 0,
+      directHP: (tech.directHP || 0) * cm,
+      directSpirit: (tech.directSpirit || 0) * cm,
       pierceQi: tech.pierceQi || 0,
     });
     pushLog('hurt', damageLogLine(res, p));
+    applyPlayerReflect(e, res);
+    if (res.dodged) return;  // evaded entirely: no posture, no rider effects
   }
   if (tech.postureBuild || tech.postureBreak) {
     const broke = applyPosture(p, tech.postureBuild || 0, tech.postureBreak, 3);
@@ -8339,6 +8867,12 @@ function enemyUseTech(e, p, techId) {
   }
 }
 function enemyMeditate(e) {
+  // v0.45 Entangle: meditation is sealed — the turn is spent, nothing is gathered.
+  if (e.effects.some(ef => ef.kind === 'entangle')) {
+    e.buffs.incomingMult = 1.5;
+    pushLog('line', `The ${e.name} tries to gather qi — the entangling glyphs drink everything it draws.`);
+    return;
+  }
   const regen = Math.ceil(e.qiMax * 0.4);
   const before = e.qi;
   e.qi = Math.min(e.qiMax, e.qi + regen);
@@ -8355,34 +8889,42 @@ function enemyBasicStrike(e, p) {
   for (const techId of Object.keys(e.techniques || {})) {
     if (enemyCanUse(e, techId)) return enemyUseTech(e, p, techId);
   }
-  const res = dealDamage(p, e.weaponPower, {});
+  const res = dealDamage(p, e.weaponPower * chillMult(e), {});
   pushLog('line', `The ${e.name} attacks ${p.name}.`);
   pushLog('hurt', damageLogLine(res, p));
-  applyPosture(p, 4, false, 3);
+  applyPlayerReflect(e, res);
+  if (!res.dodged) applyPosture(p, 4, false, 3);
 }
 
 function endOfRound() {
   const p = combat.player;
   Object.keys(p.cooldowns).forEach(k => { if (p.cooldowns[k]>0) p.cooldowns[k]--; });
 
-  p.effects = p.effects.filter(ef => {
-    if (ef.kind === 'qi_drain') p.qi = Math.max(0, p.qi - ef.value);
-    if (ef.kind === 'bleed') {
-      const before = p.hp;
-      p.hp = Math.max(0, p.hp - ef.value);
-      const lost = before - p.hp;
-      if (lost > 0) pushLog('hurt', `  → ${p.name} bleeds ${lost} hp from ${ef.name || 'a wound'}.`);
-      // Track for the death rule — a bleed-out finishing blow counts as a "big hit".
-      p.lastHpHit = Math.max(p.lastHpHit || 0, lost);
-    }
-    ef.turns--;
-    return ef.turns > 0;
-  });
+  // v0.45: player-side statuses tick through the same engine as enemies (bleed, drains,
+  // and any future enemy-applied DOT kinds all handled in one place).
+  tickCombatantEffects(p);
+
+  // v0.45 Sap of the Grove (Verdant) + Regrowth: heal-over-time at end of round.
+  const kitEOR = schoolKit();
+  let regen0 = 0;
+  if (kitEOR.regenPct) regen0 += Math.round(p.hpMax * kitEOR.regenPct);
+  if (p.buffs.regrowthTurns > 0) {
+    regen0 += Math.round(p.hpMax * (p.buffs.regrowthPct || 0));
+    p.buffs.regrowthTurns--;
+  }
+  if (regen0 > 0 && p.hp > 0 && p.hp < p.hpMax) {
+    const before = p.hp;
+    p.hp = Math.min(p.hpMax, p.hp + regen0);
+    if (p.hp > before) pushLog('heal', `  → +${p.hp - before} hp (regrowth)`);
+  }
 
   if (p.buffs.incomingTurns > 0) {
     p.buffs.incomingTurns--;
     if (p.buffs.incomingTurns === 0) p.buffs.incomingMult = 1;
   }
+  // v0.45: tick the new self-buff timers (reflect / dodge).
+  if (p.buffs.reflectTurns > 0) { p.buffs.reflectTurns--; if (p.buffs.reflectTurns === 0) p.buffs.reflectPct = 0; }
+  if (p.buffs.dodgeTurns > 0)   { p.buffs.dodgeTurns--;   if (p.buffs.dodgeTurns === 0)   p.buffs.dodgeChance = 0; }
   if (p.broken > 0) p.broken--;
   // Tick posture-broken state for every alive enemy (multi-enemy aware).
   combat.enemies.forEach(en => { if (en.broken > 0) en.broken--; });
@@ -8901,14 +9443,16 @@ function renderCreation() {
       const t = TECHNIQUES[tid];
       return `<div style="font-size:0.78rem;color:var(--ink-soft);margin:0.15rem 0 0 0.5rem">• <span style="color:var(--ink);font-weight:bold">${t.name}</span> <span style="opacity:0.7">${t.zh}</span> — ${t.desc}</div>`;
     }).join('');
-    const roleLabel = { single: 'Single-Target', aoe: 'AOE', mixed: 'Mixed' }[school.role] || '';
+    const roleLabel = { single: 'Pure Single-Target', aoe: 'Pure AOE', mixed: 'Mixed' }[school.role] || '';
     const roleColor = { single: '#9ec5e8', aoe: '#e89e9e', mixed: '#c9b97a' }[school.role] || 'var(--gold)';
+    const kitCard = SCHOOL_KITS[id];
     card.innerHTML = `
       <div class="school-name">${school.name} <span style="color:var(--ink-soft);font-weight:normal;font-size:0.85rem">${school.zh}</span>${roleLabel ? `<span style="float:right;font-size:0.72rem;font-weight:normal;color:${roleColor};border:1px solid ${roleColor};padding:0.1rem 0.4rem;border-radius:0.3rem">${roleLabel}</span>` : ''}</div>
       <div class="school-mods">Starter weapon: <strong>${weapon.name}</strong> (${weapon.zh}) — power ${weapon.power}. Best with: ${statNames}.</div>
       ${method ? `<div class="school-mods">Cultivation method: <strong>${method.name}</strong> (${method.zh}) — ${method.desc}</div>` : ''}
       <div class="school-flavor">${school.flavor}</div>
-      <div style="margin-top:0.4rem;font-size:0.82rem"><strong>Specialty.</strong> ${school.specialty}</div>
+      <div style="margin-top:0.4rem;font-size:0.82rem"><strong>Gameplan.</strong> ${school.specialty}</div>
+      ${kitCard ? `<div style="margin-top:0.3rem;font-size:0.82rem"><strong style="color:var(--gold)">Passive — ${kitCard.passiveName}</strong> <span style="color:var(--ink-soft);font-size:0.75rem">${kitCard.passiveZh}</span>: ${kitCard.passiveDesc}</div>` : ''}
       <div style="margin-top:0.3rem">${techList}</div>`;
     card.onclick = () => { state.selectedSchool = id; render(); };
     sP.appendChild(card);
@@ -9598,25 +10142,36 @@ function renderCharSheet() {
   });
   gP.appendChild(plotsWrap);
 
-  // Pills section
-  const pillHeader = document.createElement('div');
-  pillHeader.style.fontSize = '0.85rem';
-  pillHeader.style.marginTop = '0.6rem';
-  pillHeader.innerHTML = `<strong>Pills</strong> <span style="color:var(--ink-soft);font-weight:normal;font-size:0.75rem">— long-duration, for cultivation and body</span>`;
-  gP.appendChild(pillHeader);
-  Object.entries(CONSUMABLES).filter(([,c]) => c.kind === 'pill').forEach(([id, c]) => {
-    gP.appendChild(renderConsumableRow(id, c));
-  });
-
-  // Potions section
-  const potHeader = document.createElement('div');
-  potHeader.style.fontSize = '0.85rem';
-  potHeader.style.marginTop = '0.6rem';
-  potHeader.innerHTML = `<strong>Potions</strong> <span style="color:var(--ink-soft);font-weight:normal;font-size:0.75rem">— short-duration combat buffs</span>`;
-  gP.appendChild(potHeader);
-  Object.entries(CONSUMABLES).filter(([,c]) => c.kind === 'potion').forEach(([id, c]) => {
-    gP.appendChild(renderConsumableRow(id, c));
-  });
+  // v0.45: Pills + Potions are grouped by realm tier (ascending) and recipes above the
+  // player's realm are hidden entirely (no "Requires X" teasers; still shown if owned).
+  const appendConsumableSection = (kind, title, blurb) => {
+    const hdr = document.createElement('div');
+    hdr.style.fontSize = '0.85rem';
+    hdr.style.marginTop = '0.6rem';
+    hdr.innerHTML = `<strong>${title}</strong> <span style="color:var(--ink-soft);font-weight:normal;font-size:0.75rem">— ${blurb}</span>`;
+    gP.appendChild(hdr);
+    const rarityOrder = { common: 0, rare: 1, legendary: 2, divine: 3 };
+    const visible = Object.entries(CONSUMABLES)
+      .filter(([id, c]) => c.kind === kind && (meetsRealmReq(c) || (state.base.consumables[id] || 0) > 0))
+      .sort((a, b) =>
+        ((a[1].minRealmTier || 0) - (b[1].minRealmTier || 0)) ||
+        ((a[1].minLayer || 0) - (b[1].minLayer || 0)) ||
+        ((rarityOrder[a[1].rarity] || 0) - (rarityOrder[b[1].rarity] || 0)));
+    let lastTier = -1;
+    visible.forEach(([id, c]) => {
+      const tier = c.minRealmTier || 0;
+      if (tier !== lastTier) {
+        lastTier = tier;
+        const th = document.createElement('div');
+        th.style.cssText = 'font-size:0.78rem;color:var(--ink-soft);margin:0.45rem 0 0.1rem;border-bottom:1px solid rgba(120,120,120,0.25);padding-bottom:0.1rem';
+        th.innerHTML = `<strong>${REALMS[tier].name}</strong> ${REALMS[tier].zh || ''}`;
+        gP.appendChild(th);
+      }
+      gP.appendChild(renderConsumableRow(id, c));
+    });
+  };
+  appendConsumableSection('pill',   'Pills',   'long-duration, for cultivation and body. Grouped by realm; higher-realm recipes reveal themselves when you get there.');
+  appendConsumableSection('potion', 'Potions', 'short-duration combat buffs. Grouped by realm; higher-realm recipes reveal themselves when you get there.');
 
   // v0.22: Arrays panel — built fixtures that grant passive bonuses while active.
   const arraysHeader = document.createElement('div');
@@ -9750,9 +10305,13 @@ function renderCharSheet() {
       fP.appendChild(filtRow);
     }
     const forgeTier = state.realm.tierIdx;
+    // v0.45: sorted by realm requirement, then by power within a realm.
     const visibleRecipes = ARTIFACT_RECIPES.filter(r =>
       (r.minRealmTier || 0) <= forgeTier &&
-      (!mineOnly || !myKind || (WEAPONS[r.id] && WEAPONS[r.id].kind === myKind)));
+      (!mineOnly || !myKind || (WEAPONS[r.id] && WEAPONS[r.id].kind === myKind)))
+      .slice().sort((a, b) =>
+        ((a.minRealmTier || 0) - (b.minRealmTier || 0)) ||
+        (((WEAPONS[a.id] && WEAPONS[a.id].power) || 0) - ((WEAPONS[b.id] && WEAPONS[b.id].power) || 0)));
     if (!visibleRecipes.length) {
       const none = document.createElement('div');
       none.className = 'consumable-desc';
@@ -9764,7 +10323,11 @@ function renderCharSheet() {
     }
     visibleRecipes.forEach(recipe => fP.appendChild(buildWeaponRecipeRow(recipe)));
   } else if (state.ui.forgeTab === 'armor') {
-    ARMOR_RECIPES.forEach(recipe => fP.appendChild(buildArmorRecipeRow(recipe)));
+    // v0.45: armor matches the weapons tab — above-realm recipes hidden, realm-sorted.
+    const armorTier = state.realm.tierIdx;
+    ARMOR_RECIPES.filter(r => (r.minRealmTier || 0) <= armorTier)
+      .slice().sort((a, b) => ((a.minRealmTier || 0) - (b.minRealmTier || 0)) || ((a.minLayer || 0) - (b.minLayer || 0)))
+      .forEach(recipe => fP.appendChild(buildArmorRecipeRow(recipe)));
   } else {
     const matsList = Object.entries(MATERIALS).filter(([id]) => id !== 'spirit_stone').sort((a, b) => {
       const order = { common: 0, rare: 1, legendary: 2 };
@@ -9800,8 +10363,13 @@ function renderCharSheet() {
   if (!state.activeSkills) state.activeSkills = school.techniques.slice();
   const activeCap = activeSlotsForRealm(state);
   const activeCount = state.activeSkills.length;
-  let loadoutHTML = `<h3>${school.name}</h3>
+  // v0.45: surface the school's role + always-on passive at the top of the loadout.
+  const kitLoad = SCHOOL_KITS[state.selectedSchool];
+  const roleLabelLoad = { single: 'Pure Single-Target', aoe: 'Pure AOE', mixed: 'Mixed' }[school.role] || '';
+  const roleColorLoad = { single: '#9ec5e8', aoe: '#e89e9e', mixed: '#c9b97a' }[school.role] || 'var(--gold)';
+  let loadoutHTML = `<h3>${school.name} ${roleLabelLoad ? `<span style="font-size:0.7rem;font-weight:normal;color:${roleColorLoad};border:1px solid ${roleColorLoad};padding:0.1rem 0.4rem;border-radius:0.3rem;vertical-align:middle">${roleLabelLoad}</span>` : ''}</h3>
     <p style="font-size:0.85rem;color:var(--ink-soft);margin:0 0 0.4rem">${school.flavor}</p>
+    ${kitLoad ? `<p style="font-size:0.82rem;margin:0 0 0.4rem"><strong style="color:var(--gold)">Passive — ${kitLoad.passiveName}</strong> <span style="color:var(--ink-soft);font-size:0.78rem">${kitLoad.passiveZh}</span>: ${kitLoad.passiveDesc}</p>` : ''}
     <p style="font-size:0.82rem;color:var(--ink-soft);margin:0 0 0.5rem">Active Abilities <strong style="color:var(--gold)">${activeCount}/${activeCap}</strong> — only active techniques can be used in combat. Tap to slot / unslot. Slots grow +1 at Golden Core and +1 at Nascent Soul.</p>
     <div class="tech-list">`;
   state.loadout.forEach(tid => {
@@ -9809,8 +10377,10 @@ function renderCharSheet() {
     if (!t) return;
     const effQi = Math.ceil(t.qi * (mods.schoolQiMult[t.school] || 1));
     const effHp = t.hpCost ? Math.ceil(t.hpCost * mods.hpCostMult) : 0;
-    const meta = [`${effQi} qi`, `${t.cd} turn cd`];
+    // v0.45: ST/AOE + status badges on every technique row.
+    const meta = [t.target === 'aoe' ? 'AOE' : 'ST', `${effQi} qi`, `${t.cd} turn cd`];
     if (effHp) meta.push(`${effHp} HP cost`);
+    if (t.effect && STATUS_INFO[t.effect]) meta.push(STATUS_INFO[t.effect].label);
     const isActive = state.activeSkills.includes(tid);
     const full = !isActive && activeCount >= activeCap;
     const tag = isActive
@@ -10475,10 +11045,13 @@ function renderCombat() {
       const disabled = cd > 0 || noQi || noHp;
       const btn = document.createElement('button');
       btn.className = 'action-btn tip';
-      btn.setAttribute('data-tip', t.desc);
+      // v0.45: explicit single-target / AOE marker on every technique button.
+      const isAoeBtn = t.target === 'aoe';
+      btn.setAttribute('data-tip', `[${isAoeBtn ? 'AOE — hits every standing enemy at 70% damage' : 'Single-target'}] ${t.desc}`);
       const cdLabel = cd > 0 ? ` · cd ${cd}` : '';
       const hpLabel = effHp ? ` · ${effHp} hp` : '';
-      btn.innerHTML = `<span class="name">${t.name}</span><span class="meta">${effCost} qi${hpLabel}${cdLabel}</span>`;
+      const tgtLabel = isAoeBtn ? ' · AOE' : ' · ST';
+      btn.innerHTML = `<span class="name">${t.name}</span><span class="meta">${effCost} qi${hpLabel}${tgtLabel}${cdLabel}</span>`;
       btn.disabled = disabled;
       btn.onclick = () => playerTechnique(tid);
       grid2.appendChild(btn);
@@ -10493,11 +11066,25 @@ function renderCombatant(c, side) {
   const panel = document.createElement('div');
   panel.className = 'combatant';
   const broken = c.broken > 0;
-  const effTags = (c.effects || []).map(ef => {
-    if (ef.kind === 'qi_drain')   return `<span class="rarity-tag rarity-rare tip" data-tip="Losing ${ef.value} qi per turn for ${ef.turns} more turn${ef.turns===1?'':'s'}.">drain ${ef.turns}</span>`;
-    if (ef.kind === 'qi_cost_up') return `<span class="rarity-tag rarity-rare tip" data-tip="Technique qi costs multiplied ×${ef.value} for ${ef.turns} more turn${ef.turns===1?'':'s'}.">meridians knotted ${ef.turns}</span>`;
-    return '';
+  // v0.45: all statuses render generically from STATUS_INFO (burn/poison/chill/shock/
+  // sunder/mark/leech/entangle/silence/resonance/oathbound + the original drains).
+  let effTags = (c.effects || []).map(ef => {
+    const info = STATUS_INFO[ef.kind];
+    if (!info) return '';
+    const stackStr = (ef.stacks || 1) > 1 ? ` ×${ef.stacks}` : '';
+    return `<span class="rarity-tag rarity-rare tip" data-tip="${escapeTip(info.tip(ef))}">${info.label}${stackStr} ${ef.turns}</span>`;
   }).join('');
+  // v0.45: soul-broken marker (spirit pool emptied = +30% damage taken).
+  if (c.spiritMax > 0 && c.spirit <= 0) {
+    effTags += `<span class="rarity-tag rarity-legendary tip" data-tip="Soul-broken: spirit pool emptied — takes +30% damage from all sources.">soul-broken</span>`;
+  }
+  // v0.45: player-side passive/buff markers.
+  if (side === 'player') {
+    if (c.swordIntent > 0) effTags += `<span class="rarity-tag rarity-legendary tip" data-tip="Sword Intent: +${c.swordIntent * 8}% damage. Builds on technique hits; meditating resets it.">sword intent ${c.swordIntent}/5</span>`;
+    if (c.buffs && c.buffs.dodgeTurns > 0) effTags += `<span class="rarity-tag rarity-legendary tip" data-tip="Mistwalk: +${Math.round((c.buffs.dodgeChance||0)*100)}% dodge for ${c.buffs.dodgeTurns} more round(s).">mistwalk ${c.buffs.dodgeTurns}</span>`;
+    if (c.buffs && c.buffs.reflectTurns > 0) effTags += `<span class="rarity-tag rarity-legendary tip" data-tip="Avalanche Guard: +${Math.round((c.buffs.reflectPct||0)*100)}% of damage taken is reflected for ${c.buffs.reflectTurns} more round(s).">guard ${c.buffs.reflectTurns}</span>`;
+    if (c.buffs && c.buffs.regrowthTurns > 0) effTags += `<span class="rarity-tag rarity-legendary tip" data-tip="Regrowth: healing ${Math.round((c.buffs.regrowthPct||0)*100)}% max HP per round for ${c.buffs.regrowthTurns} more round(s).">regrowth ${c.buffs.regrowthTurns}</span>`;
+  }
   const brokenTag = broken
     ? `<span class="broken-banner tip" data-tip="Posture broken: qi damage to this combatant is doubled for ${c.broken} more turn${c.broken===1?'':'s'}.">Posture Broken — ${c.broken}</span>`
     : '';
@@ -10621,6 +11208,17 @@ try {
       if (parsed.lifespanBonus == null) parsed.lifespanBonus = 0;
       if (parsed.bodyQuench == null) parsed.bodyQuench = 0;
       if (!parsed.settings) parsed.settings = { noAgeDeath: false };
+      // v0.45: schools gained a 5th signature base technique — backfill it into existing
+      // saves' loadout (and active set, base slots also grew 4 -> 5 so there's room).
+      if (parsed.selectedSchool && SCHOOLS[parsed.selectedSchool] && Array.isArray(parsed.loadout)) {
+        SCHOOLS[parsed.selectedSchool].techniques.forEach(tid => {
+          if (!parsed.loadout.includes(tid)) parsed.loadout.push(tid);
+          if (Array.isArray(parsed.activeSkills) && !parsed.activeSkills.includes(tid)
+              && parsed.activeSkills.length < activeSlotsForRealm(parsed)) {
+            parsed.activeSkills.push(tid);
+          }
+        });
+      }
       state = parsed;
     }
   }
