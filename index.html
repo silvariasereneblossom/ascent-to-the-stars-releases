@@ -541,7 +541,7 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v0.45';
+const GAME_VERSION = 'v0.46';
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
 const ELEMENT_ZH   = { metal:'金', wood:'木', water:'水', fire:'火', earth:'土' };
@@ -2229,6 +2229,53 @@ Object.entries(SCHOOL_ROLES).forEach(([id, info]) => {
 });
 // v0.45: demon_heart and dragonforge went pure-ST — strip stale AOE tags from their techs.
 ['demon_reap', 'heatfold_cleave'].forEach(tid => { if (TECHNIQUES[tid]) delete TECHNIQUES[tid].target; });
+
+// ============================================================
+// v0.46: the 36 "mastery" techniques (added v0.21, previously UNOBTAINABLE — no
+// acquisition path existed) join the realm-gated buy ladder. Each gets a realm tier +
+// spirit-stone cost here and flows through the existing Wandering Master / Sect
+// pipeline (buyTechnique / buySectTechnique read minRealmTier + cost off TECHNIQUES).
+// Every school now has a 4-6 step purchase ladder spanning QC -> SS.
+// ============================================================
+const MASTERY_TIER_COST = { 1: 20, 2: 50, 3: 150, 4: 400, 5: 1000, 6: 2500 };
+const MASTERY_UNLOCKS = {
+  // Azure Sword: ladder QC rain -> FE thread(v0.21) -> CF void-step -> GC void-stride(v0.21) -> NS one-cut
+  azure_rain: 1, azure_void: 3, azure_dao_single: 5,
+  // Iron Body: QC stomp -> FE oath -> GC mountain
+  iron_crushing: 1, iron_oath: 2, iron_ascendant: 4,
+  // Whispering Array: QC echo -> CF prison -> GC divine-brand (-> NS seal v0.21)
+  array_echo: 1, array_prison: 3, array_divine: 4,
+  // Crimson Flame: QC ring (-> FE pillar v0.21) -> CF soul-sear -> GC avatar (-> NS revival v0.21)
+  flame_ring: 1, flame_soul: 3, flame_avatar: 4,
+  // Moonlit Water: QC droplet -> FE refraction -> GC apotheosis
+  water_pierce: 1, moon_refraction: 2, water_apotheosis: 4,
+  // Silent Daggers: QC mark -> FE vanish (-> CF throat v0.21) -> GC blood dao
+  assassin_mark: 1, silent_vanish: 2, blood_dao: 4,
+  // Demon Heart: CF feast -> NS demon dao (-> SS purge v0.21)
+  demon_feast: 3, demon_dao: 5,
+  // Starfall: FE hail (-> CF rain v0.21) -> NS nova
+  star_hail: 2, nova_cataclysm: 5,
+  // Verdant Monastery: FE roar -> GC world-root
+  grove_roar: 2, worldroot_finisher: 4,
+  // Thunder Hammer: FE peal -> NS heavensmash
+  thunder_peal: 2, heavensmash: 5,
+  // Cloud Travelers: FE dance -> GC sky-pierce
+  cloud_dance: 2, sky_pierce_finisher: 4,
+  // Bone Reed: FE funeral song (-> GC dirge v0.21) -> NS lullaby
+  funeral_song: 2, death_lullaby: 5,
+  // Jade Inkwell: QC scholar's mark -> GC sealing word
+  scholar_mark: 1, sealing_word: 4,
+  // Dragonforge: FE pillar (-> GC pivot v0.21) -> NS inheritance
+  forge_pillar: 2, dragon_inheritance: 5,
+  // Chain-Saint: FE net -> GC oath-kept (-> NS severing / SS unbinding v0.21)
+  chain_net: 2, oath_finisher: 4,
+};
+Object.entries(MASTERY_UNLOCKS).forEach(([tid, tier]) => {
+  const t = TECHNIQUES[tid];
+  if (!t) return;
+  t.minRealmTier = tier;
+  t.cost = MASTERY_TIER_COST[tier];
+});
 
 // ============================================================
 // v0.45: School Kits — each school's always-on passive + machine-readable hook data.
@@ -5952,6 +5999,31 @@ function buySectTechnique(techId) {
 const OPPORTUNITY_CD_MS = 5 * 60 * 1000;
 function opportunityReadyAt() { return (state.lastOpportunity || 0) + OPPORTUNITY_CD_MS; }
 function opportunityReady() { return Date.now() >= opportunityReadyAt(); }
+// v0.46: pick a piece of equipment (weapon or armor) whose recipe sits at the given realm
+// tier. Used by the Fortune jackpots — tierOffset > 0 hands the player gear from ABOVE
+// their realm. Skips already-owned ids; widens to the next tier down if a pool is dry
+// (tier 3 weapons are thin). Returns { kind, id, name } or null.
+function rollEquipmentAtTier(tier) {
+  tier = Math.max(0, Math.min(6, tier));
+  for (let t = tier; t >= 0; t--) {
+    const weaponPool = ARTIFACT_RECIPES
+      .filter(r => (r.minRealmTier || 0) === t && WEAPONS[r.id])
+      .filter(r => !state.weapons.owned.includes(r.id) && r.id !== state.weapon)
+      .map(r => ({ kind: 'weapon', id: r.id, name: WEAPONS[r.id].name }));
+    const armorPool = ARMOR_RECIPES
+      .filter(r => (r.minRealmTier || 0) === t && ARMOR[r.id])
+      .filter(r => !state.armor.owned.includes(r.id))
+      .map(r => ({ kind: 'armor', id: r.id, name: ARMOR[r.id].name }));
+    const pool = weaponPool.concat(armorPool);
+    if (pool.length) return pool[Math.floor(Math.random() * pool.length)];
+  }
+  return null;
+}
+function grantFortuneEquipment(piece) {
+  if (piece.kind === 'weapon') state.weapons.owned.push(piece.id);
+  else state.armor.owned.push(piece.id);
+}
+
 const FORTUNE_EVENTS = [
   { id: 'quiet', good: false, base: 8, resolve() {
     return 'The road is quiet. You return with little but a clearer mind.'; } },
@@ -5971,6 +6043,26 @@ const FORTUNE_EVENTS = [
     const n = Math.max(20, Math.floor((info ? info.cost : 1000) * 0.06));
     addInsight(n);
     return `An ancient stele gives a flash of comprehension — <strong>+${n} insight</strong>.`; } },
+  // ---- v0.46: variety pass ----
+  { id: 'herbs', good: true, base: 7, resolve() {
+    const unlocked = Object.keys(HERBS).filter(herbUnlocked);
+    const id = unlocked[Math.floor(Math.random() * unlocked.length)] || 'qi_grass';
+    const n = 2 + Math.floor(Math.random() * 3);
+    state.base.herbs[id] = (state.base.herbs[id] || 0) + n;
+    return `A wild patch, untouched — you gather <strong>${n}× ${HERBS[id].name}</strong>.`; } },
+  { id: 'spring', good: true, base: 5, resolve() {
+    state.base.buffs = state.base.buffs.filter(b => b.kind !== 'cultivation_mult');
+    state.base.buffs.push({ kind: 'cultivation_mult', value: 1.5, expiresAt: Date.now() + 30 * 60000, sourceName: 'Spirit Spring' });
+    return 'You bathe in a hidden spirit spring — <strong>+50% cultivation rate for 30 minutes</strong>.'; } },
+  { id: 'spar', good: true, base: 5, resolve() {
+    const c = 5 + (state.realm.tierIdx || 0) * 3;
+    grantContribution(c);
+    return `A wandering disciple of your own sect challenges you to a friendly spar. Win or lose, the tale travels — <strong>+${c} contribution</strong>.`; } },
+  { id: 'weapon_find', good: true, base: 3, resolve() {
+    const piece = rollEquipmentAtTier(state.realm.tierIdx || 0);
+    if (!piece) return FORTUNE_EVENTS.find(ev => ev.id === 'stones').resolve();
+    grantFortuneEquipment(piece);
+    return `Half-buried by the roadside: <strong>${piece.name}</strong> (${piece.kind}), abandoned mid-journey by someone who never returned.`; } },
   { id: 'master', good: true, base: 3, resolve() {
     state.freePoints = (state.freePoints || 0) + 1;
     return 'A hidden master weighs your heart and, satisfied, imparts a gift — <strong>+1 Cultivation Point</strong>.'; } },
@@ -5979,6 +6071,17 @@ const FORTUNE_EVENTS = [
     const id = ids[Math.floor(Math.random() * ids.length)];
     state.artifacts.owned.push(id);
     return `You unearth a forgotten treasure — <strong>${ARTIFACTS[id].name}</strong> (artifact).`; } },
+  // ---- v0.46: the high-Fortune equipment jackpots — gear from ABOVE your realm ----
+  { id: 'bequest', good: true, base: 2, luckGate: 10, resolve() {
+    const piece = rollEquipmentAtTier((state.realm.tierIdx || 0) + 1);
+    if (!piece) return FORTUNE_EVENTS.find(ev => ev.id === 'stones').resolve();
+    grantFortuneEquipment(piece);
+    return `A dying cultivator of the realm above yours presses their treasure into your hands — <strong>${piece.name}</strong> (${piece.kind}), beyond anything you could yet forge.`; } },
+  { id: 'immortal_cache', good: true, base: 1, luckGate: 16, resolve() {
+    const piece = rollEquipmentAtTier((state.realm.tierIdx || 0) + 2);
+    if (!piece) return FORTUNE_EVENTS.find(ev => ev.id === 'bequest').resolve();
+    grantFortuneEquipment(piece);
+    return `Your foot finds a seam in the world: a fallen immortal's cache, sealed an age ago. Within lies <strong>${piece.name}</strong> (${piece.kind}) — a treasure from two realms beyond your own.`; } },
   { id: 'inheritance', good: true, base: 1, luckGate: 8, resolve() {
     const info = advanceInfo(state);
     const ins = Math.max(100, Math.floor((info ? info.cost : 2000) * 0.25));
@@ -10580,7 +10683,9 @@ function renderCharSheet() {
   masterP.className = 'panel';
   masterP.innerHTML = `<h3>Wandering Master <span style="font-weight:normal;color:var(--ink-soft);font-size:0.85rem">游师</span></h3>
     <p style="font-size:0.85rem;color:var(--ink-soft);margin:0 0 0.6rem">Sells fragments of the deeper forms of your school. Costs scale with the realm of the form.</p>`;
-  const gatedTechs = Object.entries(TECHNIQUES).filter(([, t]) => t.minRealmTier && t.school === state.selectedSchool);
+  const gatedTechs = Object.entries(TECHNIQUES)
+    .filter(([, t]) => t.minRealmTier && t.school === state.selectedSchool)
+    .sort((a, b) => (a[1].minRealmTier - b[1].minRealmTier) || ((a[1].cost || 0) - (b[1].cost || 0)));  // v0.46: realm-sorted ladder
   if (!gatedTechs.length) {
     masterP.innerHTML += `<div style="font-size:0.85rem;color:var(--ink-soft);font-style:italic">The master has nothing to teach a sect that does not branch beyond its starting form.</div>`;
   }
@@ -10738,7 +10843,9 @@ function renderCharSheet() {
   const exBtn = document.createElement('button'); exBtn.textContent = 'Requisition (50)'; exBtn.disabled = contrib < 50;
   exBtn.onclick = () => { exchangeContribForStones(); render(); };
   exBtns.appendChild(exBtn); exRow.appendChild(exBtns); sectP.appendChild(exRow);
-  Object.entries(TECHNIQUES).filter(([, t]) => t.minRealmTier && t.school === state.selectedSchool).forEach(([tid, tech]) => {
+  Object.entries(TECHNIQUES).filter(([, t]) => t.minRealmTier && t.school === state.selectedSchool)
+    .sort((a, b) => (a[1].minRealmTier - b[1].minRealmTier) || ((a[1].cost || 0) - (b[1].cost || 0)))  // v0.46: realm-sorted ladder
+    .forEach(([tid, tech]) => {
     const owned = state.loadout.includes(tid);
     const tierMet = state.realm.tierIdx >= tech.minRealmTier;
     const cost = sectTechCost(tech);
@@ -10764,7 +10871,7 @@ function renderCharSheet() {
   const oppReady = opportunityReady();
   const luckVal = (state.finalStats && state.finalStats.luck) || 0;
   let fortHTML = `<h3>Wandering <span style="font-weight:normal;color:var(--ink-soft);font-size:0.85rem">奇遇</span></h3>
-    <p style="font-size:0.85rem;color:var(--ink-soft);margin:0 0 0.5rem">Venture off the path in search of fortuitous encounters. Your <strong>Fortune (${luckVal})</strong> tilts fate toward better outcomes — and high Fortune can open a dead immortal's inheritance.</p>`;
+    <p style="font-size:0.85rem;color:var(--ink-soft);margin:0 0 0.5rem">Venture off the path in search of fortuitous encounters. Your <strong>Fortune (${luckVal})</strong> tilts fate toward better outcomes. High Fortune opens rarer fates: a dead immortal's inheritance (8+), a dying cultivator's bequest of equipment from the realm above yours (10+), or a fallen immortal's cache from two realms beyond (16+).</p>`;
   if (state.lastOpportunityResult) fortHTML += `<p style="font-size:0.88rem;margin:0 0 0.5rem;color:var(--gold)">${state.lastOpportunityResult}</p>`;
   fortP.innerHTML = fortHTML;
   const fbtns = document.createElement('div');
