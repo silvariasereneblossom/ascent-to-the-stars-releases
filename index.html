@@ -541,7 +541,7 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v0.47';
+const GAME_VERSION = 'v0.48';
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
 const ELEMENT_ZH   = { metal:'金', wood:'木', water:'水', fire:'火', earth:'土' };
@@ -9377,7 +9377,12 @@ function renderLanding() {
       row.appendChild(reincBtn);
       row.appendChild(freshBtn);
       dp.appendChild(row);
-      dp.innerHTML += `<p style="font-size:0.72rem;color:var(--ink-soft);margin-top:0.5rem;text-align:center">Reincarnation preserves the soul's childhood; flesh, school, and fate are re-rolled.</p>`;
+      // NOTE: append as an element, NOT dp.innerHTML += ... — the latter re-parses dp and
+      // wipes the JS onclick handlers on the Reincarnate/Start Fresh buttons (the bug).
+      const reincNote = document.createElement('p');
+      reincNote.style.cssText = 'font-size:0.72rem;color:var(--ink-soft);margin-top:0.5rem;text-align:center';
+      reincNote.textContent = "Reincarnation preserves the soul's childhood; flesh, school, and fate are re-rolled.";
+      dp.appendChild(reincNote);
     } else {
       dp.innerHTML += `<p style="font-size:0.78rem;color:var(--ink-soft);margin-top:0.6rem">The save is gone. The road resumes for whoever walks it next.</p>`;
     }
