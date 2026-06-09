@@ -541,7 +541,7 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v0.46';
+const GAME_VERSION = 'v0.47';
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
 const ELEMENT_ZH   = { metal:'金', wood:'木', water:'水', fire:'火', earth:'土' };
@@ -6492,7 +6492,7 @@ function dieRun(cause, prose, charName) {
     childhoodSnapshot: (state && state.childhood) ? JSON.parse(JSON.stringify(state.childhood)) : null,
   };
   lastDeath.soulsEarned = bankSoulsOnDeath(lastDeath.lifetimeInsight);  // Wave 2c: bank cross-life souls
-  try { localStorage.removeItem('atts-char'); } catch (e) {}
+  try { localStorage.removeItem(charKey()); } catch (e) {}
   state = null;
   combat = null;
   pendingTribulation = null;
@@ -6529,10 +6529,64 @@ const SOUL_UPGRADES = {
   insight: { name: 'Soul Insight',     zh: '魂悟', per: 0.04, baseCost: 3, costMult: 1.4, fmt: r => `+${Math.round(r * 4)}% combat insight` },
   memory:  { name: 'Inherited Memory', zh: '宿忆', per: 120,  baseCost: 5, costMult: 1.5, fmt: r => `+${r * 120} starting insight each life` },
 };
+// ============================================================
+// Save slots — 5 independent characters. Each slot has its own character
+// (atts-char-<N>) and soul prestige (atts-meta-<N>); 'atts-slot' holds the active
+// slot. The legacy single-save keys (atts-char / atts-meta) migrate into slot 0 once.
+// ============================================================
+const SAVE_SLOTS = 5;
+function charKey(n) { return 'atts-char-' + (n == null ? ACTIVE_SLOT : n); }
+function metaKey(n) { return 'atts-meta-' + (n == null ? ACTIVE_SLOT : n); }
+function loadActiveSlot() {
+  try { const v = parseInt(localStorage.getItem('atts-slot'), 10); if (v >= 0 && v < SAVE_SLOTS) return v; } catch (e) {}
+  return 0;
+}
+(function migrateLegacySave() {
+  try {
+    if (localStorage.getItem('atts-slot') != null) return;  // already on slots
+    const lc = localStorage.getItem('atts-char');
+    const lm = localStorage.getItem('atts-meta');
+    if (lc != null && localStorage.getItem('atts-char-0') == null) localStorage.setItem('atts-char-0', lc);
+    if (lm != null && localStorage.getItem('atts-meta-0') == null) localStorage.setItem('atts-meta-0', lm);
+    localStorage.setItem('atts-slot', '0');
+  } catch (e) {}
+})();
+let ACTIVE_SLOT = loadActiveSlot();
+// Peek a slot's character (for the slot picker) without loading it as `state`.
+function slotInfo(n) {
+  try {
+    const raw = localStorage.getItem(charKey(n));
+    if (!raw) return { empty: true };
+    const p = JSON.parse(raw);
+    if (!p || !p.confirmed) return { empty: true };
+    return {
+      empty: false,
+      name: p.name || 'Unnamed',
+      realm: ((REALMS[(p.realm && p.realm.tierIdx) || 0] || {}).name) || '?',
+      school: (SCHOOLS[p.selectedSchool] && SCHOOLS[p.selectedSchool].name) || '',
+      ascensions: p.ascensions || 0,
+    };
+  } catch (e) { return { empty: true }; }
+}
+// Switching a slot reboots the page so the load path re-runs for that slot's char + meta.
+function selectSlot(n) {
+  if (n == null || n < 0 || n >= SAVE_SLOTS || n === ACTIVE_SLOT) return;
+  try { localStorage.setItem('atts-slot', String(n)); } catch (e) {}
+  if (typeof location !== 'undefined' && location.reload) location.reload();
+}
+function deleteSlot(n) {
+  const info = slotInfo(n);
+  const who = info.empty ? ('the empty slot ' + (n + 1)) : (info.name + ' (slot ' + (n + 1) + ')');
+  if (!confirm('Delete ' + who + '? The character AND its souls are erased — this cannot be undone.')) return;
+  try { localStorage.removeItem(charKey(n)); localStorage.removeItem(metaKey(n)); } catch (e) {}
+  if (n === ACTIVE_SLOT) { if (typeof location !== 'undefined' && location.reload) location.reload(); }
+  else render();
+}
+
 function defaultMeta() { return { souls: 0, lives: 0, up: { cult: 0, body: 0, insight: 0, memory: 0 }, settings: { noAgeDeath: false, music: true, musicVol: 0.6 } }; }
 function loadMeta() {
   try {
-    const raw = localStorage.getItem('atts-meta');
+    const raw = localStorage.getItem(metaKey());
     if (!raw) return defaultMeta();
     const m = JSON.parse(raw);
     if (!m || typeof m !== 'object') return defaultMeta();
@@ -6545,7 +6599,7 @@ function loadMeta() {
     return m;
   } catch (e) { return defaultMeta(); }
 }
-function saveMeta() { try { localStorage.setItem('atts-meta', JSON.stringify(META)); } catch (e) {} }
+function saveMeta() { try { localStorage.setItem(metaKey(), JSON.stringify(META)); } catch (e) {} }
 function bankSoulsOnDeath(lifetimeInsight) {
   const earned = Math.max(1, Math.floor(Math.sqrt(Math.max(0, lifetimeInsight || 0)) / 8));
   META.souls += earned;
@@ -9186,8 +9240,44 @@ function renderTitle() {
     row.appendChild(beg); actP.appendChild(row);
   }
 
+  appendSlotPicker();
   app.appendChild(buildConfigPanel());
   appendSoulAltar();
+}
+
+// Save-slot picker (title screen) — 5 independent characters; switching reboots on that slot.
+function appendSlotPicker() {
+  const sp = document.createElement('div');
+  sp.className = 'panel';
+  sp.innerHTML = `<h3>Save Slots <span style="font-weight:normal;color:var(--ink-soft);font-size:0.85rem">存档</span></h3>
+    <p style="font-size:0.8rem;color:var(--ink-soft);margin:0 0 0.5rem">Five independent characters &mdash; each keeps its own progress and souls. Switching reloads the game on that slot.</p>`;
+  for (let n = 0; n < SAVE_SLOTS; n++) {
+    const info = slotInfo(n);
+    const active = (n === ACTIVE_SLOT);
+    const row = document.createElement('div'); row.className = 'consumable-row';
+    if (active) row.style.cssText = 'border-left:3px solid var(--gold);padding-left:0.4rem';
+    const summary = info.empty
+      ? '<span style="color:var(--ink-soft)">Empty</span>'
+      : `<strong>${info.name}</strong> <span style="color:var(--ink-soft);font-size:0.82rem">${info.school ? info.school + ' &middot; ' : ''}${info.realm}${info.ascensions ? ' &middot; Asc ×' + info.ascensions : ''}</span>`;
+    row.innerHTML = `<div class="consumable-info">
+        <div class="consumable-name">Slot ${n + 1}${active ? ' <span class="rarity-tag" style="border-color:var(--gold);color:var(--gold)">active</span>' : ''}</div>
+        <div class="consumable-desc">${summary}</div>
+      </div>`;
+    const btns = document.createElement('div'); btns.className = 'consumable-buttons';
+    if (!active) {
+      const sel = document.createElement('button'); sel.className = info.empty ? 'ghost' : 'gold';
+      sel.textContent = info.empty ? 'Use slot' : 'Switch';
+      sel.onclick = () => selectSlot(n);
+      btns.appendChild(sel);
+    }
+    if (!info.empty) {
+      const del = document.createElement('button'); del.className = 'ghost'; del.textContent = 'Delete';
+      del.onclick = () => deleteSlot(n);
+      btns.appendChild(del);
+    }
+    row.appendChild(btns); sp.appendChild(row);
+  }
+  app.appendChild(sp);
 }
 
 // Shared Config / Settings panel — used by BOTH the title screen and the in-game Config tab.
@@ -10960,7 +11050,7 @@ function renderCharSheet() {
   app.appendChild(dz);  // always visible (footer)
   document.getElementById('restart').onclick = () => {
     if (!confirm('Abandon this cultivator? All progress will be lost.')) return;
-    localStorage.removeItem('atts-char');
+    localStorage.removeItem(charKey());
     state = null;
     if (cultivationTimer) { clearInterval(cultivationTimer); cultivationTimer = null; }
     render();
@@ -11233,10 +11323,10 @@ function bar(label, cur, max, cls, tip) {
 // Save / load / migration
 // ============================================================
 function saveChar() {
-  try { localStorage.setItem('atts-char', JSON.stringify(state)); } catch (e) {}
+  try { localStorage.setItem(charKey(), JSON.stringify(state)); } catch (e) {}
 }
 try {
-  const saved = localStorage.getItem('atts-char');
+  const saved = localStorage.getItem(charKey());
   if (saved) {
     const parsed = JSON.parse(saved);
     if (parsed && parsed.confirmed) {
