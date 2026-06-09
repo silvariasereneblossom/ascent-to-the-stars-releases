@@ -541,7 +541,7 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v0.48';
+const GAME_VERSION = 'v0.49';
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
 const ELEMENT_ZH   = { metal:'金', wood:'木', water:'水', fire:'火', earth:'土' };
@@ -876,7 +876,7 @@ const WEAPONS = {
   dragonbone_fists: { name: 'Dragonbone Fists', zh: '龙骨拳', power: 16, slots: 3, kind: 'unarmed', rarity: 'legendary',
     desc: "Knuckle-plates carved from a dragon's jaw. They remember flight, and resent the ground.",
     apply: m => { m.flatDR += 5; m.critChance += 0.05; m.hpBonus += 60; } },
-  jade_blade: { name: 'Spirit Jade Blade', zh: '灵玉剑', power: 17, slots: 3, kind: 'sword', rarity: 'legendary',
+  jade_blade: { name: 'Spirit Jade Blade', zh: '灵玉剑', power: 17, slots: 3, kind: 'sword', rarity: 'legendary', lifespan: 100,
     desc: 'A translucent blade of green spirit-jade. It sings so softly only the dying can hear.',
     apply: m => { m.critChance += 0.08; m.qiOnKill += 4; } },
 
@@ -1099,7 +1099,7 @@ const WEAPONS = {
     apply: m => { if (!m.vsKindMult) m.vsKindMult = {}; m.vsKindMult.demonic = (m.vsKindMult.demonic || 0) + 0.45; m.vsKindMult.spirit = (m.vsKindMult.spirit || 0) + 0.30; m.vsKindMult.heaven = (m.vsKindMult.heaven || 0) + 0.20; m.qiOnKill += 8; } },
 
   // ---- Divine (2 originals) ----
-  heaven_severing_blade: { name: 'Heaven-Severing Blade', zh: '断天剑', power: 42, slots: 5, kind: 'sword', rarity: 'divine',
+  heaven_severing_blade: { name: 'Heaven-Severing Blade', zh: '断天剑', power: 42, slots: 5, kind: 'sword', rarity: 'divine', lifespan: 400,
     desc: 'A blade that has cut one thing only, and that thing bled starlight. It remembers.',
     apply: m => { m.critChance += 0.20; m.critMult += 0.50; m.qiOnKill += 12; if (!m.vsKindMult) m.vsKindMult = {}; m.vsKindMult.heaven = (m.vsKindMult.heaven || 0) + 0.25; } },
   primordial_fist: { name: 'Primordial Dao Fist', zh: '初道拳', power: 38, slots: 5, kind: 'unarmed', rarity: 'divine',
@@ -1182,7 +1182,7 @@ const WEAPONS = {
   worldtree_staff: { name: 'Worldtree Staff', zh: '世树杖', power: 38, slots: 4, kind: 'staff', rarity: 'legendary',
     desc: 'Cut from a branch that remembers being a forest. It still tries, faintly, to grow.',
     apply: m => { m.qiBonus += 36; m.qiRegenBonus += 9; m.spiritDamageMult *= 1.18; } },
-  primordial_bough: { name: 'Primordial Bough', zh: '原木杖', power: 46, slots: 5, kind: 'staff', rarity: 'legendary',
+  primordial_bough: { name: 'Primordial Bough', zh: '原木杖', power: 46, slots: 5, kind: 'staff', rarity: 'legendary', lifespan: 150,
     desc: 'Older than the idea of wood. Held overnight, it puts out a single impossible leaf.',
     apply: m => { m.qiBonus += 50; m.qiRegenBonus += 12; m.spiritBonus += 18; } },
   // -- Hammer --
@@ -4891,6 +4891,44 @@ const CONSUMABLES = {
     effects: [{ kind: 'cultivation_mult', value: 1.5, durationMin: 30 }],
     desc: '+50% cultivation rate for 30 minutes.',
   },
+
+  // ---- v0.49: lifespan pills. ADD years (longevity) or SPEND a % of remaining lifespan for power. ----
+  longevity_pill: {
+    name: 'Longevity Pill', zh: '延寿丹', kind: 'pill', rarity: 'rare',
+    recipe: { jade_lotus: 2 }, minRealmTier: 1,
+    effects: [{ kind: 'lifespan_add', value: 80 }],
+    desc: 'Permanently extends your lifespan by 80 years.',
+  },
+  millennium_peach: {
+    name: 'Millennium Peach', zh: '蟠桃', kind: 'pill', rarity: 'legendary',
+    recipe: { jade_lotus: 4, qi_grass: 6 }, minRealmTier: 3,
+    effects: [{ kind: 'lifespan_add', value: 500 }],
+    desc: 'A peach that ripens once an age. Permanently extends your lifespan by 500 years.',
+  },
+  blood_forging_pill: {
+    name: 'Blood-Forging Pill', zh: '血锻丹', kind: 'pill', rarity: 'rare',
+    recipe: { body_root: 3 }, minRealmTier: 2,
+    effects: [{ kind: 'stat_perm_all', value: 1 }, { kind: 'lifespan_cost_pct', value: 0.10 }],
+    desc: 'Permanently +1 to ALL stats — but burns 10% of your remaining lifespan.',
+  },
+  marrow_carving_pill: {
+    name: 'Marrow-Carving Pill', zh: '刻髓丹', kind: 'pill', rarity: 'rare',
+    recipe: { body_root: 4 }, minRealmTier: 2,
+    effects: [{ kind: 'stat_perm', statKey: 'body', value: 4 }, { kind: 'lifespan_cost_pct', value: 0.12 }],
+    desc: 'Permanently +4 Body — at the cost of 12% of your remaining lifespan.',
+  },
+  soul_kindling_pill: {
+    name: 'Soul-Kindling Pill', zh: '燃魂丹', kind: 'pill', rarity: 'rare',
+    recipe: { jade_lotus: 2, qi_grass: 3 }, minRealmTier: 2,
+    effects: [{ kind: 'stat_perm', statKey: 'spirit', value: 4 }, { kind: 'lifespan_cost_pct', value: 0.12 }],
+    desc: 'Permanently +4 Spirit — burns 12% of your remaining lifespan.',
+  },
+  heaven_defying_pill: {
+    name: 'Heaven-Defying Pill', zh: '逆天丹', kind: 'pill', rarity: 'legendary',
+    recipe: { jade_lotus: 5 }, minRealmTier: 3,
+    effects: [{ kind: 'cultivation_mult', value: 4, durationMin: 20 }, { kind: 'lifespan_cost_pct', value: 0.08 }],
+    desc: '+300% cultivation rate for 20 minutes — spends 8% of your remaining lifespan.',
+  },
   iron_bone_pill: {
     name: 'Iron Bone Pill', zh: '铁骨丹', kind: 'pill', rarity: 'common',
     recipe: { body_root: 2 },
@@ -6200,12 +6238,26 @@ function realmRunExtract(collapsed) {
 // one realm for a very long time risks old age, which is death -> reincarnation (souls intact),
 // not a hard loss. Surviving a Heavenly tribulation permanently tempers the body (+HP).
 // ============================================================
-const REALM_LIFESPAN = [80, 150, 250, 500, 1000, 2000, 5000];   // years, by realm tierIdx
-const AGE_PER_SEC = 0.04;   // ~25 seconds of active cultivation per in-world year
+// Lifespan is a RESOURCE, not a passive clock. Breaking realms hugely extends the span (ACS-style);
+// aging is slow; certain pills/schools/artifacts ADD lifespan; powerful pills SPEND it (a % of what's
+// remaining) for permanent power. Old age still kills you, but it's now aspirational, not a constant threat.
+const REALM_LIFESPAN = [80, 240, 700, 2000, 6000, 18000, 60000];   // years by tierIdx — each realm ~3x the last
+const AGE_PER_SEC = 0.008;   // gentle clock: ~125s of active cultivation per in-world year (5x slower than before)
+// Schools that thread longevity into their dao grant bonus years (added to the cap).
+const SCHOOL_LIFESPAN = { moonlit_water: 250, whispering_array: 150, crimson_flame: 80 };
+function schoolLifespanBonus(char) { return (char && SCHOOL_LIFESPAN[char.selectedSchool]) || 0; }
+// Weapons/artifacts carrying a `lifespan` add years while equipped.
+function weaponLifespanBonus(char) {
+  let total = 0;
+  try { equippedWeapons(char).forEach(wid => { const w = WEAPONS[wid]; if (w && w.lifespan) total += w.lifespan; }); } catch (e) {}
+  return total;
+}
 function lifespanMax() {
   const t = (state.realm && state.realm.tierIdx) || 0;
-  return (REALM_LIFESPAN[t] || REALM_LIFESPAN[REALM_LIFESPAN.length - 1]) + (state.lifespanBonus || 0);
+  const base = (REALM_LIFESPAN[t] || REALM_LIFESPAN[REALM_LIFESPAN.length - 1]);
+  return base + (state.lifespanBonus || 0) + schoolLifespanBonus(state) + weaponLifespanBonus(state);
 }
+function lifespanRemaining() { return Math.max(0, lifespanMax() - (state.age || 16)); }
 function advanceAge(seconds) {
   if (!state || !state.confirmed) return;
   state.age = (state.age || 16) + seconds * AGE_PER_SEC;
@@ -6238,6 +6290,12 @@ const ARRAYS = {
     desc: 'A pentagram of element-keyed stones. The dao listens harder when surrounded.',
     cost: { spirit_stone: 12, spirit_iron: 6 },
     mods: { insightMult: 1.20 }, minTier: 1,
+  },
+  spirit_field: {
+    name: 'Spirit Field Array', zh: '灵田阵',
+    desc: 'Glyph-channels that feed ambient qi straight into the soil. Herbs ripen 30% faster.',
+    cost: { spirit_stone: 10, qi_wood: 6 },
+    mods: { herbGrowMult: 0.70 }, minTier: 1,
   },
   steady_breath_pillar: {
     name: 'Pillar of Steady Breath', zh: '息柱',
@@ -7708,21 +7766,32 @@ function equipWeapon(id) {
 // ============================================================
 // Garden functions
 // ============================================================
-// v0.16: grow time = base × HERB_GROW_BASE_MULT (3), capped at 2 hours, then × heritage/skill mods.
-// The herb's intrinsic tier — already encoded in HERBS[id].growMinutes (commons in single digits,
-// divines in the hundreds) — is the only knob. Higher-tier herbs naturally hit the 2-hour cap and
-// stay there, while commons remain quick. The cap matches the cultivation offline cap so a
-// steady-state idle producer cycles at most every 2 hours regardless of what's planted.
-const HERB_GROW_BASE_MULT = 3;
-const HERB_GROW_CAP_SEC = 2 * 60 * 60;
-
+// v0.49 herb economy: a herb takes ~15 min base, +15 min per herb tier (higher-realm herbs take
+// LONGER). Your realm speeds production (-12%/realm). Skills, heritage, and the Spirit Field array
+// speed it further. Capped at 6 hours. Slow on purpose — herbs are now a scarcer resource (recipe
+// costs are 10x), so a steady garden matters.
+const HERB_GROW_BASE_MIN = 15;        // minutes for a tier-0 herb at Mortal realm
+const HERB_GROW_PER_TIER_MIN = 15;    // each herb tier adds this many minutes of base grow time
+const HERB_GROW_CAP_SEC = 6 * 60 * 60;
+function arraysHerbGrowMult() {
+  let m = 1;
+  try {
+    ((state.base && state.base.arrays) || []).forEach(aid => {
+      const a = ARRAYS[aid]; if (a && a.mods && a.mods.herbGrowMult) m *= a.mods.herbGrowMult;
+    });
+  } catch (e) {}
+  return m;
+}
 function effectiveGrowSeconds(herbId) {
   const herb = HERBS[herbId];
   if (!herb) return 0;
-  const capped = Math.min(HERB_GROW_CAP_SEC, herb.growMinutes * 60 * HERB_GROW_BASE_MULT);
+  const herbTier = herb.minRealmTier || 0;
+  const baseSec = (HERB_GROW_BASE_MIN + herbTier * HERB_GROW_PER_TIER_MIN) * 60;
+  const playerTier = (state && state.realm) ? state.realm.tierIdx : 0;
+  const realmSpeed = 1 / (1 + playerTier * 0.12);   // higher realm produces faster
   const hm = heritageMech();
-  const speedMult = skillPlantSpeedMult() * (hm.herbGrowMult || 1);  // <1 = faster
-  return Math.max(1, capped * speedMult);
+  const speedMult = skillPlantSpeedMult() * (hm.herbGrowMult || 1) * arraysHerbGrowMult();  // <1 = faster
+  return Math.max(60, Math.min(HERB_GROW_CAP_SEC, baseSec * realmSpeed * speedMult));
 }
 
 function plotRemainingSec(plot) {
@@ -7790,7 +7859,7 @@ function canCraft(recipeId) {
   const c = CONSUMABLES[recipeId];
   if (!c) return false;
   if (!meetsRealmReq(c)) return false;
-  for (const [herb, count] of Object.entries(c.recipe)) {
+  for (const [herb, count] of Object.entries(effectiveRecipe(c))) {
     if ((state.base.herbs[herb] || 0) < count) return false;
   }
   return true;
@@ -7874,10 +7943,18 @@ function unequipArmor(slot) {
   saveChar();
 }
 
+// v0.49: herb recipe costs scaled 10x via one knob. effectiveRecipe() is the single source the
+// craftable-check, the spend, and the display all read.
+const RECIPE_COST_MULT = 10;
+function effectiveRecipe(c) {
+  const r = {};
+  for (const [h, n] of Object.entries((c && c.recipe) || {})) r[h] = n * RECIPE_COST_MULT;
+  return r;
+}
 function craft(recipeId) {
   if (!canCraft(recipeId)) return;
   const c = CONSUMABLES[recipeId];
-  for (const [herb, count] of Object.entries(c.recipe)) {
+  for (const [herb, count] of Object.entries(effectiveRecipe(c))) {
     state.base.herbs[herb] -= count;
     if (state.base.herbs[herb] <= 0) delete state.base.herbs[herb];
   }
@@ -7898,6 +7975,14 @@ function consume(recipeId) {
     }
     if (ef.kind === 'stat_perm_all') {
       STAT_KEYS.forEach(k => { state.finalStats[k] = (state.finalStats[k] || 0) + ef.value; });
+      return;
+    }
+    if (ef.kind === 'lifespan_add') {            // extend the lifespan cap by N years
+      state.lifespanBonus = (state.lifespanBonus || 0) + ef.value;
+      return;
+    }
+    if (ef.kind === 'lifespan_cost_pct') {       // spend a % of REMAINING lifespan (never lethal on its own)
+      state.age = (state.age || 16) + lifespanRemaining() * ef.value;
       return;
     }
     // Timed buff
@@ -9914,7 +9999,7 @@ function renderCharSheet() {
     </div>
     <div class="realm-bar"><div class="realm-bar-fill" id="insight-bar" style="width:${progressPct}%"></div></div>
     <p style="font-size:0.85rem;color:var(--ink-soft);margin:0.2rem 0 0.6rem;font-style:italic">${tier.flavor}</p>`;
-  realmHTML += `<p class="tip" data-tip="Age advances only while actively cultivating at a location (idling and offline are safe). Each realm greatly extends your lifespan; reaching it is death by old age — which reincarnates you with your souls intact." style="font-size:0.8rem;color:var(--ink-soft);margin:0 0 0.4rem">Age <strong>${Math.floor(state.age || 16)}</strong> / lifespan <strong>${lifespanMax()}</strong> years${state.bodyQuench ? ` · body tempered ×${state.bodyQuench} (+${bodyQuenchHPAdd()} HP)` : ''}</p>`;
+  realmHTML += `<p class="tip" data-tip="Lifespan is a resource. Age advances slowly and ONLY while actively cultivating (idling/offline are safe); each realm hugely extends your span. Certain pills, schools, and artifacts ADD lifespan; powerful pills SPEND it (a share of what remains) for permanent power. Running out is death by old age — which reincarnates you with your souls intact." style="font-size:0.8rem;color:var(--ink-soft);margin:0 0 0.4rem">Age <strong>${Math.floor(state.age || 16)}</strong> / lifespan <strong>${lifespanMax()}</strong> yrs &middot; <strong style="color:var(--jade)">${Math.floor(lifespanRemaining())}</strong> remaining${state.bodyQuench ? ` · body tempered ×${state.bodyQuench} (+${bodyQuenchHPAdd()} HP)` : ''}</p>`;
   if (destinyPicksAvailable() > 0 && eligibleDestinies().length) {
     realmHTML += `<div class="button-row" style="margin-top:0.4rem"><button class="gold" id="choose-destiny">Choose a Destiny (${destinyPicksAvailable()} available)</button></div>
       <p style="font-size:0.78rem;color:#c79cf0;margin-top:0.3rem">A breakthrough has opened a fork in your fate.</p>`;
@@ -11069,7 +11154,7 @@ function renderConsumableRow(id, c) {
   const owned = state.base.consumables[id] || 0;
   const canMake = canCraft(id);
   const meetsReq = meetsRealmReq(c);
-  const recipeText = Object.entries(c.recipe).map(([h, n]) => {
+  const recipeText = Object.entries(effectiveRecipe(c)).map(([h, n]) => {
     const have = state.base.herbs[h] || 0;
     const short = have < n;
     return `<span style="color:${short?'var(--crimson)':'var(--ink)'}">${n}× ${HERBS[h].name} (${have})</span>`;
