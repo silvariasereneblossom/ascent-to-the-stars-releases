@@ -541,7 +541,7 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v0.49';
+const GAME_VERSION = 'v0.50';
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
 const ELEMENT_ZH   = { metal:'金', wood:'木', water:'水', fire:'火', earth:'土' };
@@ -8250,7 +8250,7 @@ function enemyElementFor(enemyId) {
 // v0.19 Phase 3: initCombat now accepts a single enemyId OR an array of enemyIds (multi-enemy
 // encounter). combat.enemies[] is always the array; combat.enemy is a back-compat pointer to
 // the current "primary target" (first alive enemy), kept up to date as enemies fall.
-function initCombat(enemyIdOrIds) {
+function initCombat(enemyIdOrIds, areaCultMult) {
   const ids = Array.isArray(enemyIdOrIds) ? enemyIdOrIds.slice() : [enemyIdOrIds];
   const enemies = ids.map(buildEnemyCombat).filter(Boolean);
   if (!enemies.length) return;
@@ -8291,6 +8291,7 @@ function initCombat(enemyIdOrIds) {
     over: false,
     victory: null,
     rewards: null,
+    areaCultMult: areaCultMult || 1,   // v0.50: the area's cultivation multiplier — a defeat here costs that much more lifespan
   };
   pushLog('turn', `— Turn 1 —`);
   if (enemies.length === 1) {
@@ -8908,6 +8909,13 @@ function checkDeath() {
       handleTribulationFailure(combat.enemyId, p.name, enemyData);
       return true;
     }
+    // v0.50: a (non-tribulation) defeat exacts a lifespan toll.
+    const lifeLoss = combatDefeatLifespanCost(combat.areaCultMult || 1);
+    if (lifeLoss > 0) {
+      state.age = (state.age || 16) + lifeLoss;
+      const shown = lifeLoss >= 10 ? Math.round(lifeLoss) : lifeLoss.toFixed(1);
+      pushLog('defeat', `The dao exacts its toll: ${shown} ${lifeLoss < 1.5 ? 'year' : 'years'} of lifespan lost.`);
+    }
     // Non-tribulation defeats: small base death chance, raised by reckless conditions.
     const death = rollCombatDeath(combat, p);
     if (death.died) {
@@ -8930,6 +8938,15 @@ function checkDeath() {
 // First 5 defeats this realm are free (0% chance). Each defeat thereafter adds 2.5%.
 // Counter increments on EVERY defeat (whether the roll killed or not) and resets
 // on realm breakthrough. Tribulations are handled separately (3-strike rule).
+// v0.50: lifespan toll on a defeat — random 1-15 years × the area's cultivation multiplier,
+// capped at 20 × realms ascended above Mortal (tierIdx). Mortals (tier 0) lose nothing.
+function combatDefeatLifespanCost(areaCultMult) {
+  const tier = (state.realm && state.realm.tierIdx) || 0;
+  const cap = 20 * tier;
+  if (cap <= 0) return 0;
+  const base = 1 + Math.random() * 14;            // 1..15 years
+  return Math.min(cap, base * (areaCultMult || 1));
+}
 function rollCombatDeath(combat, p) {
   state.realmDefeats = (state.realmDefeats || 0) + 1;
   const defeats = state.realmDefeats;
@@ -10834,7 +10851,7 @@ function renderCharSheet() {
       const venture = document.createElement('button');
       venture.textContent = 'Venture';
       venture.onclick = () => {
-        initCombat(rollEncounter(loc));
+        initCombat(rollEncounter(loc), loc.cultivationMult || 1);
         render();
       };
       actions.appendChild(venture);
