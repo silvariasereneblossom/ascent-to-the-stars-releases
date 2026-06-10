@@ -541,7 +541,7 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v0.53';
+const GAME_VERSION = 'v0.54';
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
 const ELEMENT_ZH   = { metal:'金', wood:'木', water:'水', fire:'火', earth:'土' };
@@ -1501,7 +1501,7 @@ const TECHNIQUES = {
 
   // ============ Starfall Archers (4) ============
   star_arrow: {
-    name: 'Star Arrow', zh: '星箭', school: 'starfall', splittable: true,
+    name: 'Star Arrow', zh: '星箭', school: 'starfall',
     qi: 4, cd: 1, damage: 1.9, postureBuild: 15,
     desc: 'A clean arrow loosed at a distance. Reliable, bright. Celestial Sight can split it in two.',
     logHit: (a,t) => `${a}'s arrow punches a single star through the air.` },
@@ -2322,7 +2322,7 @@ const SCHOOL_KITS = {
   },
   starfall: {
     passiveName: 'Celestial Sight', passiveZh: '天目',
-    passiveDesc: 'Crit +15% (+5% per realm above Mortal), rising +3% per hit this battle (+2% per realm). Every 3rd Star Arrow strike splits into two instances (every 2nd at Golden Core, every strike at Nascent Soul).',
+    passiveDesc: 'Crit +15% (+5% per realm above Mortal), rising +3% per hit this battle (+2% per realm). Every 3rd single-target strike splits into two instances (every 2nd at Golden Core, every strike at Nascent Soul).',
     celestialSight: true,
   },
   verdant_monastery: {
@@ -8745,14 +8745,15 @@ function playerTechnique(techId) {
 
   const kit = schoolKit();
   // v0.51: instance count. tech.hits (e.g. Starfall Volley) = N full instances per target; Celestial
-  // Sight splits a single-target Star Arrow strike into two half-instances on the Nth strike this battle.
+  // Sight splits ANY single-target strike (v0.54: not just Star Arrow) into two half-instances on the
+  // Nth strike this battle. Gate is structural now (!isAoe && damage>0) — every single-target attack counts.
   let instances = tech.hits || 1;
   let perInstanceMult = 1;
-  if (kit.celestialSight && tech.splittable && !isAoe && (tech.damage || 0) > 0) {
+  if (kit.celestialSight && !isAoe && (tech.damage || 0) > 0) {
     combat.celestialStrikes = (combat.celestialStrikes || 0) + 1;
     const sTier = (state.realm && state.realm.tierIdx) || 0;
     const splitN = sTier >= 5 ? 1 : sTier >= 4 ? 2 : 3;
-    if (combat.celestialStrikes % splitN === 0) { instances = 2; perInstanceMult = 0.5; pushLog('posture', `  → Celestial Sight: the arrow splits in two!`); }
+    if (combat.celestialStrikes % splitN === 0) { instances = 2; perInstanceMult = 0.5; pushLog('posture', `  → Celestial Sight: the strike splits in two!`); }
   }
   targets.forEach(tgt => {
     for (let h = 0; h < instances; h++) {
