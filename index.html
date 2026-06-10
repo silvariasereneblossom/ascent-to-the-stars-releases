@@ -541,7 +541,7 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v0.52';
+const GAME_VERSION = 'v0.53';
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
 const ELEMENT_ZH   = { metal:'金', wood:'木', water:'水', fire:'火', earth:'土' };
@@ -6130,6 +6130,19 @@ const FORTUNE_EVENTS = [
     addInsight(ins);
     META.souls += 1; saveMeta();
     return `A dead immortal's inheritance opens to you — <strong>+${ins} insight</strong> and <strong>+1 soul</strong> carried beyond death.`; } },
+  // v0.53: a rare wandering stall (the "rare shop") — a free pill or a clutch of rare materials.
+  { id: 'wandering_market', good: true, base: 4, resolve() {
+    if (Math.random() < 0.5) {
+      const pills = ['minor_qi_pill', 'iron_bone_pill', 'foundation_pill', 'longevity_pill', 'blood_forging_pill'];
+      const id = pills[Math.floor(Math.random() * pills.length)];
+      state.base.consumables[id] = (state.base.consumables[id] || 0) + 1;
+      return `A rare wandering stall, here and gone — you come away with a <strong>${CONSUMABLES[id].name}</strong>.`;
+    }
+    const mats = ['star_iron', 'dragon_scale', 'heavenly_jade'];
+    const id = mats[Math.floor(Math.random() * mats.length)];
+    const n = 2 + (state.realm.tierIdx || 0);
+    state.base.materials[id] = (state.base.materials[id] || 0) + n;
+    return `A rare wandering stall, here and gone — you barter for <strong>${n}× ${MATERIALS[id].name}</strong>.`; } },
 ];
 function seekOpportunity() {
   if (!opportunityReady()) return;
@@ -6146,6 +6159,29 @@ function seekOpportunity() {
   for (const x of weighted) { r -= x.w; if (r <= 0) { pick = x.ev; break; } }
   state.lastOpportunityResult = pick.resolve();
   state.lastOpportunity = Date.now();
+  saveChar();
+  render();
+}
+
+// v0.53: Walk a Stretch — no cooldown, Fortune-scaled. High Fortune avoids fights and tilts toward
+// good finds. The minor good outcomes here; the big equipment/relic/jackpot finds stay EXCLUSIVE to
+// the cooldown-gated Seek Opportunity so the spammable button can't farm gear.
+const WALK_EVENT_IDS = new Set(['stones', 'materials', 'insight', 'herbs', 'spring', 'spar', 'wandering_market']);
+function walkAStretchCombatChance(luck) { return Math.max(0, (16 - luck) / 16) * 0.5; }  // 50% @ Fortune 0, 0% @ 16+
+function walkAStretch() {
+  const luck = (state.finalStats && state.finalStats.luck) || 0;
+  if (Math.random() < walkAStretchCombatChance(luck)) {
+    const enc = rollMarketEncounter();
+    if (enc.length) { state.lastWalkResult = null; initCombat(enc); render(); return; }
+  }
+  // Fortunate find — Fortune-weighted minor good outcome.
+  const pool = FORTUNE_EVENTS.filter(ev => ev.good && WALK_EVENT_IDS.has(ev.id) && (!ev.luckGate || luck >= ev.luckGate));
+  if (!pool.length) { state.lastWalkResult = 'The road is quiet today.'; saveChar(); render(); return; }
+  const weighted = pool.map(ev => ({ ev, w: ev.base * (1 + luck * 0.05) }));
+  const total = weighted.reduce((s, x) => s + x.w, 0);
+  let r = Math.random() * total, pick = weighted[weighted.length - 1].ev;
+  for (const x of weighted) { r -= x.w; if (r <= 0) { pick = x.ev; break; } }
+  state.lastWalkResult = pick.resolve();
   saveChar();
   render();
 }
@@ -11064,8 +11100,11 @@ function renderCharSheet() {
   // --- Open Road: random encounter button. ---
   const roadP = document.createElement('div');
   roadP.className = 'panel';
+  const walkLuck = (state.finalStats && state.finalStats.luck) || 0;
+  const walkCombatPct = Math.round(walkAStretchCombatChance(walkLuck) * 100);
   roadP.innerHTML = `<h3>Open Road <span style="font-weight:normal;color:var(--ink-soft);font-size:0.85rem">远路</span></h3>
-    <p style="font-size:0.85rem;color:var(--ink-soft);margin:0 0 0.4rem">A wandering encounter from somewhere along the road. Could be anything; could be no one. (Drops are normal; no cultivation reward.)</p>
+    <p style="font-size:0.85rem;color:var(--ink-soft);margin:0 0 0.4rem">Wander the road for whatever fate brings — spirit stones, materials, a spring's blessing, a rare wandering stall, or a fight. Your <strong>Fortune (${walkLuck})</strong> makes hostile encounters rarer (~<strong>${walkCombatPct}%</strong> now, 0% at 16+) and good finds more likely.</p>
+    ${state.lastWalkResult ? `<p style="font-size:0.88rem;margin:0 0 0.4rem;color:var(--gold)">${state.lastWalkResult}</p>` : ''}
     <div class="button-row"><button id="random-encounter">Walk a Stretch</button></div>`;
   appendPanel(roadP, 'market');
 
@@ -11221,10 +11260,7 @@ function renderCharSheet() {
   lsBtns.appendChild(lsBtn); lsRow.appendChild(lsBtns); cfgP.appendChild(lsRow);
   appendPanel(buildConfigPanel(), 'config');  // unified: the in-game tab shows the same panel as the title screen
   const reBtn = document.getElementById('random-encounter');
-  if (reBtn) reBtn.onclick = () => {
-    const enc = rollMarketEncounter();
-    if (enc.length) { initCombat(enc); render(); }
-  };
+  if (reBtn) reBtn.onclick = () => walkAStretch();
 
   const dz = document.createElement('div');
   dz.className = 'panel';
