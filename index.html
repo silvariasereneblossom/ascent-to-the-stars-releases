@@ -541,7 +541,7 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v0.54';
+const GAME_VERSION = 'v0.55';
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
 const ELEMENT_ZH   = { metal:'金', wood:'木', water:'水', fire:'火', earth:'土' };
@@ -8537,9 +8537,35 @@ let autoCombatTimer = null;
 // Drives auto-strikes while combat is open and autoCombat.active. Each fired strike
 // counts AUTO_TICK_MS toward dailyMinutes; once we hit AUTO_DAILY_CAP_MIN, auto-mode
 // force-disables. Also disables on combat.over so we don't run after victory/defeat.
+// v0.55: after an auto-won Venture, loop straight back into the SAME location instead of stranding
+// the player on the victory screen. Rewards are already banked (granted at kill time), so we just
+// re-roll the encounter. Honors the daily cap and bails (disabling auto) if the location went away
+// or locked, so auto can never soft-lock.
+function autoReVenture() {
+  const locId = combat.ventureLocId;
+  tickAutoCombatReset();
+  if (state.autoCombat.dailyMinutes >= AUTO_DAILY_CAP_MIN) {
+    setAutoCombat(false);
+    pushLog('flavor', `(auto-combat budget exhausted for the day)`);
+    render();
+    return;
+  }
+  const loc = LOCATIONS.find(l => l.id === locId);
+  if (!loc || !locationUnlocked(loc)) { setAutoCombat(false); render(); return; }
+  initCombat(rollEncounter(loc), loc.cultivationMult || 1);
+  if (combat) combat.ventureLocId = loc.id;
+  render();
+}
+
 function autoCombatTick() {
   if (!state || !state.autoCombat || !state.autoCombat.active) return;
-  if (!combat || combat.over) return;
+  if (!combat) return;
+  // v0.55: combat already decided — if it was a victorious Venture, loop back into the same place;
+  // otherwise idle (a defeat, or a non-Venture fight like Walk a Stretch, just waits for the player).
+  if (combat.over) {
+    if (combat.victory && combat.ventureLocId != null) autoReVenture();
+    return;
+  }
   // Survival tribulations don't allow strike — auto skips them silently.
   if (combat.tribulation && combat.tribulation.kind === 'survival') return;
   // Daily cap check.
@@ -10964,6 +10990,7 @@ function renderCharSheet() {
       venture.textContent = 'Venture';
       venture.onclick = () => {
         initCombat(rollEncounter(loc), loc.cultivationMult || 1);
+        if (combat) combat.ventureLocId = loc.id;  // v0.55: lets auto-combat loop back into this same Venture
         render();
       };
       actions.appendChild(venture);
@@ -11423,8 +11450,9 @@ function renderCombat() {
     const penPct = Math.round(autoDamagePenalty(tierIdx) * 100);
     const banner = document.createElement('div');
     banner.style.cssText = 'grid-column: 1 / -1; background: rgba(58,42,28,0.4); border: 1px solid var(--ink-soft); padding: 0.45rem 0.6rem; border-radius: 3px; font-size: 0.78rem; display:flex;justify-content:space-between;align-items:center;gap:0.5rem;';
+    const autoLoops = ac.active && combat.ventureLocId != null;
     const status = ac.active
-      ? `<strong style="color:var(--gold)">Auto-combat ON</strong> — ${penPct === 0 ? 'no damage penalty' : '-' + penPct + '% strike damage'}, kills give 12.5% insight (vs 4x baseline). ${minutesLeft.toFixed(1)}m left today.`
+      ? `<strong style="color:var(--gold)">Auto-combat ON</strong> — ${penPct === 0 ? 'no damage penalty' : '-' + penPct + '% strike damage'}, kills give 12.5% insight (vs 4x baseline). ${minutesLeft.toFixed(1)}m left today.${autoLoops ? ' Re-ventures this place on victory.' : ''}`
       : `Auto-combat: ${penPct === 0 ? 'no damage penalty' : '-' + penPct + '% strike damage'}, 12.5% insight, strikes only. ${minutesLeft.toFixed(1)}m left today.`;
     const btn = document.createElement('button');
     btn.className = 'small ' + (ac.active ? 'gold' : 'ghost');
