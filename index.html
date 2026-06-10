@@ -541,7 +541,7 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v0.50';
+const GAME_VERSION = 'v0.51';
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
 const ELEMENT_ZH   = { metal:'金', wood:'木', water:'水', fire:'火', earth:'土' };
@@ -1501,25 +1501,27 @@ const TECHNIQUES = {
 
   // ============ Starfall Archers (4) ============
   star_arrow: {
-    name: 'Star Arrow', zh: '星箭', school: 'starfall',
+    name: 'Star Arrow', zh: '星箭', school: 'starfall', splittable: true,
     qi: 4, cd: 1, damage: 1.9, postureBuild: 15,
-    desc: 'A clean arrow loosed at a distance. Reliable, bright.',
+    desc: 'A clean arrow loosed at a distance. Reliable, bright. Celestial Sight can split it in two.',
     logHit: (a,t) => `${a}'s arrow punches a single star through the air.` },
   starfall_volley: {
-    name: 'Starfall Volley', zh: '坠星齐射', school: 'starfall',
-    qi: 12, cd: 2, damage: 2.4, postureBuild: 28,
-    desc: 'A volley that rains down in a short, impossible sequence.',
-    logHit: (a,t) => `Nine arrows seem to fall from above at once.` },
+    name: 'Starfall Volley', zh: '坠星齐射', school: 'starfall', target: 'aoe',
+    qi: 12, cd: 2, damage: 0.9, hits: 3, postureBuild: 18,
+    effect: 'mark', effectValue: 0.25, effectTurns: 3,
+    desc: 'AOE. Three falling waves — hits every standing foe 3× and Star-Marks each one.',
+    logHit: (a,t) => `Three waves of arrows fall from the dark at once.` },
   pierce_the_sky: {
     name: 'Pierce the Sky', zh: '穿天箭', school: 'starfall',
-    qi: 20, cd: 3, damage: 5.0, pierceQi: 0.45, postureBuild: 14,
-    desc: 'A single arrow that ignores most qi shields.',
+    qi: 10, cd: 3, damage: 5.0, pierceQi: 0.45, postureBuild: 14, damageFalloffPct: 0.10,
+    desc: 'A single arrow that ignores most qi shields. Loses 10% damage each time you use it this battle.',
     logHit: (a,t) => `${a} draws — the bow hums one clean note — and ${t}\'s shield forgets how to close.` },
-  lunar_sight: {
-    name: 'Lunar Sight', zh: '月瞄', school: 'starfall',
-    qi: 6, cd: 3, damage: 0, buff: { nextDamageMult: 1.9, turns: 1 },
-    desc: 'Slow your breath to a single line. Next shot carries +90% edge.',
-    logHit: (a,t) => `${a}'s eye finds a place on ${t} that will not move.` },
+  stellar_pressure: {
+    name: 'Stellar Pressure', zh: '星压', school: 'starfall', target: 'aoe', instant: true,
+    qi: 8, cd: 3, damage: 0,
+    statusList: [{ kind: 'pressured', value: 0.5, turns: 3 }, { kind: 'qi_cost_up', value: 1.15, turns: 3 }],
+    desc: 'Free action (no turn, no first-strike). The heavens lean on every foe: +50% posture damage taken and their techniques cost +15% qi, 3 turns.',
+    logHit: (a,t) => `${a} tips the sky, and it leans on everyone but ${a}.` },
 
   // ============ Verdant Monastery (4) ============
   grove_strike: {
@@ -2008,10 +2010,10 @@ const TECHNIQUES = {
     desc: 'A brand that eats in your name. ST. The wound feeds you each turn for 3 turns.',
     logHit: (a,t) => `${a} presses a character into ${t} that means, roughly, "mine".` },
   star_mark: {
-    name: 'Marking Shot', zh: '定星矢', school: 'starfall',
+    name: 'Marking Shot', zh: '定星矢', school: 'starfall', instant: true,
     qi: 7, cd: 2, damage: 1.6, postureBuild: 12,
     effect: 'mark', effectValue: 0.25, effectTurns: 3,
-    desc: 'An arrow that names its target. ST. Marked: takes +25% damage from you for 3 turns.',
+    desc: 'Free action (no turn, no first-strike). Star-Marks the target: it takes +25% damage from you and you crit it +20% more often, 3 turns.',
     logHit: (a,t) => `${a}'s arrow lodges shallow — a small wound, and a fixed address.` },
   grove_bloom: {
     name: 'Verdant Communion', zh: '翠林同息', school: 'verdant_monastery', target: 'aoe',
@@ -2138,7 +2140,7 @@ const SCHOOLS = {
   starfall: {
     name: 'Starfall Archers', zh: '坠星射',
     weapon: 'starlight_bow',
-    techniques: ['star_arrow','starfall_volley','pierce_the_sky','lunar_sight','star_mark'],
+    techniques: ['star_arrow','starfall_volley','pierce_the_sky','stellar_pressure','star_mark'],
     specialty: 'MIXED precision crits. Hunter\'s Eye crits 12% more often and every crit Marks the target (+20% damage from you). Mark, then unload — with one volley kept for crowds.',
     bestStats: ['sense','luck'],
     flavor: 'A sect of archers who cultivate atop a night-dark peak, memorizing constellations by touch.',
@@ -2319,9 +2321,9 @@ const SCHOOL_KITS = {
     lifestealBonus: 0.15,
   },
   starfall: {
-    passiveName: "Hunter's Eye", passiveZh: '猎瞳',
-    passiveDesc: '+12% critical chance; your critical hits Mark the target (+20% damage from you, 3 turns).',
-    critBonus: 0.12, markOnCrit: { value: 0.20, turns: 3 },
+    passiveName: 'Celestial Sight', passiveZh: '天目',
+    passiveDesc: 'Crit +15% (+5% per realm above Mortal), rising +3% per hit this battle (+2% per realm). Every 3rd Star Arrow strike splits into two instances (every 2nd at Golden Core, every strike at Nascent Soul).',
+    celestialSight: true,
   },
   verdant_monastery: {
     passiveName: 'Sap of the Grove', passiveZh: '林髓',
@@ -2374,7 +2376,8 @@ const STATUS_INFO = {
   chill:      { label: 'chill',       tip: ef => `Chilled: outgoing damage -${Math.round(ef.value*100)}%. ${ef.turns} turn(s) left.` },
   shock:      { label: 'shocked',     tip: ef => `Shocked: loses its next action.` },
   sunder:     { label: 'sunder',      tip: ef => `Sundered: +${Math.round(ef.value*100)}% damage taken and armor (flat DR) negated. ${ef.turns} turn(s) left.` },
-  mark:       { label: 'marked',      tip: ef => `Marked: +${Math.round(ef.value*100)}% damage taken from the hunter. ${ef.turns} turn(s) left.` },
+  pressured:  { label: 'pressured',   tip: ef => `Stellar Pressure: +${Math.round(ef.value*100)}% posture damage taken. ${ef.turns} turn(s) left.` },
+  mark:       { label: 'marked',      tip: ef => `Star Mark: +${Math.round(ef.value*100)}% damage taken from the hunter, who also crits it +20% more often. ${ef.turns} turn(s) left.` },
   leech:      { label: 'leeched',     tip: ef => `Leeched: losing ${ef.value} HP per turn to the attacker, who heals for it. ${ef.turns} turn(s) left.` },
   entangle:   { label: 'entangled',   tip: ef => `Entangled: losing ${ef.value} qi per turn and meditation is sealed. ${ef.turns} turn(s) left.` },
   silence:    { label: 'silenced',    tip: ef => `Silenced: cannot use techniques. ${ef.turns} turn(s) left.` },
@@ -8390,6 +8393,11 @@ function dealDamage(target, amount, opts) {
 
 function applyPosture(target, amount, isBreaker, breakDuration) {
   if (amount <= 0 && !isBreaker) return false;
+  // v0.51: Stellar Pressure amps incoming posture damage.
+  if (amount > 0 && target.effects) {
+    const pr = target.effects.find(ef => ef.kind === 'pressured');
+    if (pr) amount = Math.round(amount * (1 + pr.value));
+  }
   target.posture += amount;
   if (isBreaker) target.posture = target.postureMax;  // guaranteed break
   let broke = false;
@@ -8491,7 +8499,7 @@ function applyPlayerOutgoingMods(p, dmg, target, ctx) {
   const m = p.mods;
   const kit = schoolKit();
   const turn = (combat && combat.turn) || 1;
-  if (m.firstStrikeBonus && turn <= 1) dmg *= 1 + m.firstStrikeBonus;
+  if (m.firstStrikeBonus && turn <= 1 && !(ctx && ctx.instant)) dmg *= 1 + m.firstStrikeBonus;
   if (m.lowHpBonus && p.hp > 0 && p.hp / p.hpMax < 0.33) dmg *= 1 + m.lowHpBonus;
   if (target && target.kind && m.vsKindMult && m.vsKindMult[target.kind]) {
     dmg *= 1 + m.vsKindMult[target.kind];
@@ -8504,20 +8512,24 @@ function applyPlayerOutgoingMods(p, dmg, target, ctx) {
   }
   // v0.45 Sword Intent (Azure): +8% per stack on everything the player swings.
   if (p.swordIntent > 0) dmg *= 1 + 0.08 * p.swordIntent;
-  // v0.45 Mark (Starfall): the marked target takes bonus damage from the player.
+  // Star Mark (Starfall): marked targets take bonus damage AND are easier to crit.
+  let markCrit = 0;
   if (target && target.effects) {
     const mark = target.effects.find(ef => ef.kind === 'mark');
-    if (mark) dmg *= 1 + mark.value;
+    if (mark) { dmg *= 1 + mark.value; markCrit = 0.20; }
     // v0.45 Red-Ink Authority (Jade Inkwell): +dmg to anything under one of your writs.
     if (kit.ampVsDebuffed && target.effects.length > 0) dmg *= 1 + kit.ampVsDebuffed;
   }
-  if (m.critChance > 0 && Math.random() < m.critChance) {
+  // Celestial Sight (Starfall): realm-scaled base crit + a per-hit ramp this battle (+ Star Mark crit).
+  let critChance = (m.critChance || 0) + markCrit;
+  if (kit.celestialSight && combat && dmg > 0) {
+    const tierC = (state.realm && state.realm.tierIdx) || 0;
+    critChance += (0.15 + 0.05 * tierC) + (0.03 + 0.02 * tierC) * (combat.celestialHits || 0);
+    combat.celestialHits = (combat.celestialHits || 0) + 1;
+  }
+  if (critChance > 0 && Math.random() < critChance) {
     dmg *= (m.critMult || 1.5);
     ctx.crit = true;
-    // v0.45 Hunter's Eye (Starfall): crits brand the target with Mark.
-    if (kit.markOnCrit && target && target.effects) {
-      applyStatusTo(target, 'mark', kit.markOnCrit.value, kit.markOnCrit.turns, "Hunter's Eye");
-    }
   }
   return dmg;
 }
@@ -8634,6 +8646,13 @@ function playerTechnique(techId) {
     p.buffs.nextDamageMult = 1;
     pushLog('posture', `The waiting edge joins the blow.`);
   }
+  // v0.51: per-battle damage falloff (Pierce the Sky weakens 10% per use this fight).
+  if (tech.damageFalloffPct) {
+    combat.techUses = combat.techUses || {};
+    const fUses = combat.techUses[techId] || 0;
+    dmg *= Math.max(0.1, 1 - tech.damageFalloffPct * fUses);
+    combat.techUses[techId] = fUses + 1;
+  }
 
   // v0.19 Phase 3: AOE techs hit every alive enemy at 70% per-target damage.
   // Single-target techs (default) hit primary target only at full damage.
@@ -8653,22 +8672,34 @@ function playerTechnique(techId) {
   const postureAmtBase = Math.round((tech.postureBuild || 0) * p.mods.postureMult * (hm0.postureDamageMult || 1));
 
   const kit = schoolKit();
+  // v0.51: instance count. tech.hits (e.g. Starfall Volley) = N full instances per target; Celestial
+  // Sight splits a single-target Star Arrow strike into two half-instances on the Nth strike this battle.
+  let instances = tech.hits || 1;
+  let perInstanceMult = 1;
+  if (kit.celestialSight && tech.splittable && !isAoe && (tech.damage || 0) > 0) {
+    combat.celestialStrikes = (combat.celestialStrikes || 0) + 1;
+    const sTier = (state.realm && state.realm.tierIdx) || 0;
+    const splitN = sTier >= 5 ? 1 : sTier >= 4 ? 2 : 3;
+    if (combat.celestialStrikes % splitN === 0) { instances = 2; perInstanceMult = 0.5; pushLog('posture', `  → Celestial Sight: the arrow splits in two!`); }
+  }
   targets.forEach(tgt => {
-    let tdmg = dmg * targetDmgMult;
-    const ctx = {};
-    tdmg = applyPlayerOutgoingMods(p, tdmg, tgt, ctx);
-    if (tdmg > 0 || tech.directHP || tech.directSpirit) {
-      const res = dealDamage(tgt, tdmg, {
-        directHP: tech.directHP || 0,
-        directSpirit: directSpiritAmt,
-        pierceQi: pierce,
-      });
-      if (ctx.crit) pushLog('posture', `  → critical strike!`);
-      pushLog('hurt', damageLogLine(res, tgt));
-      applyPostHitTriggers(p, res);
-      // v0.45: school passive on-hit statuses (Everburn / Coated Blades / Deep Cold /
-      // Moltenwake / Oathbrand) ride along on every damaging technique hit.
-      if (!res.dodged) applySchoolOnHit(p, tgt);
+    for (let h = 0; h < instances; h++) {
+      if (tgt.hp <= 0) break;
+      let tdmg = dmg * targetDmgMult * perInstanceMult;
+      const ctx = { instant: tech.instant };
+      tdmg = applyPlayerOutgoingMods(p, tdmg, tgt, ctx);
+      if (tdmg > 0 || (h === 0 && (tech.directHP || tech.directSpirit))) {
+        const res = dealDamage(tgt, tdmg, {
+          directHP: h === 0 ? (tech.directHP || 0) : 0,
+          directSpirit: h === 0 ? directSpiritAmt : 0,
+          pierceQi: pierce,
+        });
+        if (ctx.crit) pushLog('posture', `  → critical strike!`);
+        pushLog('hurt', damageLogLine(res, tgt));
+        applyPostHitTriggers(p, res);
+        // v0.45: school passive on-hit statuses ride along on every damaging hit.
+        if (!res.dodged) applySchoolOnHit(p, tgt);
+      }
     }
     if (postureAmtBase || tech.postureBreak) {
       const broke = applyPosture(tgt, postureAmtBase, tech.postureBreak, 3 + p.mods.postureBreakBonus);
@@ -8693,6 +8724,14 @@ function playerTechnique(techId) {
           pushLog('flavor', `  → ${tgt.name}: ${STATUS_INFO[tech.effect].label}${n > 1 ? ` ×${n}` : ''}.`);
         }
       }
+    }
+    // v0.51: multi-status techniques (e.g. Stellar Pressure applies pressured + qi_cost_up).
+    if (tech.statusList) {
+      tech.statusList.forEach(s => {
+        if (applyStatusTo(tgt, s.kind, s.value, s.turns + (kit.debuffTurnsBonus || 0), tech.name) && STATUS_INFO[s.kind]) {
+          pushLog('flavor', `  → ${tgt.name}: ${STATUS_INFO[s.kind].label}.`);
+        }
+      });
     }
   });
 
@@ -8730,7 +8769,7 @@ function playerTechnique(techId) {
     pushLog('heal', `  → Regrowth: +${Math.round(tech.selfBuff.regrowthPct*100)}% max HP per turn for ${p.buffs.regrowthTurns} turns.`);
   }
 
-  endPlayerAction();
+  if (tech.instant) render(); else endPlayerAction();   // v0.51: free-action techniques don't take the turn
 }
 
 function playerMeditate() {
