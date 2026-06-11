@@ -541,7 +541,7 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v0.60';
+const GAME_VERSION = 'v0.61';
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
 const ELEMENT_ZH   = { metal:'金', wood:'木', water:'水', fire:'火', earth:'土' };
@@ -2131,7 +2131,7 @@ const SCHOOLS = {
     name: 'Demon Heart Palace', zh: '魔心殿',
     weapon: 'dark_saber',
     techniques: ['demon_reap','demon_devour','demon_seal','demon_ascendant','demon_parasite'],
-    specialty: 'PURE SINGLE-TARGET sustain. Hungry Dao returns 15% of all damage as your own HP; Parasite Brand makes the wound itself feed you. Cultivation is halved — but you feast on the slain, and the heavens have stopped sending tribulations.',
+    specialty: 'PURE SINGLE-TARGET sustain. Hungry Dao returns 15% of all damage as your own HP (25% in its demonic form); Parasite Brand makes the wound itself feed you. This school IS the demonic path: faster cultivation, feast on the slain — and the heavens bar every single breakthrough.',
     bestStats: ['spirit','will'],
     flavor: 'High on a black stone plateau where no birds fly. The palace has no doors. Students arrive by conviction.',
     isDemon: true,
@@ -2361,8 +2361,39 @@ const SCHOOL_KITS = {
     onTechHit: { kind: 'oathbound', power: 0.25, turns: 2 },
   },
 };
+// v0.61 DEMONIC PATH: per-school demonic kit twists — the demonic version of every
+// school sharpens its passive. Merged over the base kit when the character walks the path.
+const DEMONIC_TWISTS = {
+  azure_sword:       { intentCap: 7,                              twistDesc: 'Sword Intent stacks to 7.' },
+  iron_body:         { reflectPct: 0.25,                          twistDesc: 'Iron Skin reflects 25%.' },
+  whispering_array:  { debuffTurnsBonus: 2,                       twistDesc: 'Your statuses last +2 turns.' },
+  crimson_flame:     { onTechHit: { kind: 'burn', power: 0.18, turns: 3 }, twistDesc: 'Burns tick half again harder.' },
+  moonlit_water:     { onTechHit: { kind: 'chill', value: 0.30, turns: 2 }, twistDesc: 'Chill saps -30% damage.' },
+  silent_daggers:    { critBonus: 0.15, onTechHit: { kind: 'poison', power: 0.12, turns: 4 }, twistDesc: '+15% crit; deadlier venom.' },
+  demon_heart:       { lifestealBonus: 0.25,                      twistDesc: 'Hungry Dao drinks 25%.' },
+  starfall:          { critBonus: 0.05,                           twistDesc: '+5% crit on top of Celestial Sight.' },
+  verdant_monastery: { regenPct: 0.05,                            twistDesc: 'Regrow 5% max HP per round.' },
+  thunder_hammer:    { postureBonus: 0.40,                        twistDesc: '+40% posture damage.' },
+  cloud_traveler:    { dodgeChance: 0.20,                         twistDesc: '20% innate dodge.' },
+  bone_reed:         { spiritDamageBonus: 0.45,                   twistDesc: 'Spirit damage +45%.' },
+  jade_inkwell:      { ampVsDebuffed: 0.25,                       twistDesc: '+25% vs debuffed foes.' },
+  dragonforge:       { onTechHit: { kind: 'sunder', value: 0.09, turns: 3 }, twistDesc: 'Sunder bites +9% per stack.' },
+  chain_saint:       { onTechHit: { kind: 'oathbound', power: 0.40, turns: 2 }, twistDesc: 'Backlash collects at 40% weapon power.' },
+};
+function isDemonic(char) { return !!((char || state) && (char || state).demonic); }
+function schoolKitFor(char) {
+  const sid = (char && char.selectedSchool) || (state && state.selectedSchool);
+  const base = SCHOOL_KITS[sid] || {};
+  if (!isDemonic(char) || !DEMONIC_TWISTS[sid]) return base;
+  const tw = DEMONIC_TWISTS[sid];
+  const merged = Object.assign({}, base, tw);
+  if (base.onTechHit && tw.onTechHit) merged.onTechHit = Object.assign({}, base.onTechHit, tw.onTechHit);
+  merged.passiveDesc = (base.passiveDesc || '') + ' DEMONIC: ' + tw.twistDesc;
+  return merged;
+}
 function schoolKit(schoolId) {
-  return SCHOOL_KITS[schoolId || (state && state.selectedSchool)] || {};
+  if (!schoolId || (state && schoolId === state.selectedSchool)) return schoolKitFor(state);
+  return SCHOOL_KITS[schoolId] || {};
 }
 
 // v0.45: status-effect registry — display label + tooltip per kind. Anything in a combatant's
@@ -2453,8 +2484,8 @@ const CULTIVATION_METHODS = {
   // ---- New school methods ----
   demon_feast_breath: {
     name: 'Demon-Feast Breath', zh: '食魔息',
-    mult: 0.675, schools: ['demon_heart'], scales: 'spirit',
-    desc: 'Heresy, refined. Cultivates at half the usual pace — but the heavens no longer judge you, and every death nourishes the dao.',
+    mult: 1.35, schools: ['demon_heart'], scales: 'spirit',
+    desc: 'Heresy, refined. Every death nourishes the dao — and the demonic path cultivates FASTER than the righteous one. The heavens have noticed.',
   },
   starfall_method: {
     name: 'Starfall Method', zh: '坠星诀',
@@ -2804,8 +2835,8 @@ function applySkillModsToMods(mods, char) {
 // v0.45: always-on school-passive stat channels (the status-applying hooks live in the
 // combat flow; this covers the pure number bonuses so they also show on the char panel).
 function applySchoolKitToMods(mods, char) {
-  const kit = SCHOOL_KITS[char.selectedSchool];
-  if (!kit) return;
+  const kit = schoolKitFor(char);  // v0.61: demonic twists fold in
+  if (!kit || !kit.passiveName) return;
   if (kit.critBonus)         mods.critChance = (mods.critChance || 0) + kit.critBonus;
   if (kit.lifestealBonus)    mods.lifestealPct = (mods.lifestealPct || 0) + kit.lifestealBonus;
   if (kit.postureBonus)      mods.postureMult = (mods.postureMult || 1) * (1 + kit.postureBonus);
@@ -4358,6 +4389,43 @@ function mkEnemy(id, d) {
     defeat: 'You are gently overexposed. For three days your shadow arrives slightly after you do.' }],
 ].forEach(([id, d]) => { d.power = 1.15; mkEnemy(id, d); });
 
+// ---- v0.61 DEMON TRIBULATIONS: the heavens judge the demonic path at EVERY realm
+// jump, and judge it HARSHLY (elite arch, power 1.45 — far above the realm's curve). ----
+[
+  ['heavens_first_glare', { name: "Heaven's First Glare", zh: '天初瞥', tier: 1, arch: 'elite', power: 1.45, kind: 'heaven', element: 'fire',
+    techIds: ['trib_bolt', 'lacerating_wind'],
+    intro: 'You reach for Qi Condensation by the demon road — and the sky turns to look at you for the first time.',
+    victory: 'The glare passes. You are condensed, and watched.',
+    defeat: 'The first lesson of heresy: the heavens grade harshly.' }],
+  ['thunder_brand_envoy', { name: 'Thunder-Brand Envoy', zh: '雷印使', tier: 2, arch: 'elite', power: 1.45, kind: 'heaven', element: 'fire',
+    techIds: ['trib_bolt', 'tribulation_pressure', 'meridian_lock'],
+    intro: 'An envoy descends with a brand of thunder, sent to mark your foundation as forfeit.',
+    victory: 'The envoy withdraws. Your foundation sets — scorched, and all the harder for it.',
+    defeat: 'The brand takes. Your meridians remember the shape of the strike for days.' }],
+  ['heaven_chain_warden', { name: 'Warden of Heaven-Chains', zh: '天链狱卒', tier: 3, arch: 'elite', power: 1.45, kind: 'heaven', element: 'metal',
+    techIds: ['meridian_lock', 'silent_verdict', 'heavenly_roar'],
+    intro: 'Chains of written law fall from a clear sky. Their warden follows, unhurried.',
+    victory: 'The chains retract, unfed. Your core forms in defiance of the ledger.',
+    defeat: 'You are held, weighed, and dropped — found heavy with heresy.' }],
+  ['karmic_fire_judge', { name: 'Judge of Karmic Fire', zh: '业火判官', tier: 4, arch: 'elite', power: 1.45, kind: 'heaven', element: 'fire',
+    techIds: ['heart_ember', 'flame_halo', 'trib_judgement'],
+    intro: 'Every debt your dao has skipped arrives at once, on fire, holding a gavel.',
+    victory: 'The fire finds nothing left to burn that you have not already spent. The core gilds.',
+    defeat: 'The judgment burns through qi, flesh, and excuse, in that order.' }],
+  ['silence_decree_lord', { name: 'Lord of the Silencing Decree', zh: '禁言敕主', tier: 5, arch: 'elite', power: 1.45, kind: 'heaven', element: 'metal',
+    techIds: ['silent_verdict', 'heaven_word', 'sky_shatter'],
+    intro: 'The heavens have stopped arguing with you. They have sent the decree that ends arguments.',
+    victory: 'The decree is rescinded for lack of enforcement. Your soul steps free of the womb of the body.',
+    defeat: 'For a day after, your techniques refuse to answer to their names.' }],
+  ['annihilation_chooser', { name: 'The Chooser of the Annihilated', zh: '选灭者', tier: 6, arch: 'elite', power: 1.45, kind: 'heaven', element: 'fire',
+    techIds: ['chosen_annihilation', 'heaven_word', 'star_wrath'],
+    intro: 'At the threshold of Spirit Severing, the heavens send the one who picks which names end here.',
+    victory: 'The Chooser closes its list without your name, visibly annoyed at the omission.',
+    defeat: 'You are shortlisted. The interview did not go well.' }],
+].forEach(([id, d]) => mkEnemy(id, d));
+const DEMON_TRIBS = { 1: 'heavens_first_glare', 2: 'thunder_brand_envoy', 3: 'heaven_chain_warden',
+                      4: 'karmic_fire_judge', 5: 'silence_decree_lord', 6: 'annihilation_chooser' };
+
 // Boss roster metadata: realm tier, hunt blurb, first-kill material cache.
 const BOSSES = {
   boar_king:            { tier: 0, blurb: 'Terror of the withered wood. The first name every village hunter learns to fear.',
@@ -4513,10 +4581,25 @@ LOCATIONS.push(
   { id: 'world_root_hollow', name: 'The World-Root Hollow', zh: '世根洞', desc: 'A cavern wrapped around one root of the world-tree. Chewing sounds echo from deeper in.',
     minTier: 6, minLayer: 4, cultivationMult: 12.5, enemyPool: ['star_leviathan', 'scar_horror', 'world_seal_master'] },
   { id: 'throne_first_dawn', name: 'Throne of the First Dawn', zh: '初晓座', desc: 'The hall where light rehearsed before the first morning. The reviews, carved in the walls, were mixed.',
-    minTier: 6, minLayer: 4, cultivationMult: 12.8, enemyPool: ['dawn_herald', 'severed_immortal', 'star_wrath_cultivator'] }
+    minTier: 6, minLayer: 4, cultivationMult: 12.8, enemyPool: ['dawn_herald', 'severed_immortal', 'star_wrath_cultivator'] },
+  // ---- v0.61: demon-only grounds (one per realm tier 1-6; richest cultivation at-tier,
+  // visible and enterable ONLY on the demonic path) ----
+  { id: 'blood_bone_shrine', name: 'Blood-Bone Shrine', zh: '血骨祠', desc: 'A shrine the righteous sects burned thrice. It keeps un-burning. The qi here is thick and red.',
+    minTier: 1, minLayer: 2, cultivationMult: 2.3, demonOnly: true, enemyPool: ['ghost_daoist', 'mine_haunt', 'lantern_keeper'] },
+  { id: 'flayed_banner_camp', name: 'Flayed-Banner Camp', zh: '剥旗营', desc: 'Where a demonic legion wintered and never broke camp. The banners are not cloth.',
+    minTier: 2, minLayer: 2, cultivationMult: 3.5, demonOnly: true, enemyPool: ['blood_saber', 'marsh_inkfiend', 'corpse_walker'] },
+  { id: 'devourers_pit', name: "Devourer's Pit", zh: '噬坑', desc: 'A feeding ground older than the sect era. What is fed here grows; what feeds here owes.',
+    minTier: 3, minLayer: 2, cultivationMult: 4.7, demonOnly: true, enemyPool: ['heartline_assassin', 'ghost_broker', 'crater_stalker'] },
+  { id: 'heart_demon_mire', name: 'Heart-Demon Mire', zh: '心魔泽', desc: 'A marsh of everyone\'s worst wants. Demonic cultivators bathe in it the way the righteous bathe in spring water.',
+    minTier: 4, minLayer: 2, cultivationMult: 6.5, demonOnly: true, enemyPool: ['demonic_lasher', 'bone_siphon_demon', 'demonic_gc_master'] },
+  { id: 'hungry_ghost_throne', name: 'Throne of Hungry Ghosts', zh: '饿鬼座', desc: 'The hungry dead crowned one of their own. Tribute flows uphill here, and power flows back down.',
+    minTier: 5, minLayer: 2, cultivationMult: 9.2, demonOnly: true, enemyPool: ['ancient_ghost_king', 'soul_cleaver', 'scar_horror'] },
+  { id: 'heavens_blind_spot', name: "The Heavens' Blind Spot", zh: '天盲处', desc: 'One place the sky cannot see. The qi is fat, lawless, and entirely unjudged. Every demonic road ends here.',
+    minTier: 6, minLayer: 2, cultivationMult: 13.5, demonOnly: true, enemyPool: ['severed_immortal', 'names_gatekeeper', 'scar_horror'] }
 );
 
 function locationUnlocked(loc) {
+  if (loc.demonOnly && !state.demonic) return false;  // v0.61: demon-path grounds
   if (state.realm.tierIdx < loc.minTier) return false;
   if (state.realm.tierIdx === loc.minTier && state.realm.layer < loc.minLayer) return false;
   return true;
@@ -8321,6 +8404,7 @@ function newCharacter(seed, childhood = null) {
     contributionLifetime: 0,
     sectKills: 0,
     bossKills: {},  // v0.58: per-boss kill counts (first kill = bonus cache)
+    demonic: false, // v0.61: demonic-path flag (chosen at chargen; demon_heart forces it)
     // Wave 3a: fortune-encounter cooldown timer.
     lastOpportunity: 0,
     // Wave 3b: secret-realm dive (active run state + entry cooldown).
@@ -8364,8 +8448,9 @@ function finalStats(st) {
       latent = mech.latentStatsTier.value;
     }
   }
+  const demonBonus = st.demonic ? 2 : 0;  // v0.61: the demon path pays in raw talent
   STAT_KEYS.forEach(k => {
-    const v = st.baseStats[k] + st.allocation[k] + (h[k] || 0) + latent + ((st.freeAlloc && st.freeAlloc[k]) || 0);
+    const v = st.baseStats[k] + st.allocation[k] + (h[k] || 0) + latent + demonBonus + ((st.freeAlloc && st.freeAlloc[k]) || 0);
     out[k] = Math.max(6, v);
   });
   return out;
@@ -8565,12 +8650,16 @@ function tryAdvanceRealm() {
   if (!info || state.realm.insight < info.cost) return false;
   const preInsight = state.realm.insight;  // Wave 1: captured before deduction for foundation-quality calc
 
-  // Tribulation check on realm transitions (demon school is not judged by the heavens)
-  const currentSchool = SCHOOLS[state.selectedSchool];
-  if (info.kind === 'breakthrough' && !(currentSchool && currentSchool.isDemon)) {
+  // Tribulation check on realm transitions.
+  // v0.61: the demonic path is judged at EVERY breakthrough (DEMON_TRIBS roster, far above
+  // the realm curve); the old demon-school exemption is REVERSED — heresy now draws the
+  // heavens' full attention. Righteous cultivators keep the classic 3 tribulations.
+  if (info.kind === 'breakthrough') {
     const fromTier = state.realm.tierIdx;
     const toTier = fromTier + 1;
-    const trib = findTribulation(fromTier, toTier);
+    const trib = state.demonic
+      ? (DEMON_TRIBS[toTier] ? { enemyId: DEMON_TRIBS[toTier], kind: 'combat' } : null)
+      : findTribulation(fromTier, toTier);
     if (trib) {
       pendingTribulation = { targetTier: toTier, cost: info.cost };
       initCombat(trib.enemyId);
@@ -9006,7 +9095,8 @@ function cultivationRate() {
   // Wave 1: spirit-root grade (gentle, upside-only) + foundation quality (set at breakthroughs).
   const rootGrade = (state.spiritRoot && state.spiritRoot.grade) || 1;
   const foundation = state.foundationQuality || 1;
-  return (base + statBonus) * method.mult * locMult * realmMult * cultBuff * boonCultivationMult() * skillCultivationMult() * heritageCult * gearCult * rootGrade * foundation * sectRankMult() * metaCultMult();
+  const demonCult = state.demonic ? 1.5 : 1;  // v0.61: heresy is the shortcut
+  return (base + statBonus) * method.mult * locMult * realmMult * cultBuff * boonCultivationMult() * skillCultivationMult() * heritageCult * gearCult * rootGrade * foundation * sectRankMult() * metaCultMult() * demonCult;
 }
 
 function startCultivation(locationId) {
@@ -9812,8 +9902,9 @@ function playerTechnique(techId) {
   // v0.57 Listening Dao (azure): direct Sword Intent gain + qi restoration.
   if (tech.intentGain) {
     const before = p.swordIntent || 0;
-    p.swordIntent = Math.min(5, before + tech.intentGain);
-    if (p.swordIntent > before) pushLog('posture', `  → Sword Intent ${p.swordIntent}/5 (+${Math.round(p.swordIntent * 8)}% damage).`);
+    const capA = schoolKit().intentCap || 5;
+    p.swordIntent = Math.min(capA, before + tech.intentGain);
+    if (p.swordIntent > before) pushLog('posture', `  → Sword Intent ${p.swordIntent}/${capA} (+${Math.round(p.swordIntent * 8)}% damage).`);
   }
   if (tech.qiRestore) {
     const before = p.qi;
@@ -9825,8 +9916,9 @@ function playerTechnique(techId) {
   if (kit.intentPerHit && !isAoe && dmg > 0) {
     const gain = (tech.intentStacks || kit.intentPerHit);
     const before = p.swordIntent || 0;
-    p.swordIntent = Math.min(5, before + gain);
-    if (p.swordIntent > before) pushLog('posture', `  → Sword Intent ${p.swordIntent}/5 (+${Math.round(p.swordIntent*8)}% damage).`);
+    const capB = kit.intentCap || 5;
+    p.swordIntent = Math.min(capB, before + gain);
+    if (p.swordIntent > before) pushLog('posture', `  → Sword Intent ${p.swordIntent}/${capB} (+${Math.round(p.swordIntent*8)}% damage).`);
   }
 
   if (tech.buff) {
@@ -9910,7 +10002,7 @@ function grantEnemyDefeatRewards(e) {
   const enemyData = ENEMIES[e.id];
   const hmVictory = heritageMech();
   const rewardScale = (e.scale && e.scale.reward) || 1;
-  const insight = Math.round(enemyData.insightReward * rewardScale * boonInsightMult() * skillCombatInsightMult() * (combat.player.mods.insightMult || 1) * ((SCHOOLS[state.selectedSchool] && SCHOOLS[state.selectedSchool].insightFromKillsMult) || 1) * (hmVictory.combatInsightMult || 1) * combatInsightMult(combat) * metaInsightMult());
+  const insight = Math.round(enemyData.insightReward * rewardScale * boonInsightMult() * skillCombatInsightMult() * (combat.player.mods.insightMult || 1) * ((SCHOOLS[state.selectedSchool] && SCHOOLS[state.selectedSchool].insightFromKillsMult) || 1) * (hmVictory.combatInsightMult || 1) * combatInsightMult(combat) * metaInsightMult() * (state.demonic ? 1.5 : 1));
   addInsight(insight);
   state.sectKills = (state.sectKills || 0) + 1;  // Wave 2b: progress toward the sect hunt bounty
   // v0.58: boss kill tracking + first-kill material cache.
@@ -10950,6 +11042,31 @@ function renderCreation() {
   });
   app.appendChild(sP);
 
+  // ---- v0.61: the Demonic Path choice ----
+  const dP = document.createElement('div');
+  dP.className = 'panel';
+  const demonForced = !!(SCHOOLS[state.selectedSchool] && SCHOOLS[state.selectedSchool].isDemon);
+  if (demonForced) state.demonic = true;
+  const demonOn = !!state.demonic;
+  const twistLine = (state.selectedSchool && DEMONIC_TWISTS[state.selectedSchool])
+    ? `<div style="font-size:0.8rem;margin-top:0.3rem"><strong>Your school's demonic form:</strong> ${DEMONIC_TWISTS[state.selectedSchool].twistDesc}</div>` : '';
+  dP.innerHTML = `<strong>The Demonic Path</strong> <span style="color:var(--ink-soft);font-size:0.85rem">魔道</span>
+    <p style="font-size:0.85rem;color:var(--ink-soft);margin:0.3rem 0 0.4rem">Any school can be walked as heresy. The demonic road is FASTER and STRONGER — and the heavens hate it.</p>
+    <div style="font-size:0.82rem"><strong style="color:var(--gold)">Gains:</strong> +2 to every stat · cultivation ×1.5 · +50% insight from kills · your school's passive sharpened into its demonic form · entry to six demon-only grounds the righteous cannot see.</div>
+    <div style="font-size:0.82rem;margin-top:0.25rem"><strong style="color:var(--crimson)">Price:</strong> a heavenly tribulation bars EVERY realm breakthrough (righteous cultivators face only three), and the heavens send executioners far above your realm's measure.</div>
+    ${twistLine}`;
+  const dBtnRow = document.createElement('div');
+  dBtnRow.className = 'button-row';
+  dBtnRow.style.marginTop = '0.5rem';
+  const dBtn = document.createElement('button');
+  dBtn.className = demonOn ? 'gold' : 'ghost';
+  dBtn.textContent = demonForced ? 'Demon Heart Palace IS the demonic path' : (demonOn ? 'Walking the Demonic Path' : 'Walk the Demonic Path');
+  dBtn.disabled = demonForced;
+  dBtn.onclick = () => { state.demonic = !state.demonic; render(); };
+  dBtnRow.appendChild(dBtn);
+  dP.appendChild(dBtnRow);
+  app.appendChild(dP);
+
   const cP = document.createElement('div');
   cP.className = 'panel';
   cP.innerHTML = `<div class="button-row">
@@ -10961,8 +11078,9 @@ function renderCreation() {
   document.getElementById('confirm').onclick = () => {
     if (!canConfirm()) return;
     state.confirmed = true;
-    state.finalStats = finalStats(state);
     const school = SCHOOLS[state.selectedSchool];
+    if (school.isDemon) state.demonic = true;  // v0.61: Demon Heart is inherently demonic
+    state.finalStats = finalStats(state);
     state.weapon = school.weapon;
     state.loadout = school.techniques.slice();
     state.activeSkills = school.techniques.slice();  // Wave 1d: default active set = the 4 base techs
@@ -12024,7 +12142,8 @@ function renderCharSheet() {
   // v0.58: per-realm sub-tabs. Defaults to your current realm; locked realms shown dimmed.
   locP.appendChild(realmTabChips('journeysRealm', t => LOCATIONS.filter(l => l.minTier === t).length));
   const jRealm = selectedRealmTab('journeysRealm');
-  LOCATIONS.filter(l => l.minTier === jRealm).forEach(loc => {
+  // v0.61: demon-only grounds are invisible to the righteous; badged for the demonic.
+  LOCATIONS.filter(l => l.minTier === jRealm && (!l.demonOnly || state.demonic)).forEach(loc => {
     const unlocked = locationUnlocked(loc);
     const isCult = state.cultivating && state.cultivating.locationId === loc.id;
     const card = document.createElement('div');
@@ -12038,7 +12157,7 @@ function renderCharSheet() {
       : `<div class="stat-desc" style="color:var(--crimson);margin-top:0.3rem">Requires ${reqLabel}.</div>`;
     const cultMult = loc.cultivationMult || 1;
     card.innerHTML = `
-      <div class="location-name">${loc.name} <span style="color:var(--ink-soft);font-weight:normal;font-size:0.85rem">${loc.zh}</span>${isCult ? ' <span class="rarity-tag rarity-rare">cultivating here</span>' : ''}</div>
+      <div class="location-name">${loc.name} <span style="color:var(--ink-soft);font-weight:normal;font-size:0.85rem">${loc.zh}</span>${loc.demonOnly ? ' <span class="rarity-tag rarity-legendary" style="color:#c06">demonic ground</span>' : ''}${isCult ? ' <span class="rarity-tag rarity-rare">cultivating here</span>' : ''}</div>
       <div class="location-desc">${loc.desc}</div>
       <div style="font-size:0.8rem;color:var(--ink-soft);margin-top:0.3rem">You may meet: ${enemies}</div>
       <div style="font-size:0.78rem;color:var(--ink-soft);margin-top:0.15rem">Cultivation multiplier: ×${cultMult.toFixed(1)}</div>
@@ -12687,7 +12806,7 @@ function renderCombatant(c, side) {
   }
   // v0.45: player-side passive/buff markers.
   if (side === 'player') {
-    if (c.swordIntent > 0) effTags += `<span class="rarity-tag rarity-legendary tip" data-tip="Sword Intent: +${c.swordIntent * 8}% damage. Builds on technique hits; meditating resets it.">sword intent ${c.swordIntent}/5</span>`;
+    if (c.swordIntent > 0) effTags += `<span class="rarity-tag rarity-legendary tip" data-tip="Sword Intent: +${c.swordIntent * 8}% damage. Builds on technique hits; meditating resets it.">sword intent ${c.swordIntent}/${schoolKit().intentCap || 5}</span>`;
     if (c.buffs && c.buffs.dodgeTurns > 0) effTags += `<span class="rarity-tag rarity-legendary tip" data-tip="Mistwalk: +${Math.round((c.buffs.dodgeChance||0)*100)}% dodge for ${c.buffs.dodgeTurns} more round(s).">mistwalk ${c.buffs.dodgeTurns}</span>`;
     if (c.buffs && c.buffs.reflectTurns > 0) effTags += `<span class="rarity-tag rarity-legendary tip" data-tip="Avalanche Guard: +${Math.round((c.buffs.reflectPct||0)*100)}% of damage taken is reflected for ${c.buffs.reflectTurns} more round(s).">guard ${c.buffs.reflectTurns}</span>`;
     if (c.buffs && c.buffs.regrowthTurns > 0) effTags += `<span class="rarity-tag rarity-legendary tip" data-tip="Regrowth: healing ${Math.round((c.buffs.regrowthPct||0)*100)}% max HP per round for ${c.buffs.regrowthTurns} more round(s).">regrowth ${c.buffs.regrowthTurns}</span>`;
@@ -12816,6 +12935,8 @@ try {
       if (parsed.bodyQuench == null) parsed.bodyQuench = 0;
       if (!parsed.settings) parsed.settings = { noAgeDeath: false };
       if (!parsed.bossKills) parsed.bossKills = {};  // v0.58 boss roster
+      // v0.61: demonic path flag. Existing demon_heart characters walked it all along.
+      if (parsed.demonic == null) parsed.demonic = !!(SCHOOLS[parsed.selectedSchool] && SCHOOLS[parsed.selectedSchool].isDemon);
       // v0.56 FIX ("5th slot showing but not working"): techniques deleted/renamed in
       // updates (e.g. v0.51 lunar_sight -> stellar_pressure) left DEAD ids in saved
       // loadout/activeSkills. activeSkillsList silently filtered them from combat (4
