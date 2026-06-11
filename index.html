@@ -541,7 +541,7 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v0.66';
+const GAME_VERSION = 'v0.67';
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
 const ELEMENT_ZH   = { metal:'金', wood:'木', water:'水', fire:'火', earth:'土' };
@@ -7082,6 +7082,104 @@ const ARMOR_SETS = {
   },
 };
 
+
+// ============================================================
+// v0.67 CROSS-REALM BOSS RELICS — recipes that mix unique boss materials from
+// DIFFERENT realms. Five weapons covering the school weapon-kinds the per-boss relics
+// missed (unarmed / bow / staff / chakram / chain — every school's main weapon now has
+// a boss relic), plus the 4-piece VANQUISHER set. Crafted from the Bosses tab.
+// ============================================================
+const BOSS_CROSS_GEAR = {
+  bx_cestus: { kind: 'weapon', wkind: 'unarmed',
+    def: { name: 'Tusk-and-Iron Cestus', zh: '牙铁拳套', power: 17, slots: 3, rarity: 'legendary',
+      desc: 'The Boar-King\'s tusk socketed in golem-heart iron. The fist wants things now. [Cross-realm relic]',
+      apply: m => mergeMods(m, { flatDR: 4, hpBonus: 40, postureMult: 1.10 }) },
+    mats: { kings_tusk: 2, golem_heart_iron: 2, spirit_stone: 10 } },
+  bx_bow: { kind: 'weapon', wkind: 'bow',
+    def: { name: 'Moonstring Bow', zh: '月弦弓', power: 46, slots: 5, rarity: 'divine',
+      desc: 'Strung with swallowed moonlight on a stave bound by the ninth tail. Arrows arrive slightly before they should. [Cross-realm relic]',
+      apply: m => mergeMods(m, { critChance: 0.05, firstStrikeBonus: 0.20, elementWard: { water: 0.10 } }) },
+    mats: { swallowed_moonlight: 2, ninth_tail: 1, spirit_stone: 25 } },
+  bx_staff: { kind: 'weapon', wkind: 'staff',
+    def: { name: 'Staff of Sutra and Key', zh: '经钥杖', power: 28, slots: 4, rarity: 'legendary',
+      desc: 'An unburnt sutra wound about a living jade key. It opens what it strikes and lectures what it opens. [Cross-realm relic]',
+      apply: m => mergeMods(m, { dotMult: 1.15, qiBonus: 30, qiRegenBonus: 2 }) },
+    mats: { unburnt_sutra: 2, living_jade_key: 2, flame_marrow: 2, spirit_stone: 15 } },
+  bx_chakram: { kind: 'weapon', wkind: 'chakram',
+    def: { name: 'Tide-and-Mirage Ring', zh: '潮蜃环', power: 35, slots: 4, rarity: 'divine',
+      desc: 'A ring of tide-crown brine set in imperial mirage-jade. It returns from angles that do not exist. [Cross-realm relic]',
+      apply: m => mergeMods(m, { dodgeChance: 0.04, elementBoostAll: 0.15 }) },
+    mats: { tide_crown_shard: 2, mirage_imperial_jade: 2, spirit_stone: 20 } },
+  bx_chain: { kind: 'weapon', wkind: 'chain',
+    def: { name: 'Chain of Verdict and Sentence', zh: '判刑之链', power: 54, slots: 5, rarity: 'divine',
+      desc: 'War-court verdict slabs strung on a suspended sentence. Every link is enforceable. [Cross-realm relic]',
+      apply: m => mergeMods(m, { critChance: 0.05, critMult: 1.20, spiritDamageMult: 1.20 }) },
+    mats: { war_verdict_slab: 2, suspended_sentence: 1, spirit_stone: 30 } },
+  // ---- Vanquisher set (4 pieces, 2/4-piece bonuses below) ----
+  bx_vq_helm: { kind: 'armor', slot: 'helmet',
+    def: { name: "Vanquisher's Crest", zh: '伏魔冠', rarity: 'legendary', set: 'vanquisher',
+      mods: { hpBonus: 60, spiritBonus: 8 },
+      desc: 'A crest of the ninth echo set in porcelain heart-glaze. [Vanquisher set]' },
+    mats: { ninth_echo: 2, porcelain_heart: 2, spirit_stone: 12 } },
+  bx_vq_plate: { kind: 'armor', slot: 'chest',
+    def: { name: "Vanquisher's Plate", zh: '伏魔甲', rarity: 'legendary', set: 'vanquisher',
+      mods: { hpBonus: 120, flatDR: 5 },
+      desc: 'Matriarch heart-scale over tide-crown weave. [Vanquisher set]' },
+    mats: { matriarch_heartscale: 2, tide_crown_shard: 2, spirit_stone: 16 } },
+  bx_vq_grips: { kind: 'armor', slot: 'gloves',
+    def: { name: "Vanquisher's Grips", zh: '伏魔手', rarity: 'legendary', set: 'vanquisher',
+      mods: { weaponBonus: 5, critChance: 0.02 },
+      desc: 'Tusk-ivory knuckles over living-jade joints. [Vanquisher set]' },
+    mats: { kings_tusk: 2, living_jade_key: 1, spirit_stone: 12 } },
+  bx_vq_greaves: { kind: 'armor', slot: 'boots',
+    def: { name: "Vanquisher's Greaves", zh: '伏魔靴', rarity: 'legendary', set: 'vanquisher',
+      mods: { hpBonus: 60, dodgeChance: 0.02 },
+      desc: 'Golem-heart soles bound in unburnt sutra-paper. [Vanquisher set]' },
+    mats: { golem_heart_iron: 2, unburnt_sutra: 1, spirit_stone: 12 } },
+};
+Object.entries(BOSS_CROSS_GEAR).forEach(([id, g]) => {
+  if (g.kind === 'weapon') {
+    WEAPONS[id] = Object.assign({ kind: g.wkind }, g.def);
+  } else {
+    ARMOR[id] = Object.assign({ slot: g.slot }, g.def);
+  }
+});
+ARMOR_SETS.vanquisher = {
+  name: 'Vanquisher', zh: '伏魔',
+  bonuses: [
+    { pieces: 2, desc: '+10% posture damage, +4% crit', apply: m => { m.postureMult *= 1.10; m.critChance += 0.04; } },
+    { pieces: 4, desc: 'Element-overcome bonus amplified 20%; +8 flat DR; +5% crit',
+      apply: m => { m.elementBoostAll += 0.20; m.flatDR += 8; m.critChance += 0.05; } },
+  ],
+};
+function ownsBossCrossGear(id) {
+  const g = BOSS_CROSS_GEAR[id];
+  if (!g) return false;
+  return g.kind === 'weapon' ? (state.weapons.owned.includes(id) || state.weapon === id)
+                             : state.armor.owned.includes(id);
+}
+function canCraftBossCrossGear(id) {
+  const g = BOSS_CROSS_GEAR[id];
+  if (!g || ownsBossCrossGear(id)) return false;
+  return Object.entries(g.mats).every(([m, n]) => (state.base.materials[m] || 0) >= n);
+}
+function craftBossCrossGear(id) {
+  const g = BOSS_CROSS_GEAR[id];
+  if (!canCraftBossCrossGear(id)) return false;
+  Object.entries(g.mats).forEach(([m, n]) => {
+    state.base.materials[m] -= n;
+    if (state.base.materials[m] <= 0) delete state.base.materials[m];
+  });
+  if (g.kind === 'weapon') {
+    state.weapons.owned.push(id);
+    if (!state.weapons.crafted) state.weapons.crafted = [];
+    state.weapons.crafted.push(id);
+  } else {
+    state.armor.owned.push(id);
+  }
+  saveChar();
+  return true;
+}
 // Random armor drop on enemy kill. Higher reward → chance of better gear.
 function rollArmorDrop(enemyData) {
   const reward = enemyData.insightReward || 0;
@@ -7371,12 +7469,28 @@ function claimSlayBounty() {
   grantContribution(slayBountyReward());
   saveChar();
 }
+// v0.67 tribute rework (operator): stones->contribution is weaker at base (1/stone, was
+// 2), DIMINISHES with each tribute today (x0.85 per tribute, floor 0.2), and is CAPPED
+// daily (60 + 30/realm contribution from tribute).
+function tributeToday() {
+  const day = Math.floor(Date.now() / (24 * 3600 * 1000));
+  if (!state.tribute || state.tribute.day !== day) state.tribute = { day, earned: 0, count: 0 };
+  return state.tribute;
+}
+function tributeRate() { return Math.max(0.2, Math.pow(0.85, tributeToday().count)); }
+function tributeDailyCap() { return 60 + 30 * ((state.realm && state.realm.tierIdx) || 0); }
+function tributeCapLeft() { return Math.max(0, tributeDailyCap() - tributeToday().earned); }
 function tributeStones(n) {
   n = n || 10;
   if ((state.base.materials.spirit_stone || 0) < n) return;
+  const earn = Math.min(Math.max(1, Math.round(n * tributeRate())), tributeCapLeft());
+  if (earn <= 0) return;
   state.base.materials.spirit_stone -= n;
   if (state.base.materials.spirit_stone <= 0) delete state.base.materials.spirit_stone;
-  grantContribution(n * 2);
+  const t = tributeToday();
+  t.earned += earn;
+  t.count += 1;
+  grantContribution(earn);
   saveChar();
 }
 function exchangeContribForStones() {
@@ -7920,10 +8034,38 @@ function activeArrays(char) {
   return char.base.arrays.filter(id => ARRAYS[id]);
 }
 
+// v0.67: arrays/glyphs are UPGRADEABLE with spirit stones. Each level scales the
+// array's effect (delta x +18%/level via scaleBossMods); max level = 1 + realm tier.
+function arrayLevel(aid) { return (state.base.arrayLevels && state.base.arrayLevels[aid]) || 0; }
+function arrayMaxLevel() { return 1 + ((state.realm && state.realm.tierIdx) || 0); }
+function arrayUpgradeCost(aid) {
+  const a = ARRAYS[aid];
+  return 25 * (arrayLevel(aid) + 1) * (((a && a.minTier) || 0) + 1);
+}
+function canUpgradeArray(aid) {
+  if (!activeArrays(state).includes(aid)) return false;
+  if (arrayLevel(aid) >= arrayMaxLevel()) return false;
+  return (state.base.materials.spirit_stone || 0) >= arrayUpgradeCost(aid);
+}
+function upgradeArray(aid) {
+  if (!canUpgradeArray(aid)) return false;
+  state.base.materials.spirit_stone -= arrayUpgradeCost(aid);
+  if (state.base.materials.spirit_stone <= 0) delete state.base.materials.spirit_stone;
+  if (!state.base.arrayLevels) state.base.arrayLevels = {};
+  state.base.arrayLevels[aid] = arrayLevel(aid) + 1;
+  saveChar();
+  return true;
+}
+function effectiveArrayMods(aid) {
+  const a = ARRAYS[aid];
+  if (!a || !a.mods) return {};
+  const lvl = arrayLevel(aid);
+  return lvl > 0 ? scaleBossMods(a.mods, 1 + 0.18 * lvl) : a.mods;
+}
 function applyArraysToMods(mods, char) {
   activeArrays(char).forEach(id => {
     const a = ARRAYS[id];
-    if (a && a.mods) mergeMods(mods, a.mods);
+    if (a && a.mods) mergeMods(mods, (char === state) ? effectiveArrayMods(id) : a.mods);
   });
 }
 
@@ -8035,6 +8177,39 @@ function marketRefreshIfDue() {
   }
 }
 
+// v0.67: pay spirit stones to summon a FRESH caravan immediately (resets the hourly
+// purchase caps). Cost scales with realm; usable once per hour.
+function marketResetCost() { return Math.max(100, 250 * ((state.realm && state.realm.tierIdx) || 0)); }
+function marketResetReady() {
+  ensureMarketState();
+  return Date.now() - (state.market.lastForceReset || 0) >= 3600 * 1000;
+}
+function forceMarketReset() {
+  ensureMarketState();
+  if (!marketResetReady()) return false;
+  if ((state.base.materials.spirit_stone || 0) < marketResetCost()) return false;
+  state.base.materials.spirit_stone -= marketResetCost();
+  if (state.base.materials.spirit_stone <= 0) delete state.base.materials.spirit_stone;
+  state.market.lastForceReset = Date.now();
+  state.market.lastRefresh = Date.now();
+  state.market.boughtToday = {};
+  saveChar();
+  return true;
+}
+
+// v0.67: the Spirit-Fed Brazier — burn stones for a 30-minute cultivation surge
+// (+60%; replaces any weaker active cultivation buff, classic stone-burning xianxia).
+function brazierCost() { return 50 * (((state.realm && state.realm.tierIdx) || 0) + 1); }
+function burnStonesInBrazier() {
+  if ((state.base.materials.spirit_stone || 0) < brazierCost()) return false;
+  state.base.materials.spirit_stone -= brazierCost();
+  if (state.base.materials.spirit_stone <= 0) delete state.base.materials.spirit_stone;
+  state.base.buffs = state.base.buffs.filter(b => b.kind !== 'cultivation_mult');
+  state.base.buffs.push({ kind: 'cultivation_mult', value: 1.6, expiresAt: Date.now() + 30 * 60000, sourceName: 'Spirit-Fed Brazier' });
+  saveChar();
+  return true;
+}
+
 function marketBuyMaterial(matId) {
   ensureMarketState();
   marketRefreshIfDue();
@@ -8107,7 +8282,8 @@ function collectSellableItems(char) {
       },
     });
   });
-  // Artifacts: owned but not auto-equipped.
+  // Artifacts: owned but not auto-equipped. v0.67: artifacts can also be DISASSEMBLED
+  // for materials (yield keyed by rarity, basket keyed by your realm).
   const equippedArt = new Set(equippedArtifacts(char));
   (char.artifacts.owned || []).forEach(id => {
     if (equippedArt.has(id)) return;
@@ -8120,9 +8296,38 @@ function collectSellableItems(char) {
         char.base.materials.spirit_stone = (char.base.materials.spirit_stone || 0) + price;
         saveChar();
       },
+      disassemble: () => disassembleArtifact(id),
     });
   });
   return out;
+}
+
+// v0.67: break an artifact down into materials. Yield = your realm's material basket
+// scaled by the artifact's rarity, plus a few spirit stones.
+const DISASSEMBLE_RARITY_MULT = { common: 0.5, rare: 1, legendary: 2, divine: 3 };
+function disassembleYield(rarity) {
+  const t = Math.min(6, (state.realm && state.realm.tierIdx) || 0);
+  const mult = DISASSEMBLE_RARITY_MULT[rarity] || 1;
+  const out = {};
+  Object.entries(WEAPON_GEN_TIER[t].mats).forEach(([m, n]) => {
+    if (m === 'spirit_stone') return;
+    out[m] = Math.max(1, Math.round(n * mult));
+  });
+  out.spirit_stone = Math.round(3 * mult * (1 + t));
+  return out;
+}
+function disassembleArtifact(id) {
+  const i = (state.artifacts.owned || []).indexOf(id);
+  const a = ARTIFACTS[id];
+  if (i < 0 || !a) return null;
+  if (equippedArtifacts(state).includes(id)) return null;   // never break an equipped piece
+  state.artifacts.owned.splice(i, 1);
+  const yld = disassembleYield(a.rarity);
+  Object.entries(yld).forEach(([m, n]) => {
+    state.base.materials[m] = (state.base.materials[m] || 0) + n;
+  });
+  saveChar();
+  return yld;
 }
 
 function rollMarketEncounter() {
@@ -12395,6 +12600,23 @@ function renderCharSheet() {
   appendConsumableSection('pill',   'Pills',   'long-duration, for cultivation and body. Grouped by realm; higher-realm recipes reveal themselves when you get there.');
   appendConsumableSection('potion', 'Potions', 'short-duration combat buffs. Grouped by realm; higher-realm recipes reveal themselves when you get there.');
 
+  // v0.67: Spirit-Fed Brazier — burn stones for a cultivation surge.
+  {
+    const brRow = document.createElement('div');
+    brRow.className = 'consumable-row';
+    const active = (state.base.buffs || []).find(b => b.kind === 'cultivation_mult' && b.sourceName === 'Spirit-Fed Brazier' && b.expiresAt > Date.now());
+    brRow.innerHTML = `<div class="consumable-info">
+        <div class="consumable-name">Spirit-Fed Brazier <span style="color:var(--ink-soft);font-size:0.75rem">灵焚炉</span></div>
+        <div class="consumable-desc">Burn ${brazierCost()} spirit stones for +60% cultivation rate, 30 minutes.${active ? ` <strong style="color:var(--gold)">Burning (${Math.ceil((active.expiresAt - Date.now()) / 60000)}m left).</strong>` : ''}</div>
+      </div>`;
+    const brBtns = document.createElement('div'); brBtns.className = 'consumable-buttons';
+    const brb = document.createElement('button');
+    brb.textContent = `Burn (${brazierCost()})`;
+    brb.disabled = (state.base.materials.spirit_stone || 0) < brazierCost();
+    brb.onclick = () => { burnStonesInBrazier(); render(); };
+    brBtns.appendChild(brb); brRow.appendChild(brBtns); gP.appendChild(brRow);
+  }
+
   // v0.22: Arrays panel — built fixtures that grant passive bonuses while active.
   const arraysHeader = document.createElement('div');
   arraysHeader.style.cssText = 'font-size:0.85rem;margin-top:0.6rem';
@@ -12414,7 +12636,7 @@ function renderCharSheet() {
       const lbl = (MATERIALS[id] && MATERIALS[id].name) || (HERBS[id] && HERBS[id].name) || id;
       return `<span ${cls}>${n}× ${lbl}</span>`;
     }).join(', ');
-    const modStr = modSummary(a.mods);
+    const modStr = modSummary(isActive ? effectiveArrayMods(aid) : a.mods) + (isActive && arrayLevel(aid) ? ` (upgraded +${arrayLevel(aid)})` : '');
     const tierStr = a.minTier ? ` (requires ${REALMS[a.minTier].name})` : '';
     row.innerHTML = `
       <div class="consumable-info">
@@ -12426,6 +12648,21 @@ function renderCharSheet() {
     const btns = document.createElement('div');
     btns.className = 'consumable-buttons';
     if (isActive) {
+      // v0.67: incremental upgrades with spirit stones (cap rises with realm).
+      const lvl = arrayLevel(aid);
+      if (lvl < arrayMaxLevel()) {
+        const up = document.createElement('button');
+        up.className = 'small ' + (canUpgradeArray(aid) ? 'gold' : 'ghost');
+        up.textContent = `Upgrade${lvl ? ' +' + lvl : ''} (${arrayUpgradeCost(aid)} stones)`;
+        up.disabled = !canUpgradeArray(aid);
+        up.onclick = () => { upgradeArray(aid); render(); };
+        btns.appendChild(up);
+      } else {
+        const max = document.createElement('span');
+        max.className = 'rarity-tag rarity-legendary';
+        max.textContent = `+${lvl} (realm cap)`;
+        btns.appendChild(max);
+      }
       const dis = document.createElement('button');
       dis.className = 'ghost';
       dis.textContent = 'Dismantle';
@@ -12873,9 +13110,35 @@ function renderCharSheet() {
       card.appendChild(relicRow);
     }
   });
+  // ---- v0.67: cross-realm relics (mix unique materials from several bosses) ----
+  const crossHdr = document.createElement('div');
+  crossHdr.style.cssText = 'font-weight:bold;margin:0.7rem 0 0.2rem';
+  crossHdr.textContent = 'Cross-Realm Relics — forged from several bosses\' essence';
+  bossP.appendChild(crossHdr);
+  Object.entries(BOSS_CROSS_GEAR).forEach(([gid, g]) => {
+    const item = g.kind === 'weapon' ? WEAPONS[gid] : ARMOR[gid];
+    const owned = ownsBossCrossGear(gid);
+    const costStr = Object.entries(g.mats).map(([m, n]) => {
+      const has = (state.base.materials[m] || 0) >= n;
+      return `<span style="color:${has ? 'var(--ink)' : 'var(--crimson)'}">${n}x ${(MATERIALS[m] && MATERIALS[m].name) || m}</span>`;
+    }).join(', ');
+    const statStr = g.kind === 'weapon' ? `power ${item.power} · ${item.kind}` : `${ARMOR_SLOT_LABELS[item.slot] || item.slot}${item.set ? ' · ' + ARMOR_SETS[item.set].name + ' set' : ''}`;
+    const row = document.createElement('div');
+    row.className = 'consumable-row';
+    row.innerHTML = `<div class="consumable-info">
+        <div class="consumable-name">${item.name} <span style="color:var(--ink-soft);font-size:0.75rem">${item.zh}</span> <span class="rarity-tag rarity-${item.rarity}">${item.rarity}</span></div>
+        <div class="consumable-desc">${item.desc} (${statStr})</div>
+        <div class="consumable-desc"><strong>Mats:</strong> ${costStr}</div>
+      </div>`;
+    const btns = document.createElement('div'); btns.className = 'consumable-buttons';
+    const b = document.createElement('button');
+    if (owned) { b.textContent = 'Forged'; b.disabled = true; }
+    else { b.textContent = 'Forge'; b.className = canCraftBossCrossGear(gid) ? 'gold' : ''; b.disabled = !canCraftBossCrossGear(gid); b.onclick = () => { craftBossCrossGear(gid); render(); }; }
+    btns.appendChild(b); row.appendChild(btns); bossP.appendChild(row);
+  });
   const glyphNote = document.createElement('p');
   glyphNote.style.cssText = 'font-size:0.78rem;color:var(--ink-soft);margin-top:0.5rem';
-  glyphNote.textContent = 'Each boss rests 1 hour between challenges. Build the Challenge-Summons / War-Summons glyphs (House tab, Arrays) to shorten the rest.';
+  glyphNote.textContent = 'Each boss rests 1 hour between challenges. Build the Challenge-Summons / War-Summons glyphs (House tab, Arrays) to shorten the rest - and upgrade them with spirit stones.';
   bossP.appendChild(glyphNote);
   appendPanel(bossP, 'bosses');
 
@@ -12972,6 +13235,29 @@ function renderCharSheet() {
   sellHeader.innerHTML = `<strong>Sell items</strong> <span style="color:var(--ink-soft);font-weight:normal;font-size:0.75rem">— unequipped weapons / inscriptions / armor / artifacts. Stones based on rarity.</span>`;
   traderP.appendChild(sellHeader);
   const sellRows = collectSellableItems(state);
+  // v0.67: paid caravan reset (fresh stock caps, hourly).
+  {
+    const resetRow = document.createElement('div');
+    resetRow.className = 'consumable-row';
+    resetRow.innerHTML = `<div class="consumable-info">
+        <div class="consumable-name">Summon a Fresh Caravan <span style="color:var(--ink-soft);font-size:0.75rem">换商队</span></div>
+        <div class="consumable-desc">Pay ${marketResetCost()} spirit stones to reset the caravan's purchase limits immediately. Once per hour.</div>
+      </div>`;
+    const rBtns = document.createElement('div'); rBtns.className = 'consumable-buttons';
+    const rb = document.createElement('button');
+    const ready = marketResetReady();
+    const canAffordReset = (state.base.materials.spirit_stone || 0) >= marketResetCost();
+    if (!ready) {
+      const mins = Math.ceil((3600 * 1000 - (Date.now() - (state.market.lastForceReset || 0))) / 60000);
+      rb.textContent = `Caravan rests (${mins}m)`;
+      rb.disabled = true;
+    } else {
+      rb.textContent = `Summon (${marketResetCost()} stones)`;
+      rb.disabled = !canAffordReset;
+      rb.onclick = () => { forceMarketReset(); render(); };
+    }
+    rBtns.appendChild(rb); resetRow.appendChild(rBtns); traderP.appendChild(resetRow);
+  }
   if (!sellRows.length) {
     const empty = document.createElement('div');
     empty.style.cssText = 'font-size:0.85rem;color:var(--ink-soft);font-style:italic;margin-top:0.3rem';
@@ -12993,6 +13279,16 @@ function renderCharSheet() {
       b.textContent = `Sell (+${item.price})`;
       b.onclick = () => { item.sell(); render(); };
       btns.appendChild(b);
+      if (item.disassemble) {
+        const yld = disassembleYield(item.rarity);
+        const dStr = Object.entries(yld).map(([m, n]) => `${n}x ${(MATERIALS[m] && MATERIALS[m].name) || m}`).join(', ');
+        const db = document.createElement('button');
+        db.className = 'small tip';
+        db.setAttribute('data-tip', `Break down into materials: ${dStr}`);
+        db.textContent = 'Disassemble';
+        db.onclick = () => { item.disassemble(); render(); };
+        btns.appendChild(db);
+      }
       row.appendChild(btns);
       traderP.appendChild(row);
     });
@@ -13066,11 +13362,12 @@ function renderCharSheet() {
   const tribRow = document.createElement('div'); tribRow.className = 'consumable-row';
   tribRow.innerHTML = `<div class="consumable-info">
       <div class="consumable-name">Tribute Spirit Stones <span style="color:var(--ink-soft);font-size:0.75rem">纳贡</span></div>
-      <div class="consumable-desc">Donate 10 spirit stones for 20 contribution. You have ${stonesHave}.</div>
+      <div class="consumable-desc">Donate 10 stones. Current rate: <strong>${(tributeRate() * 10).toFixed(1)}</strong> contribution (drops with each tribute today). Daily cap remaining: <strong>${tributeCapLeft()}</strong>. You have ${stonesHave}.</div>
     </div>`;
   const tribBtns = document.createElement('div'); tribBtns.className = 'consumable-buttons';
   const tribBtn = document.createElement('button');
-  tribBtn.textContent = 'Tribute 10'; tribBtn.disabled = stonesHave < 10;
+  tribBtn.textContent = `Tribute 10 (+${Math.min(Math.max(1, Math.round(10 * tributeRate())), tributeCapLeft())})`;
+  tribBtn.disabled = stonesHave < 10 || tributeCapLeft() <= 0;
   tribBtn.onclick = () => { tributeStones(10); render(); };
   tribBtns.appendChild(tribBtn); tribRow.appendChild(tribBtns); sectP.appendChild(tribRow);
   // v0.60: Herb Tribute duty
@@ -13385,11 +13682,23 @@ function renderCombat() {
       }
       endHTML += `</p>`;
     }
+    // v0.67: manual re-venture — same loop auto-combat gets, as a button.
+    const reLoc = (combat.victory && combat.ventureLocId) ? LOCATIONS.find(l => l.id === combat.ventureLocId) : null;
+    const canReVenture = reLoc && locationUnlocked(reLoc);
     endHTML += `<div class="button-row">
+      ${canReVenture ? '<button id="fight-again" class="gold">Fight Again</button>' : ''}
       <button id="end">${combat.victory ? 'Return Home' : 'Crawl Home'}</button>
     </div>`;
     aP.innerHTML = endHTML;
     app.appendChild(aP);
+    if (canReVenture) {
+      document.getElementById('fight-again').onclick = () => {
+        const locId = combat.ventureLocId;
+        initCombat(rollEncounter(reLoc), reLoc.cultivationMult || 1);
+        if (combat) combat.ventureLocId = locId;
+        render();
+      };
+    }
     document.getElementById('end').onclick = () => {
       if (state.cultivating) state.cultivating.lastTick = Date.now();
       else state.passiveTick = Date.now();
