@@ -541,7 +541,7 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v0.59';
+const GAME_VERSION = 'v0.60';
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
 const ELEMENT_ZH   = { metal:'金', wood:'木', water:'水', fire:'火', earth:'土' };
@@ -6768,12 +6768,17 @@ function chooseDestiny(id) {
 // on capabilities (sect-taught techniques) + resources. Lifetime contribution sets your RANK,
 // which grants a small passive cultivation bonus. Per-life (reset on ascension/reincarnation).
 // ============================================================
+// v0.60: 8 ranks, much longer ramp (operator: sect depth + longer advancement).
+// Index-compatible with old saves (same +5%/rank cult bonus; titles shift, mult preserved).
 const SECT_RANKS = [
-  { name: 'Outer Disciple', zh: '外门弟子', at: 0 },
-  { name: 'Inner Disciple', zh: '内门弟子', at: 500 },
-  { name: 'Core Disciple',  zh: '核心弟子', at: 2500 },
-  { name: 'Sect Elder',     zh: '长老',     at: 10000 },
-  { name: 'Grand Elder',    zh: '太上长老', at: 40000 },
+  { name: 'Outer Disciple',   zh: '外门弟子', at: 0 },
+  { name: 'Inner Disciple',   zh: '内门弟子', at: 800 },
+  { name: 'Core Disciple',    zh: '核心弟子', at: 4000 },
+  { name: 'True Inheritor',   zh: '真传弟子', at: 12000 },
+  { name: 'Sect Elder',       zh: '长老',     at: 30000 },
+  { name: 'Grand Elder',      zh: '太上长老', at: 80000 },
+  { name: 'Sect Pillar',      zh: '宗门柱石', at: 200000 },
+  { name: 'Honored Ancestor', zh: '荣誉老祖', at: 500000 },
 ];
 const SLAY_BOUNTY_N = 10;
 function grantContribution(n) {
@@ -6810,6 +6815,109 @@ function exchangeContribForStones() {
   saveChar();
 }
 function sectTechCost(t) { return Math.max(20, Math.round((t.cost || 100) * 0.8)); }
+
+// ============================================================
+// v0.60: Sect Arts — sect-EXCLUSIVE universal techniques (usable by every school),
+// gated by sect rank + realm, bought with contribution. school: null => no school
+// multipliers apply; they flow through the normal technique engine otherwise.
+// ============================================================
+const SECT_ARTS = {
+  sect_battle_hymn: {
+    name: 'Sect Battle Hymn', zh: '宗门战歌', school: null, sectRank: 1, minRealmTier: 1, contribCost: 120,
+    qi: 10, cd: 2, damage: 0.8, postureBuild: 22, target: 'aoe',
+    desc: 'Sect Art (Inner Disciple+). The marching hymn of your sect, weaponized: AOE strike with heavy posture pressure.',
+    logHit: (a,t) => `${a} sings the old marching line; every foe's stance bends to the meter.` },
+  sect_borrowed_breath: {
+    name: 'Borrowed Breath', zh: '借息法', school: null, sectRank: 2, minRealmTier: 2, contribCost: 400,
+    qi: 0, cd: 4, damage: 0, instant: true, qiRestore: 40,
+    desc: 'Sect Art (Core Disciple+). Free action: draw on the sect\'s shared breath — +40 qi without spending your turn.',
+    logHit: (a,t) => `${a} inhales, and ten thousand distant disciples exhale.` },
+  sect_formation_guard: {
+    name: 'Formation Guard', zh: '护阵式', school: null, sectRank: 3, minRealmTier: 3, contribCost: 1200,
+    qi: 14, cd: 4, damage: 0, buff: { incomingMult: 0.5, turns: 2 }, postureBuild: 8,
+    desc: 'Sect Art (True Inheritor+). Raise the sect\'s defensive formation around yourself: incoming damage halved for 2 rounds.',
+    logHit: (a,t) => `Glyphs of ${a}'s sect ignite in a protective ring.` },
+  sect_banner_call: {
+    name: 'Banner Call', zh: '召旗令', school: null, sectRank: 4, minRealmTier: 4, contribCost: 3500,
+    qi: 26, cd: 3, damage: 2.0, postureBuild: 14, target: 'aoe',
+    desc: 'Sect Art (Sect Elder+). Plant the war-banner: an AOE strike carrying the weight of the whole sect\'s name.',
+    logHit: (a,t) => `${a} plants the banner; its shadow falls on everyone standing.` },
+  sect_elder_seal: {
+    name: "Elder's Silencing Seal", zh: '长老封言印', school: null, sectRank: 5, minRealmTier: 5, contribCost: 9000,
+    qi: 34, cd: 4, damage: 1.6, effect: 'silence', effectValue: 0, effectTurns: 2,
+    desc: 'Sect Art (Grand Elder+). The seal elders use on unruly juniors: damages and SILENCES the target for 2 turns.',
+    logHit: (a,t) => `${a} presses the seal into the air; ${t}'s next argument fails to exist.` },
+  sect_ancestor_wrath: {
+    name: "Ancestor's Wrath", zh: '老祖之怒', school: null, sectRank: 6, minRealmTier: 6, contribCost: 25000,
+    qi: 45, cd: 4, damage: 5.5, postureBuild: 26,
+    desc: 'Sect Art (Sect Pillar+). Borrow, for one swing, the strength of every ancestor on the sect\'s memorial wall.',
+    logHit: (a,t) => `Behind ${a}, for one heartbeat, stand all the dead of the sect — and they are not pleased with ${t}.` },
+};
+Object.entries(SECT_ARTS).forEach(([id, t]) => { TECHNIQUES[id] = t; });
+function buySectArt(techId) {
+  const t = SECT_ARTS[techId];
+  if (!t) return false;
+  if (sectRankIdx() < t.sectRank) return false;
+  if ((state.realm.tierIdx || 0) < (t.minRealmTier || 0)) return false;
+  if (state.loadout.includes(techId)) return false;
+  if ((state.contribution || 0) < t.contribCost) return false;
+  state.contribution -= t.contribCost;
+  state.loadout.push(techId);
+  if (!state.activeSkills) state.activeSkills = [];
+  if (state.activeSkills.length < activeSlotsForRealm(state) && !state.activeSkills.includes(techId)) state.activeSkills.push(techId);
+  saveChar();
+  return true;
+}
+
+// v0.60: Sect Armory — rank-gated weapons bought with contribution (not forged).
+const SECT_WEAPONS = {
+  sect_banner_blade: { sectRank: 2, contribCost: 600,
+    def: { name: 'Sect Banner-Blade', zh: '宗旗刃', power: 16, slots: 3, kind: 'sword', rarity: 'rare',
+      desc: 'A standard-bearer\'s sword, point heavy with the sect\'s colors. +20% posture damage.',
+      apply: m => { m.postureMult *= 1.20; } } },
+  sect_elder_staff: { sectRank: 4, contribCost: 2500,
+    def: { name: "Elder's Mountain Staff", zh: '长老山杖', power: 28, slots: 4, kind: 'staff', rarity: 'legendary',
+      desc: 'Carried by three elders before you. +8% cultivation rate and +40 max qi while equipped.',
+      apply: m => { m.cultMult *= 1.08; m.qiBonus += 40; } } },
+  sect_pillar_greatsword: { sectRank: 6, contribCost: 10000,
+    def: { name: 'Pillar-Carrier Greatsword', zh: '柱石巨剑', power: 45, slots: 5, kind: 'greatsword', rarity: 'legendary',
+      desc: 'Forged from a load-bearing beam of the first sect hall. +10 DR, +25% damage when bloodied.',
+      apply: m => { m.flatDR += 10; m.lowHpBonus += 0.25; } } },
+  sect_ancestor_relic: { sectRank: 7, contribCost: 40000,
+    def: { name: "Ancestor's Relic Blade", zh: '老祖遗刃', power: 52, slots: 5, kind: 'sword', rarity: 'divine',
+      desc: 'The founder\'s own blade, lent — never given — to each Honored Ancestor. +6% crit, element-overcome amplified 20%.',
+      apply: m => { m.critChance += 0.06; m.elementBoostAll += 0.20; } } },
+};
+Object.entries(SECT_WEAPONS).forEach(([id, w]) => { WEAPONS[id] = w.def; });
+function buySectWeapon(wid) {
+  const w = SECT_WEAPONS[wid];
+  if (!w) return false;
+  if (sectRankIdx() < w.sectRank) return false;
+  if (state.weapons.owned.includes(wid) || state.weapon === wid) return false;
+  if ((state.contribution || 0) < w.contribCost) return false;
+  state.contribution -= w.contribCost;
+  state.weapons.owned.push(wid);
+  saveChar();
+  return true;
+}
+
+// v0.60: Herb Tribute duty — donate 5 of your largest herb stock; contribution by rarity.
+const HERB_TRIBUTE_VALUE = { common: 6, rare: 15, legendary: 40, divine: 100 };
+function herbTributeCandidate() {
+  let best = null;
+  Object.entries(state.base.herbs || {}).forEach(([hid, n]) => {
+    if (n >= 5 && HERBS[hid] && (!best || n > best.n)) best = { hid, n };
+  });
+  return best;
+}
+function tributeHerbs() {
+  const c = herbTributeCandidate();
+  if (!c) return;
+  state.base.herbs[c.hid] -= 5;
+  if (state.base.herbs[c.hid] <= 0) delete state.base.herbs[c.hid];
+  grantContribution(HERB_TRIBUTE_VALUE[HERBS[c.hid].rarity] || 6);
+  saveChar();
+}
 function buySectTechnique(techId) {
   const t = TECHNIQUES[techId];
   if (!t || t.school !== state.selectedSchool || !(t.minRealmTier > 0)) return;
@@ -9809,6 +9917,10 @@ function grantEnemyDefeatRewards(e) {
   if (enemyData.isBoss) {
     if (!state.bossKills) state.bossKills = {};
     state.bossKills[e.id] = (state.bossKills[e.id] || 0) + 1;
+    // v0.60: the sect honors boss kills — automatic contribution bounty.
+    const bossBounty = 30 + 30 * ((BOSSES[e.id] && BOSSES[e.id].tier) || 0);
+    grantContribution(bossBounty);
+    pushLog('reward', `The sect honors the kill: +${bossBounty} contribution.`);
     const meta = BOSSES[e.id];
     if (meta && meta.firstKill && state.bossKills[e.id] === 1) {
       Object.entries(meta.firstKill).forEach(([mid, n]) => {
@@ -12157,6 +12269,24 @@ function renderCharSheet() {
   tribBtn.textContent = 'Tribute 10'; tribBtn.disabled = stonesHave < 10;
   tribBtn.onclick = () => { tributeStones(10); render(); };
   tribBtns.appendChild(tribBtn); tribRow.appendChild(tribBtns); sectP.appendChild(tribRow);
+  // v0.60: Herb Tribute duty
+  const herbCand = herbTributeCandidate();
+  const herbRow = document.createElement('div'); herbRow.className = 'consumable-row';
+  herbRow.innerHTML = `<div class="consumable-info">
+      <div class="consumable-name">Herb Tribute <span style="color:var(--ink-soft);font-size:0.75rem">献药</span></div>
+      <div class="consumable-desc">Donate 5 of your largest herb stock for contribution (worth more for rarer herbs).${herbCand ? ` Next: 5× ${HERBS[herbCand.hid].name} (+${HERB_TRIBUTE_VALUE[HERBS[herbCand.hid].rarity] || 6}).` : ' Need 5 of any herb.'}</div>
+    </div>`;
+  const herbBtns = document.createElement('div'); herbBtns.className = 'consumable-buttons';
+  const herbBtn = document.createElement('button');
+  herbBtn.textContent = 'Tribute Herbs'; herbBtn.disabled = !herbCand;
+  herbBtn.onclick = () => { tributeHerbs(); render(); };
+  herbBtns.appendChild(herbBtn); herbRow.appendChild(herbBtns); sectP.appendChild(herbRow);
+  // Boss bounty note
+  const bossNote = document.createElement('div');
+  bossNote.className = 'consumable-desc';
+  bossNote.style.cssText = 'margin:0.2rem 0 0.4rem;opacity:0.85';
+  bossNote.textContent = 'The sect also pays an automatic bounty for every boss slain (30 + 30 per realm of the boss).';
+  sectP.appendChild(bossNote);
   // Store
   const storeHdr = document.createElement('div');
   storeHdr.style.cssText = 'font-weight:bold;margin:0.6rem 0 0.3rem';
@@ -12187,6 +12317,53 @@ function renderCharSheet() {
     else if (contrib < cost) { tb.textContent = `Need ${cost}`; tb.disabled = true; }
     else { tb.textContent = `Learn (${cost})`; tb.onclick = () => { buySectTechnique(tid); render(); }; }
     tbtns.appendChild(tb); row.appendChild(tbtns); sectP.appendChild(row);
+  });
+  // ---- v0.60: Sect Arts (rank-gated universal techniques) ----
+  const artsHdr = document.createElement('div');
+  artsHdr.style.cssText = 'font-weight:bold;margin:0.6rem 0 0.3rem';
+  artsHdr.textContent = 'Sect Arts — exclusive techniques, any school';
+  sectP.appendChild(artsHdr);
+  Object.entries(SECT_ARTS).forEach(([tid, art]) => {
+    const owned = state.loadout.includes(tid);
+    const rankMet = rankIdx >= art.sectRank;
+    const tierMet = (state.realm.tierIdx || 0) >= (art.minRealmTier || 0);
+    const row = document.createElement('div'); row.className = 'consumable-row';
+    row.innerHTML = `<div class="consumable-info">
+        <div class="consumable-name">${art.name} <span style="color:var(--ink-soft);font-size:0.75rem">${art.zh}</span> <span style="color:var(--ink-soft);font-size:0.7rem">[${art.target === 'aoe' ? '<span style="color:#e89e9e">AOE</span>' : 'Single'}]</span></div>
+        <div class="consumable-desc">${art.desc}</div>
+        <div class="consumable-desc"><strong>${SECT_RANKS[art.sectRank].name}+</strong> · ${REALMS[art.minRealmTier].name}+ · ${art.contribCost.toLocaleString()} contribution</div>
+      </div>`;
+    const btns = document.createElement('div'); btns.className = 'consumable-buttons';
+    const b = document.createElement('button');
+    if (owned) { b.textContent = 'Learned'; b.disabled = true; }
+    else if (!rankMet) { b.textContent = `Locked (${SECT_RANKS[art.sectRank].name})`; b.disabled = true; }
+    else if (!tierMet) { b.textContent = `Locked (${REALMS[art.minRealmTier].name})`; b.disabled = true; }
+    else if (contrib < art.contribCost) { b.textContent = `Need ${art.contribCost.toLocaleString()}`; b.disabled = true; }
+    else { b.textContent = `Learn (${art.contribCost.toLocaleString()})`; b.onclick = () => { buySectArt(tid); render(); }; }
+    btns.appendChild(b); row.appendChild(btns); sectP.appendChild(row);
+  });
+  // ---- v0.60: Sect Armory (rank-gated weapons for contribution) ----
+  const armoryHdr = document.createElement('div');
+  armoryHdr.style.cssText = 'font-weight:bold;margin:0.6rem 0 0.3rem';
+  armoryHdr.textContent = 'Sect Armory — relic weapons for contribution';
+  sectP.appendChild(armoryHdr);
+  Object.entries(SECT_WEAPONS).forEach(([wid, sw]) => {
+    const w = WEAPONS[wid];
+    const owned = state.weapons.owned.includes(wid) || state.weapon === wid;
+    const rankMet = rankIdx >= sw.sectRank;
+    const row = document.createElement('div'); row.className = 'consumable-row';
+    row.innerHTML = `<div class="consumable-info">
+        <div class="consumable-name">${w.name} <span style="color:var(--ink-soft);font-size:0.75rem">${w.zh}</span> <span class="rarity-tag rarity-${w.rarity}">${w.rarity}</span></div>
+        <div class="consumable-desc">Power ${w.power} · ${w.kind} · ${w.desc}</div>
+        <div class="consumable-desc"><strong>${SECT_RANKS[sw.sectRank].name}+</strong> · ${sw.contribCost.toLocaleString()} contribution</div>
+      </div>`;
+    const btns = document.createElement('div'); btns.className = 'consumable-buttons';
+    const b = document.createElement('button');
+    if (owned) { b.textContent = 'Owned'; b.disabled = true; }
+    else if (!rankMet) { b.textContent = `Locked (${SECT_RANKS[sw.sectRank].name})`; b.disabled = true; }
+    else if (contrib < sw.contribCost) { b.textContent = `Need ${sw.contribCost.toLocaleString()}`; b.disabled = true; }
+    else { b.textContent = `Claim (${sw.contribCost.toLocaleString()})`; b.onclick = () => { buySectWeapon(wid); render(); }; }
+    btns.appendChild(b); row.appendChild(btns); sectP.appendChild(row);
   });
   appendPanel(sectP, 'sect');
 
