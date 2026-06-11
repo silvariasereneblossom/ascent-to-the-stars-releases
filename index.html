@@ -541,7 +541,7 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v0.71';
+const GAME_VERSION = 'v0.72';
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
 const ELEMENT_ZH   = { metal:'金', wood:'木', water:'水', fire:'火', earth:'土' };
@@ -6988,6 +6988,7 @@ const RARITY_PFX = { common: ['Sect-Issue', '宗制'], rare: ['Refined', '精制
           ? `The realm's apex ${noun.toLowerCase()} — armor to shame the next realm's standard issue.`
           : `A ${rar} ${noun.toLowerCase()} pattern of this realm.`,
       };
+      ARMOR[aid].genArmor = true;   // v0.72: marks ladder pieces for rarity enrichment
       const mats = {};
       const costMult = [1.5, 2, 3][ri];
       Object.entries(WEAPON_GEN_TIER[t].mats).forEach(([m, n]) => { mats[m] = Math.max(1, Math.round(n * costMult)); });
@@ -6995,7 +6996,9 @@ const RARITY_PFX = { common: ['Sect-Issue', '宗制'], rare: ['Refined', '精制
         const nextFirst = Object.keys(WEAPON_GEN_TIER[t + 1].mats)[0];
         mats[nextFirst] = (mats[nextFirst] || 0) + 1;
       }
-      ARMOR_RECIPES.push({ id: aid, materials: mats, minRealmTier: t, minLayer: ri + 1 });
+      // v0.72 FIX: clamp minLayer to the realm's layer count — Mortal has ONE layer, so
+      // "Mortal L2/L3" gates made the t0 Robe and Boots permanently uncraftable there.
+      ARMOR_RECIPES.push({ id: aid, materials: mats, minRealmTier: t, minLayer: Math.min(ri + 1, REALMS[t].layers) });
     });
   }
 })();
@@ -7076,6 +7079,80 @@ ARMOR_RECIPES.push(
   { id: 'executioner_chain',   materials: { sun_fragment: 1, heaven_silver: 2 },                   minRealmTier: 6, minLayer: 2 },
   { id: 'world_root_girdle',   materials: { primordial_stone: 2, void_silk: 1, dao_crystal: 1 },   minRealmTier: 6, minLayer: 2 }
 );
+
+// ============================================================
+// v0.72 ACCESSORY LADDER + ARMOR RARITY RICHNESS — the weapon principle (v0.70)
+// applied to armor: per realm a rare/legendary/divine ACCESSORY joins the ladder,
+// and every generated armor piece carries rarity-scaled bonus effects
+// (common 1 / rare 2 / legendary 3 / divine 5), channel-aware and hash-stable.
+// ============================================================
+(function generateAccessoryLadder() {
+  const nouns = [['Talisman', '符'], ['Ring', '戒'], ['Pendant', '坠']];
+  for (let t = 0; t <= 6; t++) {
+    ['rare', 'legendary', 'divine'].forEach((rar, ri) => {
+      const [noun, nounZh] = nouns[(t + ri) % 3];
+      const aid = `genr_acc_${t}_${rar}`;
+      ARMOR[aid] = {
+        name: `${RARITY_PFX[rar][0]} ${WEAPON_GEN_TIER[t].pfx[0][0]} ${noun}`,
+        zh: `${RARITY_PFX[rar][1]}${WEAPON_GEN_TIER[t].pfx[0][1]}${nounZh}`,
+        slot: 'accessory', rarity: rar, mods: { qiBonus: 6 * (t + 1) },
+        genArmor: true,
+        desc: rar === 'divine'
+          ? `The realm's apex ${noun.toLowerCase()} — a treasury of bound effects.`
+          : `A ${rar} ${noun.toLowerCase()} of this realm.`,
+      };
+      const mats = {};
+      const costMult = [1.5, 2, 3][ri];
+      Object.entries(WEAPON_GEN_TIER[t].mats).forEach(([m, n]) => { mats[m] = Math.max(1, Math.round(n * costMult)); });
+      if (rar === 'divine' && t < 6) {
+        const nextFirst = Object.keys(WEAPON_GEN_TIER[t + 1].mats)[0];
+        mats[nextFirst] = (mats[nextFirst] || 0) + 1;
+      }
+      ARMOR_RECIPES.push({ id: aid, materials: mats, minRealmTier: t, minLayer: Math.min(ri + 1, REALMS[t].layers) });
+    });
+  }
+})();
+const ARMOR_RARITY_EFFECT_COUNT = { common: 1, rare: 2, legendary: 3, divine: 5 };  // local: the weapon table declares later in-file
+const ARMOR_EFFECT_POOL = [
+  { ch: 'flatDR',          mk: t => 1 + t,                 blurb: t => `+${1 + t} DR` },
+  { ch: 'hpBonus',         mk: t => 12 * (t + 1),          blurb: t => `+${12 * (t + 1)} HP` },
+  { ch: 'qiBonus',         mk: t => 8 * (t + 1),           blurb: t => `+${8 * (t + 1)} qi` },
+  { ch: 'qiRegenBonus',    mk: t => 1 + Math.floor(t / 3), blurb: t => `+${1 + Math.floor(t / 3)} qi regen` },
+  { ch: 'spiritBonus',     mk: t => 4 * (t + 1),           blurb: t => `+${4 * (t + 1)} max spirit` },
+  { ch: 'dodgeChance',     mk: t => +(0.01 + 0.005 * t).toFixed(3),  blurb: t => `+${(1 + 0.5 * t).toFixed(1)}% dodge` },
+  { ch: 'critChance',      mk: t => +(0.015 + 0.005 * t).toFixed(3), blurb: t => `+${(1.5 + 0.5 * t).toFixed(1)}% crit` },
+  { ch: 'lifestealPct',    mk: t => +(0.015 + 0.01 * t).toFixed(3),  blurb: t => `+${Math.round((0.015 + 0.01 * t) * 100)}% lifesteal` },
+  { ch: 'postureMult',     mk: t => +(1.04 + 0.02 * t).toFixed(3),   blurb: t => `+${Math.round((0.04 + 0.02 * t) * 100)}% posture` },
+  { ch: 'incomingMult',    mk: t => +(0.97 - 0.005 * t).toFixed(3),  blurb: t => `-${Math.round((0.03 + 0.005 * t) * 100)}% incoming` },
+  { ch: 'elementBoostAll', mk: t => +(0.04 + 0.02 * t).toFixed(3),   blurb: t => 'element-overcome amplified' },
+  { ch: 'dotMult',         mk: t => +(1.04 + 0.02 * t).toFixed(3),   blurb: t => `+${Math.round((0.04 + 0.02 * t) * 100)}% DOT` },
+  { ch: 'insightMult',     mk: t => +(1.03 + 0.01 * t).toFixed(3),   blurb: t => `+${Math.round((0.03 + 0.01 * t) * 100)}% insight` },
+];
+(function enrichGeneratedArmor() {
+  const tierOf = {};
+  ARMOR_RECIPES.forEach(r => { tierOf[r.id] = r.minRealmTier || 0; });
+  Object.entries(ARMOR).forEach(([id, a]) => {
+    if (!a.genArmor) return;
+    const t = tierOf[id] || 0;
+    const target = ARMOR_RARITY_EFFECT_COUNT[a.rarity] || 1;
+    const haveChannels = Object.keys(a.mods || {});
+    const need = Math.max(0, target - haveChannels.length);
+    if (!need) return;
+    const usedChannels = new Set(haveChannels);
+    const blurbs = [];
+    let idx = Math.abs(hashStr(id)) % ARMOR_EFFECT_POOL.length;
+    let guard = 0;
+    while (blurbs.length < need && guard++ < ARMOR_EFFECT_POOL.length * 2) {
+      const e = ARMOR_EFFECT_POOL[idx % ARMOR_EFFECT_POOL.length];
+      idx++;
+      if (usedChannels.has(e.ch)) continue;
+      usedChannels.add(e.ch);
+      a.mods[e.ch] = e.mk(t);
+      blurbs.push(e.blurb(t));
+    }
+    if (blurbs.length) a.desc = a.desc + ' Bonus: ' + blurbs.join(', ') + '.';
+  });
+})();
 
 // ============================================================
 // v0.62 BOSS RELIC GEAR — every boss drops a UNIQUE material (guaranteed) and has a
@@ -7498,6 +7575,12 @@ function modSummary(mods) {
   const labels = {
     weaponBonus: 'wpn', hpBonus: 'HP', qiBonus: 'max qi', spiritBonus: 'max spirit',
     qiRegenBonus: 'qi regen', postureBreakBonus: 'break turns', strikeHeal: 'strike heal',
+    flatDR: 'DR',
+  };
+  const pcts = {   // v0.72: fraction channels rendered as percentages
+    critChance: 'crit', lifestealPct: 'lifesteal', dodgeChance: 'dodge',
+    firstStrikeBonus: 'opener', lowHpBonus: 'bloodied dmg', elementBoostAll: 'element overcome',
+    perTurnRamp: 'dmg per turn',
   };
   const mults = {
     postureMult: 'posture', techDamageMult: 'tech dmg', strikeDamageMult: 'strike dmg',
@@ -7508,9 +7591,15 @@ function modSummary(mods) {
   Object.entries(mods).forEach(([k, v]) => {
     if (labels[k] && v) {
       parts.push(`${v > 0 ? '+' : ''}${v} ${labels[k]}`);
+    } else if (pcts[k] && v) {
+      parts.push(`+${Math.round(v * 100)}% ${pcts[k]}`);
     } else if (mults[k] && v !== 1) {
       const pct = Math.round((v - 1) * 100);
       parts.push(`${pct >= 0 ? '+' : ''}${pct}% ${mults[k]}`);
+    } else if ((k === 'elementWard' || k === 'elementAmp') && v && typeof v === 'object') {
+      Object.entries(v).forEach(([el, ev]) => {
+        parts.push(`${k === 'elementWard' ? '-' : '+'}${Math.round(ev * 100)}% ${k === 'elementWard' ? 'from' : 'vs'} ${el}`);
+      });
     }
   });
   return parts.length ? parts.join(', ') : '(no stats)';
