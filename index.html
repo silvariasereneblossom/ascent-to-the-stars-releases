@@ -541,7 +541,7 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v0.56';
+const GAME_VERSION = 'v0.57';
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
 const ELEMENT_ZH   = { metal:'金', wood:'木', water:'水', fire:'火', earth:'土' };
@@ -1336,10 +1336,10 @@ const TECHNIQUES = {
     logHit: (a,t) => `${a} draws the blade back — then severs the air itself.`
   },
   azure_stance: {
-    name: 'Whispering Dao Stance', zh: '听道式', school: 'azure_sword',
-    qi: 6, cd: 3, damage: 0, buff: { nextDamageMult: 1.8, turns: 1 },
-    desc: 'A breath of stillness mid-combat. Next strike or technique carries +80% edge.',
-    logHit: (a,t) => `${a}'s breath settles. The blade hums — waiting.`
+    name: 'Listening Dao', zh: '听道', school: 'azure_sword',
+    qi: 4, cd: 3, damage: 0, instant: true, intentGain: 2, qiRestore: 10,
+    desc: 'Free action. Listen for the line the fight is drawing: +2 Sword Intent and +10 qi, without spending your turn.',
+    logHit: (a,t) => `${a} goes quiet; the blade hears something the rest of us do not.`
   },
 
   // Iron Body Hall
@@ -1416,10 +1416,10 @@ const TECHNIQUES = {
     logHit: (a,t) => `${a} roars — and for a heartbeat, their saber is a falling sun.`
   },
   ember_stance: {
-    name: 'Ember Stance', zh: '烬势', school: 'crimson_flame',
-    qi: 6, cd: 3, damage: 0, buff: { nextDamageMult: 1.9, turns: 1 },
-    desc: 'Stoke your inner flame. Next strike or technique carries +90% edge.',
-    logHit: (a,t) => `${a}'s chest glows red. The next blow will be a furnace.`
+    name: 'Ashfall Detonation', zh: '烬爆', school: 'crimson_flame',
+    qi: 10, cd: 3, damage: 1.2, postureBuild: 10, detonate: { kind: 'burn', mult: 1.5 },
+    desc: "Clap the air shut around the fire. Detonates the target's Burn: all remaining burn damage lands at once, at 150%.",
+    logHit: (a,t) => `${a} closes a fist; every ember on ${t} agrees to finish early.`
   },
 
   // ---- Moonlit Water Sect ----
@@ -1463,10 +1463,10 @@ const TECHNIQUES = {
     logHit: (a,t) => `${a}'s daggers blur — a dozen cuts land before the first has settled.`
   },
   killing_intent: {
-    name: 'Killing Intent', zh: '杀意', school: 'silent_daggers',
-    qi: 7, cd: 3, damage: 0, buff: { nextDamageMult: 2.1, turns: 1 },
-    desc: 'Focus a single moment of murder. Next strike or technique deals +110%.',
-    logHit: (a,t) => `${a} fixes their gaze on ${t}. The air itself goes cold.`
+    name: "Executioner's Calm", zh: '刑静', school: 'silent_daggers',
+    qi: 7, cd: 4, damage: 0, instant: true, buff: { critChance: 0.35, turns: 2 },
+    desc: 'Free action. Breathe out everything that is not the kill: +35% critical chance for 2 rounds.',
+    logHit: (a,t) => `${a}'s pulse slows. Somewhere in the next few seconds, a seam is opening.`
   },
   death_mark: {
     name: 'Death Mark', zh: '死契', school: 'silent_daggers',
@@ -1563,10 +1563,10 @@ const TECHNIQUES = {
     desc: 'A full-body plunge. Pays HP for devastating damage and posture.',
     logHit: (a,t) => `${a} becomes the hammer, and the hammer becomes the anvil; ${t} is between.` },
   forge_stance: {
-    name: 'Forge Stance', zh: '炉势', school: 'thunder_hammer',
-    qi: 6, cd: 3, damage: 0, buff: { nextDamageMult: 2.0, turns: 1 },
-    desc: 'Stoke an inner forge. Next strike or technique +100%.',
-    logHit: (a,t) => `${a}'s chest glows red; thunder gathers at the haft.` },
+    name: 'Stormcall', zh: '唤雷', school: 'thunder_hammer',
+    qi: 8, cd: 4, damage: 0, postureBuild: 10, buff: { postureBoost: 2.0, turns: 2 },
+    desc: 'Call the storm into the haft: your posture damage is DOUBLED for 2 rounds. Break stances; Aftershock does the rest.',
+    logHit: (a,t) => `Thunder answers ${a} from a clear sky, and settles into the hammer.` },
 
   // ============ Cloud Travelers Guild (4) ============
   cloud_ring: {
@@ -1654,10 +1654,10 @@ const TECHNIQUES = {
     desc: 'A decisive downswing that cleaves qi shields in half.',
     logHit: (a,t) => `${a}'s greatsword falls. Nothing in its line holds up.` },
   dragon_stance: {
-    name: 'Dragon Stance', zh: '龙势', school: 'dragonforge',
-    qi: 7, cd: 3, damage: 0, buff: { nextDamageMult: 2.2, turns: 1 },
-    desc: 'Coil the greatsword at rest. Next attack +120%.',
-    logHit: (a,t) => `${a}'s shoulders settle; the blade remembers flight.` },
+    name: 'Quench', zh: '淬火', school: 'dragonforge',
+    qi: 12, cd: 3, damage: 2.0, postureBuild: 16, consumeBonus: { kind: 'sunder', perStack: 0.8 },
+    desc: "The payoff swing: consumes the target's Sunder stacks for +80% damage per stack. Melt the armor, then quench the blade in what's left.",
+    logHit: (a,t) => `${a} brings the blade down through everything Moltenwake already loosened.` },
 
   // ============ Chain-Saint Cloister (4) ============
   chain_lash: {
@@ -1677,10 +1677,10 @@ const TECHNIQUES = {
     desc: 'Hooks into the soul and pulls. Direct spirit damage, pierces qi.',
     logHit: (a,t) => `${a}'s chain finds something in ${t} that does not want to leave.` },
   oath_stance: {
-    name: 'Oath Stance', zh: '誓势', school: 'chain_saint',
-    qi: 6, cd: 3, damage: 0, buff: { nextDamageMult: 2.0, turns: 1 },
-    desc: 'Recite the binding oath. Next attack +100%.',
-    logHit: (a,t) => `${a} speaks a word the chain tightens around.` },
+    name: 'Call the Debt', zh: '索债', school: 'chain_saint',
+    qi: 10, cd: 4, damage: 0, instant: true, triggerBacklash: { mult: 1.5 },
+    desc: 'Free action. Collect immediately from every Oath-bound enemy: each takes 150% of its backlash damage on the spot. The oath remains in force.',
+    logHit: (a,t) => `${a} does not raise the chain. They simply say: now.` },
 
   // ============ Bonus / Mastery techniques (36) ============
 
@@ -1839,10 +1839,10 @@ const TECHNIQUES = {
 
   // --- Cloud Traveler (2 extra) ---
   cloud_dance: {
-    name: 'Cloud Dance', zh: '云舞', school: 'cloud_traveler',
-    qi: 10, cd: 2, damage: 0, buff: { nextDamageMult: 2.3, turns: 1 },
-    desc: 'Spin and weave. Next strike +130%.',
-    logHit: (a,t) => `${a} twirls once; gravity seems briefly optional.` },
+    name: 'Tailwind', zh: '顺风', school: 'cloud_traveler',
+    qi: 9, cd: 4, damage: 0, buff: { counterOnDodge: 0.75, dodgeChance: 0.15, turns: 2 },
+    desc: 'Ride the weather for 2 rounds: +15% dodge, and every attack you evade is answered with a free counterattack (75% weapon power).',
+    logHit: (a,t) => `${a} leans into a wind nobody else can feel.` },
   sky_pierce_finisher: {
     name: 'Sky-Piercing Chakram', zh: '穿天轮', school: 'cloud_traveler',
     qi: 28, cd: 3, damage: 6.0, pierceQi: 0.5, postureBuild: 18,
@@ -2119,7 +2119,7 @@ const SCHOOLS = {
     name: 'Silent Daggers Sect', zh: '寂刃宗',
     weapon: 'shadow_dagger',
     techniques: ['silent_cut','assassin_flurry','killing_intent','death_mark','dagger_venom'],
-    specialty: 'PURE SINGLE-TARGET assassin. Coated Blades poison on every technique hit (stacking, ignores qi shields) and crit 10% more often. Stack venom, amplify with Killing Intent, watch them fall mid-swing.',
+    specialty: "PURE SINGLE-TARGET assassin. Coated Blades poison on every technique hit (stacking, ignores qi shields) and crit 10% more often. Stack venom, enter the Executioner's Calm, and crit-fish them apart.",
     bestStats: ['sense','luck'],
     flavor: 'No sect hall. No gates. Students find a note tucked under a pillow and follow it, or they don\'t.',
   },
@@ -2764,6 +2764,14 @@ function baseInscriptionMods() {
     lowHpBonus: 0,           // additive % to outgoing damage at <33% HP
     vsKindMult: {},          // { demonic: 0.15, beast: 0.10, ... } additive %
     qiOnKill: 0,             // flat qi restored on enemy death
+    // ---- v0.57 build-variety channels ----
+    dotMult: 1,              // multiplies all DOT tick values you apply (burn/poison/bleed/leech)
+    perTurnRamp: 0,          // +X% outgoing damage per combat turn elapsed (caps at 9 turns)
+    lateBonus: 0,            // +X% outgoing damage from turn 4 onward
+    elementBoostAll: 0,      // amplifies your five-element OVERCOME bonus by +X%
+    dodgeChance: 0,          // additive chance to evade incoming attacks entirely
+    elementAmp: {},          // { fire: 0.20 } => +20% damage VS enemies of that element
+    elementWard: {},         // { fire: 0.25 } => -25% damage FROM enemies of that element
   };
 }
 
@@ -2779,7 +2787,18 @@ function computeMods(char) {
   applyArraysToMods(mods, char);
   applyWeaponsToMods(mods, char);
   applySchoolKitToMods(mods, char);
+  applySkillModsToMods(mods, char);
   return mods;
+}
+
+// v0.57: SKILLS nodes with effect {kind:'mods', mods:{...}} fold straight into the
+// combat mod channels — one integration point for build-defining tree nodes
+// (crit, DOT amp, dodge, posture, element amp/ward, per-turn ramp, ...).
+function applySkillModsToMods(mods, char) {
+  (char.skills || []).forEach(id => {
+    const s = findSkillDef(id);
+    if (s && s.effect && s.effect.kind === 'mods') mergeMods(mods, s.effect.mods);
+  });
 }
 
 // v0.45: always-on school-passive stat channels (the status-applying hooks live in the
@@ -4171,6 +4190,72 @@ function applyChildhoodPostConfirm(char) {
 // Skill tree — spend insight to unlock permanent passive nodes
 // ============================================================
 const SKILLS = [
+  // ============ v0.57: Combat Arts — build-defining tree nodes (2-4 per realm). ============
+  // All use effect {kind:'mods'} and fold straight into computeMods via applySkillModsToMods.
+  // -- Qi Condensation (tier 1) --
+  { id: 'ca_venom_studies', name: 'Venom Studies', zh: '毒理', category: 'Combat Arts', cost: 2500, minTier: 1,
+    effect: { kind: 'mods', mods: { dotMult: 1.15 } },
+    desc: 'Your damage-over-time effects (burn / poison / bleed / leech) tick 15% harder.' },
+  { id: 'ca_sharp_eye', name: 'Sharp Eye', zh: '锐目', category: 'Combat Arts', cost: 2500, minTier: 1,
+    effect: { kind: 'mods', mods: { critChance: 0.04 } },
+    desc: '+4% critical-strike chance. See the seam before the swing.' },
+  { id: 'ca_sidestep', name: 'Sidestep Method', zh: '侧身法', category: 'Combat Arts', cost: 3000, minTier: 1,
+    effect: { kind: 'mods', mods: { dodgeChance: 0.04 } },
+    desc: '+4% chance to evade attacks entirely. The cheapest armor is elsewhere.' },
+  // -- Foundation Establishment (tier 2) --
+  { id: 'ca_breaker_form', name: 'Breaker Form', zh: '破式', category: 'Combat Arts', cost: 30000, minTier: 2,
+    effect: { kind: 'mods', mods: { postureMult: 1.20 } },
+    desc: '+20% posture damage. Stances exist to be ended.' },
+  { id: 'ca_soul_needle', name: 'Soul Needle', zh: '魂针', category: 'Combat Arts', cost: 30000, minTier: 2,
+    effect: { kind: 'mods', mods: { spiritDamageMult: 1.25 } },
+    desc: '+25% spirit damage. Aim past the body.' },
+  { id: 'ca_slow_burn', name: 'Slow Burn', zh: '慢火', category: 'Combat Arts', cost: 35000, minTier: 2,
+    requires: ['ca_venom_studies'], effect: { kind: 'mods', mods: { dotMult: 1.20 } },
+    desc: 'DOT ticks +20% (stacks with Venom Studies). Patience, weaponized.' },
+  { id: 'ca_red_momentum', name: 'Red Momentum', zh: '赤势', category: 'Combat Arts', cost: 40000, minTier: 2,
+    effect: { kind: 'mods', mods: { perTurnRamp: 0.02 } },
+    desc: '+2% damage per combat turn elapsed (caps at 9 turns). Fights have a direction; make it yours.' },
+  // -- Core Formation (tier 3) --
+  { id: 'ca_killing_edge', name: 'Killing Edge', zh: '杀锋', category: 'Combat Arts', cost: 150000, minTier: 3,
+    requires: ['ca_sharp_eye'], effect: { kind: 'mods', mods: { critChance: 0.05, critMult: 1.15 } },
+    desc: '+5% crit chance and crits hit 15% harder (stacks with Sharp Eye).' },
+  { id: 'ca_bloodletting', name: 'Bloodletting Dao', zh: '放血道', category: 'Combat Arts', cost: 150000, minTier: 3,
+    effect: { kind: 'mods', mods: { lifestealPct: 0.06 } },
+    desc: 'Heal 6% of all damage you deal. Every wound you give feeds you.' },
+  { id: 'ca_elemental_attune', name: 'Elemental Attunement', zh: '五行调息', category: 'Combat Arts', cost: 180000, minTier: 3,
+    effect: { kind: 'mods', mods: { elementBoostAll: 0.40 } },
+    desc: 'Your five-element OVERCOME bonus is amplified by 40% (+20% becomes +28%).' },
+  // -- Golden Core (tier 4) --
+  { id: 'ca_first_light', name: 'First Light', zh: '初光', category: 'Combat Arts', cost: 600000, minTier: 4,
+    effect: { kind: 'mods', mods: { firstStrikeBonus: 0.35 } },
+    desc: '+35% damage on the first turn of every fight. Arrive decided.' },
+  { id: 'ca_long_war', name: 'The Long War', zh: '久战', category: 'Combat Arts', cost: 600000, minTier: 4,
+    requires: ['ca_red_momentum'], effect: { kind: 'mods', mods: { perTurnRamp: 0.03, lateBonus: 0.15 } },
+    desc: '+3% damage per turn AND +15% from turn 4 on (stacks with Red Momentum).' },
+  { id: 'ca_stone_mind', name: 'Stone Mind', zh: '石心', category: 'Combat Arts', cost: 650000, minTier: 4,
+    effect: { kind: 'mods', mods: { flatDR: 10, dodgeChance: 0.04 } },
+    desc: '+10 flat damage reduction and +4% dodge. The mountain does not flinch, and is rarely where you struck it.' },
+  // -- Nascent Soul (tier 5) --
+  { id: 'ca_executioner', name: "Executioner's Doctrine", zh: '刑典', category: 'Combat Arts', cost: 2500000, minTier: 5,
+    requires: ['ca_killing_edge'], effect: { kind: 'mods', mods: { critChance: 0.06, critMult: 1.25 } },
+    desc: '+6% crit chance, crits +25% harder. The doctrine has one page.' },
+  { id: 'ca_plague_dao', name: 'Plague Dao', zh: '疫道', category: 'Combat Arts', cost: 2500000, minTier: 5,
+    requires: ['ca_slow_burn'], effect: { kind: 'mods', mods: { dotMult: 1.30 } },
+    desc: 'DOT ticks +30% more (multiplies with the rest of the rot ladder).' },
+  { id: 'ca_tempo_lord', name: 'Lord of Tempo', zh: '律主', category: 'Combat Arts', cost: 2800000, minTier: 5,
+    effect: { kind: 'mods', mods: { postureMult: 1.25, postureBreakBonus: 1 } },
+    desc: '+25% posture damage; broken stances stay broken 1 turn longer.' },
+  // -- Spirit Severing (tier 6) --
+  { id: 'ca_world_edge', name: "The World's Edge", zh: '世锋', category: 'Combat Arts', cost: 9000000, minTier: 6,
+    effect: { kind: 'mods', mods: { techDamageMult: 1.20, strikeDamageMult: 1.20 } },
+    desc: '+20% to all strike and technique damage. There is very little left to learn.' },
+  { id: 'ca_untouchable', name: 'Untouchable', zh: '不可触', category: 'Combat Arts', cost: 9000000, minTier: 6,
+    requires: ['ca_sidestep'], effect: { kind: 'mods', mods: { dodgeChance: 0.08 } },
+    desc: '+8% dodge (stacks with Sidestep Method). The world agrees not to notice you.' },
+  { id: 'ca_five_thrones', name: 'Five Thrones', zh: '五座', category: 'Combat Arts', cost: 10000000, minTier: 6,
+    requires: ['ca_elemental_attune'], effect: { kind: 'mods', mods: { elementBoostAll: 0.60 } },
+    desc: 'Element overcome bonus amplified a further 60% (stacks with Attunement). All five elements kneel.' },
+
   // Cultivation
   { id: 'cult_1', name: 'Steady Breath', zh: '稳息', category: 'Cultivation', cost: 1500, minTier: 1,
     effect: { kind: 'cultivation_mult', value: 1.15 },
@@ -5845,6 +5930,10 @@ function mergeMods(target, add) {
       // Multiplicative keys (values typically near 1). Heuristic: suffix 'Mult' = multiply.
       if (k.endsWith('Mult')) target[k] = (target[k] || 1) * v;
       else target[k] = (target[k] || 0) + v;
+    } else if (v && typeof v === 'object') {
+      // v0.57: map channels (elementAmp/elementWard/vsKindMult) fold additively per key.
+      if (!target[k]) target[k] = {};
+      Object.entries(v).forEach(([mk, mv]) => { target[k][mk] = (target[k][mk] || 0) + mv; });
     }
   });
 }
@@ -5923,6 +6012,14 @@ const DESTINIES = {
   d_warlord:      { name: "Warlord's Edge",     zh: '战王锋', rarity: 'legendary', minTier: 3, mods: { weaponBonus: 20, strikeDamageMult: 1.15 }, desc: '+20 weapon power, +15% strike damage.' },
   d_dao_clarity:  { name: 'Dao Clarity',        zh: '道澄', rarity: 'legendary', minTier: 4, mods: { cultMult: 1.35, insightMult: 1.25 }, desc: '+35% cultivation rate, +25% insight.' },
   d_heaven_defy:  { name: 'Heaven-Defying Will', zh: '逆天志', rarity: 'divine', minTier: 5, keystone: true, mods: { weaponBonus: 30, hpBonus: 300, cultMult: 1.25, incomingMult: 0.90 }, desc: 'Keystone: +30 weapon power, +300 max HP, +25% cultivation, -10% incoming.' },
+
+  // ---- v0.57: ramping / build-identity destinies (operator: lean into ramping play) ----
+  d_crescendo:    { name: 'Crescendo', zh: '渐强', rarity: 'rare', minTier: 1, keystone: true, mods: { perTurnRamp: 0.05 }, desc: 'Keystone: +5% damage per combat turn elapsed (caps at +45%). Long fights become your fights.' },
+  d_patient_hunter: { name: 'Patient Hunter', zh: '伏猎', rarity: 'rare', minTier: 2, mods: { lateBonus: 0.30 }, desc: '+30% damage from turn 4 onward. The first three turns are reconnaissance.' },
+  d_storm_momentum: { name: 'Storm Momentum', zh: '风势', rarity: 'legendary', minTier: 3, keystone: true, mods: { critChance: 0.05, perTurnRamp: 0.03 }, desc: 'Keystone: +5% crit chance, and +3% damage per combat turn elapsed.' },
+  d_dot_savant:   { name: 'Lingering Ruin', zh: '余殃', rarity: 'legendary', minTier: 3, keystone: true, mods: { dotMult: 1.35 }, desc: 'Keystone: your damage-over-time effects (burn / poison / bleed / leech) tick 35% harder.' },
+  d_posture_tide: { name: 'Tide of Posture', zh: '势潮', rarity: 'rare', minTier: 2, mods: { postureMult: 1.30, postureBreakBonus: 1 }, desc: '+30% posture damage and broken stances stay broken 1 turn longer.' },
+  d_element_resonance: { name: 'Elemental Resonance', zh: '五行共鸣', rarity: 'legendary', minTier: 4, keystone: true, mods: { elementBoostAll: 0.75 }, desc: 'Keystone: your five-element OVERCOME bonus is amplified by 75% (+20% becomes +35%).' },
 };
 
 function applyDestiniesToMods(mods, char) {
@@ -8351,7 +8448,9 @@ function initCombat(enemyIdOrIds, areaCultMult) {
     cooldowns: Object.fromEntries(loadout.map(id => [id, 0])),
     buffs: { incomingMult: 1, incomingTurns: 0, nextDamageMult: 1, nextDamageTurns: 0,
              reflectPct: 0, reflectTurns: 0, dodgeChance: 0, dodgeTurns: 0,
-             regrowthPct: 0, regrowthTurns: 0 },
+             regrowthPct: 0, regrowthTurns: 0,
+             critChance: 0, critTurns: 0, postureBoost: 1, postureBoostTurns: 0,
+             counterOnDodge: 0, counterTurns: 0 },
     baseIncoming,
     effects: [],
     swordIntent: 0,  // v0.45: Azure Sword ramping passive
@@ -8402,6 +8501,13 @@ function dealDamage(target, amount, opts) {
     const dodge = playerDodgeChance(target);
     if (dodge > 0 && Math.random() < dodge) {
       pushLog('posture', `  → ${target.name} is elsewhere — the blow finds only wind.`);
+      // v0.57 Tailwind (cloud_dance rework): dodging grants a free counterattack.
+      if (target.buffs && target.buffs.counterTurns > 0 && opts.attacker && opts.attacker.hp > 0) {
+        const counterDmg = Math.round(target.weaponPower * (target.buffs.counterOnDodge || 0.75));
+        const cres = dealDamage(opts.attacker, counterDmg, {});
+        pushLog('line', `  → ${target.name} answers from the wind!`);
+        pushLog('hurt', damageLogLine(cres, opts.attacker));
+      }
       return { qiAbsorbed: 0, hpDamage: 0, spiritDamage: 0, dodged: true };
     }
   }
@@ -8422,6 +8528,12 @@ function dealDamage(target, amount, opts) {
   }
   qiDmg *= incoming;
   hpDmg *= incoming;
+
+  // v0.57 elementWard gear: the player takes less from enemies of a warded element (cap 60%).
+  if (combat && target === combat.player && opts.attackerElement) {
+    const ward = Math.min(0.60, (combat.player.mods.elementWard || {})[opts.attackerElement] || 0);
+    if (ward > 0) { qiDmg *= 1 - ward; hpDmg *= 1 - ward; spiritDmg *= 1 - ward; }
+  }
 
   if (opts.pierceQi) {
     const pierced = qiDmg * opts.pierceQi;
@@ -8499,6 +8611,7 @@ function damageLogLine(res, target) {
 function playerDodgeChance(p) {
   let c = schoolKit().dodgeChance || 0;
   if (p.buffs && p.buffs.dodgeTurns > 0) c += p.buffs.dodgeChance || 0;
+  c += (p.mods && p.mods.dodgeChance) || 0;  // v0.57: gear/skill dodge channel
   return Math.min(0.75, c);
 }
 
@@ -8608,9 +8721,18 @@ function applyPlayerOutgoingMods(p, dmg, target, ctx) {
   // Wave 1: Five-Element counter (gentle). Overcoming the foe's element = +20%; being
   // overcome = -15%. Dual roots take the most favorable matchup.
   if (target && target.element && p.elements && p.elements.length) {
-    const em = bestElementCounter(p.elements, target.element);
+    let em = bestElementCounter(p.elements, target.element);
+    // v0.57 elementBoost gear/skills: amplify the OVERCOME bonus (never the malus).
+    if (em > 1 && m.elementBoostAll) em = 1 + (em - 1) * (1 + m.elementBoostAll);
     if (em !== 1) { dmg *= em; ctx.elementMult = em; }
   }
+  // v0.57 elementAmp gear: bonus damage VS enemies of a specific element (counter-gear).
+  if (target && target.element && m.elementAmp && m.elementAmp[target.element]) {
+    dmg *= 1 + m.elementAmp[target.element];
+  }
+  // v0.57 ramp channels: crescendo builds (+X%/turn, 9-turn cap) and late-fight spikes.
+  if (m.perTurnRamp > 0) dmg *= 1 + m.perTurnRamp * Math.min(9, turn - 1);
+  if (m.lateBonus > 0 && turn >= 4) dmg *= 1 + m.lateBonus;
   // v0.45 Sword Intent (Azure): +8% per stack on everything the player swings.
   if (p.swordIntent > 0) dmg *= 1 + 0.08 * p.swordIntent;
   // Star Mark (Starfall): marked targets take bonus damage AND are easier to crit.
@@ -8622,7 +8744,8 @@ function applyPlayerOutgoingMods(p, dmg, target, ctx) {
     if (kit.ampVsDebuffed && target.effects.length > 0) dmg *= 1 + kit.ampVsDebuffed;
   }
   // Celestial Sight (Starfall): realm-scaled base crit + a per-hit ramp this battle (+ Star Mark crit).
-  let critChance = (m.critChance || 0) + markCrit;
+  // v0.57: + timed crit buffs (Executioner's Calm).
+  let critChance = (m.critChance || 0) + markCrit + ((p.buffs && p.buffs.critTurns > 0) ? (p.buffs.critChance || 0) : 0);
   if (kit.celestialSight && combat && dmg > 0) {
     const tierC = (state.realm && state.realm.tierIdx) || 0;
     critChance += (0.15 + 0.05 * tierC) + (0.03 + 0.02 * tierC) * (combat.celestialHits || 0);
@@ -8641,7 +8764,8 @@ function applySchoolOnHit(p, tgt) {
   const kit = schoolKit();
   if (!kit.onTechHit || !tgt || tgt.hp <= 0) return;
   const h = kit.onTechHit;
-  const value = h.power ? Math.max(1, Math.round(p.weaponPower * h.power)) : h.value;
+  const dotAmp = DOT_KINDS.has(h.kind) ? ((p.mods && p.mods.dotMult) || 1) : 1;
+  const value = h.power ? Math.max(1, Math.round(p.weaponPower * h.power * dotAmp)) : h.value;
   const turns = h.turns + (kit.debuffTurnsBonus || 0);
   applyStatusTo(tgt, h.kind, value, turns, kit.passiveName);
 }
@@ -8650,11 +8774,14 @@ function applySchoolOnHit(p, tgt) {
 // DOT tick off weapon power (so DOTs stay relevant as enemy HP scales by realm);
 // resonance scales gently by tier since spirit pools are small.
 function playerStatusValue(p, tech) {
-  if (tech.effectPower) return Math.max(1, Math.round(p.weaponPower * tech.effectPower));
+  const dotAmp = (p.mods && p.mods.dotMult) || 1;  // v0.57: DOT-amp gear/skills
+  if (tech.effectPower) return Math.max(1, Math.round(p.weaponPower * tech.effectPower * dotAmp));
   let v = tech.effectValue || 0;
   if (tech.effect === 'resonance') v = Math.round(v * (1 + (state.realm.tierIdx || 0) * 0.5));
+  if (DOT_KINDS.has(tech.effect)) v = Math.max(1, Math.round(v * dotAmp));
   return v;
 }
+const DOT_KINDS = new Set(['burn', 'poison', 'bleed', 'leech']);
 
 // v0.23: lifesteal + qi-on-hit-style triggers fired after a successful hit.
 function applyPostHitTriggers(p, res) {
@@ -8694,7 +8821,7 @@ function playerStrike(opts) {
   pushLog('hurt', damageLogLine(res, e));
   applyPostHitTriggers(p, res);
   const hmStrike = heritageMech();
-  const postureAmt = Math.round(10 * p.mods.postureMult * (hmStrike.postureDamageMult || 1));
+  const postureAmt = Math.round(10 * p.mods.postureMult * (hmStrike.postureDamageMult || 1) * ((p.buffs.postureBoostTurns > 0) ? (p.buffs.postureBoost || 1) : 1));
   const broke = applyPosture(e, postureAmt, false, 3 + p.mods.postureBreakBonus);
   if (broke) pushLog('posture', `${e.name}'s stance shatters! Qi damage doubled for ${e.broken} turns.`);
   if (p.mods.strikeHeal > 0 && res.qiAbsorbed + res.hpDamage > 0) {
@@ -8770,7 +8897,8 @@ function playerTechnique(techId) {
   let pierce = tech.pierceQi || 0;
   if (hm0.schoolPierceBonus && hm0.schoolPierceBonus[tech.school]) pierce = Math.min(1, pierce + hm0.schoolPierceBonus[tech.school]);
   const directSpiritAmt = (tech.directSpirit || 0) * (p.mods.spiritDamageMult || 1);
-  const postureAmtBase = Math.round((tech.postureBuild || 0) * p.mods.postureMult * (hm0.postureDamageMult || 1));
+  const postureBoostMult = (p.buffs && p.buffs.postureBoostTurns > 0) ? (p.buffs.postureBoost || 1) : 1;  // v0.57 Stormcall
+  const postureAmtBase = Math.round((tech.postureBuild || 0) * p.mods.postureMult * (hm0.postureDamageMult || 1) * postureBoostMult);
 
   const kit = schoolKit();
   // v0.51: instance count. tech.hits (e.g. Starfall Volley) = N full instances per target; Celestial
@@ -8785,9 +8913,20 @@ function playerTechnique(techId) {
     if (combat.celestialStrikes % splitN === 0) { instances = 2; perInstanceMult = 0.5; pushLog('posture', `  → Celestial Sight: the strike splits in two!`); }
   }
   targets.forEach(tgt => {
+    // v0.57 Quench-style payoffs: consume a status on the target for bonus damage.
+    let consumeMult = 1;
+    if (tech.consumeBonus && tgt.effects) {
+      const cIdx = tgt.effects.findIndex(ef => ef.kind === tech.consumeBonus.kind);
+      if (cIdx >= 0) {
+        const stacks = tgt.effects[cIdx].stacks || 1;
+        consumeMult = 1 + tech.consumeBonus.perStack * stacks;
+        tgt.effects.splice(cIdx, 1);
+        pushLog('posture', `  → ${tgt.name}'s ${STATUS_INFO[tech.consumeBonus.kind] ? STATUS_INFO[tech.consumeBonus.kind].label : tech.consumeBonus.kind} ×${stacks} is consumed — +${Math.round((consumeMult - 1) * 100)}% damage!`);
+      }
+    }
     for (let h = 0; h < instances; h++) {
       if (tgt.hp <= 0) break;
-      let tdmg = dmg * targetDmgMult * perInstanceMult;
+      let tdmg = dmg * targetDmgMult * perInstanceMult * consumeMult;
       const ctx = { instant: tech.instant };
       tdmg = applyPlayerOutgoingMods(p, tdmg, tgt, ctx);
       if (tdmg > 0 || (h === 0 && (tech.directHP || tech.directSpirit))) {
@@ -8801,6 +8940,19 @@ function playerTechnique(techId) {
         applyPostHitTriggers(p, res);
         // v0.45: school passive on-hit statuses ride along on every damaging hit.
         if (!res.dodged) applySchoolOnHit(p, tgt);
+      }
+    }
+    // v0.57 Ashfall Detonation: blow up an existing DOT on the target for its remaining
+    // damage at a multiplier (consumes the status; lands as direct HP like the DOT would).
+    if (tech.detonate && tgt.hp > 0 && tgt.effects) {
+      const dIdx = tgt.effects.findIndex(ef => ef.kind === tech.detonate.kind);
+      if (dIdx >= 0) {
+        const ef = tgt.effects[dIdx];
+        const burst = Math.max(1, Math.round(ef.value * ef.turns * tech.detonate.mult));
+        tgt.effects.splice(dIdx, 1);
+        const dres = dealDamage(tgt, 0, { directHP: burst });
+        pushLog('posture', `  → the ${STATUS_INFO[tech.detonate.kind] ? STATUS_INFO[tech.detonate.kind].label : tech.detonate.kind} detonates!`);
+        pushLog('hurt', damageLogLine(dres, tgt));
       }
     }
     if (postureAmtBase || tech.postureBreak) {
@@ -8837,6 +8989,33 @@ function playerTechnique(techId) {
     }
   });
 
+  // v0.57 Call the Debt (chain_saint): immediately collect oathbound backlash from
+  // every bound enemy at a multiplier (the oath itself stays in force).
+  if (tech.triggerBacklash) {
+    let collected = 0;
+    combat.enemies.forEach(en => {
+      if (en.hp <= 0 || !en.effects) return;
+      const oath = en.effects.find(ef => ef.kind === 'oathbound');
+      if (!oath) return;
+      const amt = Math.max(1, Math.round(oath.value * tech.triggerBacklash.mult));
+      en.hp = Math.max(0, en.hp - amt);
+      collected++;
+      pushLog('hurt', `  → ${en.name} pays ${amt} — the debt is called.`);
+    });
+    if (!collected) pushLog('flavor', `  → no oaths to collect; the chain rings empty.`);
+  }
+  // v0.57 Listening Dao (azure): direct Sword Intent gain + qi restoration.
+  if (tech.intentGain) {
+    const before = p.swordIntent || 0;
+    p.swordIntent = Math.min(5, before + tech.intentGain);
+    if (p.swordIntent > before) pushLog('posture', `  → Sword Intent ${p.swordIntent}/5 (+${Math.round(p.swordIntent * 8)}% damage).`);
+  }
+  if (tech.qiRestore) {
+    const before = p.qi;
+    p.qi = Math.min(p.qiMax, p.qi + tech.qiRestore);
+    if (p.qi > before) pushLog('heal', `  → +${p.qi - before} qi.`);
+  }
+
   // v0.45 Sword Intent (Azure): single-target technique hits build the edge.
   if (kit.intentPerHit && !isAoe && dmg > 0) {
     const gain = (tech.intentStacks || kit.intentPerHit);
@@ -8862,6 +9041,20 @@ function playerTechnique(techId) {
     if (tech.buff.dodgeChance) {
       p.buffs.dodgeChance = tech.buff.dodgeChance;
       p.buffs.dodgeTurns = tech.buff.turns || 1;
+    }
+    // v0.57 stance-rework buffs: timed crit (Executioner's Calm), posture boost
+    // (Stormcall), counterattack-on-dodge (Tailwind).
+    if (tech.buff.critChance) {
+      p.buffs.critChance = tech.buff.critChance;
+      p.buffs.critTurns = tech.buff.turns || 1;
+    }
+    if (tech.buff.postureBoost) {
+      p.buffs.postureBoost = tech.buff.postureBoost;
+      p.buffs.postureBoostTurns = tech.buff.turns || 1;
+    }
+    if (tech.buff.counterOnDodge) {
+      p.buffs.counterOnDodge = tech.buff.counterOnDodge;
+      p.buffs.counterTurns = tech.buff.turns || 1;
     }
   }
   // v0.45: Verdant Communion-style regrowth (heal-over-time on self).
@@ -9220,7 +9413,7 @@ function enemyUseTech(e, p, techId) {
   // falls back to a plain strike instead.
   if (e.effects.some(ef => ef.kind === 'silence')) {
     pushLog('flavor', `${e.name} reaches for a technique — the seal holds. It lashes out plainly instead.`);
-    const res = dealDamage(p, e.weaponPower * chillMult(e), {});
+    const res = dealDamage(p, e.weaponPower * chillMult(e), { attacker: e, attackerElement: e.element });
     pushLog('hurt', damageLogLine(res, p));
     applyPlayerReflect(e, res);
     return;
@@ -9244,6 +9437,7 @@ function enemyUseTech(e, p, techId) {
       directHP: (tech.directHP || 0) * cm,
       directSpirit: (tech.directSpirit || 0) * cm,
       pierceQi: tech.pierceQi || 0,
+      attacker: e, attackerElement: e.element,
     });
     pushLog('hurt', damageLogLine(res, p));
     applyPlayerReflect(e, res);
@@ -9289,7 +9483,7 @@ function enemyBasicStrike(e, p) {
   for (const techId of Object.keys(e.techniques || {})) {
     if (enemyCanUse(e, techId)) return enemyUseTech(e, p, techId);
   }
-  const res = dealDamage(p, e.weaponPower * chillMult(e), {});
+  const res = dealDamage(p, e.weaponPower * chillMult(e), { attacker: e, attackerElement: e.element });
   pushLog('line', `The ${e.name} attacks ${p.name}.`);
   pushLog('hurt', damageLogLine(res, p));
   applyPlayerReflect(e, res);
@@ -9325,6 +9519,10 @@ function endOfRound() {
   // v0.45: tick the new self-buff timers (reflect / dodge).
   if (p.buffs.reflectTurns > 0) { p.buffs.reflectTurns--; if (p.buffs.reflectTurns === 0) p.buffs.reflectPct = 0; }
   if (p.buffs.dodgeTurns > 0)   { p.buffs.dodgeTurns--;   if (p.buffs.dodgeTurns === 0)   p.buffs.dodgeChance = 0; }
+  // v0.57 stance-rework buff timers.
+  if (p.buffs.critTurns > 0)         { p.buffs.critTurns--;         if (p.buffs.critTurns === 0)         p.buffs.critChance = 0; }
+  if (p.buffs.postureBoostTurns > 0) { p.buffs.postureBoostTurns--; if (p.buffs.postureBoostTurns === 0) p.buffs.postureBoost = 1; }
+  if (p.buffs.counterTurns > 0)      { p.buffs.counterTurns--;      if (p.buffs.counterTurns === 0)      p.buffs.counterOnDodge = 0; }
   if (p.broken > 0) p.broken--;
   // Tick posture-broken state for every alive enemy (multi-enemy aware).
   combat.enemies.forEach(en => { if (en.broken > 0) en.broken--; });
