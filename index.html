@@ -541,7 +541,7 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v0.58';
+const GAME_VERSION = 'v0.59';
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
 const ELEMENT_ZH   = { metal:'金', wood:'木', water:'水', fire:'火', earth:'土' };
@@ -6189,6 +6189,8 @@ const ARMOR_RECIPES = [
 // Armor — 6 slots, unlocked by realm
 // ============================================================
 const ARMOR_SLOTS = ['helmet','chest','gloves','boots','accessory1','accessory2'];
+
+
 const ARMOR_SLOT_LABELS = { helmet:'Helmet', chest:'Chest', gloves:'Gloves', boots:'Boots', accessory1:'Accessory I', accessory2:'Accessory II' };
 // v0.21: all six armor slots are available from Mortal. Realm gating moved off armor and onto
 // weapon and artifact slot counts (those scale 1 -> 6 with realm tier).
@@ -6291,6 +6293,196 @@ const ARMOR = {
   dao_sigil: { name: 'Dao Sigil', zh: '道印', slot: 'accessory', rarity: 'divine',
     mods: { cultMult: 1.25 }, desc: 'A small flat sigil that seems to breathe when held still.' },
 };
+
+// ============================================================
+// v0.59 WEAPON LADDER GENERATOR — fills every weapon-kind x realm cell to >=3
+// craftable options (operator brief: 3-6 per kind per realm). Hand-authored weapons
+// stay; the generator only tops up thin cells. Per cell it adds, in priority order:
+// an ELEMENT-affined variant (elementAmp vs the element this one's element destroys),
+// a TECHNIQUE variant (kind-flavored effect), and a HEAVY variant (pure power).
+// ============================================================
+const WEAPON_GEN_KINDS = [
+  ['sword',      'Jian',       '剑'],
+  ['saber',      'Saber',      '刀'],
+  ['unarmed',    'Gauntlets',  '拳套'],
+  ['focus',      'Focus',      '法器'],
+  ['polearm',    'Spear',      '枪'],
+  ['dagger',     'Daggers',    '匕'],
+  ['bow',        'Bow',        '弓'],
+  ['staff',      'Staff',      '杖'],
+  ['hammer',     'Hammer',     '锤'],
+  ['chakram',    'Chakram',    '环'],
+  ['greatsword', 'Greatsword', '巨剑'],
+  ['chain',      'Chain',      '链'],
+];
+const WEAPON_GEN_TIER = [
+  { power: 5,  rarity: 'common',    pfx: [['Riverworn', '河磨'], ['Honest', '拙']],
+    mats: { spirit_iron: 2, qi_wood: 2 } },
+  { power: 9,  rarity: 'common',    pfx: [['Spirit-Tempered', '灵炼'], ['Windworn', '风蚀']],
+    mats: { spirit_iron: 3, beast_sinew: 2 } },
+  { power: 15, rarity: 'rare',      pfx: [['Azure-Forged', '青锻'], ['Riverline', '河纹']],
+    mats: { star_iron: 2, spirit_pearl: 1, spirit_iron: 2 } },
+  { power: 23, rarity: 'rare',      pfx: [['Core-Carved', '核雕'], ['Thousand-Fold', '千叠']],
+    mats: { flame_marrow: 1, glacial_core: 1, star_iron: 2, spirit_stone: 2 } },
+  { power: 31, rarity: 'legendary', pfx: [['Golden-Veined', '金脉'], ['Stormline', '暴纹']],
+    mats: { storm_crystal: 1, thunder_shard: 2, spirit_stone: 4 } },
+  { power: 41, rarity: 'legendary', pfx: [['Soulbound', '魂缚'], ['Voidline', '虚纹']],
+    mats: { void_silk: 1, heavenly_jade: 1, moonshadow_silk: 2, spirit_stone: 8 } },
+  { power: 49, rarity: 'legendary', pfx: [['World-Severing', '断世'], ['Heaven-Quenched', '天淬']],
+    mats: { sun_fragment: 1, heaven_silver: 1, primordial_stone: 1, spirit_stone: 12 } },
+];
+const ELEMENT_GEN_PFX = {
+  metal: ['White-Gold', '白金'], wood: ['Verdant-Vein', '翠脉'], water: ['Riptide', '逆潮'],
+  fire: ['Cinderheart', '烬心'], earth: ['Loess-Bound', '黄土'],
+};
+// Kind-flavored effect for the TECHNIQUE variant (t = tier index).
+const WEAPON_GEN_EFFECT = {
+  sword:      t => [m => { m.critChance += 0.04 + 0.01 * t; }, `+${4 + t}% crit`],
+  saber:      t => [m => { m.lifestealPct += 0.04 + 0.01 * t; }, `+${4 + t}% lifesteal`],
+  unarmed:    t => [m => { m.hpBonus += 15 * (t + 1); m.flatDR += 1 + t; }, `+${15 * (t + 1)} HP, +${1 + t} DR`],
+  focus:      t => [m => { m.qiBonus += 10 * (t + 1); m.qiRegenBonus += 1 + Math.floor(t / 2); }, `+${10 * (t + 1)} qi, +${1 + Math.floor(t / 2)} qi regen`],
+  polearm:    t => [m => { m.firstStrikeBonus += 0.08 + 0.03 * t; }, `+${Math.round((0.08 + 0.03 * t) * 100)}% opener`],
+  dagger:     t => [m => { m.critChance += 0.03 + 0.01 * t; m.critMult += 0.05 + 0.02 * t; }, `+${3 + t}% crit, harder crits`],
+  bow:        t => [m => { m.firstStrikeBonus += 0.06 + 0.02 * t; m.critChance += 0.02 + 0.005 * t; }, `+${Math.round((0.06 + 0.02 * t) * 100)}% opener, +crit`],
+  staff:      t => [m => { m.qiRegenBonus += 1 + Math.ceil(t / 2); m.hpBonus += 10 * (t + 1); }, `+${1 + Math.ceil(t / 2)} qi regen, +${10 * (t + 1)} HP`],
+  hammer:     t => [m => { m.postureMult *= 1.08 + 0.02 * t; }, `+${Math.round((0.08 + 0.02 * t) * 100)}% posture`],
+  chakram:    t => [m => { m.dodgeChance += 0.02 + 0.005 * t; }, `+${(2 + 0.5 * t).toFixed(1)}% dodge`],
+  greatsword: t => [m => { m.lowHpBonus += 0.08 + 0.03 * t; }, `+${Math.round((0.08 + 0.03 * t) * 100)}% damage when bloodied`],
+  chain:      t => [m => { m.postureBreakBonus += 1 + Math.floor(t / 3); m.spiritDamageMult *= 1.05 + 0.02 * t; }, `longer breaks, +spirit damage`],
+};
+(function generateWeaponLadder() {
+  const existing = {};
+  ARTIFACT_RECIPES.forEach(r => {
+    const w = WEAPONS[r.id];
+    if (!w) return;
+    const key = w.kind + ':' + (r.minRealmTier || 0);
+    existing[key] = (existing[key] || 0) + 1;
+  });
+  WEAPON_GEN_KINDS.forEach(([kind, noun, nounZh], ki) => {
+    for (let t = 0; t <= 6; t++) {
+      const have = existing[kind + ':' + t] || 0;
+      const need = Math.max(0, 3 - have);
+      if (!need) continue;
+      const row = WEAPON_GEN_TIER[t];
+      const slots = 2 + Math.ceil(t / 2);
+      const el = ELEMENTS[(ki + t * 2 + 1) % ELEMENTS.length];
+      const prey = ELEMENT_DESTROYS[el];
+      const variants = [];
+      // 1) element variant
+      const amp = 0.10 + t * 0.03;
+      variants.push({
+        id: `gen_${kind}_${t}_el`, name: `${ELEMENT_GEN_PFX[el][0]} ${noun}`, zh: `${ELEMENT_GEN_PFX[el][1]}${nounZh}`,
+        power: row.power, apply: (m => { if (!m.elementAmp) m.elementAmp = {}; m.elementAmp[prey] = (m.elementAmp[prey] || 0) + amp; }),
+        desc: `A ${noun.toLowerCase()} quenched in ${ELEMENT_NAME[el] ? ELEMENT_NAME[el].toLowerCase() : el}-essence: +${Math.round(amp * 100)}% damage against ${ELEMENT_NAME[prey] ? ELEMENT_NAME[prey].toLowerCase() : prey}-aspected foes.`,
+        element: el,
+      });
+      // 2) technique variant
+      if (need >= 2) {
+        const [fx, blurb] = WEAPON_GEN_EFFECT[kind](t);
+        variants.push({
+          id: `gen_${kind}_${t}_tech`, name: `${row.pfx[0][0]} ${noun}`, zh: `${row.pfx[0][1]}${nounZh}`,
+          power: Math.round(row.power * 0.95), apply: fx,
+          desc: `A practitioner's ${noun.toLowerCase()}, forged around its trick: ${blurb}.`,
+        });
+      }
+      // 3) heavy variant
+      if (need >= 3) {
+        variants.push({
+          id: `gen_${kind}_${t}_heavy`, name: `${row.pfx[1][0]} ${noun}`, zh: `${row.pfx[1][1]}${nounZh}`,
+          power: Math.round(row.power * 1.08), apply: null,
+          desc: `No inscription, no conceit — just ${Math.round(row.power * 1.08)} unarguable power.`,
+        });
+      }
+      variants.slice(0, need).forEach((v, vi) => {
+        WEAPONS[v.id] = {
+          name: v.name, zh: v.zh, power: v.power, slots, kind, rarity: row.rarity,
+          desc: v.desc, element: v.element,
+        };
+        if (v.apply) WEAPONS[v.id].apply = v.apply;
+        const mats = {};
+        Object.entries(row.mats).forEach(([mid, n], i) => { mats[mid] = n + (i === 0 ? vi : 0); });
+        ARTIFACT_RECIPES.push({ id: v.id, materials: mats, minRealmTier: t });
+      });
+    }
+  });
+})();
+
+// ============================================================
+// v0.59 ARMOR & ACCESSORIES — 2-3 new pieces per realm, with the five-element
+// interaction channels (elementWard on defensive pieces, elementAmp / elementBoostAll
+// on offensive accessories). All craftable; recipes use the v0.58 boss materials.
+// ============================================================
+Object.assign(ARMOR, {
+  // Mortal (t0)
+  sinew_cord_belt:   { name: 'Sinew-Cord Belt', zh: '筋索带', slot: 'accessory', rarity: 'common',
+    mods: { hpBonus: 18, flatDR: 1 }, desc: 'Braided beast-sinew. Tightens when you brace.' },
+  riverstone_charm:  { name: 'Riverstone Charm', zh: '河石符', slot: 'accessory', rarity: 'common',
+    mods: { elementWard: { water: 0.10 }, qiBonus: 4 }, desc: 'A water-smoothed stone: -10% damage from Water foes.' },
+  // Qi Condensation (t1)
+  foxfire_pendant:   { name: 'Foxfire Pendant', zh: '狐火坠', slot: 'accessory', rarity: 'common',
+    mods: { elementAmp: { metal: 0.10 }, spiritBonus: 3 }, desc: 'A cold blue flame in glass: +10% damage to Metal-aspected foes.' },
+  kiln_brick_bracers:{ name: 'Kiln-Brick Bracers', zh: '窑砖腕', slot: 'gloves', rarity: 'common',
+    mods: { hpBonus: 22, elementWard: { fire: 0.12 } }, desc: 'Fired clay plates: -12% damage from Fire foes.' },
+  pearl_dew_ring:    { name: 'Pearl-Dew Ring', zh: '珠露戒', slot: 'accessory', rarity: 'rare',
+    mods: { qiRegenBonus: 2, elementWard: { wood: 0.10 } }, desc: 'A spirit pearl cut into a band: +2 qi regen, -10% from Wood foes.' },
+  // Foundation Establishment (t2)
+  glacial_torc:      { name: 'Glacial Torc', zh: '冰核项环', slot: 'accessory', rarity: 'rare',
+    mods: { elementAmp: { fire: 0.14 }, hpBonus: 35 }, desc: 'A ring of un-melting ice: +14% damage to Fire-aspected foes.' },
+  echo_bell_earring: { name: 'Echo-Bell Earring', zh: '回铃珰', slot: 'accessory', rarity: 'rare',
+    mods: { spiritDamageMult: 1.15, spiritBonus: 6 }, desc: 'One of the nine echoes, set in silver: +15% spirit damage.' },
+  tide_queen_sash:   { name: "Tide-Queen's Sash", zh: '潮后绶', slot: 'chest', rarity: 'rare',
+    mods: { hpBonus: 55, elementWard: { fire: 0.10, earth: 0.10 } }, desc: 'Woven brine-silk: -10% from Fire and Earth foes.' },
+  // Core Formation (t3)
+  cinder_prayer_beads:{ name: 'Cinder Prayer Beads', zh: '烬念珠', slot: 'accessory', rarity: 'legendary',
+    mods: { dotMult: 1.15, elementAmp: { metal: 0.10 } }, desc: 'Each bead a banked coal: your DOTs tick +15% harder.' },
+  warden_jade_keys:  { name: "Warden's Jade Keys", zh: '狱玉钥', slot: 'accessory', rarity: 'legendary',
+    mods: { postureMult: 1.15, postureBreakBonus: 1 }, desc: 'Keys to cells that hold ideas: +15% posture damage, longer breaks.' },
+  lotus_iron_greaves:{ name: 'Iron-Lotus Greaves', zh: '铁莲胫', slot: 'boots', rarity: 'rare',
+    mods: { hpBonus: 70, dodgeChance: 0.03 }, desc: 'Petal-plate boots that read the water: +3% dodge.' },
+  // Golden Core (t4)
+  vein_scale_cuirass:{ name: 'Dragon-Vein Cuirass', zh: '龙脉甲', slot: 'chest', rarity: 'legendary',
+    mods: { hpBonus: 150, flatDR: 6, elementWard: { earth: 0.15 } }, desc: 'Matriarch-shed scales: -15% from Earth foes.' },
+  storm_eye_pendant: { name: 'Storm-Eye Pendant', zh: '暴目坠', slot: 'accessory', rarity: 'legendary',
+    mods: { elementBoostAll: 0.25, critChance: 0.03 }, desc: 'A storm crystal iris: your element-overcome bonus amplified 25%.' },
+  mirage_band:       { name: 'Mirage Band', zh: '蜃环', slot: 'accessory', rarity: 'legendary',
+    mods: { dodgeChance: 0.05, incomingMult: 0.96 }, desc: 'Sometimes you are where it says you are: +5% dodge, -4% incoming.' },
+  // Nascent Soul (t5)
+  void_silk_mantle:  { name: 'Void-Silk Mantle', zh: '虚绡披', slot: 'chest', rarity: 'legendary',
+    mods: { hpBonus: 260, dodgeChance: 0.04, elementWard: { metal: 0.15 } }, desc: 'Cloth from between moments: -15% from Metal foes.' },
+  moon_eater_fang:   { name: "Moon-Eater's Fang", zh: '食月牙', slot: 'accessory', rarity: 'legendary',
+    mods: { elementAmp: { water: 0.18, fire: 0.12 }, lifestealPct: 0.05 }, desc: 'A fang that swallowed moonlight: +18% vs Water, +12% vs Fire foes.' },
+  court_verdict_seal:{ name: 'Verdict Seal', zh: '判印', slot: 'accessory', rarity: 'legendary',
+    mods: { perTurnRamp: 0.02, insightMult: 1.10 }, desc: 'The Floating Court finds in your favor, eventually: +2% damage per combat turn.' },
+  // Spirit Severing (t6)
+  first_dawn_diadem: { name: 'First-Dawn Diadem', zh: '初晓冕', slot: 'helmet', rarity: 'divine',
+    mods: { hpBonus: 380, elementBoostAll: 0.35, spiritBonus: 20 }, desc: 'Set with a sun fragment: element-overcome amplified 35%.' },
+  executioner_chain: { name: "Executioner's Chain-Seal", zh: '天刑链印', slot: 'accessory', rarity: 'divine',
+    mods: { critChance: 0.06, critMult: 1.25, elementAmp: { wood: 0.15 } }, desc: 'A suspended sentence, worn: +6% crit, far harder crits.' },
+  world_root_girdle: { name: 'World-Root Girdle', zh: '世根腰', slot: 'accessory', rarity: 'divine',
+    mods: { hpBonus: 300, flatDR: 12, elementWard: { wood: 0.15, water: 0.10 } }, desc: 'A loop of the world-tree: -15% from Wood, -10% from Water foes.' },
+});
+ARMOR_RECIPES.push(
+  { id: 'sinew_cord_belt',     materials: { beast_sinew: 3, qi_wood: 2 },                          minRealmTier: 0 },
+  { id: 'riverstone_charm',    materials: { beast_sinew: 2, spirit_iron: 2 },                      minRealmTier: 0 },
+  { id: 'foxfire_pendant',     materials: { spirit_pearl: 1, qi_wood: 3 },                         minRealmTier: 1, minLayer: 2 },
+  { id: 'kiln_brick_bracers',  materials: { flame_marrow: 1, spirit_iron: 3 },                     minRealmTier: 1, minLayer: 3 },
+  { id: 'pearl_dew_ring',      materials: { spirit_pearl: 2, spirit_stone: 2 },                    minRealmTier: 1, minLayer: 5 },
+  { id: 'glacial_torc',        materials: { glacial_core: 1, star_iron: 2 },                       minRealmTier: 2 },
+  { id: 'echo_bell_earring',   materials: { spirit_pearl: 2, ghost_bone: 3 },                      minRealmTier: 2, minLayer: 2 },
+  { id: 'tide_queen_sash',     materials: { glacial_core: 1, cloud_silk: 3, spirit_stone: 3 },     minRealmTier: 2, minLayer: 3 },
+  { id: 'cinder_prayer_beads', materials: { flame_marrow: 2, soul_ember: 2, spirit_stone: 4 },     minRealmTier: 3 },
+  { id: 'warden_jade_keys',    materials: { spirit_pearl: 2, verdant_bark: 3, spirit_stone: 4 },   minRealmTier: 3, minLayer: 2 },
+  { id: 'lotus_iron_greaves',  materials: { star_iron: 3, glacial_core: 1, spirit_stone: 3 },      minRealmTier: 3, minLayer: 2 },
+  { id: 'vein_scale_cuirass',  materials: { dragon_scale: 2, storm_crystal: 1, spirit_stone: 6 },  minRealmTier: 4 },
+  { id: 'storm_eye_pendant',   materials: { storm_crystal: 2, heavenly_jade: 1, spirit_stone: 6 }, minRealmTier: 4, minLayer: 2 },
+  { id: 'mirage_band',         materials: { heavenly_jade: 1, moonshadow_silk: 2, spirit_stone: 5 }, minRealmTier: 4, minLayer: 2 },
+  { id: 'void_silk_mantle',    materials: { void_silk: 2, moonshadow_silk: 3, spirit_stone: 10 },  minRealmTier: 5 },
+  { id: 'moon_eater_fang',     materials: { wyrm_heart: 1, void_silk: 1, spirit_stone: 10 },       minRealmTier: 5, minLayer: 2 },
+  { id: 'court_verdict_seal',  materials: { storm_crystal: 2, heaven_silver: 1, spirit_stone: 12 }, minRealmTier: 5, minLayer: 3 },
+  { id: 'first_dawn_diadem',   materials: { sun_fragment: 1, heaven_silver: 1, dao_crystal: 1 },   minRealmTier: 6 },
+  { id: 'executioner_chain',   materials: { sun_fragment: 1, heaven_silver: 2 },                   minRealmTier: 6, minLayer: 2 },
+  { id: 'world_root_girdle',   materials: { primordial_stone: 2, void_silk: 1, dao_crystal: 1 },   minRealmTier: 6, minLayer: 2 }
+);
 
 // Armor set bonuses: applied when the wearer has at least `pieces` from the set.
 const ARMOR_SETS = {
@@ -11491,13 +11683,15 @@ function renderCharSheet() {
       filtRow.appendChild(fb);
       fP.appendChild(filtRow);
     }
-    const forgeTier = state.realm.tierIdx;
-    // v0.45: sorted by realm requirement, then by power within a realm.
+    // v0.59: per-realm sub-tabs (chips); within a realm, sorted by power.
+    fP.appendChild(realmTabChips('forgeWeaponRealm', t =>
+      ARTIFACT_RECIPES.filter(r => (r.minRealmTier || 0) === t &&
+        (!mineOnly || !myKind || (WEAPONS[r.id] && WEAPONS[r.id].kind === myKind))).length));
+    const forgeTier = Math.min(selectedRealmTab('forgeWeaponRealm'), state.realm.tierIdx);
     const visibleRecipes = ARTIFACT_RECIPES.filter(r =>
-      (r.minRealmTier || 0) <= forgeTier &&
+      (r.minRealmTier || 0) === forgeTier &&
       (!mineOnly || !myKind || (WEAPONS[r.id] && WEAPONS[r.id].kind === myKind)))
       .slice().sort((a, b) =>
-        ((a.minRealmTier || 0) - (b.minRealmTier || 0)) ||
         (((WEAPONS[a.id] && WEAPONS[a.id].power) || 0) - ((WEAPONS[b.id] && WEAPONS[b.id].power) || 0)));
     if (!visibleRecipes.length) {
       const none = document.createElement('div');
@@ -11510,10 +11704,11 @@ function renderCharSheet() {
     }
     visibleRecipes.forEach(recipe => fP.appendChild(buildWeaponRecipeRow(recipe)));
   } else if (state.ui.forgeTab === 'armor') {
-    // v0.45: armor matches the weapons tab — above-realm recipes hidden, realm-sorted.
-    const armorTier = state.realm.tierIdx;
-    ARMOR_RECIPES.filter(r => (r.minRealmTier || 0) <= armorTier)
-      .slice().sort((a, b) => ((a.minRealmTier || 0) - (b.minRealmTier || 0)) || ((a.minLayer || 0) - (b.minLayer || 0)))
+    // v0.59: per-realm sub-tabs (chips), layer-sorted within the realm.
+    fP.appendChild(realmTabChips('forgeArmorRealm', t => ARMOR_RECIPES.filter(r => (r.minRealmTier || 0) === t).length));
+    const armorTier = Math.min(selectedRealmTab('forgeArmorRealm'), state.realm.tierIdx);
+    ARMOR_RECIPES.filter(r => (r.minRealmTier || 0) === armorTier)
+      .slice().sort((a, b) => ((a.minLayer || 0) - (b.minLayer || 0)))
       .forEach(recipe => fP.appendChild(buildArmorRecipeRow(recipe)));
   } else {
     const matsList = Object.entries(MATERIALS).filter(([id]) => id !== 'spirit_stone').sort((a, b) => {
