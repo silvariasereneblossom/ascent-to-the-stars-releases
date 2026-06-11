@@ -541,7 +541,7 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v0.57';
+const GAME_VERSION = 'v0.58';
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
 const ELEMENT_ZH   = { metal:'金', wood:'木', water:'水', fire:'火', earth:'土' };
@@ -4030,6 +4030,492 @@ const LOCATIONS = [
     enemyPool: ['phantom_swordmaster','ancestor_curse_master','grand_bell_ringer','soul_cleaver'] },
 ];
 
+// ============================================================
+// v0.58 CONTENT EXPANSION — enemy factory, new areas, boss framework.
+// Stat curve calibrated against the existing roster (median mook per realm tier).
+// See design/content-expansion-2026-06.md.
+// ============================================================
+const ENEMY_TIER_BASE = [
+  { hp: 58,   wpn: 7,   qi: 26,   spirit: 18,  posture: 48,   insight: 6 },
+  { hp: 80,   wpn: 11,  qi: 44,   spirit: 30,  posture: 58,   insight: 14 },
+  { hp: 215,  wpn: 18,  qi: 130,  spirit: 62,  posture: 130,  insight: 60 },
+  { hp: 520,  wpn: 40,  qi: 220,  spirit: 100, posture: 250,  insight: 175 },
+  { hp: 1400, wpn: 58,  qi: 380,  spirit: 175, posture: 380,  insight: 380 },
+  { hp: 2800, wpn: 90,  qi: 820,  spirit: 380, posture: 620,  insight: 800 },
+  { hp: 5200, wpn: 125, qi: 1400, spirit: 640, posture: 1100, insight: 1700 },
+];
+const ENEMY_ARCH_MULT = {
+  brawler:    { hp: 1.10, wpn: 1.10, qi: 0.90, spirit: 0.90, posture: 1.00, insight: 1.00 },
+  assassin:   { hp: 0.85, wpn: 1.30, qi: 1.00, spirit: 1.00, posture: 0.90, insight: 1.05 },
+  caster:     { hp: 0.90, wpn: 0.95, qi: 1.50, spirit: 1.30, posture: 0.90, insight: 1.10 },
+  tank:       { hp: 1.45, wpn: 0.85, qi: 1.00, spirit: 0.90, posture: 1.35, insight: 1.05 },
+  controller: { hp: 1.00, wpn: 0.90, qi: 1.35, spirit: 1.35, posture: 1.00, insight: 1.10 },
+  elite:      { hp: 1.70, wpn: 1.35, qi: 1.30, spirit: 1.20, posture: 1.25, insight: 2.00 },
+  boss:       { hp: 2.60, wpn: 1.60, qi: 1.60, spirit: 1.50, posture: 1.60, insight: 3.50 },
+};
+// Compact enemy authoring: stats from tier x archetype x power; default priority AI
+// (techs in listed order, meditate when dry, basic strike fallback — enemyBasicStrike
+// already lazy-tries techs, the loop just preserves the listed priority).
+function mkEnemy(id, d) {
+  ENEMIES[id] = {
+    id, name: d.name, zh: d.zh,
+    hpMax: 0, qiMax: 0, spiritMax: 0, postureMax: 0, weaponPower: 0, insightReward: 0,
+    techIds: d.techIds.slice(),
+    drops: d.drops || [],
+    materialDrops: d.materialDrops || [],
+    archetype: d.arch === 'boss' ? 'elite' : d.arch,
+    kind: d.kind, element: d.element,
+    ai: (e, p) => {
+      enemyTickCDs(e);
+      for (const tid of d.techIds) if (enemyCanUse(e, tid)) return enemyUseTech(e, p, tid);
+      if (e.qi < 14) return enemyMeditate(e);
+      return enemyBasicStrike(e, p);
+    },
+    intro: d.intro, victoryText: d.victory, defeatText: d.defeat,
+  };
+  const b = ENEMY_TIER_BASE[d.tier] || ENEMY_TIER_BASE[0];
+  const m = ENEMY_ARCH_MULT[d.arch] || ENEMY_ARCH_MULT.brawler;
+  const pw = d.power || 1;
+  const E = ENEMIES[id];
+  E.hpMax = Math.round(b.hp * m.hp * pw);
+  E.qiMax = Math.round(b.qi * m.qi * pw);
+  E.spiritMax = Math.round(b.spirit * m.spirit * pw);
+  E.postureMax = Math.round(b.posture * m.posture * pw);
+  E.weaponPower = Math.max(1, Math.round(b.wpn * m.wpn * pw));
+  E.insightReward = Math.round(b.insight * m.insight * pw);
+  if (d.arch === 'boss') E.isBoss = true;
+  ENEMY_ARCHETYPES[id] = E.archetype;
+}
+
+// ---- 33 new regular enemies (per-realm rosters for the new areas) ----
+[
+  // Mortal (tier 0)
+  ['river_imp', { name: 'River Imp', zh: '河童', tier: 0, arch: 'assassin', kind: 'spirit', element: 'water',
+    techIds: ['serpent_strike'],
+    intro: 'Something small and green surfaces at the ford, grinning with too many needle teeth.',
+    victory: 'The imp bursts into river-spray and indignation. The ford is briefly safe.',
+    defeat: 'You wake downstream, soaked, several small possessions lighter.' }],
+  ['clay_soldier', { name: 'Kiln-Fired Soldier', zh: '窑俑', tier: 0, arch: 'tank', kind: 'construct', element: 'earth',
+    techIds: ['stone_hurl', 'staggering_palm'],
+    intro: 'A man-shaped thing of fired clay grinds out of the kiln rubble, joints squealing.',
+    victory: 'The soldier cracks along its glaze-lines and collapses into potsherds.',
+    defeat: 'The clay fists beat you senseless among the broken pots.' }],
+  ['road_wasp_swarm', { name: 'Spirit-Wasp Swarm', zh: '灵蜂群', tier: 0, arch: 'caster', kind: 'beast', element: 'wood',
+    techIds: ['rat_swarm', 'swamp_gas'],
+    intro: 'The hum arrives before the cloud does — wasps with eyes like beads of qi.',
+    victory: 'The swarm scatters, leaving a fist-sized lump of waxy spirit-comb.',
+    defeat: 'You remember running. The stings remember you longer.' }],
+
+  // Qi Condensation (tier 1)
+  ['bamboo_swordsman', { name: 'Bamboo-Sea Swordsman', zh: '竹海剑客', tier: 1, arch: 'assassin', kind: 'human', element: 'wood',
+    techIds: ['wind_slash', 'desperate_cut'],
+    intro: 'A ragged swordsman steps out from between the bamboo stalks, blade already drawn.',
+    victory: 'He bows, beaten, and limps off into the green. His practice sword stays behind.',
+    defeat: 'He leaves you alive, with a lecture about footwork you will not soon forget.' }],
+  ['mine_haunt', { name: 'Cold-Iron Haunt', zh: '寒铁怨', tier: 1, arch: 'caster', kind: 'spirit', element: 'metal',
+    techIds: ['bat_chorus', 'withering_curse'],
+    intro: 'The lamplight bends wrong. A miner who never clocked out drifts through the shaft wall.',
+    victory: 'The haunt sighs — relieved, perhaps — and disperses into ore-dust.',
+    defeat: 'You flee the shaft with frost on your meridians and someone else\'s grief in your ears.' }],
+  ['ferry_ghost', { name: 'Drowned Ferryman', zh: '溺渡夫', tier: 1, arch: 'controller', kind: 'spirit', element: 'water',
+    techIds: ['ghost_binding', 'swamp_gas'],
+    intro: 'A waterlogged figure poles a half-sunk ferry toward you. He holds out a rotted hand for the fare.',
+    victory: 'The ferryman tips his hat and sinks, finally off-shift.',
+    defeat: 'You pay the fare in blood and wake on the wrong bank of something.' }],
+  ['ash_leopard', { name: 'Ash-Pelt Leopard', zh: '灰豹', tier: 1, arch: 'brawler', kind: 'beast', element: 'fire',
+    techIds: ['frenzied_bite', 'pig_charge'],
+    intro: 'A leopard the color of cold campfires drops from the burnt terrace wall.',
+    victory: 'The leopard yields with a snarl and pads away through the ash, unhurried.',
+    defeat: 'It leaves you face-down in the cinders — uneaten, which feels deliberate.' }],
+  ['lantern_keeper', { name: 'Graveyard Lantern-Keeper', zh: '灯冢守', tier: 1, arch: 'caster', kind: 'spirit', element: 'fire',
+    techIds: ['fox_fire', 'soul_bell'],
+    intro: 'Among the grave-lanterns, one flame walks. It is carrying its own lantern, which is empty.',
+    victory: 'The keeper sets its lantern down at your feet, bows, and gutters out.',
+    defeat: 'You wake at the graveyard gate at dawn. Your shadow takes a day to find you.' }],
+
+  // Foundation Establishment (tier 2)
+  ['marsh_inkfiend', { name: 'Inkwash Fiend', zh: '墨沼魔', tier: 2, arch: 'controller', kind: 'demonic', element: 'water',
+    techIds: ['ink_blot_seal', 'hanging_smog'],
+    intro: 'The marsh-water blackens, gathers, and stands up — a thing of ink with handwriting for veins.',
+    victory: 'The fiend splatters back into the marsh. For a moment the surface spells a word of grudging respect.',
+    defeat: 'It writes something on your forehead and lets you go. You hope it was not a debt note.' }],
+  ['echo_acolyte', { name: 'Nine-Echo Acolyte', zh: '九响僧', tier: 2, arch: 'caster', kind: 'human', element: 'metal',
+    techIds: ['soul_bell', 'bone_ring'],
+    intro: 'An acolyte of the bell tower descends the stairs, striking a hand-chime in slow rhythm.',
+    victory: 'Defeated, he bows and notes your name in a ledger of futures worth listening to.',
+    defeat: 'The ninth echo lands inside your skull. You hear it for a week.' }],
+  ['frost_warden', { name: 'Orchard Frost-Warden', zh: '霜园守', tier: 2, arch: 'tank', kind: 'construct', element: 'water',
+    techIds: ['corpse_grip', 'jade_spike'],
+    intro: 'A scarecrow armored in rime steps off its post. The frozen orchard is apparently not unguarded.',
+    victory: 'The warden cracks apart into hoarfrost. The trees seem to exhale.',
+    defeat: 'You are found at the orchard edge, blue-lipped, clutching a frozen pear you do not remember picking.' }],
+  ['moon_pirate', { name: 'Moon-Cove Corsair', zh: '月湾海寇', tier: 2, arch: 'assassin', kind: 'human', element: 'water',
+    techIds: ['ribbon_blade', 'coral_lash'],
+    intro: 'A corsair swings down from the wreck-rigging, cutlass wrapped in moonlit silk.',
+    victory: 'She salutes with the cutlass and dives into the surf, laughing about the one that got away.',
+    defeat: 'You wake on the tideline minus your purse. A polite note thanks you for your patronage.' }],
+  ['arena_breaker', { name: 'Red-Clay Arena Breaker', zh: '红土擂主', tier: 2, arch: 'brawler', kind: 'human', element: 'earth',
+    techIds: ['iron_stone', 'staggering_palm'],
+    intro: 'The arena champion cracks his knuckles. The red clay under him is stained darker in patches.',
+    victory: 'He laughs from the floor and names you this week\'s champion. The title comes with enemies.',
+    defeat: 'The crowd counts you out. The clay is very cold for something so red.' }],
+
+  // Core Formation (tier 3)
+  ['ember_monk', { name: 'Cinder-Robed Monk', zh: '烬衣僧', tier: 3, arch: 'brawler', kind: 'human', element: 'fire',
+    techIds: ['iron_monk_strike', 'ashen_step'],
+    intro: 'A monk in smoldering robes continues sweeping the burning monastery floor. He sets the broom aside.',
+    victory: 'He retrieves the broom. "The floor," he says, "is still dirty." You are dismissed.',
+    defeat: 'You wake outside the gate, gently arranged, faintly singed, thoroughly defeated.' }],
+  ['stair_guardian', { name: 'Thousand-Step Guardian', zh: '千阶守', tier: 3, arch: 'tank', kind: 'construct', element: 'earth',
+    techIds: ['mountain_press', 'boulder_fall'],
+    intro: 'At step five hundred, a statue turns its head. The grinding sound is the mountain clearing its throat.',
+    victory: 'The guardian returns to its plinth and resumes being scenery. The summit is permitted.',
+    defeat: 'It carries you, unconscious, back to step one, and sets you down with terrible gentleness.' }],
+  ['ghost_broker', { name: 'Ghost-Market Broker', zh: '鬼市掮客', tier: 3, arch: 'controller', kind: 'spirit', element: 'metal',
+    techIds: ['dao_net', 'withering_curse'],
+    intro: 'A figure in a paper mask names a price for your remaining years. Your refusal is, apparently, negotiable.',
+    victory: 'The broker dissolves into receipts. Several other stalls quietly improve their prices.',
+    defeat: 'You wake owning three fewer memories. You cannot recall which, which is the point.' }],
+  ['lotus_blade_dancer', { name: 'Iron-Lotus Blade Dancer', zh: '铁莲舞者', tier: 3, arch: 'assassin', kind: 'human', element: 'water',
+    techIds: ['heartline_cut', 'crescent_arc'],
+    intro: 'On the lake of iron lotuses, a dancer crosses the petals without bending one. Her blades are already singing.',
+    victory: 'She ends the dance mid-figure and bows: "Unfinished. Like you." The compliment lands later.',
+    defeat: 'The dance ends with you in the lake. The lotuses ring quietly as you sink.' }],
+  ['crater_stalker', { name: 'Starfall Stalker', zh: '坠星猎手', tier: 3, arch: 'assassin', kind: 'beast', element: 'metal',
+    techIds: ['twin_strike', 'lacerating_wind'],
+    intro: 'Something with starlight in its pelt hunts the crater rim. It has been hunting you for ten minutes.',
+    victory: 'The stalker yields, dropping a hot shard of sky at your feet like an offering.',
+    defeat: 'It lets you crawl out of the crater. Predators remember generous moods.' }],
+
+  // Golden Core (tier 4)
+  ['vein_drake', { name: 'Dragon-Vein Drake', zh: '脉蛟', tier: 4, arch: 'brawler', kind: 'beast', element: 'earth',
+    techIds: ['dragon_tail', 'dragon_breath'],
+    intro: 'The foothill shivers. A drake the length of a bridge uncoils from the dragon-vein it was drinking.',
+    victory: 'The drake submits, coiling sullenly back into the earth-vein. The qi here runs cleaner now.',
+    defeat: 'It pins you under one claw, considers, and decides you are beneath digestion.' }],
+  ['mirage_duelist', { name: 'Mirage-City Duelist', zh: '蜃城剑客', tier: 4, arch: 'assassin', kind: 'human', element: 'fire',
+    techIds: ['immortal_cut', 'twin_strike'],
+    intro: 'In the city that is not there, a duelist who might be salutes you with a sword that definitely is.',
+    victory: 'He dissolves into heat-shimmer, leaving the sword. It is, against expectation, real.',
+    defeat: 'You wake outside a city that has never existed, beaten by a man it remembers fondly.' }],
+  ['throne_revenant', { name: 'Sunken-Throne Revenant', zh: '沉座亡灵', tier: 4, arch: 'controller', kind: 'spirit', element: 'water',
+    techIds: ['abyssal_gaze', 'void_tide'],
+    intro: 'The drowned king rises from his chair of coral and verdigris. Court is, regrettably, in session.',
+    victory: 'The revenant settles back onto the throne, satisfied — a worthy petition at last.',
+    defeat: 'You are escorted from the court by the tide itself, sentence suspended.' }],
+  ['thunder_shaman', { name: 'Plateau Thunder-Shaman', zh: '雷台巫', tier: 4, arch: 'caster', kind: 'human', element: 'fire',
+    techIds: ['flame_halo', 'sky_gaze'],
+    intro: 'A shaman crowned in slow lightning looks up from her circle of scorched glyphs.',
+    victory: 'She studies you, then the sky, then marks one more glyph: your name, spelled in thunder.',
+    defeat: 'You wake at the plateau base. Your hair will not lie flat for days.' }],
+  ['sword_garden_spirit', { name: 'Garden-of-Swords Spirit', zh: '剑园灵', tier: 4, arch: 'elite', kind: 'spirit', element: 'metal',
+    techIds: ['phantom_sword', 'immortal_cut'],
+    intro: 'Ten thousand planted blades hum in unison. Their gardener condenses out of sword-light.',
+    victory: 'The spirit returns to its rows, satisfied that at least one visitor can prune.',
+    defeat: 'You are removed from the garden as a weed. It is humiliatingly efficient.' }],
+
+  // Nascent Soul (tier 5)
+  ['scar_horror', { name: "Heaven-Scar Horror", zh: '天痕怪', tier: 5, arch: 'brawler', kind: 'demonic', element: 'earth',
+    techIds: ['sky_shatter', 'weeping_earth'],
+    intro: 'Where the sky was once cut, something crawled in through the seam. It is still arriving.',
+    victory: 'The horror retreats into the scar, pulling the wound shut behind it like a door.',
+    defeat: 'You wake at the canyon mouth with a fear of open sky that takes a season to fade.' }],
+  ['war_court_judge', { name: 'Floating-Court Magistrate', zh: '浮庭判官', tier: 5, arch: 'controller', kind: 'spirit', element: 'metal',
+    techIds: ['silent_verdict', 'grand_bell'],
+    intro: 'The war-court drifts overhead. A magistrate descends, reading charges you have not yet committed.',
+    victory: 'The magistrate stamps your acquittal — predated, troublingly, to tomorrow.',
+    defeat: 'You are found guilty of losing. The sentence is the bruises.' }],
+  ['lake_devourer', { name: 'Moon-Eating Serpent', zh: '食月蟒', tier: 5, arch: 'tank', kind: 'beast', element: 'water',
+    techIds: ['tide_drag', 'void_tide'],
+    intro: 'The lake is missing its reflection of the moon. The reason surfaces, jaws first.',
+    victory: 'The serpent disgorges the moon\'s reflection and sinks, sulking, into the dark.',
+    defeat: 'It swallows your reflection instead. You feel lighter and worse.' }],
+  ['mound_ancestor', { name: 'Sword-Mound Ancestor', zh: '剑冢老祖', tier: 5, arch: 'elite', kind: 'spirit', element: 'metal',
+    techIds: ['phantom_sword', 'ancestor_curse'],
+    intro: 'The oldest grave in the sword mound opens. What climbs out kept its blade and little else.',
+    victory: 'The ancestor crumbles around a smile. The mound\'s ten thousand swords dip in salute.',
+    defeat: 'You are buried to the neck beside the mound and lectured until sundown on your grip.' }],
+  ['quiet_thunder_guard', { name: 'Citadel Quiet-Thunder Guard', zh: '静雷卫', tier: 5, arch: 'tank', kind: 'construct', element: 'fire',
+    techIds: ['mountain_press', 'grand_bell'],
+    intro: 'The citadel gate is a wall of armor. The armor is occupied. The thunder inside it is very quiet.',
+    victory: 'The guard kneels, gate-keys offered on both palms. The citadel accepts new management.',
+    defeat: 'The thunder stops being quiet. You stop being conscious.' }],
+
+  // Spirit Severing (tier 6)
+  ['severed_immortal', { name: 'Half-Severed Immortal', zh: '半断仙', tier: 6, arch: 'assassin', kind: 'human', element: 'metal',
+    techIds: ['immortal_cut', 'heaven_word'],
+    intro: 'An immortal who stopped halfway through severing drifts at the peak — half here, half elsewhere, all hostile.',
+    victory: 'Both halves of the immortal bow, in slightly different directions, and depart separately.',
+    defeat: 'The half of you that lost wakes first and refuses to tell the other half what happened.' }],
+  ['names_gatekeeper', { name: 'Keeper of Returning Names', zh: '归名守', tier: 6, arch: 'controller', kind: 'spirit', element: 'water',
+    techIds: ['world_seal', 'silent_verdict'],
+    intro: 'At the gate, a hooded clerk checks a ledger. "Your name came through here once," it says. "Going the other way."',
+    victory: 'The keeper stamps the ledger and waves you through. Your name feels recently laundered.',
+    defeat: 'You leave without your name. It is returned three days later, slightly used.' }],
+  ['star_leviathan', { name: 'Leviathan of Unborn Stars', zh: '星胎鲲', tier: 6, arch: 'tank', kind: 'beast', element: 'water',
+    techIds: ['void_tide', 'star_wrath'],
+    intro: 'The sea of unborn stars heaves. Something the size of a future constellation takes notice of you.',
+    victory: 'The leviathan sounds, scattering proto-stars like spray. One sticks in your hair, cooling.',
+    defeat: 'It swallows you and spits you out, having found you insufficiently luminous.' }],
+  ['last_monk', { name: 'Abbot of the Last Monastery', zh: '末寺方丈', tier: 6, arch: 'brawler', kind: 'human', element: 'earth',
+    techIds: ['iron_monk_strike', 'immortal_pressure'],
+    intro: 'The last monastery has one monk left. He has been expecting you, the way mountains expect weather.',
+    victory: 'He smiles, finally outfought, and begins sweeping the courtyard for his successor.',
+    defeat: 'He tends your wounds himself, which is worse than losing.' }],
+  ['dawn_herald', { name: 'Herald of the First Dawn', zh: '初晓使', tier: 6, arch: 'caster', kind: 'heaven', element: 'fire',
+    techIds: ['star_wrath', 'heaven_word'],
+    intro: 'Light older than the sun walks down the throne-hall steps wearing a person like a formality.',
+    victory: 'The herald gutters out respectfully, leaving a warmth in the stones that never quite fades.',
+    defeat: 'You are illuminated, in the way of things caught at midnight doing wrong.' }],
+].forEach(([id, d]) => mkEnemy(id, d));
+
+// ---- 14 bosses, 2 per realm. Elite-scaled on top of the boss stat row;
+// defeat toll DOUBLED; first kill grants a material cache. ----
+[
+  ['boar_king', { name: 'Boar-King of the Withered Wood', zh: '枯林猪王', tier: 0, arch: 'boss', kind: 'beast', element: 'wood',
+    techIds: ['pig_charge', 'boulder_fall'],
+    materialDrops: [{ id: 'beast_sinew', chance: 0.9, count: [2, 4] }, { id: 'spirit_iron', chance: 0.5, count: [2, 4] }],
+    intro: 'The withered wood goes silent. The Boar-King arrives like a landslide that holds grudges.',
+    victory: 'The Boar-King kneels — territory, tusk-rights and all, ceded to you.',
+    defeat: 'You wake in a tree. You do not remember climbing it. The tree remembers.' }],
+  ['kiln_mother', { name: 'The Kiln Mother', zh: '窑母', tier: 0, arch: 'boss', kind: 'construct', element: 'fire',
+    techIds: ['ember_bite', 'stone_hurl'],
+    materialDrops: [{ id: 'flame_marrow', chance: 0.6, count: [1, 2] }, { id: 'qi_wood', chance: 0.7, count: [2, 4] }],
+    intro: 'The old kiln lights itself. Out of the firing chamber steps a porcelain woman, still glowing from the glaze.',
+    victory: 'The Kiln Mother cracks, smiles, and crumbles into fine white shards still warm to the touch.',
+    defeat: 'She fires you lightly — a bisque, she says — and sets you outside to cool.' }],
+  ['fox_saint', { name: 'White-Mask Fox Saint', zh: '白面狐圣', tier: 1, arch: 'boss', kind: 'spirit', element: 'wood',
+    techIds: ['charm_whisper', 'phantom_tails', 'fox_fire'],
+    materialDrops: [{ id: 'spirit_pearl', chance: 0.55, count: [1, 1] }, { id: 'moonshadow_silk', chance: 0.5, count: [1, 2] }],
+    intro: 'Nine shadows, one fox, a porcelain mask smiling exactly the way a mask should not.',
+    victory: 'The fox saint laughs, leaves the mask, and walks out of the story on two legs.',
+    defeat: 'You wake with the mask beside your face, having briefly worn it. It liked you.' }],
+  ['mine_golem', { name: 'The Mine-Heart Golem', zh: '矿心傀', tier: 1, arch: 'boss', kind: 'construct', element: 'metal',
+    techIds: ['boulder_fall', 'mountain_press'],
+    materialDrops: [{ id: 'star_iron', chance: 0.5, count: [1, 2] }, { id: 'spirit_iron', chance: 0.9, count: [3, 6] }],
+    intro: 'The cold-iron seam has grown a heart, and the heart has grown a body, and the body fills the gallery.',
+    victory: 'The golem unmakes itself politely, leaving its ore-heart glittering on the cart rails.',
+    defeat: 'It walls you into a side gallery for safekeeping. Rescue takes a day; the embarrassment, longer.' }],
+  ['bell_abbot', { name: 'Bell-Tower Abbot', zh: '钟楼方丈', tier: 2, arch: 'boss', kind: 'human', element: 'metal',
+    techIds: ['grand_bell', 'soul_bell', 'bone_ring'],
+    materialDrops: [{ id: 'spirit_pearl', chance: 0.6, count: [1, 2] }, { id: 'ghost_bone', chance: 0.6, count: [2, 4] }],
+    intro: 'The abbot of nine echoes sits beneath the great bell. "One ring," he says, "and we will know everything about you."',
+    victory: 'The ninth echo pronounces in your favor. The abbot bows to the verdict, and to you.',
+    defeat: 'The bell rings once. You hear the other eight on each of the next eight nights.' }],
+  ['tide_queen', { name: 'Tide-Queen of the Moon Cove', zh: '月湾潮后', tier: 2, arch: 'boss', kind: 'spirit', element: 'water',
+    techIds: ['tide_drag', 'coral_lash', 'charm_whisper'],
+    materialDrops: [{ id: 'glacial_core', chance: 0.5, count: [1, 1] }, { id: 'cloud_silk', chance: 0.6, count: [2, 3] }],
+    intro: 'The cove empties of water, all of it gathering into a crowned figure of moonlit brine.',
+    victory: 'The Tide-Queen disperses into a retreating wave that leaves the beach paved with offerings.',
+    defeat: 'You are returned to shore by the tide, itemized and stamped: insufficient.' }],
+  ['cinder_abbot', { name: 'Abbot of Cinders', zh: '烬方丈', tier: 3, arch: 'boss', kind: 'human', element: 'fire',
+    techIds: ['flame_halo', 'heart_ember', 'ashen_step'],
+    materialDrops: [{ id: 'flame_marrow', chance: 0.7, count: [1, 3] }, { id: 'soul_ember', chance: 0.6, count: [1, 2] }],
+    intro: 'The burning monastery\'s founder never left. He rises from the ember-garden, robes of live coals.',
+    victory: 'The abbot exhales his last cinder, content: the monastery can finally finish burning down.',
+    defeat: 'He banks your unconscious body in warm ash like a coal to be rekindled, and leaves a sutra.' }],
+  ['prison_warden', { name: 'Warden of the Bamboo Prison', zh: '竹狱典狱', tier: 3, arch: 'boss', kind: 'human', element: 'wood',
+    techIds: ['dao_net', 'golden_grid', 'meridian_lock'],
+    materialDrops: [{ id: 'verdant_bark', chance: 0.8, count: [2, 4] }, { id: 'spirit_pearl', chance: 0.5, count: [1, 2] }],
+    intro: 'Every stalk in the silent grove is a cell. The Warden walks the rows, keys of living jade at her belt.',
+    victory: 'The Warden concedes and unlocks one cell of your choosing. Choose carefully; some hold ideas.',
+    defeat: 'You spend a night as the grove\'s newest cell. The bamboo is a patient jailer.' }],
+  ['vein_matriarch', { name: 'Dragon-Vein Matriarch', zh: '龙脉之母', tier: 4, arch: 'boss', kind: 'beast', element: 'earth',
+    techIds: ['dragon_breath', 'dragon_tail', 'weeping_earth'],
+    materialDrops: [{ id: 'dragon_scale', chance: 0.8, count: [1, 3] }, { id: 'storm_crystal', chance: 0.4, count: [1, 1] }],
+    intro: 'The foothills rearrange. The Matriarch of the buried veins surfaces — old enough to remember being a river.',
+    victory: 'The Matriarch yields the foothills, sliding back into the earth like a debt repaid.',
+    defeat: 'She buries you to the chin in rich loam, the way one stores bulbs for a better season.' }],
+  ['mirage_emperor', { name: 'The Mirage Emperor', zh: '蜃帝', tier: 4, arch: 'boss', kind: 'spirit', element: 'fire',
+    techIds: ['immortal_pressure', 'phantom_court', 'flame_halo'],
+    materialDrops: [{ id: 'heavenly_jade', chance: 0.5, count: [1, 2] }, { id: 'void_silk', chance: 0.35, count: [1, 1] }],
+    intro: 'The city that is not there has an emperor who insists otherwise. His court rises around you in heat-shimmer.',
+    victory: 'The Emperor abdicates gracefully, city and all, into a single curl of warm air.',
+    defeat: 'You are exiled from a city that does not exist. The paperwork, somehow, does.' }],
+  ['war_court_lord', { name: 'Lord of the Floating War-Court', zh: '浮庭战主', tier: 5, arch: 'boss', kind: 'spirit', element: 'metal',
+    techIds: ['silent_verdict', 'sky_shatter', 'grand_bell'],
+    materialDrops: [{ id: 'storm_crystal', chance: 0.6, count: [1, 2] }, { id: 'heaven_silver', chance: 0.4, count: [1, 1] }],
+    intro: 'The war-court descends to ground level for the first time in an age. Its Lord wants this one in person.',
+    victory: 'The Lord signs the court over to you pro forma and dissolves it rather than honor the transfer.',
+    defeat: 'The full bench finds against you. Appeal denied on grounds of unconsciousness.' }],
+  ['moon_eater', { name: 'The Moon-Eater', zh: '食月者', tier: 5, arch: 'boss', kind: 'beast', element: 'water',
+    techIds: ['void_tide', 'tide_drag', 'abyssal_gaze'],
+    materialDrops: [{ id: 'void_silk', chance: 0.5, count: [1, 2] }, { id: 'wyrm_heart', chance: 0.4, count: [1, 1] }],
+    intro: 'Tonight the lake holds no moon at all. What ate it has decided you look like dessert.',
+    victory: 'The Moon-Eater coughs up a century of swallowed moonlight and flees, much smaller.',
+    defeat: 'It tastes you and visibly reconsiders its standards. The lake gives you back at dawn.' }],
+  ['heavenly_executioner', { name: 'The Heavenly Executioner', zh: '天刑官', tier: 6, arch: 'boss', kind: 'heaven', element: 'metal',
+    techIds: ['heaven_word', 'silent_verdict', 'chosen_annihilation'],
+    materialDrops: [{ id: 'sun_fragment', chance: 0.45, count: [1, 1] }, { id: 'heaven_silver', chance: 0.6, count: [1, 2] }],
+    intro: 'The execution ground sweeps itself clean. The Executioner arrives already reading your sentence.',
+    victory: 'The Executioner files your case as UNRESOLVABLE and departs to argue with the heavens about it.',
+    defeat: 'The sentence is carried out in full, minus the fatal clause — suspended, the warrant notes, pending improvement.' }],
+  ['dawn_sovereign', { name: 'Sovereign of the First Dawn', zh: '初晓之主', tier: 6, arch: 'boss', kind: 'heaven', element: 'fire',
+    techIds: ['star_wrath', 'immortal_pressure', 'chosen_annihilation'],
+    materialDrops: [{ id: 'sun_fragment', chance: 0.6, count: [1, 2] }, { id: 'dao_crystal', chance: 0.4, count: [1, 1] }],
+    intro: 'On the throne of the first dawn, the first light that ever was opens its eyes and stands.',
+    victory: 'The Sovereign sets one fragment of the first morning in your palm and returns to its long sunrise.',
+    defeat: 'You are gently overexposed. For three days your shadow arrives slightly after you do.' }],
+].forEach(([id, d]) => { d.power = 1.15; mkEnemy(id, d); });
+
+// Boss roster metadata: realm tier, hunt blurb, first-kill material cache.
+const BOSSES = {
+  boar_king:            { tier: 0, blurb: 'Terror of the withered wood. The first name every village hunter learns to fear.',
+                          firstKill: { beast_sinew: 4, spirit_stone: 5 } },
+  kiln_mother:          { tier: 0, blurb: 'The old kiln fires itself on new moons. Something inside is still making pottery.',
+                          firstKill: { flame_marrow: 2, spirit_stone: 5 } },
+  fox_saint:            { tier: 1, blurb: 'Nine tails, one mask. Petitioners climb to the shrine hollow; fewer climb down.',
+                          firstKill: { spirit_pearl: 2, spirit_stone: 12 } },
+  mine_golem:           { tier: 1, blurb: 'The cold-iron mine closed when the ore grew a heartbeat. The seam is still rich.',
+                          firstKill: { star_iron: 2, spirit_stone: 12 } },
+  bell_abbot:           { tier: 2, blurb: 'Nine echoes, nine judgments. The tower only rings for visitors worth measuring.',
+                          firstKill: { spirit_pearl: 3, spirit_stone: 30 } },
+  tide_queen:           { tier: 2, blurb: 'The cove obeys her tides, not the moon\'s. Wreckers pay tribute; the sea pays her.',
+                          firstKill: { glacial_core: 2, spirit_stone: 30 } },
+  cinder_abbot:         { tier: 3, blurb: 'The monastery has burned for sixty years without being consumed. He is why.',
+                          firstKill: { flame_marrow: 3, soul_ember: 2, spirit_stone: 80 } },
+  prison_warden:        { tier: 3, blurb: 'The silent bamboo grove holds what the sects could not kill. She holds the keys.',
+                          firstKill: { spirit_pearl: 3, verdant_bark: 4, spirit_stone: 80 } },
+  vein_matriarch:       { tier: 4, blurb: 'The dragon-veins under the foothills all run to one buried mother. Tap at your peril.',
+                          firstKill: { dragon_scale: 3, storm_crystal: 1, spirit_stone: 200 } },
+  mirage_emperor:       { tier: 4, blurb: 'A city appears at noon heat and is gone by dusk. Its emperor collects real tribute.',
+                          firstKill: { heavenly_jade: 2, void_silk: 1, spirit_stone: 200 } },
+  war_court_lord:       { tier: 5, blurb: 'The floating court has tried the dead for ten thousand years. Its Lord is bored.',
+                          firstKill: { storm_crystal: 2, heaven_silver: 1, spirit_stone: 500 } },
+  moon_eater:           { tier: 5, blurb: 'Every reflection of the moon it swallows makes it larger. It is very large now.',
+                          firstKill: { void_silk: 2, wyrm_heart: 1, spirit_stone: 500 } },
+  heavenly_executioner: { tier: 6, blurb: 'The heavens keep one official for cultivators who refuse to die on schedule.',
+                          firstKill: { sun_fragment: 1, heaven_silver: 2, spirit_stone: 1200 } },
+  dawn_sovereign:       { tier: 6, blurb: 'Before the first sunrise there was a rehearsal. It still sits its throne, waiting for notes.',
+                          firstKill: { sun_fragment: 2, dao_crystal: 1, spirit_stone: 1200 } },
+};
+
+
+
+// Boss fights: started from the Bosses tab. Defeat toll is DOUBLED (wired at the
+// defeat-toll site via combat.bossFight); kills tracked per-boss; first kill grants
+// a bonus material cache.
+function startBossFight(bossId) {
+  const meta = BOSSES[bossId];
+  if (!meta || !ENEMIES[bossId]) return;
+  if ((state.realm.tierIdx || 0) < meta.tier) return;
+  initCombat([bossId], 1);
+  if (combat) combat.bossFight = true;
+  render();
+}
+function bossKillCount(bossId) { return (state.bossKills && state.bossKills[bossId]) || 0; }
+
+// ---- 50 new areas: 2 Mortal + 8 per realm tier 1-6 ----
+LOCATIONS.push(
+  // Mortal (2)
+  { id: 'riverside_ford', name: 'Riverside Ford', zh: '河津', desc: 'The shallow crossing below the village. Something has started charging a toll.',
+    minTier: 0, minLayer: 0, cultivationMult: 1.05, enemyPool: ['river_imp', 'giant_rat', 'road_wasp_swarm'] },
+  { id: 'old_kiln_hollow', name: 'Old Kiln Hollow', zh: '旧窑洼', desc: 'A pottery kiln abandoned mid-firing, generations ago. The clay remembers its shape.',
+    minTier: 0, minLayer: 0, cultivationMult: 1.1, enemyPool: ['clay_soldier', 'briar_spirit', 'road_wasp_swarm'] },
+  // Qi Condensation (8)
+  { id: 'bamboo_sea', name: 'Whistling Bamboo Sea', zh: '啸竹海', desc: 'Bamboo to the horizon, singing in every wind. Sword students come here to listen and to duel.',
+    minTier: 1, minLayer: 1, cultivationMult: 1.3, enemyPool: ['bamboo_swordsman', 'wolf_demon', 'fox_spirit'] },
+  { id: 'cold_iron_mine', name: 'Cold-Iron Mine', zh: '寒铁矿', desc: 'The deep galleries where the ore runs cold and the lamps burn blue. Closed by order; entered anyway.',
+    minTier: 1, minLayer: 2, cultivationMult: 1.45, enemyPool: ['mine_haunt', 'bandit_miner', 'stone_elemental'] },
+  { id: 'fox_shrine_hollow', name: 'Fox Shrine Hollow', zh: '狐祠洼', desc: 'A hollow of red gates and stone foxes. Offerings left at dusk are gone by midnight, debts incurred.',
+    minTier: 1, minLayer: 3, cultivationMult: 1.55, enemyPool: ['fox_spirit', 'lantern_keeper', 'bamboo_swordsman'] },
+  { id: 'drowned_ferry', name: 'Drowned Ferry Crossing', zh: '溺渡口', desc: 'The ferry sank a lifetime ago. The service, regrettably, continues.',
+    minTier: 1, minLayer: 4, cultivationMult: 1.65, enemyPool: ['ferry_ghost', 'swamp_spirit', 'jade_serpent'] },
+  { id: 'burnt_terraces', name: 'Burnt Tea Terraces', zh: '焦茶垄', desc: 'Hillside tea fields razed by a careless fire-cultivator. The ash grows strange and fragrant things.',
+    minTier: 1, minLayer: 5, cultivationMult: 1.75, enemyPool: ['ash_leopard', 'briar_spirit', 'bandit_cultivator'] },
+  { id: 'wailing_gorge', name: 'Wailing Gorge', zh: '哭峡', desc: 'Wind through the gorge sounds like mourning. Sometimes the wind has help.',
+    minTier: 1, minLayer: 6, cultivationMult: 1.85, enemyPool: ['ghost_daoist', 'mine_haunt', 'ferry_ghost'] },
+  { id: 'lantern_graveyard', name: 'Lantern Graveyard', zh: '灯冢', desc: 'Ten thousand grave-lanterns on a moonless slope. One of them is always lit; never the same one.',
+    minTier: 1, minLayer: 7, cultivationMult: 1.95, enemyPool: ['lantern_keeper', 'ghost_daoist', 'fox_spirit'] },
+  { id: 'serpent_spine', name: "Serpent's Spine Ridge", zh: '蛇脊岭', desc: 'A ridge of stacked stone vertebrae, each the size of a cart. The thing they belonged to may not be done with them.',
+    minTier: 1, minLayer: 8, cultivationMult: 2.05, enemyPool: ['jade_serpent', 'ash_leopard', 'stone_elemental'] },
+  // Foundation Establishment (8)
+  { id: 'inkwash_marsh', name: 'Inkwash Marsh', zh: '墨沼', desc: 'A marsh stained black by a drowned library. The water writes when no one watches.',
+    minTier: 2, minLayer: 1, cultivationMult: 2.6, enemyPool: ['marsh_inkfiend', 'swamp_spirit', 'fen_serpent'] },
+  { id: 'bell_tower_nine', name: 'Bell Tower of Nine Echoes', zh: '九响钟楼', desc: 'Struck once a century. The echoes have not finished arriving.',
+    minTier: 2, minLayer: 1, cultivationMult: 2.7, enemyPool: ['echo_acolyte', 'ghost_daoist', 'mist_wanderer'] },
+  { id: 'frozen_orchard', name: 'Frozen Orchard', zh: '冻园', desc: 'An orchard flash-frozen in full fruit by a failed water-dao experiment. Everything is still ripe.',
+    minTier: 2, minLayer: 2, cultivationMult: 2.8, enemyPool: ['frost_warden', 'jade_scholar', 'corpse_walker'] },
+  { id: 'pirate_moon_cove', name: 'Pirate Moon Cove', zh: '月湾寇穴', desc: 'Wreckers\' fires on the headland, silk on the corsairs, and a tide that keeps excellent secrets.',
+    minTier: 2, minLayer: 2, cultivationMult: 2.9, enemyPool: ['moon_pirate', 'coral_siren', 'crossbow_bandit'] },
+  { id: 'shattered_array_plain', name: 'Shattered Array Plains', zh: '碎阵原', desc: 'A war-array failed here at scale. The glyph fragments still fire, in no pattern anyone survives learning.',
+    minTier: 2, minLayer: 3, cultivationMult: 3.0, enemyPool: ['rogue_arrayist', 'marsh_inkfiend', 'echo_acolyte'] },
+  { id: 'red_clay_arena', name: 'Red-Clay Arena', zh: '红土擂台', desc: 'An open challenge ring older than the nearby sects. The clay drinks; the crowd remembers.',
+    minTier: 2, minLayer: 3, cultivationMult: 3.05, enemyPool: ['arena_breaker', 'rival_sword', 'iron_palm_monk'] },
+  { id: 'hollow_cedar_vault', name: 'Hollow Cedar Vault', zh: '空杉库', desc: 'A cedar wide as a hall, hollowed into a sect treasury and then forgotten by the sect. Not by everything.',
+    minTier: 2, minLayer: 4, cultivationMult: 3.15, enemyPool: ['corpse_walker', 'frost_warden', 'ribbon_cultivator'] },
+  { id: 'glowworm_caverns', name: 'Glowworm Caverns', zh: '萤窟', desc: 'Caverns lit by qi-fat glowworms. Beautiful, luminous, and emphatically not unoccupied.',
+    minTier: 2, minLayer: 4, cultivationMult: 3.2, enemyPool: ['mist_wanderer', 'mine_haunt', 'marsh_inkfiend'] },
+  // Core Formation (8)
+  { id: 'burning_monastery', name: 'Burning Monastery', zh: '燃寺', desc: 'It has burned for sixty years without falling. The monks consider this a teaching.',
+    minTier: 3, minLayer: 1, cultivationMult: 3.6, enemyPool: ['ember_monk', 'ashen_stepper', 'iron_palm_monk'] },
+  { id: 'thousand_step_stair', name: 'Thousand-Step Stair', zh: '千阶梯', desc: 'A stair cut for giants, climbing into cloud. The count is exact; the guardians, periodic.',
+    minTier: 3, minLayer: 1, cultivationMult: 3.7, enemyPool: ['stair_guardian', 'core_monk', 'mountain_monk'] },
+  { id: 'ghost_market_below', name: 'Ghost Market Below', zh: '地下鬼市', desc: 'Under the night market is the other market. Currency: years, names, and the occasional pulse.',
+    minTier: 3, minLayer: 2, cultivationMult: 3.85, enemyPool: ['ghost_broker', 'heartline_assassin', 'dao_hunter'] },
+  { id: 'iron_lotus_lake', name: 'Iron Lotus Lake', zh: '铁莲湖', desc: 'Lotuses of black iron bloom on a lake that never ripples. Walking the petals is a swordswoman\'s pilgrimage.',
+    minTier: 3, minLayer: 2, cultivationMult: 3.95, enemyPool: ['lotus_blade_dancer', 'crescent_soul_adept', 'tiger_cage_master'] },
+  { id: 'howling_pass', name: 'The Howling Pass', zh: '嚎关', desc: 'The only road through the range. The howl is not wind, and tolls are collected in posture.',
+    minTier: 3, minLayer: 3, cultivationMult: 4.05, enemyPool: ['crater_stalker', 'tiger_cage_master', 'dao_hunter'] },
+  { id: 'starfall_crater', name: 'Starfall Crater', zh: '坠星坑', desc: 'Where a star landed and did not entirely die. The crater rim glitters; the crater floor watches.',
+    minTier: 3, minLayer: 3, cultivationMult: 4.15, enemyPool: ['crater_stalker', 'ember_monk', 'rogue_arrayist'] },
+  { id: 'forgemaster_tomb', name: "Forgemaster's Tomb", zh: '炉主陵', desc: 'A smith-king was buried with his unfinished works. They have had centuries to resent that.',
+    minTier: 3, minLayer: 4, cultivationMult: 4.3, enemyPool: ['stair_guardian', 'corpse_walker', 'iron_palm_monk'] },
+  { id: 'silent_bamboo_prison', name: 'Silent Bamboo Prison', zh: '默竹狱', desc: 'A grove where sound does not carry and certain prisoners do not age. Visiting hours are a rumor.',
+    minTier: 3, minLayer: 4, cultivationMult: 4.4, enemyPool: ['lotus_blade_dancer', 'ghost_broker', 'crescent_soul_adept'] },
+  // Golden Core (8)
+  { id: 'dragon_vein_foothills', name: 'Dragon-Vein Foothills', zh: '龙脉麓', desc: 'The hills above the buried veins. The qi is rich enough to chew; the drakes agree.',
+    minTier: 4, minLayer: 1, cultivationMult: 5.2, enemyPool: ['vein_drake', 'demonic_gc_master', 'mountain_monk'] },
+  { id: 'mirage_city', name: 'Mirage City', zh: '蜃城', desc: 'A capital that exists from noon heat to dusk. Its markets are real enough to bankrupt you.',
+    minTier: 4, minLayer: 1, cultivationMult: 5.35, enemyPool: ['mirage_duelist', 'gold_disc_master', 'heartline_assassin'] },
+  { id: 'sunken_throne', name: 'The Sunken Throne', zh: '沉座', desc: 'A drowned court at the bottom of a mountain lake. The king never dismissed his ministers.',
+    minTier: 4, minLayer: 2, cultivationMult: 5.5, enemyPool: ['throne_revenant', 'bone_siphon_demon', 'demonic_lasher'] },
+  { id: 'thunder_plateau', name: 'Thunder Plateau', zh: '雷台原', desc: 'A tableland that catches every storm in the province and keeps some. The glyphs up there are load-bearing.',
+    minTier: 4, minLayer: 2, cultivationMult: 5.6, enemyPool: ['thunder_shaman', 'vein_drake', 'gold_disc_master'] },
+  { id: 'garden_of_swords', name: 'Garden of Swords', zh: '剑园', desc: 'Ten thousand blades planted hilt-down in tended rows. Harvest season is a misunderstanding you do not survive.',
+    minTier: 4, minLayer: 3, cultivationMult: 5.75, enemyPool: ['sword_garden_spirit', 'mirage_duelist', 'phantom_swordmaster'] },
+  { id: 'blackwater_edge', name: 'Blackwater Abyss Edge', zh: '黑渊缘', desc: 'The rim of a hole in the lake that has no bottom anyone reports back from. Excellent qi. Terrible neighbors.',
+    minTier: 4, minLayer: 3, cultivationMult: 5.85, enemyPool: ['throne_revenant', 'bone_siphon_demon', 'nether_master'] },
+  { id: 'reversed_pagoda', name: 'Pagoda of Reversed Stars', zh: '倒星塔', desc: 'A pagoda built downward into the earth, each floor a deeper sky. The stars below are not reflections.',
+    minTier: 4, minLayer: 4, cultivationMult: 6.0, enemyPool: ['thunder_shaman', 'sword_garden_spirit', 'nine_gate_master'] },
+  { id: 'bone_orchard', name: 'Bone Orchard', zh: '骨园', desc: 'Trees of fused bone bearing marrow-fruit. Something tends them. Something prunes.',
+    minTier: 4, minLayer: 4, cultivationMult: 6.1, enemyPool: ['bone_siphon_demon', 'vein_drake', 'demonic_lasher'] },
+  // Nascent Soul (8)
+  { id: 'heavens_scar', name: "Heaven's Scar Canyon", zh: '天痕峡', desc: 'Where something once cut the sky to the bone. The wound healed crooked, and things use the seam.',
+    minTier: 5, minLayer: 1, cultivationMult: 7.5, enemyPool: ['scar_horror', 'ancient_ghost_king', 'soul_cleaver'] },
+  { id: 'floating_war_court', name: 'The Floating War-Court', zh: '浮空战庭', desc: 'A tribunal of the honored dead, drifting where the fighting was thickest. Subpoenas arrive as weather.',
+    minTier: 5, minLayer: 1, cultivationMult: 7.7, enemyPool: ['war_court_judge', 'phantom_swordmaster', 'grand_bell_ringer'] },
+  { id: 'moon_eating_lake', name: 'Moon-Eating Lake', zh: '食月湖', desc: 'On clear nights the lake shows every star but no moon. Locals stopped asking why generations ago.',
+    minTier: 5, minLayer: 2, cultivationMult: 7.9, enemyPool: ['lake_devourer', 'scar_horror', 'ancestor_curse_master'] },
+  { id: 'ancestral_sword_mound', name: 'Ancestral Sword Mound', zh: '祖剑冢', desc: 'Every blade of a vanished sword sect, planted over its masters. The graves practice at night.',
+    minTier: 5, minLayer: 2, cultivationMult: 8.0, enemyPool: ['mound_ancestor', 'phantom_swordmaster', 'sword_garden_spirit'] },
+  { id: 'quiet_thunder_citadel', name: 'Citadel of Quiet Thunder', zh: '静雷城', desc: 'A fortress that swallowed a storm whole and has been digesting it for a thousand years.',
+    minTier: 5, minLayer: 3, cultivationMult: 8.2, enemyPool: ['quiet_thunder_guard', 'war_court_judge', 'dao_pressure_lord'] },
+  { id: 'unwritten_library', name: 'The Unwritten Library', zh: '未书阁', desc: 'Shelves of blank books that fill themselves as you read. The librarians collect overdue readers.',
+    minTier: 5, minLayer: 3, cultivationMult: 8.35, enemyPool: ['ancestor_curse_master', 'grand_bell_ringer', 'war_court_judge'] },
+  { id: 'yellow_springs_road', name: 'Yellow Springs Road', zh: '黄泉道', desc: 'The road the dead take, briefly passable by the living. Traffic runs both ways; etiquette is strict.',
+    minTier: 5, minLayer: 4, cultivationMult: 8.5, enemyPool: ['lake_devourer', 'ancient_ghost_king', 'soul_cleaver'] },
+  { id: 'cloud_tomb_plateau', name: 'Cloud-Tomb Plateau', zh: '云陵原', desc: 'Where old cultivators go to bury their clouds. The sky here is crowded with mourning.',
+    minTier: 5, minLayer: 4, cultivationMult: 8.65, enemyPool: ['quiet_thunder_guard', 'mound_ancestor', 'dao_pressure_lord'] },
+  // Spirit Severing (8)
+  { id: 'severed_peak', name: 'The Severed Peak', zh: '断峰', desc: 'A mountain whose top third hangs unsupported, a li above the break. The gap is the dojo.',
+    minTier: 6, minLayer: 1, cultivationMult: 11.0, enemyPool: ['severed_immortal', 'heaven_word_speaker', 'star_wrath_cultivator'] },
+  { id: 'gate_of_names', name: 'Gate of Returning Names', zh: '归名门', desc: 'Every name given up for the dao passes back through this gate eventually. Some are reclaimed. Some object.',
+    minTier: 6, minLayer: 1, cultivationMult: 11.3, enemyPool: ['names_gatekeeper', 'severed_immortal', 'world_seal_master'] },
+  { id: 'sea_unborn_stars', name: 'Sea of Unborn Stars', zh: '星胎海', desc: 'A black ocean of almost-suns, each a possibility the sky declined. Fishing is discouraged.',
+    minTier: 6, minLayer: 2, cultivationMult: 11.6, enemyPool: ['star_leviathan', 'star_wrath_cultivator', 'names_gatekeeper'] },
+  { id: 'last_monastery', name: 'The Last Monastery', zh: '末寺', desc: 'The final monastery on the final mountain. One monk, one broom, one standing invitation.',
+    minTier: 6, minLayer: 2, cultivationMult: 11.8, enemyPool: ['last_monk', 'severed_immortal', 'heaven_word_speaker'] },
+  { id: 'executioners_ground', name: "Heavenly Executioner's Ground", zh: '天刑场', desc: 'Where the heavens carry out sentences on those who out-cultivated their fate. The block is always fresh.',
+    minTier: 6, minLayer: 3, cultivationMult: 12.0, enemyPool: ['heaven_word_speaker', 'world_seal_master', 'names_gatekeeper'] },
+  { id: 'bridge_seven_silences', name: 'Bridge of Seven Silences', zh: '七默桥', desc: 'Seven spans over seven abysses; each span takes a different sound from you. The seventh takes your dao\'s.',
+    minTier: 6, minLayer: 3, cultivationMult: 12.2, enemyPool: ['names_gatekeeper', 'last_monk', 'star_leviathan'] },
+  { id: 'world_root_hollow', name: 'The World-Root Hollow', zh: '世根洞', desc: 'A cavern wrapped around one root of the world-tree. Chewing sounds echo from deeper in.',
+    minTier: 6, minLayer: 4, cultivationMult: 12.5, enemyPool: ['star_leviathan', 'scar_horror', 'world_seal_master'] },
+  { id: 'throne_first_dawn', name: 'Throne of the First Dawn', zh: '初晓座', desc: 'The hall where light rehearsed before the first morning. The reviews, carved in the walls, were mixed.',
+    minTier: 6, minLayer: 4, cultivationMult: 12.8, enemyPool: ['dawn_herald', 'severed_immortal', 'star_wrath_cultivator'] }
+);
+
 function locationUnlocked(loc) {
   if (state.realm.tierIdx < loc.minTier) return false;
   if (state.realm.tierIdx === loc.minTier && state.realm.layer < loc.minLayer) return false;
@@ -5513,6 +5999,24 @@ const MATERIALS = {
   heaven_silver: { name: 'Heaven Silver', zh: '天银', rarity: 'divine',
     desc: 'Silver from a vein the mortal world does not contain. Takes a mirror polish without effort.' },
 };
+
+// v0.58: New materials (boss + high-area drops; v0.59 gear recipes consume them).
+Object.assign(MATERIALS, {
+  beast_sinew:   { name: 'Beast Sinew',     zh: '兽筋', rarity: 'common',
+    desc: 'Tough cord cut from a spirit-beast. Stretches once, exactly as far as needed.' },
+  spirit_pearl:  { name: 'Spirit Pearl',    zh: '灵珠', rarity: 'rare',
+    desc: 'A pearl grown around a grain of qi instead of sand. Faintly warm, faintly smug.' },
+  flame_marrow:  { name: 'Flame Marrow',    zh: '焰髓', rarity: 'rare',
+    desc: 'The marrow of something that lived in fire. It has not noticed being removed.' },
+  glacial_core:  { name: 'Glacial Core',    zh: '冰核', rarity: 'rare',
+    desc: 'A fist of ice older than the mountain it came from. It does not melt; it declines.' },
+  storm_crystal: { name: 'Storm Crystal',   zh: '暴晶', rarity: 'legendary',
+    desc: 'Lightning that struck the same place twice and decided to stay.' },
+  void_silk:     { name: 'Void Silk',       zh: '虚绡', rarity: 'legendary',
+    desc: 'Cloth woven from the gap between moments. Folds into less space than it occupies.' },
+  sun_fragment:  { name: 'Sun Fragment',    zh: '日屑', rarity: 'divine',
+    desc: 'A flake of an elder sun. Kept in a lead box, which is slowly becoming gold.' },
+});
 
 // ============================================================
 // Artifact recipes — forge your own weapons
@@ -7516,6 +8020,7 @@ function newCharacter(seed, childhood = null) {
     contribution: 0,
     contributionLifetime: 0,
     sectKills: 0,
+    bossKills: {},  // v0.58: per-boss kill counts (first kill = bonus cache)
     // Wave 3a: fortune-encounter cooldown timer.
     lastOpportunity: 0,
     // Wave 3b: secret-realm dive (active run state + entry cooldown).
@@ -9108,6 +9613,19 @@ function grantEnemyDefeatRewards(e) {
   const insight = Math.round(enemyData.insightReward * rewardScale * boonInsightMult() * skillCombatInsightMult() * (combat.player.mods.insightMult || 1) * ((SCHOOLS[state.selectedSchool] && SCHOOLS[state.selectedSchool].insightFromKillsMult) || 1) * (hmVictory.combatInsightMult || 1) * combatInsightMult(combat) * metaInsightMult());
   addInsight(insight);
   state.sectKills = (state.sectKills || 0) + 1;  // Wave 2b: progress toward the sect hunt bounty
+  // v0.58: boss kill tracking + first-kill material cache.
+  if (enemyData.isBoss) {
+    if (!state.bossKills) state.bossKills = {};
+    state.bossKills[e.id] = (state.bossKills[e.id] || 0) + 1;
+    const meta = BOSSES[e.id];
+    if (meta && meta.firstKill && state.bossKills[e.id] === 1) {
+      Object.entries(meta.firstKill).forEach(([mid, n]) => {
+        state.base.materials[mid] = (state.base.materials[mid] || 0) + n;
+      });
+      const parts = Object.entries(meta.firstKill).map(([mid, n]) => `${n}× ${(MATERIALS[mid] && MATERIALS[mid].name) || mid}`).join(', ');
+      pushLog('reward', `First kill! The fall of ${enemyData.name} yields: ${parts}.`);
+    }
+  }
   const drop = rollInscriptionDrop();
   if (drop) state.inscriptions.owned.push(drop);
   const armorDrop = rollArmorDrop(enemyData);
@@ -9244,7 +9762,7 @@ function checkDeath() {
       return true;
     }
     // v0.50: a (non-tribulation) defeat exacts a lifespan toll.
-    const lifeLoss = combatDefeatLifespanCost(combat.areaCultMult || 1);
+    const lifeLoss = combatDefeatLifespanCost(combat.areaCultMult || 1) * (combat.bossFight ? 2 : 1);  // v0.58: bosses exact double
     if (lifeLoss > 0) {
       state.age = (state.age || 16) + lifeLoss;
       const shown = lifeLoss >= 10 ? Math.round(lifeLoss) : lifeLoss.toFixed(1);
@@ -9549,6 +10067,35 @@ function appendPanel(panel, tab) {
   app.appendChild(panel);
 }
 
+// v0.58: shared per-realm sub-tab chips. uiKey persists the choice in state.ui;
+// countFn(tier) -> entry count shown on the chip. Defaults to the player's realm.
+function selectedRealmTab(uiKey) {
+  if (!state.ui) state.ui = {};
+  const v = state.ui[uiKey];
+  const maxT = state.realm.tierIdx || 0;
+  if (typeof v === 'number' && v >= 0 && v <= 6) return v;
+  return Math.min(maxT, 6);
+}
+function realmTabChips(uiKey, countFn) {
+  const wrap = document.createElement('div');
+  wrap.className = 'button-row';
+  wrap.style.cssText = 'flex-wrap:wrap;gap:0.25rem;margin:0 0 0.55rem;justify-content:flex-start';
+  const sel = selectedRealmTab(uiKey);
+  const maxT = state.realm.tierIdx || 0;
+  for (let t = 0; t <= 6; t++) {
+    const n = countFn ? countFn(t) : 0;
+    if (!n) continue;
+    const b = document.createElement('button');
+    b.className = 'small ' + (t === sel ? 'gold' : 'ghost');
+    const locked = t > maxT;
+    b.textContent = `${REALMS[t].name} (${n})${locked ? ' [locked]' : ''}`;
+    if (locked) b.style.opacity = '0.55';
+    b.onclick = () => { if (!state.ui) state.ui = {}; state.ui[uiKey] = t; saveChar(); render(); };
+    wrap.appendChild(b);
+  }
+  return wrap;
+}
+
 function renderTabBar() {
   const bar = document.createElement('div');
   bar.className = 'tabs';
@@ -9561,6 +10108,7 @@ function renderTabBar() {
     { id: 'market',   label: 'Market' },
     { id: 'sect',     label: 'Sect' },
     { id: 'journeys', label: 'Journeys' },
+    { id: 'bosses',   label: 'Bosses' },
     { id: 'config',   label: 'Config' },
   ];
   tabs.forEach(t => {
@@ -11166,7 +11714,10 @@ function renderCharSheet() {
   locP.className = 'panel';
   locP.innerHTML = `<h3>Journeys</h3>
     <p style="font-size:0.85rem;color:var(--ink-soft);margin:0 0 0.6rem">Each place holds its own dangers, and its own silences. Venture to fight. Meditate to gather insight at its full rate.</p>`;
-  LOCATIONS.forEach(loc => {
+  // v0.58: per-realm sub-tabs. Defaults to your current realm; locked realms shown dimmed.
+  locP.appendChild(realmTabChips('journeysRealm', t => LOCATIONS.filter(l => l.minTier === t).length));
+  const jRealm = selectedRealmTab('journeysRealm');
+  LOCATIONS.filter(l => l.minTier === jRealm).forEach(loc => {
     const unlocked = locationUnlocked(loc);
     const isCult = state.cultivating && state.cultivating.locationId === loc.id;
     const card = document.createElement('div');
@@ -11207,6 +11758,40 @@ function renderCharSheet() {
     }
   });
   appendPanel(locP, 'journeys');
+
+  // ============ v0.58: Bosses tab — per-realm rosters, doubled defeat toll ============
+  const bossP = document.createElement('div');
+  bossP.className = 'panel';
+  bossP.innerHTML = `<h3>Bosses <span style="font-weight:normal;color:var(--ink-soft);font-size:0.85rem">魁首</span></h3>
+    <p style="font-size:0.85rem;color:var(--ink-soft);margin:0 0 0.6rem">Named terrors of each realm. They hit harder than anything else at their tier, and <strong style="color:var(--crimson)">losing to a boss costs DOUBLE lifespan</strong>. First kill grants a bonus material cache; they can be re-fought for their drops.</p>`;
+  bossP.appendChild(realmTabChips('bossesRealm', t => Object.values(BOSSES).filter(b => b.tier === t).length));
+  const bRealm = selectedRealmTab('bossesRealm');
+  Object.entries(BOSSES).filter(([, b]) => b.tier === bRealm).forEach(([bid, meta]) => {
+    const en = ENEMIES[bid];
+    if (!en) return;
+    const kills = bossKillCount(bid);
+    const unlocked = (state.realm.tierIdx || 0) >= meta.tier;
+    const card = document.createElement('div');
+    card.className = 'location-card' + (unlocked ? '' : ' locked');
+    const elTag = en.element ? ` <span class="rarity-tag">${elementLabel ? elementLabel(en.element) : en.element}</span>` : '';
+    card.innerHTML = `
+      <div class="location-name">${en.name} <span style="color:var(--ink-soft);font-weight:normal;font-size:0.85rem">${en.zh || ''}</span>${elTag}
+        ${kills > 0 ? `<span class="rarity-tag rarity-legendary" style="float:right">slain ×${kills}</span>` : ''}</div>
+      <div class="location-desc">${meta.blurb}</div>
+      <div style="font-size:0.78rem;color:var(--ink-soft);margin-top:0.25rem">${REALMS[meta.tier].name} boss · ${kills === 0 && meta.firstKill ? 'First kill: ' + Object.entries(meta.firstKill).map(([m, n]) => `${n}× ${(MATERIALS[m] && MATERIALS[m].name) || m}`).join(', ') : 'Repeatable hunt — drops persist.'}</div>
+      <div class="location-actions" id="boss-actions-${bid}"></div>`;
+    bossP.appendChild(card);
+    if (unlocked) {
+      const b = document.createElement('button');
+      b.className = 'gold';
+      b.textContent = kills > 0 ? 'Challenge Again' : 'Challenge';
+      b.onclick = () => startBossFight(bid);
+      card.querySelector('.location-actions').appendChild(b);
+    } else {
+      card.querySelector('.location-actions').innerHTML = `<span style="font-size:0.78rem;color:var(--crimson)">Requires ${REALMS[meta.tier].name}.</span>`;
+    }
+  });
+  appendPanel(bossP, 'bosses');
 
   // v0.22: Market tab — Wandering Master (techs), Trader Caravan (sell + daily-capped buy),
   //                     Open Road (random encounter against any unlocked-location enemy).
@@ -11858,6 +12443,7 @@ try {
       if (parsed.lifespanBonus == null) parsed.lifespanBonus = 0;
       if (parsed.bodyQuench == null) parsed.bodyQuench = 0;
       if (!parsed.settings) parsed.settings = { noAgeDeath: false };
+      if (!parsed.bossKills) parsed.bossKills = {};  // v0.58 boss roster
       // v0.56 FIX ("5th slot showing but not working"): techniques deleted/renamed in
       // updates (e.g. v0.51 lunar_sight -> stellar_pressure) left DEAD ids in saved
       // loadout/activeSkills. activeSkillsList silently filtered them from combat (4
