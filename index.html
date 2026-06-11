@@ -541,7 +541,7 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v0.76';
+const GAME_VERSION = 'v0.77';
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
 const ELEMENT_ZH   = { metal:'金', wood:'木', water:'水', fire:'火', earth:'土' };
@@ -3013,6 +3013,7 @@ function computeMods(char) {
   applyWeaponsToMods(mods, char);
   applySchoolKitToMods(mods, char);
   applySkillModsToMods(mods, char);
+  applyBodyInscriptionsToMods(mods, char);   // v0.77: demonic flesh-carved inscriptions
   return mods;
 }
 
@@ -4889,8 +4890,9 @@ function bossAnchorScale(bossTier) {
   }
   return { stats: stats * BOSS_DIFFICULTY_MULT, reward: 1.5 };
 }
-// v0.62: per-boss challenge cooldown (1h base), reducible by glyph arrays (floor 35%).
-const BOSS_CD_MS = 60 * 60 * 1000;
+// v0.62/v0.77: per-boss challenge cooldown — 30 min base, stamped ON KILL ONLY
+// (a defeat allows an immediate retry), reducible by glyph arrays (floor 35%).
+const BOSS_CD_MS = 30 * 60 * 1000;
 function bossCooldownMs() {
   const m = computeMods(state).bossCdMult || 1;
   return BOSS_CD_MS * Math.max(0.35, m);
@@ -4904,8 +4906,6 @@ function startBossFight(bossId) {
   if (!meta || !ENEMIES[bossId]) return;
   if ((state.realm.tierIdx || 0) < meta.tier) return;
   if (bossCooldownLeft(bossId) > 0) return;
-  if (!state.bossCooldowns) state.bossCooldowns = {};
-  state.bossCooldowns[bossId] = Date.now();   // the hour starts when the gong sounds, win or lose
   initCombat([bossId], 1);
   if (combat) combat.bossFight = true;
   render();
@@ -8304,11 +8304,23 @@ function walkAStretch() {
 // — gentle, no character death inside. Extract anytime to leave safely. Milestone floors (every 5)
 // open an inheritance (a relic + an insight windfall). Resolved abstractly (no live combat).
 // ============================================================
-const REALM_RUN_CD_MS = 6 * 60 * 60 * 1000;   // v0.52: once every 6 hours
+// v0.77: TWO dive slots sharing one engine — the Secret Realm (6h) and, for the
+// demonic path only, the WARPED RIFT-GATE (3h; heresy tears its own doors).
+const RUN_SLOTS = {
+  realm: { field: 'realmRun', last: 'lastRealmRun', summary: 'lastRealmRunSummary',
+           cd: 6 * 60 * 60 * 1000, name: 'Secret Realm', zh: '秘境', demonicOnly: false,
+           enterLog: 'You step through the rift into a sealed pocket of the world.' },
+  rift:  { field: 'riftRun', last: 'lastRiftRun', summary: 'lastRiftRunSummary',
+           cd: 3 * 60 * 60 * 1000, name: 'Warped Rift-Gate', zh: '扭曲裂门', demonicOnly: true,
+           enterLog: 'You force the warped gate with a heretic\'s key — your own hand. The pocket world flinches.' },
+};
 // v0.52: wound cap rises with realm — base 3, +1 per realm above Mortal.
 function realmRunMaxWounds() { const tier = (state.realm && state.realm.tierIdx) || 0; return 3 + tier; }
-function realmRunReadyAt() { return (state.lastRealmRun || 0) + REALM_RUN_CD_MS; }
-function realmRunReady() { return Date.now() >= realmRunReadyAt(); }
+function realmRunReadyAt(slotKey) {
+  const s = RUN_SLOTS[slotKey || 'realm'];
+  return (state[s.last] || 0) + s.cd;
+}
+function realmRunReady(slotKey) { return Date.now() >= realmRunReadyAt(slotKey); }
 // A single "power" number for abstract dive checks: weapon power + a slice of HP + total stats.
 function cultivatorMight() {
   const w = WEAPONS[state.weapon];
@@ -8322,13 +8334,16 @@ function realmRunDifficulty(floor) {
   const t = state.realm.tierIdx || 0;
   return Math.round((18 + floor * 7) * (1 + t * 0.7));
 }
-function enterRealmRun() {
-  if (!realmRunReady() || state.realmRun) return;
-  state.realmRun = { floor: 0, insight: 0, stones: 0, relics: [], wounds: 0, log: 'You step through the rift into a sealed pocket of the world.' };
+function enterRealmRun(slotKey) {
+  const s = RUN_SLOTS[slotKey || 'realm'];
+  if (s.demonicOnly && !state.demonic) return;
+  if (!realmRunReady(slotKey) || state[s.field]) return;
+  state[s.field] = { floor: 0, insight: 0, stones: 0, relics: [], wounds: 0, log: s.enterLog };
   saveChar(); render();
 }
-function realmRunDescend() {
-  const run = state.realmRun;
+function realmRunDescend(slotKey) {
+  const s = RUN_SLOTS[slotKey || 'realm'];
+  const run = state[s.field];
   if (!run) return;
   run.floor++;
   const floor = run.floor;
@@ -8355,7 +8370,7 @@ function realmRunDescend() {
       run.log = `Floor ${floor}: the guardian wounds you (${run.wounds}/${realmRunMaxWounds()}).`;
       if (run.wounds >= realmRunMaxWounds()) {
         run.log += ' The realm collapses — you are cast out, but keep all you banked.';
-        realmRunExtract(true);
+        realmRunExtract(true, slotKey);
         return;
       }
     }
@@ -8371,15 +8386,16 @@ function realmRunDescend() {
   }
   saveChar(); render();
 }
-function realmRunExtract(collapsed) {
-  const run = state.realmRun;
+function realmRunExtract(collapsed, slotKey) {
+  const s = RUN_SLOTS[slotKey || 'realm'];
+  const run = state[s.field];
   if (!run) return;
   addInsight(run.insight);
   if (run.stones) state.base.materials.spirit_stone = (state.base.materials.spirit_stone || 0) + run.stones;
   run.relics.forEach(id => { if (ARTIFACTS[id]) state.artifacts.owned.push(id); });
-  state.lastRealmRunSummary = `${collapsed ? 'Cast out of the secret realm' : 'You withdraw from the secret realm'} after ${run.floor} floor${run.floor === 1 ? '' : 's'} — gained ${Math.round(run.insight)} insight, ${run.stones} stones${run.relics.length ? `, ${run.relics.length} relic${run.relics.length === 1 ? '' : 's'}` : ''}.`;
-  state.realmRun = null;
-  state.lastRealmRun = Date.now();
+  state[s.summary] = `${collapsed ? 'Cast out of the ' + s.name.toLowerCase() : 'You withdraw from the ' + s.name.toLowerCase()} after ${run.floor} floor${run.floor === 1 ? '' : 's'} — gained ${Math.round(run.insight)} insight, ${run.stones} stones${run.relics.length ? `, ${run.relics.length} relic${run.relics.length === 1 ? '' : 's'}` : ''}.`;
+  state[s.field] = null;
+  state[s.last] = Date.now();
   saveChar(); render();
 }
 
@@ -8412,7 +8428,7 @@ function lifespanMax() {
 function lifespanRemaining() { return Math.max(0, lifespanMax() - (state.age || 16)); }
 function advanceAge(seconds) {
   if (!state || !state.confirmed) return;
-  state.age = (state.age || 16) + seconds * AGE_PER_SEC;
+  state.age = (state.age || 16) + seconds * AGE_PER_SEC * lifespanConsumptionMult();   // v0.77: body inscriptions burn the candle faster
   if (state.age >= lifespanMax() && !noAgeDeathOn()) {
     dieRun('the weight of years', 'No pill bought another breath. The body returned to dust at the end of its span — but the dao, and the soul, remember.', state.name);
   }
@@ -8766,11 +8782,7 @@ function collectSellableItems(char) {
         char.base.materials.spirit_stone = (char.base.materials.spirit_stone || 0) + price;
         saveChar();
       },
-      dyield: { spirit_stone: INSCRIPTION_DISASSEMBLE_STONES[ins.rarity] || 4 },
-      disassemble: () => {
-        char.inscriptions.owned.splice(char.inscriptions.owned.indexOf(id), 1);
-        grantYield({ spirit_stone: INSCRIPTION_DISASSEMBLE_STONES[ins.rarity] || 4 });
-      },
+      // v0.77: inscription disassembly ROLLED BACK (operator: selling is simply better).
     });
   });
   // Armor: owned but not equipped.
@@ -9735,6 +9747,7 @@ function newCharacter(seed, childhood = null) {
     bossCooldowns: {}, // v0.62: per-boss challenge timestamps
     sectRank: 0, sectRampV65: true, lastWalk: 0, // v0.65: earned rank + walk cooldown
     heavenConquest: 0, // v0.71: Conquest of Heaven stages cleared (demonic ascension)
+    bodyInscriptions: [], riftRun: null, lastRiftRun: 0, // v0.77
     // Wave 3a: fortune-encounter cooldown timer.
     lastOpportunity: 0,
     // Wave 3b: secret-realm dive (active run state + entry cooldown).
@@ -10120,6 +10133,44 @@ function rollInscriptionDrop() {
   return source[Math.floor(Math.random() * source.length)];
 }
 
+// ============================================================
+// v0.77 DEMONIC BODY INSCRIPTIONS — heretics carve inscriptions into their own FLESH:
+// 2 body slots, +1 every second realm (Mortal 2 / FE 3 / GC 4 / SS 5). Each carved
+// inscription raises ALL lifespan consumption by +10% (aging, defeat tolls,
+// lifespan-burning pills). Power now, years later.
+// ============================================================
+function bodyInscriptionSlots() {
+  if (!state || !state.demonic) return 0;
+  return 2 + Math.floor(((state.realm && state.realm.tierIdx) || 0) / 2);
+}
+function bodyInscriptions() { return (state && state.bodyInscriptions) || []; }
+function lifespanConsumptionMult() {
+  return 1 + 0.10 * bodyInscriptions().length;
+}
+function slotBodyInscription(id) {
+  if (!state.demonic || !INSCRIPTIONS[id]) return;
+  if (!state.bodyInscriptions) state.bodyInscriptions = [];
+  if (state.bodyInscriptions.length >= bodyInscriptionSlots()) return;
+  // consumes an OWNED copy that is neither gear-slotted nor already carved
+  const ownedCount = (state.inscriptions.owned || []).filter(x => x === id).length;
+  const usedCount = (state.inscriptions.slotted || []).filter(x => x === id).length
+                  + state.bodyInscriptions.filter(x => x === id).length;
+  if (ownedCount <= usedCount) return;
+  state.bodyInscriptions.push(id);
+  saveChar();
+}
+function unslotBodyInscription(idx) {
+  if (!state.bodyInscriptions || idx < 0 || idx >= state.bodyInscriptions.length) return;
+  state.bodyInscriptions.splice(idx, 1);
+  saveChar();
+}
+function applyBodyInscriptionsToMods(mods, char) {
+  ((char && char.bodyInscriptions) || []).forEach(id => {
+    const ins = INSCRIPTIONS[id];
+    if (ins) ins.apply(mods);
+  });
+}
+
 function slotCapacity() {
   const w = WEAPONS[state.weapon];
   return w ? (w.slots || 2) : 2;
@@ -10382,7 +10433,7 @@ function consume(recipeId) {
       return;
     }
     if (ef.kind === 'lifespan_cost_pct') {       // spend a % of REMAINING lifespan (never lethal on its own)
-      state.age = (state.age || 16) + lifespanRemaining() * ef.value;
+      state.age = (state.age || 16) + lifespanRemaining() * ef.value * lifespanConsumptionMult();   // v0.77: body inscriptions surcharge
       return;
     }
     // Timed buff
@@ -11400,6 +11451,9 @@ function grantEnemyDefeatRewards(e) {
   if (enemyData.isBoss) {
     if (!state.bossKills) state.bossKills = {};
     state.bossKills[e.id] = (state.bossKills[e.id] || 0) + 1;
+    // v0.77: the cooldown starts when the boss FALLS — defeats allow instant retries.
+    if (!state.bossCooldowns) state.bossCooldowns = {};
+    state.bossCooldowns[e.id] = Date.now();
     // v0.60: the sect honors boss kills — automatic contribution bounty.
     const bossBounty = 30 + 30 * ((BOSSES[e.id] && BOSSES[e.id].tier) || 0);
     grantContribution(bossBounty);
@@ -11572,7 +11626,7 @@ function checkDeath() {
       return true;
     }
     // v0.50: a (non-tribulation) defeat exacts a lifespan toll.
-    const lifeLoss = combatDefeatLifespanCost(combat.areaCultMult || 1) * (combat.bossFight ? 2 : 1);  // v0.58: bosses exact double
+    const lifeLoss = combatDefeatLifespanCost(combat.areaCultMult || 1) * (combat.bossFight ? 2 : 1) * lifespanConsumptionMult();  // v0.58 boss double; v0.77 body-inscription surcharge
     if (lifeLoss > 0) {
       state.age = (state.age || 16) + lifeLoss;
       const shown = lifeLoss >= 10 ? Math.round(lifeLoss) : lifeLoss.toFixed(1);
@@ -13019,6 +13073,58 @@ function renderCharSheet() {
   // Artifact
   const artP = document.createElement('div');
   artP.className = 'panel';
+  // v0.77: demonic flesh-carving — body inscription slots, with the lifespan surcharge.
+  if (state.demonic) {
+    const bSlots = bodyInscriptionSlots();
+    const carved = bodyInscriptions();
+    const bP = document.createElement('div');
+    bP.className = 'panel';
+    bP.innerHTML = `<h3>Body Inscriptions <span style="font-weight:normal;color:var(--ink-soft);font-size:0.85rem">刻身</span></h3>
+      <p style="font-size:0.85rem;color:var(--ink-soft);margin:0 0 0.4rem">Heresy carves power into the FLESH itself: <strong style="color:var(--gold)">${carved.length}/${bSlots}</strong> body slots (+1 every second realm). Each carved inscription applies its full effect — and raises <strong style="color:var(--crimson)">ALL lifespan consumption by +10%</strong> (currently ${Math.round((lifespanConsumptionMult() - 1) * 100)}%): aging, defeat tolls, and lifespan-burning pills alike.</p>`;
+    carved.forEach((id, idx) => {
+      const ins = INSCRIPTIONS[id];
+      if (!ins) return;
+      const row = document.createElement('div'); row.className = 'consumable-row';
+      row.innerHTML = `<div class="consumable-info"><div class="consumable-name">${ins.name} <span class="rarity-tag rarity-${ins.rarity}">${ins.rarity}</span> <span style="color:var(--crimson);font-size:0.72rem">carved</span></div><div class="consumable-desc">${ins.desc}</div></div>`;
+      const btns = document.createElement('div'); btns.className = 'consumable-buttons';
+      const ub = document.createElement('button'); ub.className = 'ghost'; ub.textContent = 'Cut Out';
+      ub.onclick = () => { unslotBodyInscription(idx); render(); };
+      btns.appendChild(ub); row.appendChild(btns); bP.appendChild(row);
+    });
+    if (carved.length < bSlots) {
+      const gearSlotted = state.inscriptions.slotted || [];
+      const available = (state.inscriptions.owned || []).filter((id, i, arr) => {
+        if (!INSCRIPTIONS[id]) return false;
+        if (arr.indexOf(id) !== i) return false;   // one row per id
+        const ownedCount = arr.filter(x => x === id).length;
+        const usedCount = gearSlotted.filter(x => x === id).length + carved.filter(x => x === id).length;
+        return ownedCount > usedCount;
+      });
+      if (available.length) {
+        const hdr = document.createElement('div');
+        hdr.style.cssText = 'font-size:0.8rem;color:var(--ink-soft);margin:0.3rem 0 0.2rem';
+        hdr.textContent = 'Carve from your unslotted inscriptions:';
+        bP.appendChild(hdr);
+        available.forEach(id => {
+          const ins = INSCRIPTIONS[id];
+          const row = document.createElement('div'); row.className = 'consumable-row';
+          row.innerHTML = `<div class="consumable-info"><div class="consumable-name">${ins.name} <span class="rarity-tag rarity-${ins.rarity}">${ins.rarity}</span></div><div class="consumable-desc">${ins.desc}</div></div>`;
+          const btns = document.createElement('div'); btns.className = 'consumable-buttons';
+          const cb = document.createElement('button'); cb.className = 'gold small'; cb.textContent = 'Carve (+10% lifespan use)';
+          cb.onclick = () => { slotBodyInscription(id); render(); };
+          btns.appendChild(cb); row.appendChild(btns); bP.appendChild(row);
+        });
+      } else {
+        const none = document.createElement('div');
+        none.className = 'consumable-desc';
+        none.style.cssText = 'opacity:0.7';
+        none.textContent = 'No unslotted inscriptions available to carve.';
+        bP.appendChild(none);
+      }
+    }
+    appendPanel(bP, 'self');
+  }
+
   const cap = slotCapacity();
   let artHTML = `<h3>Artifact — ${weapon.name} <span style="color:var(--ink-soft);font-weight:normal;font-size:0.85rem">${weapon.zh}</span>
     <span class="rarity-tag rarity-${weapon.rarity||'common'}">${weapon.rarity||'common'}</span></h3>
@@ -13788,7 +13894,7 @@ function renderCharSheet() {
   });
   const glyphNote = document.createElement('p');
   glyphNote.style.cssText = 'font-size:0.78rem;color:var(--ink-soft);margin-top:0.5rem';
-  glyphNote.textContent = 'Each boss rests 1 hour between challenges. Build the Challenge-Summons / War-Summons glyphs (House tab, Arrays) to shorten the rest - and upgrade them with spirit stones.';
+  glyphNote.textContent = 'A slain boss rests 30 minutes before it can be hunted again (defeats cost no cooldown - retry at will). The Challenge-Summons / War-Summons glyphs (House tab) shorten the rest; upgrade them with spirit stones.';
   bossP.appendChild(glyphNote);
   appendPanel(bossP, 'bosses');
 
@@ -14144,32 +14250,38 @@ function renderCharSheet() {
   appendPanel(fortP, 'market');
 
   // --- Secret Realm (Wave 3b: push-your-luck roguelike dive) ---
-  const srP = document.createElement('div');
-  srP.className = 'panel';
-  if (state.realmRun) {
-    const run = state.realmRun;
-    srP.innerHTML = `<h3>Secret Realm <span style="font-weight:normal;color:var(--ink-soft);font-size:0.85rem">秘境</span></h3>
-      <p style="font-size:0.85rem;margin:0 0 0.3rem">Floor <strong style="color:var(--gold)">${run.floor}</strong> · Banked: <strong>${Math.round(run.insight)}</strong> insight, ${run.stones} stones${run.relics.length ? `, ${run.relics.length} relic${run.relics.length === 1 ? '' : 's'}` : ''} · Wounds ${run.wounds}/${realmRunMaxWounds()}</p>
-      <p style="font-size:0.85rem;color:var(--ink-soft);margin:0 0 0.5rem;font-style:italic">${run.log}</p>`;
-    const row = document.createElement('div'); row.className = 'button-row';
-    const deeper = document.createElement('button'); deeper.className = 'gold'; deeper.textContent = 'Press Deeper';
-    deeper.onclick = () => realmRunDescend();
-    const extract = document.createElement('button'); extract.className = 'ghost'; extract.textContent = 'Extract (keep loot)';
-    extract.onclick = () => realmRunExtract(false);
-    row.appendChild(deeper); row.appendChild(extract); srP.appendChild(row);
-  } else {
-    const srReady = realmRunReady();
-    let srHTML = `<h3>Secret Realm <span style="font-weight:normal;color:var(--ink-soft);font-size:0.85rem">秘境</span></h3>
-      <p style="font-size:0.85rem;color:var(--ink-soft);margin:0 0 0.5rem">A rift into a sealed pocket realm. Descend for escalating loot and inheritances — but three wounds collapse it. <strong>Extract anytime to keep what you've banked</strong> (death here only ejects you). Your Might: <strong>${cultivatorMight()}</strong>.</p>`;
-    if (state.lastRealmRunSummary) srHTML += `<p style="font-size:0.85rem;margin:0 0 0.5rem;color:var(--gold)">${state.lastRealmRunSummary}</p>`;
-    srP.innerHTML = srHTML;
-    const row = document.createElement('div'); row.className = 'button-row';
-    const enter = document.createElement('button'); enter.className = 'gold';
-    if (srReady) { enter.textContent = 'Enter the Secret Realm'; enter.onclick = () => enterRealmRun(); }
-    else { const mins = Math.max(1, Math.ceil((realmRunReadyAt() - Date.now()) / 60000)); enter.textContent = `Rift sealed (${mins}m)`; enter.disabled = true; }
-    row.appendChild(enter); srP.appendChild(row);
-  }
-  appendPanel(srP, 'journeys');
+  // v0.77: one builder, two rifts — the Secret Realm and (demonic only) the Warped Rift-Gate.
+  Object.entries(RUN_SLOTS).forEach(([slotKey, s]) => {
+    if (s.demonicOnly && !state.demonic) return;
+    const srP = document.createElement('div');
+    srP.className = 'panel';
+    const run = state[s.field];
+    if (run) {
+      srP.innerHTML = `<h3>${s.name} <span style="font-weight:normal;color:var(--ink-soft);font-size:0.85rem">${s.zh}</span></h3>
+        <p style="font-size:0.85rem;margin:0 0 0.3rem">Floor <strong style="color:var(--gold)">${run.floor}</strong> · Banked: <strong>${Math.round(run.insight)}</strong> insight, ${run.stones} stones${run.relics.length ? `, ${run.relics.length} relic${run.relics.length === 1 ? '' : 's'}` : ''} · Wounds ${run.wounds}/${realmRunMaxWounds()}</p>
+        <p style="font-size:0.85rem;color:var(--ink-soft);margin:0 0 0.5rem;font-style:italic">${run.log}</p>`;
+      const row = document.createElement('div'); row.className = 'button-row';
+      const deeper = document.createElement('button'); deeper.className = 'gold'; deeper.textContent = 'Press Deeper';
+      deeper.onclick = () => realmRunDescend(slotKey);
+      const extract = document.createElement('button'); extract.className = 'ghost'; extract.textContent = 'Extract (keep loot)';
+      extract.onclick = () => realmRunExtract(false, slotKey);
+      row.appendChild(deeper); row.appendChild(extract); srP.appendChild(row);
+    } else {
+      const srReady = realmRunReady(slotKey);
+      let srHTML = `<h3>${s.name} <span style="font-weight:normal;color:var(--ink-soft);font-size:0.85rem">${s.zh}</span></h3>
+        <p style="font-size:0.85rem;color:var(--ink-soft);margin:0 0 0.5rem">${slotKey === 'rift'
+          ? 'A second rift only heresy can force — the pocket world behind it runs WARPED and reopens twice as fast. Same dangers, same banked loot, separate door.'
+          : "A rift into a sealed pocket realm. Descend for escalating loot and inheritances — but three wounds collapse it. <strong>Extract anytime to keep what you've banked</strong> (death here only ejects you)."} Your Might: <strong>${cultivatorMight()}</strong>.</p>`;
+      if (state[s.summary]) srHTML += `<p style="font-size:0.85rem;margin:0 0 0.5rem;color:var(--gold)">${state[s.summary]}</p>`;
+      srP.innerHTML = srHTML;
+      const row = document.createElement('div'); row.className = 'button-row';
+      const enter = document.createElement('button'); enter.className = 'gold';
+      if (srReady) { enter.textContent = `Enter the ${s.name}`; enter.onclick = () => enterRealmRun(slotKey); }
+      else { const mins = Math.max(1, Math.ceil((realmRunReadyAt(slotKey) - Date.now()) / 60000)); enter.textContent = `${slotKey === 'rift' ? 'Gate knitting shut' : 'Rift sealed'} (${mins}m)`; enter.disabled = true; }
+      row.appendChild(enter); srP.appendChild(row);
+    }
+    appendPanel(srP, 'journeys');
+  });
 
   // --- Config / Settings tab ---
   const cfgP = document.createElement('div');
@@ -14599,6 +14711,9 @@ try {
       if (parsed.sectRank == null) parsed.sectRank = 0;
       if (parsed.lastWalk == null) parsed.lastWalk = 0;
       if (parsed.heavenConquest == null) parsed.heavenConquest = 0;   // v0.71 conquest stages
+      if (!parsed.bodyInscriptions) parsed.bodyInscriptions = [];      // v0.77 demonic flesh-carving
+      if (parsed.lastRiftRun == null) parsed.lastRiftRun = 0;          // v0.77 Warped Rift-Gate
+      if (parsed.riftRun === undefined) parsed.riftRun = null;
       // v0.61: demonic path flag. Existing demon_heart characters walked it all along.
       if (parsed.demonic == null) parsed.demonic = !!(SCHOOLS[parsed.selectedSchool] && SCHOOLS[parsed.selectedSchool].isDemon);
       // v0.56 FIX ("5th slot showing but not working"): techniques deleted/renamed in
