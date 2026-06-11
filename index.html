@@ -541,7 +541,7 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v0.61';
+const GAME_VERSION = 'v0.62';
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
 const ELEMENT_ZH   = { metal:'金', wood:'木', water:'水', fire:'火', earth:'土' };
@@ -2803,6 +2803,7 @@ function baseInscriptionMods() {
     dodgeChance: 0,          // additive chance to evade incoming attacks entirely
     elementAmp: {},          // { fire: 0.20 } => +20% damage VS enemies of that element
     elementWard: {},         // { fire: 0.25 } => -25% damage FROM enemies of that element
+    bossCdMult: 1,           // v0.62: multiplies the boss challenge cooldown (glyph arrays)
   };
 }
 
@@ -4463,10 +4464,36 @@ const BOSSES = {
 // Boss fights: started from the Bosses tab. Defeat toll is DOUBLED (wired at the
 // defeat-toll site via combat.bossFight); kills tracked per-boss; first kill grants
 // a bonus material cache.
+// v0.62: fixed difficulty anchor — the layer-scale a player faces at the MIDPOINT of the
+// boss's realm, times the difficulty knob. Single tuning number: BOSS_DIFFICULTY_MULT.
+const BOSS_DIFFICULTY_MULT = 1.5;
+function bossAnchorScale(bossTier) {
+  const tier = REALMS[bossTier];
+  let stats = 1.0;
+  if (tier && tier.layers > 1) {
+    const t = (Math.ceil(tier.layers / 2) - 1) / (tier.layers - 1);
+    const tierBoost = 1 + 0.25 * Math.max(0, bossTier - 2);
+    stats = 1.0 + 3.0 * t * tierBoost;
+  }
+  return { stats: stats * BOSS_DIFFICULTY_MULT, reward: 1.5 };
+}
+// v0.62: per-boss challenge cooldown (1h base), reducible by glyph arrays (floor 35%).
+const BOSS_CD_MS = 60 * 60 * 1000;
+function bossCooldownMs() {
+  const m = computeMods(state).bossCdMult || 1;
+  return BOSS_CD_MS * Math.max(0.35, m);
+}
+function bossCooldownLeft(bossId) {
+  const last = (state.bossCooldowns && state.bossCooldowns[bossId]) || 0;
+  return Math.max(0, last + bossCooldownMs() - Date.now());
+}
 function startBossFight(bossId) {
   const meta = BOSSES[bossId];
   if (!meta || !ENEMIES[bossId]) return;
   if ((state.realm.tierIdx || 0) < meta.tier) return;
+  if (bossCooldownLeft(bossId) > 0) return;
+  if (!state.bossCooldowns) state.bossCooldowns = {};
+  state.bossCooldowns[bossId] = Date.now();   // the hour starts when the gong sounds, win or lose
   initCombat([bossId], 1);
   if (combat) combat.bossFight = true;
   render();
@@ -6274,6 +6301,8 @@ const ARMOR_RECIPES = [
 const ARMOR_SLOTS = ['helmet','chest','gloves','boots','accessory1','accessory2'];
 
 
+
+
 const ARMOR_SLOT_LABELS = { helmet:'Helmet', chest:'Chest', gloves:'Gloves', boots:'Boots', accessory1:'Accessory I', accessory2:'Accessory II' };
 // v0.21: all six armor slots are available from Mortal. Realm gating moved off armor and onto
 // weapon and artifact slot counts (those scale 1 -> 6 with realm tier).
@@ -6567,6 +6596,210 @@ ARMOR_RECIPES.push(
   { id: 'world_root_girdle',   materials: { primordial_stone: 2, void_silk: 1, dao_crystal: 1 },   minRealmTier: 6, minLayer: 2 }
 );
 
+// ============================================================
+// v0.62 BOSS RELIC GEAR — every boss drops a UNIQUE material (guaranteed) and has a
+// signature relic line: Stage 1 crafted from unique mats + its realm's materials,
+// Stages 2-3 UPGRADE the previous piece using more unique mats + HIGHER-realm materials.
+// Crafted/upgraded from the Bosses tab. Upgrading consumes the previous stage (weapon
+// refine levels carry over; equipped pieces swap in place).
+// ============================================================
+const BOSS_UNIQUE_MATS = {
+  boar_king:            ['kings_tusk',          "King's Tusk",          '王牙',   'A tusk the length of a forearm. Still warm, still furious.'],
+  kiln_mother:          ['porcelain_heart',     'Porcelain Heart',      '瓷心',   'The Kiln Mother\'s glowing core. It beats once an hour, on the hour.'],
+  fox_saint:            ['ninth_tail',          'The Ninth Tail',       '第九尾', 'The tail the fox saint always counted last. It twitches at lies.'],
+  mine_golem:           ['golem_heart_iron',    'Golem-Heart Iron',     '傀心铁', 'Ore that learned to want. It leans toward your hand.'],
+  bell_abbot:           ['ninth_echo',          'The Ninth Echo',       '第九响', 'A bell-note, caught and folded. Unwrap it and it finishes ringing.'],
+  tide_queen:           ['tide_crown_shard',    'Tide-Crown Shard',     '潮冠片', 'A shard of the brine crown. Your reflection in it is always drowning, calmly.'],
+  cinder_abbot:         ['unburnt_sutra',       'Unburnt Sutra Page',   '不燃页', 'One page the fire respected. The ink smolders but never spends.'],
+  prison_warden:        ['living_jade_key',     'Living Jade Key',      '活玉钥', 'A warden\'s key that grows to fit any lock it disapproves of.'],
+  vein_matriarch:       ['matriarch_heartscale','Matriarch Heart-Scale','母心鳞', 'The scale over the old drake\'s heart. Rivers remember it fondly.'],
+  mirage_emperor:       ['mirage_imperial_jade','Mirage Imperial Jade', '蜃帝玉', 'Jade from a treasury that does not exist. Appraisers weep.'],
+  war_court_lord:       ['war_verdict_slab',    'War-Verdict Slab',     '战判牍', 'A verdict in stone from the floating court. The ruling: in your favor.'],
+  moon_eater:           ['swallowed_moonlight', 'Swallowed Moonlight',  '吞月光', 'A century of moon, pressed solid. Cold, luminous, faintly resentful.'],
+  heavenly_executioner: ['suspended_sentence',  'Suspended Sentence',   '缓刑令', 'Your own death warrant, stamped HELD. Excellent paper stock.'],
+  dawn_sovereign:       ['first_light_ingot',   'First-Light Ingot',    '初光锭', 'Light from before the first morning, annealed. It casts shadows of things to come.'],
+};
+Object.values(BOSS_UNIQUE_MATS).forEach(([id, name, zh, desc]) => {
+  MATERIALS[id] = { name, zh, rarity: 'legendary', desc };
+});
+// Guaranteed unique drop (plus a 35% second) on every kill of that boss.
+Object.entries(BOSS_UNIQUE_MATS).forEach(([bossId, [matId]]) => {
+  if (ENEMIES[bossId]) {
+    ENEMIES[bossId].materialDrops = [
+      { id: matId, chance: 1.0, count: [1, 1] },
+      { id: matId, chance: 0.35, count: [1, 1] },
+    ].concat(ENEMIES[bossId].materialDrops || []);
+  }
+});
+
+// Relic lines: 7 weapons + 7 armor, each themed on its boss. Stages scale mods x1/x1.6/x2.4
+// (weapons also gain power x1/x1.35/x1.75) and climb rare -> legendary -> divine.
+const BOSS_GEAR = {
+  boar_king:            { kind: 'weapon', wkind: 'greatsword', power: 7,
+    names: [['Tuskbreaker', '破牙'], ['Awakened Tuskbreaker', '醒破牙'], ['Tuskbreaker, King-Slaying', '弑王破牙']],
+    mods: { lowHpBonus: 0.10, postureMult: 1.10 },
+    desc: "Carved whole from the Boar-King's tusk. Hits harder the worse you're hurt." },
+  kiln_mother:          { kind: 'armor', slot: 'chest',
+    names: [['Porcelain Aegis', '瓷甲'], ['Awakened Porcelain Aegis', '醒瓷甲'], ['Aegis of the Mother-Glaze', '母釉圣甲']],
+    mods: { hpBonus: 30, elementWard: { fire: 0.10 }, flatDR: 2 },
+    desc: 'Fired armor from the Kiln Mother\'s own body. Cool to wear, even in flame.' },
+  fox_saint:            { kind: 'weapon', wkind: 'focus', power: 12,
+    names: [['Ninth-Tail Whisk', '九尾拂'], ['Awakened Ninth-Tail Whisk', '醒九尾拂'], ['Whisk of the White Mask', '白面拂尘']],
+    mods: { critChance: 0.05, dodgeChance: 0.03, qiBonus: 15 },
+    desc: 'A whisk bound from the ninth tail. It moves a half-beat before you do.' },
+  mine_golem:           { kind: 'armor', slot: 'gloves',
+    names: [['Golem-Heart Gauntlets', '傀心护手'], ['Awakened Golem-Heart Gauntlets', '醒傀心护手'], ['Fists of the Mine-Heart', '矿心重拳']],
+    mods: { flatDR: 3, weaponBonus: 4, hpBonus: 25 },
+    desc: 'Gauntlets around a sliver of wanting ore. They grip back.' },
+  bell_abbot:           { kind: 'weapon', wkind: 'hammer', power: 18,
+    names: [['Echo-Bell Maul', '响铃锤'], ['Awakened Echo-Bell Maul', '醒响铃锤'], ['Maul of Nine Judgments', '九判锤']],
+    mods: { postureMult: 1.15, spiritDamageMult: 1.15 },
+    desc: 'A maul cast around the ninth echo. Every blow rings in the soul as well.' },
+  tide_queen:           { kind: 'armor', slot: 'helmet',
+    names: [['Tide-Crown', '潮冠'], ['Awakened Tide-Crown', '醒潮冠'], ['Crown of the Standing Sea', '立海之冠']],
+    mods: { qiBonus: 25, qiRegenBonus: 2, elementAmp: { fire: 0.10 } },
+    desc: 'The brine crown, dried and yours. The tide in your blood obeys it.' },
+  cinder_abbot:         { kind: 'weapon', wkind: 'saber', power: 26,
+    names: [['Sutra-Burning Blade', '焚经刃'], ['Awakened Sutra-Burning Blade', '醒焚经刃'], ['Blade of the Patient Fire', '恒火刃']],
+    mods: { dotMult: 1.20, lifestealPct: 0.04 },
+    desc: 'A saber quenched in sixty years of patient fire. What it lights, stays lit.' },
+  prison_warden:        { kind: 'armor', slot: 'boots',
+    names: [['Cell-Strider Boots', '狱行靴'], ['Awakened Cell-Strider Boots', '醒狱行靴'], ['Striders of the Open Door', '开门靴']],
+    mods: { dodgeChance: 0.04, hpBonus: 45, elementWard: { wood: 0.10 } },
+    desc: 'The Warden walked every cell row without a sound. Now you do.' },
+  vein_matriarch:       { kind: 'weapon', wkind: 'polearm', power: 35,
+    names: [['Matriarch Fang-Lance', '母牙枪'], ['Awakened Matriarch Fang-Lance', '醒母牙枪'], ['Lance of the Buried River', '埋江枪']],
+    mods: { firstStrikeBonus: 0.20, elementAmp: { water: 0.12 } },
+    desc: 'A lance ground from heart-scale. It strikes like a river remembering its course.' },
+  mirage_emperor:       { kind: 'armor', slot: 'accessory',
+    names: [['Mirage Imperial Seal', '蜃帝玺'], ['Awakened Mirage Imperial Seal', '醒蜃帝玺'], ['Seal of the City That Is', '实城之玺']],
+    mods: { dodgeChance: 0.04, elementBoostAll: 0.15, insightMult: 1.08 },
+    desc: 'The Emperor\'s seal, pressed from imperial jade. Authority over what is and is not there.' },
+  war_court_lord:       { kind: 'weapon', wkind: 'sword', power: 45,
+    names: [['Verdict-Edge', '判锋'], ['Awakened Verdict-Edge', '醒判锋'], ['Final Ruling', '终审']],
+    mods: { critChance: 0.05, perTurnRamp: 0.02 },
+    desc: 'A sword sharpened on a war-court verdict. The longer it argues, the harder it lands.' },
+  moon_eater:           { kind: 'armor', slot: 'accessory',
+    names: [['Gullet-Pearl of Moonlight', '吞月珠'], ['Awakened Gullet-Pearl', '醒吞月珠'], ['The Unswallowed Moon', '不吞之月']],
+    mods: { lifestealPct: 0.05, hpBonus: 60, elementWard: { water: 0.12 } },
+    desc: 'A pearl of pressed moonlight from the serpent\'s gullet. It feeds you what it kept.' },
+  heavenly_executioner: { kind: 'weapon', wkind: 'dagger', power: 53,
+    names: [['Suspended Sentence', '缓刑匕'], ['Awakened Suspended Sentence', '醒缓刑匕'], ['Sentence, Carried Out', '行刑']],
+    mods: { critChance: 0.07, critMult: 1.20 },
+    desc: 'A dagger folded from a held warrant. It knows exactly where sentences are carried out.' },
+  dawn_sovereign:       { kind: 'armor', slot: 'chest',
+    names: [['First-Dawn Vestment', '初晓袍'], ['Awakened First-Dawn Vestment', '醒初晓袍'], ['Vestment of the Rehearsed Sun', '演日圣袍']],
+    mods: { hpBonus: 120, elementBoostAll: 0.20, spiritBonus: 12 },
+    desc: 'Woven of first light. Wearing it, you are always slightly before the moment.' },
+};
+const BOSS_GEAR_STAGE_MULT = [1, 1.6, 2.4];
+const BOSS_GEAR_POWER_MULT = [1, 1.35, 1.75];
+const BOSS_GEAR_RARITY = ['rare', 'legendary', 'divine'];
+function bossGearId(bossId, stage) { return `bg_${bossId}_${stage}`; }   // stage 1..3
+// Scale a mods object: additive numbers x f, Mult-suffix scale the DELTA, maps per-key x f.
+function scaleBossMods(mods, f) {
+  const out = {};
+  Object.entries(mods).forEach(([k, v]) => {
+    if (typeof v === 'number') {
+      if (k.endsWith('Mult')) out[k] = +(1 + (v - 1) * f).toFixed(3);
+      else if (Number.isInteger(v) && Math.abs(v) >= 2) out[k] = Math.round(v * f);
+      else out[k] = +(v * f).toFixed(3);
+    } else if (v && typeof v === 'object') {
+      out[k] = {};
+      Object.entries(v).forEach(([mk, mv]) => { out[k][mk] = +(mv * f).toFixed(3); });
+    }
+  });
+  return out;
+}
+// Register the 42 stage items into WEAPONS / ARMOR.
+Object.entries(BOSS_GEAR).forEach(([bossId, g]) => {
+  const tier = BOSSES[bossId].tier;
+  for (let s = 1; s <= 3; s++) {
+    const id = bossGearId(bossId, s);
+    const stageMods = scaleBossMods(g.mods, BOSS_GEAR_STAGE_MULT[s - 1]);
+    const stageDesc = `${g.desc} [Relic stage ${s}/3${s < 3 ? ' — upgradeable at the Bosses tab' : ' — fully awakened'}]`;
+    if (g.kind === 'weapon') {
+      WEAPONS[id] = {
+        name: g.names[s - 1][0], zh: g.names[s - 1][1],
+        power: Math.round(g.power * BOSS_GEAR_POWER_MULT[s - 1]),
+        slots: Math.min(6, 3 + Math.ceil(tier / 2)), kind: g.wkind, rarity: BOSS_GEAR_RARITY[s - 1],
+        desc: stageDesc, bossGear: bossId,
+        apply: m => mergeMods(m, stageMods),
+      };
+    } else {
+      ARMOR[id] = {
+        name: g.names[s - 1][0], zh: g.names[s - 1][1], slot: g.slot,
+        rarity: BOSS_GEAR_RARITY[s - 1], mods: stageMods, desc: stageDesc, bossGear: bossId,
+      };
+    }
+  }
+});
+// Stage costs: unique mats (2/3/4) + a realm-material basket from the boss's tier,
+// CLIMBING one realm per stage (stage 3 of a GC boss eats NS materials).
+function bossGearCost(bossId, stage) {
+  const tier = BOSSES[bossId].tier;
+  const matId = BOSS_UNIQUE_MATS[bossId][0];
+  const cost = {};
+  cost[matId] = 1 + stage;
+  const basket = WEAPON_GEN_TIER[Math.min(6, tier + (stage - 1))].mats;
+  Object.entries(basket).forEach(([m, n]) => { cost[m] = (cost[m] || 0) + n * stage; });
+  return cost;
+}
+function bossGearStage(bossId) {   // highest stage owned, 0 if none
+  for (let s = 3; s >= 1; s--) {
+    const id = bossGearId(bossId, s);
+    const g = BOSS_GEAR[bossId];
+    if (!g) return 0;
+    if (g.kind === 'weapon' ? (state.weapons.owned.includes(id) || state.weapon === id)
+                            : state.armor.owned.includes(id)) return s;
+  }
+  return 0;
+}
+function canCraftBossGear(bossId) {
+  const g = BOSS_GEAR[bossId];
+  if (!g) return false;
+  const next = bossGearStage(bossId) + 1;
+  if (next > 3) return false;
+  const cost = bossGearCost(bossId, next);
+  return Object.entries(cost).every(([m, n]) => (state.base.materials[m] || 0) >= n);
+}
+function craftBossGear(bossId) {
+  const g = BOSS_GEAR[bossId];
+  if (!g || !canCraftBossGear(bossId)) return false;
+  const cur = bossGearStage(bossId);
+  const next = cur + 1;
+  Object.entries(bossGearCost(bossId, next)).forEach(([m, n]) => {
+    state.base.materials[m] -= n;
+    if (state.base.materials[m] <= 0) delete state.base.materials[m];
+  });
+  const newId = bossGearId(bossId, next);
+  if (g.kind === 'weapon') {
+    if (cur > 0) {
+      const oldId = bossGearId(bossId, cur);
+      state.weapons.owned = state.weapons.owned.filter(w => w !== oldId);
+      if (state.weapon === oldId) state.weapon = newId;
+      if (state.refine && state.refine[oldId]) {           // refinement carries over
+        state.refine[newId] = state.refine[oldId];
+        delete state.refine[oldId];
+      }
+    }
+    state.weapons.owned.push(newId);
+    if (!state.weapons.crafted) state.weapons.crafted = [];
+    state.weapons.crafted.push(newId);
+  } else {
+    if (cur > 0) {
+      const oldId = bossGearId(bossId, cur);
+      state.armor.owned = state.armor.owned.filter(a => a !== oldId);
+      ARMOR_SLOTS.forEach(sl => {                          // equipped piece swaps in place
+        if (state.armor.equipped && state.armor.equipped[sl] === oldId) state.armor.equipped[sl] = newId;
+      });
+    }
+    state.armor.owned.push(newId);
+  }
+  saveChar();
+  return true;
+}
+
 // Armor set bonuses: applied when the wearer has at least `pieces` from the set.
 const ARMOR_SETS = {
   iron_disciple: {
@@ -6691,6 +6924,7 @@ function modSummary(mods) {
     postureMult: 'posture', techDamageMult: 'tech dmg', strikeDamageMult: 'strike dmg',
     incomingMult: 'incoming', insightMult: 'insight', meditateMult: 'meditate',
     weaponMultFlat: 'wpn', cultMult: 'cultivation', spiritDamageMult: 'spirit dmg',
+    dotMult: 'DOT', bossCdMult: 'boss cooldown',
   };
   Object.entries(mods).forEach(([k, v]) => {
     if (labels[k] && v) {
@@ -7298,6 +7532,19 @@ function bodyQuenchHPAdd() { return (state.bodyQuench || 0) * 120; }
 // Capacity scales with realm; player builds up to the cap, dismantles to free slots.
 // ============================================================
 const ARRAYS = {
+  // v0.62: boss-challenge glyphs — reduce the per-boss cooldown (multiplicative, floor 35%).
+  challenge_glyph: {
+    name: 'Challenge-Summons Glyph', zh: '战约符阵',
+    desc: 'A summons-glyph that carries your challenge faster than feet could. Boss challenge cooldowns -25% while active.',
+    cost: { spirit_pearl: 2, spirit_stone: 10 },
+    mods: { bossCdMult: 0.75 }, minTier: 1,
+  },
+  war_summons_glyph: {
+    name: 'War-Summons Grand Glyph', zh: '征战大阵',
+    desc: 'The grand form: the mountain itself announces you. Boss cooldowns -35% more (stacks with the lesser glyph; floor 35% of an hour).',
+    cost: { storm_crystal: 1, heavenly_jade: 1, spirit_stone: 25 },
+    mods: { bossCdMult: 0.65 }, minTier: 4,
+  },
   spirit_gather: {
     name: 'Spirit-Gathering Array', zh: '聚灵阵',
     desc: 'A simple ringed glyph that pulls ambient qi inward. +15% cultivation rate.',
@@ -8405,6 +8652,7 @@ function newCharacter(seed, childhood = null) {
     sectKills: 0,
     bossKills: {},  // v0.58: per-boss kill counts (first kill = bonus cache)
     demonic: false, // v0.61: demonic-path flag (chosen at chargen; demon_heart forces it)
+    bossCooldowns: {}, // v0.62: per-boss challenge timestamps
     // Wave 3a: fortune-encounter cooldown timer.
     lastOpportunity: 0,
     // Wave 3b: secret-realm dive (active run state + entry cooldown).
@@ -9238,7 +9486,13 @@ function buildEnemyCombat(enemyId) {
   if (!enemyData) return null;
   const eTechs = {};
   enemyData.techIds.forEach(id => { eTechs[id] = ENEMY_TECHS[id]; });
-  const scale = playerLayerScale(state);
+  // v0.62: bosses do NOT scale with the player's layer. They are anchored at the
+  // difficulty of their realm's MIDPOINT, times BOSS_DIFFICULTY_MULT — very very hard
+  // below mid-realm, a real fight at it, conquerable beyond. (Mortal's single layer
+  // anchors low: its bosses fall to a cultivator fresh into Qi Condensation.)
+  const scale = (enemyData.isBoss && BOSSES[enemyId])
+    ? bossAnchorScale(BOSSES[enemyId].tier)
+    : playerLayerScale(state);
   // v0.23 robustness pass: separate normal vs elite multipliers stacked on top of the
   // existing v0.18 phase-2 bump (hp x2.5 / wpn x2 / qi-spirit-posture x2). Elite gets a
   // steeper bump so boss fights feel meaningfully harder than mooks at the same tier.
@@ -10013,6 +10267,12 @@ function grantEnemyDefeatRewards(e) {
     const bossBounty = 30 + 30 * ((BOSSES[e.id] && BOSSES[e.id].tier) || 0);
     grantContribution(bossBounty);
     pushLog('reward', `The sect honors the kill: +${bossBounty} contribution.`);
+    // v0.62: a boss kill carries a great flash of comprehension —
+    // rand(500..1000) x 3 x (1 + boss realm tiers above Mortal).
+    const bossTierIns = (BOSSES[e.id] && BOSSES[e.id].tier) || 0;
+    const bossInsight = Math.round((500 + Math.random() * 500) * 3 * (1 + bossTierIns));
+    addInsight(bossInsight);
+    pushLog('reward', `The fall of something this old teaches: +${bossInsight.toLocaleString()} insight.`);
     const meta = BOSSES[e.id];
     if (meta && meta.firstKill && state.bossKills[e.id] === 1) {
       Object.entries(meta.firstKill).forEach(([mid, n]) => {
@@ -12208,15 +12468,62 @@ function renderCharSheet() {
       <div class="location-actions" id="boss-actions-${bid}"></div>`;
     bossP.appendChild(card);
     if (unlocked) {
+      const cdLeft = bossCooldownLeft(bid);
       const b = document.createElement('button');
       b.className = 'gold';
-      b.textContent = kills > 0 ? 'Challenge Again' : 'Challenge';
-      b.onclick = () => startBossFight(bid);
+      if (cdLeft > 0) {
+        const mins = Math.ceil(cdLeft / 60000);
+        b.textContent = `Rests (${mins}m)`;
+        b.disabled = true;
+      } else {
+        b.textContent = kills > 0 ? 'Challenge Again' : 'Challenge';
+        b.onclick = () => startBossFight(bid);
+      }
       card.querySelector('.location-actions').appendChild(b);
     } else {
       card.querySelector('.location-actions').innerHTML = `<span style="font-size:0.78rem;color:var(--crimson)">Requires ${REALMS[meta.tier].name}.</span>`;
     }
+    // ---- v0.62: relic gear line (craft stage 1, upgrade to 2-3 with higher-realm mats) ----
+    const g = BOSS_GEAR[bid];
+    if (g && unlocked) {
+      const stage = bossGearStage(bid);
+      const matInfo = BOSS_UNIQUE_MATS[bid];
+      const have = state.base.materials[matInfo[0]] || 0;
+      const relicRow = document.createElement('div');
+      relicRow.style.cssText = 'margin-top:0.4rem;padding-top:0.35rem;border-top:1px dashed rgba(120,120,120,0.35);font-size:0.8rem';
+      const curName = stage > 0
+        ? (g.kind === 'weapon' ? WEAPONS[bossGearId(bid, stage)].name : ARMOR[bossGearId(bid, stage)].name)
+        : null;
+      let relicHTML = `<strong>Relic:</strong> ${curName ? `${curName} <span class="rarity-tag rarity-${BOSS_GEAR_RARITY[stage - 1]}">stage ${stage}/3</span>` : `${g.names[0][0]} <span style="color:var(--ink-soft)">(not yet forged)</span>`}`;
+      relicHTML += ` <span style="color:var(--ink-soft)">· ${matInfo[1]}: ${have}</span>`;
+      if (stage < 3) {
+        const next = stage + 1;
+        const cost = bossGearCost(bid, next);
+        const costStr = Object.entries(cost).map(([m, n]) => {
+          const has = (state.base.materials[m] || 0) >= n;
+          return `<span style="color:${has ? 'var(--ink)' : 'var(--crimson)'}">${n}x ${(MATERIALS[m] && MATERIALS[m].name) || m}</span>`;
+        }).join(', ');
+        relicHTML += `<div style="color:var(--ink-soft);margin-top:0.15rem">${stage === 0 ? 'Forge' : 'Upgrade'}: ${costStr}${stage > 0 ? ' + the current relic' : ''}</div>`;
+      } else {
+        relicHTML += `<div style="color:var(--gold);margin-top:0.15rem">Fully awakened.</div>`;
+      }
+      relicRow.innerHTML = relicHTML;
+      if (stage < 3) {
+        const cb = document.createElement('button');
+        cb.className = 'small ' + (canCraftBossGear(bid) ? 'gold' : 'ghost');
+        cb.style.marginTop = '0.25rem';
+        cb.textContent = stage === 0 ? `Forge ${g.names[0][0]}` : `Upgrade to ${g.names[stage][0]}`;
+        cb.disabled = !canCraftBossGear(bid);
+        cb.onclick = () => { craftBossGear(bid); render(); };
+        relicRow.appendChild(cb);
+      }
+      card.appendChild(relicRow);
+    }
   });
+  const glyphNote = document.createElement('p');
+  glyphNote.style.cssText = 'font-size:0.78rem;color:var(--ink-soft);margin-top:0.5rem';
+  glyphNote.textContent = 'Each boss rests 1 hour between challenges. Build the Challenge-Summons / War-Summons glyphs (House tab, Arrays) to shorten the rest.';
+  bossP.appendChild(glyphNote);
   appendPanel(bossP, 'bosses');
 
   // v0.22: Market tab — Wandering Master (techs), Trader Caravan (sell + daily-capped buy),
@@ -12935,6 +13242,7 @@ try {
       if (parsed.bodyQuench == null) parsed.bodyQuench = 0;
       if (!parsed.settings) parsed.settings = { noAgeDeath: false };
       if (!parsed.bossKills) parsed.bossKills = {};  // v0.58 boss roster
+      if (!parsed.bossCooldowns) parsed.bossCooldowns = {};  // v0.62 boss challenge cooldowns
       // v0.61: demonic path flag. Existing demon_heart characters walked it all along.
       if (parsed.demonic == null) parsed.demonic = !!(SCHOOLS[parsed.selectedSchool] && SCHOOLS[parsed.selectedSchool].isDemon);
       // v0.56 FIX ("5th slot showing but not working"): techniques deleted/renamed in
