@@ -541,7 +541,7 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v0.69';
+const GAME_VERSION = 'v0.70';
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
 const ELEMENT_ZH   = { metal:'金', wood:'木', water:'水', fire:'火', earth:'土' };
@@ -2415,6 +2415,118 @@ const DEMONIC_SCHOOL_LORE = {
   chain_saint:       { name: 'Oathbreaker Cloister', zh: '破誓禅',
     flavor: 'They swore their first vow to the chain. Then they learned what the chain pays for BROKEN vows, and the cloister got rich.' },
 };
+// v0.70: DEMONIC SIGNATURE TECHNIQUES — walking the path REPLACES your school's
+// signature technique (the 5th base slot) with its heretical form. Same slot, same
+// engine, crueler mechanics: blood costs, missing-health play, richer statuses.
+const DEMONIC_SIGNATURE_TECHS = {
+  azure_sword: ['dem_sig_azure', {
+    name: 'Red-Thread Severance', zh: '赤线断', school: 'azure_sword',
+    qi: 8, cd: 2, damage: 2.3, postureBuild: 14, intentStacks: 2,
+    effect: 'bleed', effectPower: 0.10, effectTurns: 3,
+    desc: 'The third cut, taught to keep cutting. ST: +2 Sword Intent and an open wound that bleeds.',
+    logHit: (a,t) => `${a} draws one red thread through ${t}; it does not stop unspooling.` }],
+  iron_body: ['dem_sig_iron', {
+    name: 'Carrion Bulwark', zh: '腐躯壁', school: 'iron_body',
+    qi: 4, hpCost: 10, cd: 3, damage: 0, postureBuild: 8,
+    buff: { incomingMult: 0.40, turns: 2, reflectPct: 0.50 },
+    desc: 'Pay 10 HP to become a wall that hates back: incoming 40% and HALF of what lands is returned, 2 rounds.',
+    logHit: (a,t) => `${a} opens their own skin willingly; what touches it regrets the introduction.` }],
+  whispering_array: ['dem_sig_array', {
+    name: 'Glyph of the Flayed', zh: '剥皮纹', school: 'whispering_array', target: 'aoe',
+    qi: 15, cd: 2, damage: 1.0, postureBuild: 10,
+    effect: 'bleed', effectPower: 0.10, effectTurns: 3, effectStacks: 2,
+    desc: 'The binding glyph, rewritten to bind FLESH. AOE: every standing foe is opened and kept open (2 Bleed stacks).',
+    logHit: (a,t) => `${a} writes the character for "open" on the air; everyone present complies.` }],
+  crimson_flame: ['dem_sig_flame', {
+    name: 'Pyre of Sins', zh: '罪火葬', school: 'crimson_flame', target: 'aoe',
+    qi: 12, hpCost: 8, cd: 2, damage: 1.6, postureBuild: 10,
+    effect: 'burn', effectPower: 0.22, effectTurns: 3, effectStacks: 3,
+    desc: 'Feed the fire something personal. AOE, pays 8 HP: 3 Burn stacks on everything standing.',
+    logHit: (a,t) => `${a} burns a memory as kindling; the pyre takes everyone's measure.` }],
+  moonlit_water: ['dem_sig_water', {
+    name: 'Drowning Grasp', zh: '溺爪', school: 'moonlit_water', target: 'aoe',
+    qi: 13, cd: 2, damage: 1.5, postureBuild: 16,
+    effect: 'chill', effectValue: 0.35, effectTurns: 2,
+    desc: 'The undertow, given hands. AOE: every foe is dragged under — their damage drops 35% for 2 turns.',
+    logHit: (a,t) => `Cold hands close around every ankle present. The lake is patient.` }],
+  silent_daggers: ['dem_sig_daggers', {
+    name: 'Heartworm Toxin', zh: '心蛊毒', school: 'silent_daggers',
+    qi: 9, cd: 2, damage: 1.4, postureBuild: 8,
+    effect: 'poison', effectPower: 0.13, effectTurns: 4, effectStacks: 4,
+    desc: 'Venom that homes. ST: 4 Poison stacks that seek the heart.',
+    logHit: (a,t) => `${a}'s blade whispers in; something stays behind, swimming upstream.` }],
+  demon_heart: ['dem_sig_demon', {
+    name: 'Sovereign Parasite', zh: '寄生君王', school: 'demon_heart',
+    qi: 11, cd: 2, damage: 1.8, postureBuild: 12,
+    effect: 'leech', effectPower: 0.35, effectTurns: 3,
+    desc: 'The First Heresy\'s own brand, unabridged. ST: a leech that drinks deep and feeds it all to you.',
+    logHit: (a,t) => `${a} signs ${t} in the Palace ledger; collection begins immediately.` }],
+  starfall: ['dem_sig_starfall', {
+    name: 'Carrion-Star Mark', zh: '腐星印', school: 'starfall', instant: true,
+    qi: 8, cd: 2, damage: 1.5, postureBuild: 10,
+    effect: 'mark', effectValue: 0.35, effectTurns: 3,
+    desc: 'Free action. Marks the target as already dead: +35% damage from you for 3 turns.',
+    logHit: (a,t) => `${a} looses an arrow fletched in eaten starlight; it names ${t} a corpse-in-progress.` }],
+  verdant_monastery: ['dem_sig_verdant', {
+    name: 'Parasite Bloom', zh: '寄生绽', school: 'verdant_monastery', target: 'aoe',
+    qi: 12, cd: 3, damage: 1.1, postureBuild: 10,
+    effect: 'leech', effectPower: 0.15, effectTurns: 3,
+    desc: 'The grove plants itself in THEM now. AOE: leeches root in every foe and feed you each turn.',
+    logHit: (a,t) => `Pale shoots blossom from every wound on the field, all leaning toward ${a}.` }],
+  thunder_hammer: ['dem_sig_thunder', {
+    name: 'Funeral Toll', zh: '丧钟鸣', school: 'thunder_hammer', target: 'aoe',
+    qi: 16, cd: 3, damage: 1.6, postureBuild: 24,
+    effect: 'shock', effectValue: 0, effectTurns: 1, effectChance: 0.50,
+    desc: 'The tomb-iron rings for whom it pleases. AOE, heavy posture; 50% to Shock each target.',
+    logHit: (a,t) => `${a} swings; somewhere a grave answers. Several knees consider their options.` }],
+  cloud_traveler: ['dem_sig_cloud', {
+    name: 'Pestilent Veil', zh: '瘟帷', school: 'cloud_traveler',
+    qi: 9, cd: 4, damage: 0, postureBuild: 0,
+    buff: { dodgeChance: 0.45, counterOnDodge: 0.9, turns: 2 },
+    desc: 'Wrap yourself in sick wind for 2 rounds: +45% dodge, and every miss against you is answered at 90% weapon power.',
+    logHit: (a,t) => `${a} steps inside a wind that smells of closed clinics. Blades lose their way in it.` }],
+  bone_reed: ['dem_sig_bone', {
+    name: 'Chorus of the Devoured', zh: '噬者合唱', school: 'bone_reed', target: 'aoe',
+    qi: 13, cd: 2, damage: 0.8, directSpirit: 16, postureBuild: 10,
+    effect: 'resonance', effectValue: 12, effectTurns: 3,
+    desc: 'Every soul this flute has eaten sings backup. AOE spirit damage + heavy Resonance toward soul-break.',
+    logHit: (a,t) => `${a} plays one note; a hundred missing voices harmonize. ${t}'s soul tries to leave early.` }],
+  jade_inkwell: ['dem_sig_ink', {
+    name: "Censor's Excision", zh: '朱笔删', school: 'jade_inkwell',
+    qi: 14, cd: 3, damage: 1.6, postureBuild: 10,
+    effect: 'silence', effectValue: 0, effectTurns: 2,
+    desc: 'ST: the Tribunal strikes a passage from the record — the target is cut AND silenced for 2 turns.',
+    logHit: (a,t) => `${a} draws one red stroke through ${t}'s next three sentences.` }],
+  dragonforge: ['dem_sig_forge', {
+    name: 'Bonemelt Render', zh: '熔骨裂', school: 'dragonforge',
+    qi: 13, cd: 2, damage: 2.5, postureBuild: 22,
+    effect: 'sunder', effectValue: 0.09, effectTurns: 3, effectStacks: 3,
+    desc: 'ST: 3 Sunder stacks in one stroke — armor, then bone, then the idea of standing.',
+    logHit: (a,t) => `${a} pours the stroke like slag; ${t}'s guard runs off in rivulets.` }],
+  chain_saint: ['dem_sig_chain', {
+    name: 'Litany of Collected Debts', zh: '收债链祷', school: 'chain_saint', target: 'aoe',
+    qi: 15, cd: 2, damage: 1.4, postureBuild: 14,
+    effect: 'oathbound', effectPower: 0.45, effectTurns: 3,
+    desc: 'The Oathbreaker rate. AOE: every foe is bound at 45% weapon-power backlash per technique they dare.',
+    logHit: (a,t) => `${a} reads the new terms aloud. Nobody present agreed to them; everybody present owes.` }],
+};
+Object.values(DEMONIC_SIGNATURE_TECHS).forEach(([tid, def]) => { TECHNIQUES[tid] = def; });
+// Swap the 5th base technique for its demonic form in loadout + activeSkills.
+// Called at chargen confirm, ascension reset, and save migration.
+function applyDemonicLoadoutSwap(char) {
+  if (!char || !char.demonic || !char.selectedSchool) return;
+  const pair = DEMONIC_SIGNATURE_TECHS[char.selectedSchool];
+  const school = SCHOOLS[char.selectedSchool];
+  if (!pair || !school) return;
+  const baseSig = school.techniques[4];
+  const demSig = pair[0];
+  ['loadout', 'activeSkills'].forEach(k => {
+    if (!Array.isArray(char[k])) return;
+    const i = char[k].indexOf(baseSig);
+    if (i >= 0 && !char[k].includes(demSig)) char[k][i] = demSig;
+  });
+}
+
 // Demonic-aware school display: name/zh/flavor swap when the character walks the path.
 function schoolDisplay(sid, char) {
   const s = SCHOOLS[sid] || {};
@@ -5606,6 +5718,7 @@ function finalizeAscension(boonId) {
   fresh.weapon = school.weapon;
   fresh.loadout = school.techniques.slice();
   fresh.activeSkills = school.techniques.slice();  // Wave 1d: reset active set on ascension
+  applyDemonicLoadoutSwap(fresh);  // v0.70
   fresh.passiveTick = Date.now();
 
   applyBoonsPostConfirm(fresh);
@@ -7412,7 +7525,7 @@ const DESTINIES = {
   d_blood_1:      { name: 'Blood Sip',          zh: '吸血一', rarity: 'rare', minTier: 1, mods: { lifestealPct: 0.06 }, desc: 'Heal 6% of damage dealt. (Chain I)' },
   d_blood_2:      { name: 'Blood Feast',        zh: '血宴', rarity: 'legendary', minTier: 3, requires: 'd_blood_1', replaces: 'd_blood_1', mods: { lifestealPct: 0.14 }, desc: 'Heal 14% of damage dealt. Replaces Blood Sip. (Chain II)' },
   d_blood_3:      { name: 'Blood Sovereign',    zh: '血君', rarity: 'divine', minTier: 5, requires: 'd_blood_2', replaces: 'd_blood_2', mods: { lifestealPct: 0.25 }, desc: 'Heal 25% of damage dealt. Replaces Blood Feast. (Chain III)' },
-  d_desperate:    { name: 'Cornered Beast',     zh: '困兽', rarity: 'legendary', minTier: 3, keystone: true, mods: { lowHpBonus: 0.40, flatDR: 12 }, desc: 'Keystone: below 33% HP, +40% damage; always +12 flat damage reduction.' },
+  d_desperate:    { name: 'Cornered Beast',     zh: '困兽', rarity: 'legendary', minTier: 3, keystone: true, mods: { lowHpBonus: 0.40, flatDR: 12 }, desc: 'Keystone: below 50% HP, +40% damage; always +12 flat damage reduction.' },
   d_warlord:      { name: "Warlord's Edge",     zh: '战王锋', rarity: 'legendary', minTier: 3, mods: { weaponBonus: 20, strikeDamageMult: 1.15 }, desc: '+20 weapon power, +15% strike damage.' },
   d_dao_clarity:  { name: 'Dao Clarity',        zh: '道澄', rarity: 'legendary', minTier: 4, mods: { cultMult: 1.35, insightMult: 1.25 }, desc: '+35% cultivation rate, +25% insight.' },
   d_heaven_defy:  { name: 'Heaven-Defying Will', zh: '逆天志', rarity: 'divine', minTier: 5, keystone: true, mods: { weaponBonus: 30, hpBonus: 300, cultMult: 1.25, incomingMult: 0.90 }, desc: 'Keystone: +30 weapon power, +300 max HP, +25% cultivation, -10% incoming.' },
@@ -7706,6 +7819,72 @@ function sectWeaponsForSchool(sid) {
 // may be weaker than the school starter of its kind. The ladder STARTS at the starter
 // and scales up. Runs after every weapon-registering block above.
 // ============================================================
+// ============================================================
+// v0.70 RARITY = RICHNESS: generated weapons carry bonus effects scaling with rarity —
+// common 1, rare 2, legendary 3, DIVINE 5 (operator: below-divine felt identical at
+// Mortal once the power floor flattened the numbers). Effects are drawn deterministically
+// per weapon (hash-seeded, stable across loads), kind-signature first, magnitudes
+// tier-scaled. Hand-authored weapons keep their bespoke identities untouched.
+// ============================================================
+const RARITY_EFFECT_COUNT = { common: 1, rare: 2, legendary: 3, divine: 5 };
+const GEN_EFFECT_POOL = [
+  { key: 'crit',    ch: 'critChance',       mk: t => m => { m.critChance += 0.02 + 0.005 * t; },        blurb: t => `+${(2 + 0.5 * t).toFixed(1)}% crit` },
+  { key: 'critdmg', ch: 'critMult',         mk: t => m => { m.critMult += 0.06 + 0.02 * t; },           blurb: t => 'harder crits' },
+  { key: 'steal',   ch: 'lifestealPct',     mk: t => m => { m.lifestealPct += 0.02 + 0.01 * t; },       blurb: t => `+${Math.round((0.02 + 0.01 * t) * 100)}% lifesteal` },
+  { key: 'opener',  ch: 'firstStrikeBonus', mk: t => m => { m.firstStrikeBonus += 0.05 + 0.02 * t; },   blurb: t => `+${Math.round((0.05 + 0.02 * t) * 100)}% opener` },
+  { key: 'lowhp',   ch: 'lowHpBonus',       mk: t => m => { m.lowHpBonus += 0.06 + 0.02 * t; },         blurb: t => `+${Math.round((0.06 + 0.02 * t) * 100)}% when bloodied (<50% HP)` },
+  { key: 'posture', ch: 'postureMult',      mk: t => m => { m.postureMult *= 1.05 + 0.02 * t; },        blurb: t => `+${Math.round((0.05 + 0.02 * t) * 100)}% posture` },
+  { key: 'dodge',   ch: 'dodgeChance',      mk: t => m => { m.dodgeChance += 0.01 + 0.005 * t; },       blurb: t => `+${(1 + 0.5 * t).toFixed(1)}% dodge` },
+  { key: 'hp',      ch: 'hpBonus',          mk: t => m => { m.hpBonus += 12 * (t + 1); },               blurb: t => `+${12 * (t + 1)} HP` },
+  { key: 'qi',      ch: 'qiBonus',          mk: t => m => { m.qiBonus += 8 * (t + 1); },                blurb: t => `+${8 * (t + 1)} qi` },
+  { key: 'regen',   ch: 'qiRegenBonus',     mk: t => m => { m.qiRegenBonus += 1 + Math.floor(t / 3); }, blurb: t => `+${1 + Math.floor(t / 3)} qi regen` },
+  { key: 'dr',      ch: 'flatDR',           mk: t => m => { m.flatDR += 1 + t; },                       blurb: t => `+${1 + t} DR` },
+  { key: 'spirit',  ch: 'spiritDamageMult', mk: t => m => { m.spiritDamageMult *= 1.05 + 0.02 * t; },   blurb: t => `+${Math.round((0.05 + 0.02 * t) * 100)}% spirit dmg` },
+  { key: 'element', ch: 'elementBoostAll',  mk: t => m => { m.elementBoostAll += 0.05 + 0.02 * t; },    blurb: t => 'element-overcome amplified' },
+  { key: 'dot',     ch: 'dotMult',          mk: t => m => { m.dotMult *= 1.05 + 0.02 * t; },            blurb: t => `+${Math.round((0.05 + 0.02 * t) * 100)}% DOT` },
+];
+(function enrichGeneratedWeapons() {
+  const tierOf = {};
+  ARTIFACT_RECIPES.forEach(r => { tierOf[r.id] = r.minRealmTier || 0; });
+  Object.entries(WEAPONS).forEach(([id, w]) => {
+    if (!id.startsWith('gen_') && !id.startsWith('genr_')) return;
+    const t = tierOf[id] || 0;
+    const target = RARITY_EFFECT_COUNT[w.rarity] || 1;
+    const have = w.apply ? 1 : 0;
+    const need = Math.max(0, target - have);
+    if (!need) return;
+    // Probe channels the weapon's own effect already writes, so every rarity step adds
+    // a DISTINCT property (no silent double-stacking on the same channel).
+    const usedChannels = new Set();
+    if (w.apply) {
+      const probeBase = baseInscriptionMods();
+      const probe = baseInscriptionMods();
+      try { w.apply(probe); } catch (e) {}
+      Object.keys(probe).forEach(k => {
+        const a = probe[k], b = probeBase[k];
+        if (typeof a === 'number' ? Math.abs(a - b) > 1e-9 : JSON.stringify(a) !== JSON.stringify(b)) usedChannels.add(k);
+      });
+    }
+    const extras = [];
+    const blurbs = [];
+    let idx = Math.abs(hashStr(id)) % GEN_EFFECT_POOL.length;
+    const used = new Set();
+    while (extras.length < need && used.size < GEN_EFFECT_POOL.length) {
+      const e = GEN_EFFECT_POOL[idx % GEN_EFFECT_POOL.length];
+      idx++;
+      if (used.has(e.key)) continue;
+      used.add(e.key);
+      if (usedChannels.has(e.ch)) continue;
+      usedChannels.add(e.ch);
+      extras.push(e.mk(t));
+      blurbs.push(e.blurb(t));
+    }
+    const prevApply = w.apply;
+    w.apply = m => { if (prevApply) prevApply(m); extras.forEach(fn => fn(m)); };
+    w.desc = w.desc + ' Bonus: ' + blurbs.join(', ') + '.';
+  });
+})();
+
 (function enforceWeaponPowerFloor() {
   const starterIds = new Set(Object.values(SCHOOLS).map(s => s.weapon));
   const starterPowerByKind = {};
@@ -10571,7 +10750,7 @@ function applyPlayerOutgoingMods(p, dmg, target, ctx) {
   const kit = schoolKit();
   const turn = (combat && combat.turn) || 1;
   if (m.firstStrikeBonus && turn <= 1 && !(ctx && ctx.instant)) dmg *= 1 + m.firstStrikeBonus;
-  if (m.lowHpBonus && p.hp > 0 && p.hp / p.hpMax < 0.33) dmg *= 1 + m.lowHpBonus;
+  if (m.lowHpBonus && p.hp > 0 && p.hp / p.hpMax < 0.50) dmg *= 1 + m.lowHpBonus;  // v0.70: bloodied at <50% (was 33%)
   if (target && target.kind && m.vsKindMult && m.vsKindMult[target.kind]) {
     dmg *= 1 + m.vsKindMult[target.kind];
   }
@@ -12102,6 +12281,7 @@ function renderCreation() {
     state.weapon = school.weapon;
     state.loadout = school.techniques.slice();
     state.activeSkills = school.techniques.slice();  // Wave 1d: default active set = the 4 base techs
+    applyDemonicLoadoutSwap(state);  // v0.70: the heretical signature replaces the righteous one
     state.realm.insight += metaStartInsight();  // Wave 2c: Inherited Memory head-start (souls meta)
     state.passiveTick = Date.now();
     applyHeritagePostConfirm(state);
@@ -14178,6 +14358,7 @@ try {
           }
         });
       }
+      applyDemonicLoadoutSwap(parsed);   // v0.70: existing demonic saves get the heretical signature
       state = parsed;
     }
   }
