@@ -541,11 +541,11 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v0.78';
+const GAME_VERSION = 'v0.79';
 // v0.78: CI injects the build's short sha here; the APK shell reads it FROM THE RUNNING
 // PAGE (window.BUILD_SHA) and compares against the repo head — staleness detection that
-// cannot be fooled by cached metadata. '2d425ae' = local/dev build (shell falls back).
-const BUILD_SHA = '2d425ae';
+// cannot be fooled by cached metadata. '38c075e' = local/dev build (shell falls back).
+const BUILD_SHA = '38c075e';
 if (typeof window !== 'undefined') window.BUILD_SHA = BUILD_SHA;
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
@@ -3019,6 +3019,7 @@ function computeMods(char) {
   applySchoolKitToMods(mods, char);
   applySkillModsToMods(mods, char);
   applyBodyInscriptionsToMods(mods, char);   // v0.77: demonic flesh-carved inscriptions
+  applyBossRefineToMods(mods, char);         // v0.79: themed boss weapon-refinement tracks
   return mods;
 }
 
@@ -4637,7 +4638,7 @@ for (let ht = 0; ht <= 6; ht++) {
   mkEnemy('righteous_hunter_t' + ht, {
     name: ['Sect Novice-Hunter', 'Righteous Enforcer', 'Foundation Inquisitor', 'Core Witch-Hunter',
            'Golden Tribunal Blade', 'Soul-Hunting Elder', 'Severance Crusader'][ht],
-    zh: '正道猎人', tier: ht, arch: 'assassin', power: 1.1, kind: 'human', element: 'metal',
+    zh: '正道猎人', tier: ht, arch: 'elite', power: 1.05, kind: 'human', element: 'metal',   // v0.79: miniboss (~2x normal)
     techIds: HUNTER_TECHS_BY_TIER[ht],
     intro: 'A righteous cultivator steps onto the road, warrant in hand. "Heretic. The sects send their regards."',
     victory: 'The hunter falls. Their warrant — and their accumulated dao — feed yours. The bounty on you just went up.',
@@ -7462,6 +7463,174 @@ const ARMOR_SETS = {
 
 
 // ============================================================
+// v0.79 BOSS LOOT REWORK — each boss now drops a FULL 4-piece ARMOR SET (themed, with
+// 2pc/4pc set bonuses) AND a WEAPON REFINEMENT TRACK (a themed enchantment applied to
+// your OWN weapon over multiple steps, each consuming more of the boss's unique material).
+// No more boss weapons you can't use. The old BOSS_GEAR data stays registered so any
+// previously-crafted relics still resolve, but it is no longer offered (see the Bosses tab).
+// ============================================================
+const BOSS_LOOT = {
+  boar_king:            { setName: 'Withered-Wood Warplate', setZh: '枯林战甲',
+    set: { hpBonus: 40, postureMult: 1.06 }, set2: { postureMult: 1.10 }, set4: { hpBonus: 120, lowHpBonus: 0.12 },
+    refName: "Boar-King's Fury", refZh: '猪王怒', refine: { lowHpBonus: 0.06, postureMult: 1.04 },
+    refBlurb: 'bloodied damage + posture' },
+  kiln_mother:          { setName: 'Kiln-Glaze Regalia', setZh: '窑釉袍',
+    set: { hpBonus: 35, elementWard: { fire: 0.06 } }, set2: { elementWard: { fire: 0.12 } }, set4: { hpBonus: 100, dotMult: 1.12 },
+    refName: 'Mother-Glaze Coating', refZh: '母釉淬', refine: { dotMult: 1.06, hpBonus: 14 },
+    refBlurb: 'damage-over-time' },
+  fox_saint:            { setName: 'Nine-Tail Silks', setZh: '九尾绡',
+    set: { dodgeChance: 0.02, qiBonus: 12 }, set2: { dodgeChance: 0.04 }, set4: { critChance: 0.05, qiRegenBonus: 2 },
+    refName: 'Foxfire Quench', refZh: '狐火淬', refine: { critChance: 0.025, dodgeChance: 0.015 },
+    refBlurb: 'crit + dodge' },
+  mine_golem:           { setName: 'Mine-Heart Plate', setZh: '矿心甲',
+    set: { flatDR: 3, hpBonus: 30 }, set2: { flatDR: 4 }, set4: { hpBonus: 120, weaponBonus: 6 },
+    refName: 'Wanting-Ore Edge', refZh: '欲矿锋', refine: { weaponBonus: 4, flatDR: 1 },
+    refBlurb: 'raw power + a little DR' },
+  bell_abbot:           { setName: 'Nine-Echo Vestments', setZh: '九响衣',
+    set: { spiritBonus: 8, qiRegenBonus: 1 }, set2: { spiritDamageMult: 1.10 }, set4: { spiritBonus: 16, postureMult: 1.10 },
+    refName: 'Resonant Casting', refZh: '共鸣铸', refine: { spiritDamageMult: 1.06, postureMult: 1.03 },
+    refBlurb: 'spirit damage + posture' },
+  tide_queen:           { setName: 'Standing-Sea Mail', setZh: '立海铠',
+    set: { hpBonus: 60, elementWard: { fire: 0.08 } }, set2: { elementWard: { fire: 0.12, earth: 0.10 } }, set4: { hpBonus: 160, qiBonus: 30 },
+    refName: 'Drowning Temper', refZh: '溺淬', refine: { elementAmp: { fire: 0.08 }, qiBonus: 12 },
+    refBlurb: 'vs Fire foes + qi' },
+  cinder_abbot:         { setName: 'Patient-Fire Cassock', setZh: '恒火袈',
+    set: { hpBonus: 70, dotMult: 1.10 }, set2: { dotMult: 1.15 }, set4: { hpBonus: 180, lifestealPct: 0.05 },
+    refName: 'Ember-Quench', refZh: '烬淬', refine: { dotMult: 1.07, lifestealPct: 0.025 },
+    refBlurb: 'DOT + lifesteal' },
+  prison_warden:        { setName: 'Cell-Warden Harness', setZh: '狱守具',
+    set: { dodgeChance: 0.03, hpBonus: 60, elementWard: { wood: 0.08 } }, set2: { postureMult: 1.12 }, set4: { hpBonus: 160, postureBreakBonus: 1, dodgeChance: 0.04 },
+    refName: 'Jade-Lock Engraving', refZh: '玉锁刻', refine: { postureMult: 1.06, postureBreakBonus: 0 },
+    refBlurb: 'posture pressure' },
+  vein_matriarch:       { setName: 'Dragon-Vein Scalemail', setZh: '龙脉鳞甲',
+    set: { hpBonus: 110, flatDR: 5, elementWard: { earth: 0.10 } }, set2: { flatDR: 7 }, set4: { hpBonus: 260, firstStrikeBonus: 0.15 },
+    refName: 'Buried-River Whet', refZh: '埋江砺', refine: { firstStrikeBonus: 0.10, elementAmp: { water: 0.07 } },
+    refBlurb: 'opener + vs Water foes' },
+  mirage_emperor:       { setName: 'Mirage-Court Raiment', setZh: '蜃庭袍',
+    set: { dodgeChance: 0.04, incomingMult: 0.97 }, set2: { dodgeChance: 0.06 }, set4: { elementBoostAll: 0.20, incomingMult: 0.94 },
+    refName: 'City-That-Is Etching', refZh: '实城刻', refine: { elementBoostAll: 0.08, dodgeChance: 0.02 },
+    refBlurb: 'element-overcome + dodge' },
+  war_court_lord:       { setName: 'Floating-Court Panoply', setZh: '浮庭甲',
+    set: { hpBonus: 180, spiritBonus: 14 }, set2: { perTurnRamp: 0.015 }, set4: { hpBonus: 380, perTurnRamp: 0.025, critChance: 0.04 },
+    refName: 'Verdict Inscription', refZh: '判刻', refine: { critChance: 0.03, perTurnRamp: 0.015 },
+    refBlurb: 'crit + per-turn ramp' },
+  moon_eater:           { setName: 'Swallowed-Moon Carapace', setZh: '吞月壳',
+    set: { hpBonus: 200, lifestealPct: 0.04, elementWard: { water: 0.10 } }, set2: { lifestealPct: 0.06 }, set4: { hpBonus: 400, elementAmp: { water: 0.15 } },
+    refName: 'Gullet-Pearl Anointing', refZh: '吞珠涂', refine: { lifestealPct: 0.03, elementAmp: { water: 0.08 } },
+    refBlurb: 'lifesteal + vs Water foes' },
+  heavenly_executioner: { setName: "Executioner's Regalia", setZh: '天刑袍',
+    set: { flatDR: 8, critChance: 0.04 }, set2: { critChance: 0.06 }, set4: { flatDR: 14, critMult: 1.25 },
+    refName: 'Suspended-Sentence Honing', refZh: '缓刑砺', refine: { critChance: 0.04, critMult: 1.10 },
+    refBlurb: 'crit chance + crit damage' },
+  dawn_sovereign:       { setName: 'First-Dawn Vestments', setZh: '初晓袍',
+    set: { hpBonus: 240, spiritBonus: 16, elementBoostAll: 0.12 }, set2: { elementBoostAll: 0.20 }, set4: { hpBonus: 460, techDamageMult: 1.15, strikeDamageMult: 1.15 },
+    refName: 'Rehearsed-Sun Tempering', refZh: '演日淬', refine: { elementBoostAll: 0.08, techDamageMult: 1.05 },
+    refBlurb: 'element-overcome + technique damage' },
+};
+const BOSS_SET_SLOTS = [['helmet', 'Helm', '盔'], ['chest', 'Chest', '甲'], ['gloves', 'Gauntlets', '护手'], ['boots', 'Greaves', '胫甲']];
+function bossSetRarity(tier) { return tier <= 1 ? 'rare' : tier <= 4 ? 'legendary' : 'divine'; }
+function bossSetId(bossId, slot) { return `bset_${bossId}_${slot}`; }
+// Register the 56 set pieces (4 per boss) + the set bonuses into ARMOR_SETS.
+Object.entries(BOSS_LOOT).forEach(([bossId, L]) => {
+  const tier = BOSSES[bossId].tier;
+  const rar = bossSetRarity(tier);
+  const setKey = `bset_${bossId}`;
+  BOSS_SET_SLOTS.forEach(([slot, noun, nounZh]) => {
+    const id = bossSetId(bossId, slot);
+    // each piece carries the per-piece set theme + a slot-baseline HP slice
+    const mods = Object.assign({}, scaleBossMods(L.set, 1));
+    mods.hpBonus = (mods.hpBonus || 0) + (15 + tier * 12);
+    ARMOR[id] = {
+      name: `${L.setName} ${noun}`, zh: `${L.setZh}${nounZh}`, slot, rarity: rar, set: setKey,
+      mods, bossSet: bossId,
+      desc: `Part of the ${L.setName} — the spoils of ${ENEMIES[bossId] ? ENEMIES[bossId].name : bossId}. (2/4-piece set bonuses.)`,
+    };
+  });
+  ARMOR_SETS[setKey] = {
+    name: L.setName, zh: L.setZh,
+    bonuses: [
+      { pieces: 2, desc: modSummary(L.set2), apply: m => mergeMods(m, L.set2) },
+      { pieces: 4, desc: modSummary(L.set4), apply: m => mergeMods(m, L.set4) },
+    ],
+  };
+});
+// Boss armor set crafting (per piece): boss unique mat + a realm basket.
+function bossSetCost(bossId) {
+  const tier = BOSSES[bossId].tier;
+  const cost = {};
+  cost[BOSS_UNIQUE_MATS[bossId][0]] = 1;
+  Object.entries(WEAPON_GEN_TIER[tier].mats).forEach(([m, n]) => { cost[m] = (cost[m] || 0) + n; });
+  return cost;
+}
+function bossSetOwnedCount(bossId) {
+  return BOSS_SET_SLOTS.filter(([slot]) => (state.armor.owned || []).includes(bossSetId(bossId, slot))).length;
+}
+function nextBossSetSlot(bossId) {
+  const pair = BOSS_SET_SLOTS.find(([slot]) => !(state.armor.owned || []).includes(bossSetId(bossId, slot)));
+  return pair ? pair[0] : null;
+}
+function canCraftBossSetPiece(bossId) {
+  if (!nextBossSetSlot(bossId)) return false;
+  const cost = bossSetCost(bossId);
+  return Object.entries(cost).every(([m, n]) => (state.base.materials[m] || 0) >= n);
+}
+function craftBossSetPiece(bossId) {
+  const slot = nextBossSetSlot(bossId);
+  if (!slot || !canCraftBossSetPiece(bossId)) return false;
+  Object.entries(bossSetCost(bossId)).forEach(([m, n]) => {
+    state.base.materials[m] -= n;
+    if (state.base.materials[m] <= 0) delete state.base.materials[m];
+  });
+  state.armor.owned.push(bossSetId(bossId, slot));
+  saveChar();
+  return true;
+}
+
+// ---- Weapon refinement tracks (themed, per boss, applied to a weapon you OWN) ----
+const BOSS_REFINE_CAP = 5;
+function weaponBossRefineLevel(wid, bossId) {
+  return (state.weaponBossRefine && state.weaponBossRefine[wid] && state.weaponBossRefine[wid][bossId]) || 0;
+}
+function bossRefineCost(bossId, nextLevel) {
+  const tier = BOSSES[bossId].tier;
+  const cost = {};
+  cost[BOSS_UNIQUE_MATS[bossId][0]] = nextLevel;   // step N costs N unique mats — more kills per step
+  Object.entries(WEAPON_GEN_TIER[tier].mats).forEach(([m, n]) => { cost[m] = (cost[m] || 0) + n * nextLevel; });
+  return cost;
+}
+function canApplyBossRefine(wid, bossId) {
+  if (!wid || !WEAPONS[wid] || !BOSS_LOOT[bossId]) return false;
+  if (weaponBossRefineLevel(wid, bossId) >= BOSS_REFINE_CAP) return false;
+  const cost = bossRefineCost(bossId, weaponBossRefineLevel(wid, bossId) + 1);
+  return Object.entries(cost).every(([m, n]) => (state.base.materials[m] || 0) >= n);
+}
+function applyBossRefine(wid, bossId) {
+  if (!canApplyBossRefine(wid, bossId)) return false;
+  const next = weaponBossRefineLevel(wid, bossId) + 1;
+  Object.entries(bossRefineCost(bossId, next)).forEach(([m, n]) => {
+    state.base.materials[m] -= n;
+    if (state.base.materials[m] <= 0) delete state.base.materials[m];
+  });
+  if (!state.weaponBossRefine) state.weaponBossRefine = {};
+  if (!state.weaponBossRefine[wid]) state.weaponBossRefine[wid] = {};
+  state.weaponBossRefine[wid][bossId] = next;
+  saveChar();
+  return true;
+}
+// Fold boss-refine mods from EQUIPPED weapons into computeMods (each track level x perLevel theme).
+function applyBossRefineToMods(mods, char) {
+  if (!char.weaponBossRefine) return;
+  equippedWeapons(char).forEach(wid => {
+    const tracks = char.weaponBossRefine[wid];
+    if (!tracks) return;
+    Object.entries(tracks).forEach(([bossId, lvl]) => {
+      const L = BOSS_LOOT[bossId];
+      if (L && lvl > 0) mergeMods(mods, scaleBossMods(L.refine, lvl));
+    });
+  });
+}
+
+// ============================================================
 // v0.67 CROSS-REALM BOSS RELICS — recipes that mix unique boss materials from
 // DIFFERENT realms. Five weapons covering the school weapon-kinds the per-boss relics
 // missed (unarmed / bow / staff / chakram / chain — every school's main weapon now has
@@ -7805,7 +7974,8 @@ const SECT_RANKS = [
   { name: 'Sect Pillar',      zh: '宗门柱石', at: 2000000 },
   { name: 'Honored Ancestor', zh: '荣誉老祖', at: 5000000 },
 ];
-const SLAY_BOUNTY_N = 10;
+const SLAY_BOUNTY_BASE = 10;
+function slayBountyN() { return SLAY_BOUNTY_BASE + 5 * ((state && state.sectBountyClaims) || 0); }  // v0.79: +5 per turn-in
 function grantContribution(n) {
   state.contribution = (state.contribution || 0) + n;
   state.contributionLifetime = (state.contributionLifetime || 0) + n;
@@ -7852,11 +8022,13 @@ function startSectPromotionDuel() {
   render();
 }
 function sectRankMult() { return 1 + sectRankIdx() * 0.05; }  // +5% cultivation per rank above Outer
-function slayBountyReward() { return 40 + ((state.realm && state.realm.tierIdx) || 0) * 20; }
+function slayBountyReward() { return (40 + ((state.realm && state.realm.tierIdx) || 0) * 20) * (1 + 0.5 * ((state.sectBountyClaims) || 0)); }
 function claimSlayBounty() {
-  if ((state.sectKills || 0) < SLAY_BOUNTY_N) return;
-  state.sectKills -= SLAY_BOUNTY_N;
-  grantContribution(slayBountyReward());
+  const need = slayBountyN();
+  if ((state.sectKills || 0) < need) return;
+  state.sectKills -= need;
+  grantContribution(Math.round(slayBountyReward()));
+  state.sectBountyClaims = (state.sectBountyClaims || 0) + 1;   // v0.79: next bounty needs +5 kills, pays more
   saveChar();
 }
 // v0.67 tribute rework (operator): stones->contribution is weaker at base (1/stone, was
@@ -8112,23 +8284,7 @@ function buySectWeapon(wid) {
   return true;
 }
 
-// v0.60: Herb Tribute duty — donate 5 of your largest herb stock; contribution by rarity.
-const HERB_TRIBUTE_VALUE = { common: 6, rare: 15, legendary: 40, divine: 100 };
-function herbTributeCandidate() {
-  let best = null;
-  Object.entries(state.base.herbs || {}).forEach(([hid, n]) => {
-    if (n >= 5 && HERBS[hid] && (!best || n > best.n)) best = { hid, n };
-  });
-  return best;
-}
-function tributeHerbs() {
-  const c = herbTributeCandidate();
-  if (!c) return;
-  state.base.herbs[c.hid] -= 5;
-  if (state.base.herbs[c.hid] <= 0) delete state.base.herbs[c.hid];
-  grantContribution(HERB_TRIBUTE_VALUE[HERBS[c.hid].rarity] || 6);
-  saveChar();
-}
+// v0.79: Herb Tribute duty REMOVED (operator).
 function buySectTechnique(techId) {
   const t = TECHNIQUES[techId];
   if (!t || t.school !== state.selectedSchool || !(t.minRealmTier > 0)) return;
@@ -9753,6 +9909,7 @@ function newCharacter(seed, childhood = null) {
     sectRank: 0, sectRampV65: true, lastWalk: 0, // v0.65: earned rank + walk cooldown
     heavenConquest: 0, // v0.71: Conquest of Heaven stages cleared (demonic ascension)
     bodyInscriptions: [], riftRun: null, lastRiftRun: 0, // v0.77
+    sectBountyClaims: 0, weaponBossRefine: {}, // v0.79
     // Wave 3a: fortune-encounter cooldown timer.
     lastOpportunity: 0,
     // Wave 3b: secret-realm dive (active run state + entry cooldown).
@@ -13834,41 +13991,62 @@ function renderCharSheet() {
     } else {
       card.querySelector('.location-actions').innerHTML = `<span style="font-size:0.78rem;color:var(--crimson)">Requires ${REALMS[meta.tier].name}.</span>`;
     }
-    // ---- v0.62: relic gear line (craft stage 1, upgrade to 2-3 with higher-realm mats) ----
-    const g = BOSS_GEAR[bid];
-    if (g && unlocked) {
-      const stage = bossGearStage(bid);
+    // ---- v0.79: boss loot — full armor SET + weapon REFINEMENT track ----
+    const L = BOSS_LOOT[bid];
+    if (L && unlocked) {
       const matInfo = BOSS_UNIQUE_MATS[bid];
       const have = state.base.materials[matInfo[0]] || 0;
-      const relicRow = document.createElement('div');
-      relicRow.style.cssText = 'margin-top:0.4rem;padding-top:0.35rem;border-top:1px dashed rgba(120,120,120,0.35);font-size:0.8rem';
-      const curName = stage > 0
-        ? (g.kind === 'weapon' ? WEAPONS[bossGearId(bid, stage)].name : ARMOR[bossGearId(bid, stage)].name)
-        : null;
-      let relicHTML = `<strong>Relic:</strong> ${curName ? `${curName} <span class="rarity-tag rarity-${BOSS_GEAR_RARITY[stage - 1]}">stage ${stage}/3</span>` : `${g.names[0][0]} <span style="color:var(--ink-soft)">(not yet forged)</span>`}`;
-      relicHTML += ` <span style="color:var(--ink-soft)">· ${matInfo[1]}: ${have}</span>`;
-      if (stage < 3) {
-        const next = stage + 1;
-        const cost = bossGearCost(bid, next);
-        const costStr = Object.entries(cost).map(([m, n]) => {
+      const setRow = document.createElement('div');
+      setRow.style.cssText = 'margin-top:0.4rem;padding-top:0.35rem;border-top:1px dashed rgba(120,120,120,0.35);font-size:0.8rem';
+      const owned = bossSetOwnedCount(bid);
+      const nextSlot = nextBossSetSlot(bid);
+      const costStr = Object.entries(bossSetCost(bid)).map(([m, n]) => {
+        const has = (state.base.materials[m] || 0) >= n;
+        return `<span style="color:${has ? 'var(--ink)' : 'var(--crimson)'}">${n}x ${(MATERIALS[m] && MATERIALS[m].name) || m}</span>`;
+      }).join(', ');
+      setRow.innerHTML = `<strong>${L.setName}</strong> <span style="color:var(--ink-soft)">${owned}/4 pieces · ${matInfo[1]}: ${have}</span>
+        <div style="color:var(--ink-soft);margin-top:0.1rem">2pc: ${modSummary(L.set2)} · 4pc: ${modSummary(L.set4)}</div>
+        ${nextSlot ? `<div style="color:var(--ink-soft);margin-top:0.1rem">Next piece: ${costStr}</div>` : '<div style="color:var(--gold);margin-top:0.1rem">Set complete.</div>'}`;
+      if (nextSlot) {
+        const sb = document.createElement('button');
+        sb.className = 'small ' + (canCraftBossSetPiece(bid) ? 'gold' : 'ghost');
+        sb.style.marginTop = '0.25rem';
+        const slotLabel = (BOSS_SET_SLOTS.find(s => s[0] === nextSlot) || [,'Piece'])[1];
+        sb.textContent = `Forge ${slotLabel}`;
+        sb.disabled = !canCraftBossSetPiece(bid);
+        sb.onclick = () => { craftBossSetPiece(bid); render(); };
+        setRow.appendChild(sb);
+      }
+      card.appendChild(setRow);
+      // weapon refinement track on the equipped primary
+      const refRow = document.createElement('div');
+      refRow.style.cssText = 'margin-top:0.3rem;font-size:0.8rem';
+      const pw = state.weapon, pwName = (WEAPONS[pw] && WEAPONS[pw].name) || 'no weapon';
+      const lvl = pw ? weaponBossRefineLevel(pw, bid) : 0;
+      let refHTML = `<strong>${L.refName}</strong> <span style="color:var(--ink-soft)">— ${L.refBlurb}</span>`;
+      if (!pw) {
+        refHTML += `<div style="color:var(--crimson);margin-top:0.1rem">Equip a weapon to inscribe this refinement.</div>`;
+      } else if (lvl >= BOSS_REFINE_CAP) {
+        refHTML += `<div style="color:var(--gold);margin-top:0.1rem">${pwName}: Lv ${lvl}/${BOSS_REFINE_CAP} (maxed).</div>`;
+      } else {
+        const rc = bossRefineCost(bid, lvl + 1);
+        const rcStr = Object.entries(rc).map(([m, n]) => {
           const has = (state.base.materials[m] || 0) >= n;
           return `<span style="color:${has ? 'var(--ink)' : 'var(--crimson)'}">${n}x ${(MATERIALS[m] && MATERIALS[m].name) || m}</span>`;
         }).join(', ');
-        relicHTML += `<div style="color:var(--ink-soft);margin-top:0.15rem">${stage === 0 ? 'Forge' : 'Upgrade'}: ${costStr}${stage > 0 ? ' + the current relic' : ''}</div>`;
-      } else {
-        relicHTML += `<div style="color:var(--gold);margin-top:0.15rem">Fully awakened.</div>`;
+        refHTML += `<div style="color:var(--ink-soft);margin-top:0.1rem">${pwName}: Lv ${lvl}/${BOSS_REFINE_CAP} · next: ${rcStr}</div>`;
       }
-      relicRow.innerHTML = relicHTML;
-      if (stage < 3) {
-        const cb = document.createElement('button');
-        cb.className = 'small ' + (canCraftBossGear(bid) ? 'gold' : 'ghost');
-        cb.style.marginTop = '0.25rem';
-        cb.textContent = stage === 0 ? `Forge ${g.names[0][0]}` : `Upgrade to ${g.names[stage][0]}`;
-        cb.disabled = !canCraftBossGear(bid);
-        cb.onclick = () => { craftBossGear(bid); render(); };
-        relicRow.appendChild(cb);
+      refRow.innerHTML = refHTML;
+      if (pw && lvl < BOSS_REFINE_CAP) {
+        const rb = document.createElement('button');
+        rb.className = 'small ' + (canApplyBossRefine(pw, bid) ? 'gold' : 'ghost');
+        rb.style.marginTop = '0.25rem';
+        rb.textContent = `Inscribe (Lv ${lvl + 1})`;
+        rb.disabled = !canApplyBossRefine(pw, bid);
+        rb.onclick = () => { applyBossRefine(pw, bid); render(); };
+        refRow.appendChild(rb);
       }
-      card.appendChild(relicRow);
+      card.appendChild(refRow);
     }
   });
   // ---- v0.67: cross-realm relics (mix unique materials from several bosses) ----
@@ -14104,17 +14282,18 @@ function renderCharSheet() {
   dutiesHdr.textContent = 'Sect Duties';
   sectP.appendChild(dutiesHdr);
   // Hunt bounty
-  const kills = Math.min(state.sectKills || 0, SLAY_BOUNTY_N);
-  const slayReady = (state.sectKills || 0) >= SLAY_BOUNTY_N;
+  const bountyNeed = slayBountyN();
+  const kills = Math.min(state.sectKills || 0, bountyNeed);
+  const slayReady = (state.sectKills || 0) >= bountyNeed;
   const slayRow = document.createElement('div');
   slayRow.className = 'consumable-row';
   slayRow.innerHTML = `<div class="consumable-info">
       <div class="consumable-name">Hunt Bounty <span style="color:var(--ink-soft);font-size:0.75rem">猎赏</span></div>
-      <div class="consumable-desc">Defeat ${SLAY_BOUNTY_N} foes for ${slayBountyReward()} contribution. Progress: ${kills}/${SLAY_BOUNTY_N}.</div>
+      <div class="consumable-desc">Defeat ${bountyNeed} foes for ${Math.round(slayBountyReward())} contribution. Progress: ${kills}/${bountyNeed}. Each turn-in raises the next quota by 5 (and its reward).</div>
     </div>`;
   const slayBtns = document.createElement('div'); slayBtns.className = 'consumable-buttons';
   const slayBtn = document.createElement('button');
-  slayBtn.textContent = slayReady ? `Claim (+${slayBountyReward()})` : `${kills}/${SLAY_BOUNTY_N}`;
+  slayBtn.textContent = slayReady ? `Claim (+${Math.round(slayBountyReward())})` : `${kills}/${bountyNeed}`;
   slayBtn.disabled = !slayReady;
   slayBtn.onclick = () => { claimSlayBounty(); render(); };
   slayBtns.appendChild(slayBtn); slayRow.appendChild(slayBtns); sectP.appendChild(slayRow);
@@ -14131,18 +14310,6 @@ function renderCharSheet() {
   tribBtn.disabled = stonesHave < 10 || tributeCapLeft() <= 0;
   tribBtn.onclick = () => { tributeStones(10); render(); };
   tribBtns.appendChild(tribBtn); tribRow.appendChild(tribBtns); sectP.appendChild(tribRow);
-  // v0.60: Herb Tribute duty
-  const herbCand = herbTributeCandidate();
-  const herbRow = document.createElement('div'); herbRow.className = 'consumable-row';
-  herbRow.innerHTML = `<div class="consumable-info">
-      <div class="consumable-name">Herb Tribute <span style="color:var(--ink-soft);font-size:0.75rem">献药</span></div>
-      <div class="consumable-desc">Donate 5 of your largest herb stock for contribution (worth more for rarer herbs).${herbCand ? ` Next: 5× ${HERBS[herbCand.hid].name} (+${HERB_TRIBUTE_VALUE[HERBS[herbCand.hid].rarity] || 6}).` : ' Need 5 of any herb.'}</div>
-    </div>`;
-  const herbBtns = document.createElement('div'); herbBtns.className = 'consumable-buttons';
-  const herbBtn = document.createElement('button');
-  herbBtn.textContent = 'Tribute Herbs'; herbBtn.disabled = !herbCand;
-  herbBtn.onclick = () => { tributeHerbs(); render(); };
-  herbBtns.appendChild(herbBtn); herbRow.appendChild(herbBtns); sectP.appendChild(herbRow);
   // Boss bounty note
   const bossNote = document.createElement('div');
   bossNote.className = 'consumable-desc';
@@ -14717,6 +14884,8 @@ try {
       if (parsed.lastWalk == null) parsed.lastWalk = 0;
       if (parsed.heavenConquest == null) parsed.heavenConquest = 0;   // v0.71 conquest stages
       if (!parsed.bodyInscriptions) parsed.bodyInscriptions = [];      // v0.77 demonic flesh-carving
+      if (parsed.sectBountyClaims == null) parsed.sectBountyClaims = 0; // v0.79 escalating bounty
+      if (!parsed.weaponBossRefine) parsed.weaponBossRefine = {};       // v0.79 boss refine tracks
       if (parsed.lastRiftRun == null) parsed.lastRiftRun = 0;          // v0.77 Warped Rift-Gate
       if (parsed.riftRun === undefined) parsed.riftRun = null;
       // v0.61: demonic path flag. Existing demon_heart characters walked it all along.
