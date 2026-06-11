@@ -541,7 +541,7 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v0.68';
+const GAME_VERSION = 'v0.69';
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
 const ELEMENT_ZH   = { metal:'金', wood:'木', water:'水', fire:'火', earth:'土' };
@@ -8764,6 +8764,48 @@ function primeMusicOnGesture() {
 if (typeof document !== 'undefined' && document.addEventListener) {
   document.addEventListener('pointerup', primeMusicOnGesture);
 }
+
+// ============================================================
+// v0.69 TOOLTIP OVERLAY — the old tooltips were pure CSS :hover, so the periodic
+// re-render (cultivation tick) destroyed the element under your finger and the tip
+// "faded out" mid-read. This overlay lives on document.body (outside the re-rendered
+// app root): tap any tipped element to show it, tap anywhere else to dismiss. It
+// SURVIVES re-renders. The CSS :hover tooltip still works for desktop mice.
+// ============================================================
+(function setupTooltipOverlay() {
+  if (typeof document === 'undefined' || !document.addEventListener || !document.body) return;
+  let tipEl = null;
+  function ensureTipEl() {
+    if (tipEl) return tipEl;
+    tipEl = document.createElement('div');
+    tipEl.id = 'tip-overlay';
+    tipEl.style.cssText = 'position:fixed;display:none;z-index:999;background:#1a130e;color:#e8d9b5;'
+      + 'padding:0.5rem 0.7rem;font-size:0.78rem;line-height:1.35;border-radius:3px;max-width:280px;'
+      + 'box-shadow:0 4px 12px rgba(0,0,0,0.4);border:1px solid #b8860b;text-align:left;pointer-events:none;';
+    document.body.appendChild(tipEl);
+    return tipEl;
+  }
+  document.addEventListener('pointerdown', ev => {
+    try {
+      const host = ev.target && ev.target.closest ? ev.target.closest('.tip') : null;
+      const txt = host && host.getAttribute ? host.getAttribute('data-tip') : null;
+      const el = ensureTipEl();
+      if (!txt) { el.style.display = 'none'; return; }
+      el.textContent = txt;
+      el.style.display = 'block';
+      el.style.left = '0px';
+      el.style.top = '0px';
+      const r = el.getBoundingClientRect ? el.getBoundingClientRect() : { width: 240, height: 60 };
+      const pad = 8;
+      let x = ev.clientX - r.width / 2;
+      x = Math.max(pad, Math.min((window.innerWidth || 360) - r.width - pad, x));
+      let y = ev.clientY - r.height - 18;
+      if (y < pad) y = ev.clientY + 22;
+      el.style.left = x + 'px';
+      el.style.top = y + 'px';
+    } catch (e) { /* never let a tooltip break input */ }
+  });
+})();
 // APKs with versionCode >= 5 set setMediaPlaybackRequiresUserGesture(false), so autoplay on
 // open works with zero taps. Try it; on older shells / browsers the rejection is silent and
 // the pointerup hook above picks playback up on the first tap instead.
