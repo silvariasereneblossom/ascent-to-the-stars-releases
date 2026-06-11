@@ -541,7 +541,7 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v0.63';
+const GAME_VERSION = 'v0.64';
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
 const ELEMENT_ZH   = { metal:'金', wood:'木', water:'水', fire:'火', earth:'土' };
@@ -4475,6 +4475,89 @@ Object.entries(SUPPLY_PATCH).forEach(([eid, drops]) => {
   }
 });
 
+// ============================================================
+// v0.64 BOSS SIGNATURE ATTACKS — every boss gets a thematic special carrying a status
+// effect, slotted at the TOP of its priority list (the boss leads with its identity
+// whenever it's off cooldown). Effect values are hand-set to the boss's realm.
+// ============================================================
+const BOSS_SIGNATURE_TECHS = {
+  boar_king: ['tusk_gore', { name: 'Goring Charge', qi: 10, cd: 3, damage: 1.8, postureBuild: 24,
+    effect: 'bleed', effectValue: 5, effectTurns: 3,
+    logHit: (a,t) => `${a} charges — the tusk opens ${t} hip to rib, and the wound keeps arguing.` }],
+  kiln_mother: ['glaze_fire', { name: 'Glaze-Fire Embrace', qi: 12, cd: 3, damage: 1.4, postureBuild: 10,
+    effect: 'burn', effectValue: 5, effectTurns: 3,
+    logHit: (a,t) => `${a} embraces ${t} at firing temperature. The glaze takes.` }],
+  fox_saint: ['nine_tail_beguile', { name: 'Nine-Tail Beguilement', qi: 14, cd: 3, damage: 0.8, directSpirit: 10, postureBuild: 8,
+    effect: 'chill', effectValue: 0.25, effectTurns: 2,
+    logHit: (a,t) => `${a}'s tails fan out; ${t}'s killing intent forgets what it was doing.` }],
+  mine_golem: ['ore_crush', { name: 'Ore-Press Crush', qi: 14, cd: 3, damage: 2.0, postureBuild: 28,
+    effect: 'sunder', effectValue: 0.08, effectTurns: 3,
+    logHit: (a,t) => `${a} closes like a gallery collapse — ${t}'s guard is processed into scrap.` }],
+  bell_abbot: ['ninth_toll', { name: 'The Ninth Toll', qi: 18, cd: 3, damage: 0.6, directSpirit: 14, postureBuild: 12,
+    effect: 'resonance', effectValue: 10, effectTurns: 3,
+    logHit: (a,t) => `${a} strikes the great bell once. ${t}'s soul rings the other eight times.` }],
+  tide_queen: ['drowning_crown', { name: 'Drowning Crown', qi: 16, cd: 3, damage: 1.4, postureBuild: 14,
+    effect: 'entangle', effectValue: 14, effectTurns: 2,
+    logHit: (a,t) => `${a} crowns ${t} with standing brine — qi drains, and no breath can be gathered.` }],
+  cinder_abbot: ['ember_garden', { name: 'Ember Garden', qi: 20, cd: 3, damage: 1.6, postureBuild: 10,
+    effect: 'burn', effectValue: 18, effectTurns: 3,
+    logHit: (a,t) => `${a} scatters his garden of sixty-year coals over ${t}. They take root.` }],
+  prison_warden: ['jade_cell', { name: 'Jade Cell', qi: 20, cd: 3, damage: 1.2, postureBuild: 12,
+    effect: 'qi_cost_up', effectValue: 1.6, effectTurns: 3,
+    logHit: (a,t) => `${a} grows a cell of living jade around ${t}'s meridians. Rent is due per technique.` }],
+  vein_matriarch: ['vein_quake', { name: 'Dragon-Vein Quake', qi: 24, cd: 3, damage: 2.2, postureBuild: 30,
+    effect: 'bleed', effectValue: 30, effectTurns: 3,
+    logHit: (a,t) => `${a} rolls the buried river once; the ground opens ${t} like soft loam.` }],
+  mirage_emperor: ['city_of_mirrors', { name: 'City of Mirrors', qi: 26, cd: 3, damage: 1.5, directSpirit: 20, postureBuild: 10,
+    effect: 'chill', effectValue: 0.30, effectTurns: 2,
+    logHit: (a,t) => `${a} unfolds the city around ${t} — every street doubles back, every blow lands elsewhere.` }],
+  war_court_lord: ['court_summons', { name: 'Summons to the Bench', qi: 28, cd: 3, damage: 1.4, directSpirit: 24, postureBuild: 14,
+    effect: 'resonance', effectValue: 35, effectTurns: 2,
+    logHit: (a,t) => `${a} reads the summons aloud; ${t}'s soul is compelled to appear, repeatedly.` }],
+  moon_eater: ['swallow_light', { name: 'Swallow the Light', qi: 26, cd: 3, damage: 1.8, postureBuild: 16,
+    effect: 'qi_drain', effectValue: 45, effectTurns: 3,
+    logHit: (a,t) => `${a} inhales — ${t}'s qi leaves in a long silver thread, moonlight going home.` }],
+  heavenly_executioner: ['read_sentence', { name: 'Reading of the Sentence', qi: 30, cd: 3, damage: 2.0, postureBuild: 18,
+    effect: 'sunder', effectValue: 0.10, effectTurns: 3,
+    logHit: (a,t) => `${a} reads the first clause; ${t}'s defenses are ruled inadmissible.` }],
+  dawn_sovereign: ['first_light_judgment', { name: "First Light's Judgment", qi: 34, cd: 3, damage: 1.8, directSpirit: 30, postureBuild: 14,
+    effect: 'burn', effectValue: 75, effectTurns: 3,
+    logHit: (a,t) => `${a} shows ${t} the rehearsal of the first morning. It is too much light to survive politely.` }],
+};
+Object.entries(BOSS_SIGNATURE_TECHS).forEach(([bid, [tid, def]]) => {
+  ENEMY_TECHS[tid] = def;
+  const E = ENEMIES[bid];
+  if (!E) return;
+  E.techIds = [tid].concat(E.techIds);
+  // Re-point the AI at the LIVE techIds list (the factory closure captured the old array),
+  // signature first so the boss leads with its identity whenever it is off cooldown.
+  E.ai = (e, p) => {
+    enemyTickCDs(e);
+    for (const t of E.techIds) if (enemyCanUse(e, t)) return enemyUseTech(e, p, t);
+    if (e.qi < 14) return enemyMeditate(e);
+    return enemyBasicStrike(e, p);
+  };
+});
+
+// v0.64: debuff sprinkle — existing enemy techniques that begged for a status get one
+// (only techs that previously carried NO effect; values tuned to the tiers that use them).
+const ENEMY_TECH_EFFECT_PATCH = {
+  serpent_strike: { effect: 'poison',  effectValue: 3,    effectTurns: 3 },   // t0-1 serpents
+  ember_bite:     { effect: 'burn',    effectValue: 4,    effectTurns: 3 },   // kiln / fire beasts
+  coral_lash:     { effect: 'chill',   effectValue: 0.15, effectTurns: 2 },   // t2 sirens
+  hanging_smog:   { effect: 'poison',  effectValue: 10,   effectTurns: 3 },   // t2 smog horrors
+  jade_spike:     { effect: 'sunder',  effectValue: 0.05, effectTurns: 2 },   // t2 arrayists
+  demonic_lash:   { effect: 'bleed',   effectValue: 18,   effectTurns: 3 },   // t4 demonic lashers
+  weeping_earth:  { effect: 'chill',   effectValue: 0.20, effectTurns: 2 },   // t5 earth horrors
+  phantom_court:  { effect: 'resonance', effectValue: 22, effectTurns: 2 },   // t5 ghost kings
+  tide_drag:      { effect: 'entangle', effectValue: 20,  effectTurns: 2 },   // t5 sea beasts
+  abyssal_gaze:   { effect: 'chill',   effectValue: 0.25, effectTurns: 2 },   // t4+ revenants
+};
+Object.entries(ENEMY_TECH_EFFECT_PATCH).forEach(([tid, fx]) => {
+  const t = ENEMY_TECHS[tid];
+  if (t && !t.effect) Object.assign(t, fx);
+});
+
 // Boss roster metadata: realm tier, hunt blurb, first-kill material cache.
 const BOSSES = {
   boar_king:            { tier: 0, blurb: 'Terror of the withered wood. The first name every village hunter learns to fear.',
@@ -4515,6 +4598,7 @@ const BOSSES = {
 // v0.62: fixed difficulty anchor — the layer-scale a player faces at the MIDPOINT of the
 // boss's realm, times the difficulty knob. Single tuning number: BOSS_DIFFICULTY_MULT.
 const BOSS_DIFFICULTY_MULT = 1.5;
+const REALM_ENEMY_BUFF = [1, 1.10, 1.15, 1.20, 1.25, 1.30, 1.35];   // v0.64: by realm tier
 function bossAnchorScale(bossTier) {
   const tier = REALMS[bossTier];
   let stats = 1.0;
@@ -9563,11 +9647,16 @@ function buildEnemyCombat(enemyId) {
   // Elite extra HP — also nerfed 20%.
   const eliteHpExtra = isElite ? 1.76 : 1.00;
 
-  const scaledHpMax = Math.round(enemyData.hpMax * scale.stats * 2.5 * hpBoost * eliteHpExtra);
+  // v0.64: per-realm enemy buff (compensates the cultivator-might damage bonus).
+  // Mortal x1, then 1.1 / 1.15 / 1.2 / 1.25 / 1.3 / 1.35 by realm tier (regular enemies
+  // use the player's tier; bosses their own anchor tier). Applies to HP and damage.
+  const buffTier = (enemyData.isBoss && BOSSES[enemyId]) ? BOSSES[enemyId].tier : (state.realm.tierIdx || 0);
+  const realmBuff = REALM_ENEMY_BUFF[Math.min(6, buffTier)];
+  const scaledHpMax = Math.round(enemyData.hpMax * scale.stats * 2.5 * hpBoost * eliteHpExtra * realmBuff);
   const scaledQiMax = Math.round(enemyData.qiMax * scale.stats * 2 * qiBoost);
   const scaledSpiritMax = Math.round(enemyData.spiritMax * scale.stats * 2 * qiBoost);
   const scaledPostureMax = Math.round(enemyData.postureMax * scale.stats * 2 * postureBoost);
-  const scaledWeaponPower = Math.max(1, Math.round(enemyData.weaponPower * scale.stats * 2 * wpnBoost));
+  const scaledWeaponPower = Math.max(1, Math.round(enemyData.weaponPower * scale.stats * 2 * wpnBoost * realmBuff));
   // Flat damage reduction. Elites get a thicker pad; normals get a small one (v0.23.2)
   // that scales gently by tier. Both blunt chip-damage / multi-hit AOE strategies.
   const tierIdx = state.realm.tierIdx || 0;
@@ -9645,7 +9734,8 @@ function initCombat(enemyIdOrIds, areaCultMult) {
     hpMax: computeMaxHP(state), hp: computeMaxHP(state),
     qiMax: computeMaxQi(state), qi: computeMaxQi(state),
     spiritMax: computeMaxSpirit(state), spirit: computeMaxSpirit(state),
-    postureMax: 60, posture: 0, broken: 0,
+    // v0.64: Dao Heart (will) hardens the stance — posture max scales with it.
+    postureMax: 60 + 2 * ((state.finalStats && state.finalStats.will) || 0), posture: 0, broken: 0,
     weaponPower: Math.round((weapon.power + secondaryWeaponPowerBonus(state) + refineWeaponBonus(state) + rb.weapon + mods.weaponBonus + boonWeaponAdd() + skillWeaponAdd()) * weaponMult * (mods.weaponMultFlat || 1)),
     loadout,
     cooldowns: Object.fromEntries(loadout.map(id => [id, 0])),
@@ -9663,6 +9753,9 @@ function initCombat(enemyIdOrIds, areaCultMult) {
   };
   combat = {
     turn: 1,
+    // v0.64: cultivator might quietly feeds damage (+might/1000 as a fraction).
+    // Cached here — cultivatorMight() runs computeMods and is too heavy per-hit.
+    mightDamageBonus: cultivatorMight() / 1000,
     enemyId: enemies[0].id,  // legacy single-enemy ID used by victory-reward / insight scaling
     log: [],
     player: p,
@@ -9727,6 +9820,8 @@ function dealDamage(target, amount, opts) {
     const hm = heritageMech();
     if (combat.tribulation && hm.tribulationIncomingMult) incoming *= hm.tribulationIncomingMult;
     if (combat.tribulation) incoming *= boonTribulationIncomingMult();
+    // v0.64: Dao Heart (will) steadies the soul under heaven's pressure — -0.5%/point, cap 40%.
+    if (combat.tribulation) incoming *= 1 - Math.min(0.40, ((state.finalStats && state.finalStats.will) || 0) * 0.005);
     if (spiritDmg && hm.spiritIncomingMult) spiritDmg *= hm.spiritIncomingMult;
   }
   qiDmg *= incoming;
@@ -9936,6 +10031,11 @@ function applyPlayerOutgoingMods(p, dmg, target, ctx) {
   // v0.57 ramp channels: crescendo builds (+X%/turn, 9-turn cap) and late-fight spikes.
   if (m.perTurnRamp > 0) dmg *= 1 + m.perTurnRamp * Math.min(9, turn - 1);
   if (m.lateBonus > 0 && turn >= 4) dmg *= 1 + m.lateBonus;
+  // v0.64: cultivator might — the whole of your accumulated power leans on every blow.
+  if (combat && combat.mightDamageBonus) dmg *= 1 + combat.mightDamageBonus;
+  // v0.64: chill now works ON the player too (enemies can inflict it).
+  const pChill = (p.effects || []).find(ef => ef.kind === 'chill');
+  if (pChill) dmg *= Math.max(0, 1 - pChill.value);
   // v0.45 Sword Intent (Azure): +8% per stack on everything the player swings.
   if (p.swordIntent > 0) dmg *= 1 + 0.08 * p.swordIntent;
   // Star Mark (Starfall): marked targets take bonus damage AND are easier to crit.
@@ -10275,6 +10375,12 @@ function playerTechnique(techId) {
 function playerMeditate() {
   if (combat.over) return;
   const p = combat.player;
+  // v0.64: entangled players cannot gather qi (the Tide-Queen's trick, among others).
+  if ((p.effects || []).some(ef => ef.kind === 'entangle')) {
+    pushLog('line', `${p.name} reaches for heaven-qi — the entangling bonds drink everything drawn.`);
+    endPlayerAction();
+    return;
+  }
   const hm = heritageMech();
   const schoolMed = (hm.schoolMeditateMult && hm.schoolMeditateMult[state.selectedSchool]) || 1;
   const regen = Math.ceil(p.qiMax * 0.5 * p.mods.meditateMult * schoolMed);
@@ -10755,7 +10861,8 @@ function endOfRound() {
   // Tick posture-broken state for every alive enemy (multi-enemy aware).
   combat.enemies.forEach(en => { if (en.broken > 0) en.broken--; });
 
-  const regen = 2 + (p.mods.qiRegenBonus || 0);
+  // v0.64: Perception (mind) keeps the meridians flowing mid-combat: +1 qi/turn per 6 mind.
+  const regen = 2 + (p.mods.qiRegenBonus || 0) + Math.floor(((state.finalStats && state.finalStats.mind) || 0) / 6);
   p.qi = Math.min(p.qiMax, p.qi + regen);
 
   combat.turn++;
