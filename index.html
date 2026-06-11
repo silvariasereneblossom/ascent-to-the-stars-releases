@@ -541,7 +541,7 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v0.64';
+const GAME_VERSION = 'v0.65';
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
 const ELEMENT_ZH   = { metal:'金', wood:'木', water:'水', fire:'火', earth:'土' };
@@ -6652,6 +6652,92 @@ const WEAPON_GEN_EFFECT = {
 })();
 
 // ============================================================
+// v0.65 RARITY LADDER — every weapon kind x realm cell carries the full common ->
+// rare -> legendary -> divine spread, with DIVINE-of-this-realm tuned to land at the
+// COMMON power of the NEXT realm (the operator's cross-realm competitiveness rule).
+// Hand-authored + earlier generated pieces count toward coverage; this pass only
+// fills missing rarities per cell.
+// ============================================================
+const RARITY_LADDER = ['common', 'rare', 'legendary', 'divine'];
+const RARITY_PFX = { common: ['Sect-Issue', '宗制'], rare: ['Refined', '精制'], legendary: ['Resplendent', '辉煌'], divine: ['Apex', '绝巅'] };
+(function generateRarityLadder() {
+  const cellRarities = {};
+  ARTIFACT_RECIPES.forEach(r => {
+    const w = WEAPONS[r.id];
+    if (!w) return;
+    const key = w.kind + ':' + (r.minRealmTier || 0);
+    (cellRarities[key] = cellRarities[key] || new Set()).add(w.rarity);
+  });
+  WEAPON_GEN_KINDS.forEach(([kind, noun, nounZh]) => {
+    for (let t = 0; t <= 6; t++) {
+      const row = WEAPON_GEN_TIER[t];
+      const base = row.power;
+      const nextBase = t < 6 ? WEAPON_GEN_TIER[t + 1].power : Math.round(row.power * 1.35);
+      const delta = nextBase - base;
+      const powerOf = { common: base, rare: Math.round(base + delta * 0.33), legendary: Math.round(base + delta * 0.66), divine: nextBase };
+      const have = cellRarities[kind + ':' + t] || new Set();
+      RARITY_LADDER.forEach((rar, ri) => {
+        if (have.has(rar)) return;
+        const wid = `genr_${kind}_${t}_${rar}`;
+        const [fx, blurb] = WEAPON_GEN_EFFECT[kind](t);
+        const w = {
+          name: `${RARITY_PFX[rar][0]} ${row.pfx[0][0]} ${noun}`, zh: `${RARITY_PFX[rar][1]}${row.pfx[0][1]}${nounZh}`,
+          power: powerOf[rar], slots: Math.min(6, 2 + Math.ceil(t / 2) + (rar === 'divine' ? 1 : 0)),
+          kind, rarity: rar,
+          desc: rar === 'common'
+            ? `Standard ${noun.toLowerCase()} pattern of this realm. Honest work.`
+            : rar === 'divine'
+              ? `The realm's apex ${noun.toLowerCase()} — the equal of the next realm's standard issue. ${blurb}.`
+              : `A ${rar} ${noun.toLowerCase()} pattern: ${blurb}.`,
+        };
+        if (rar !== 'common') w.apply = fx;
+        WEAPONS[wid] = w;
+        const mats = {};
+        const costMult = [1, 1.5, 2, 3][ri];
+        Object.entries(row.mats).forEach(([m, n]) => { mats[m] = Math.max(1, Math.round(n * costMult)); });
+        if (rar === 'divine' && t < 6) {
+          const nextFirst = Object.keys(WEAPON_GEN_TIER[t + 1].mats)[0];
+          mats[nextFirst] = (mats[nextFirst] || 0) + 1;   // divine reaches into the next realm's stock
+        }
+        ARTIFACT_RECIPES.push({ id: wid, materials: mats, minRealmTier: t });
+      });
+    }
+  });
+})();
+// Armor rarity ladder: per realm, a rare / legendary / divine defensive piece (slots rotate),
+// divine again tuned to shade into the next realm's baseline.
+(function generateArmorLadder() {
+  const slotsCycle = [['helmet', 'Helm', '盔'], ['chest', 'Robe', '袍'], ['boots', 'Boots', '靴']];
+  const hpBase = [14, 25, 50, 95, 170, 290, 460];
+  for (let t = 0; t <= 6; t++) {
+    const nextHp = t < 6 ? hpBase[t + 1] : Math.round(hpBase[t] * 1.55);
+    const powerOf = { rare: Math.round(hpBase[t] + (nextHp - hpBase[t]) * 0.33), legendary: Math.round(hpBase[t] + (nextHp - hpBase[t]) * 0.66), divine: nextHp };
+    ['rare', 'legendary', 'divine'].forEach((rar, ri) => {
+      const [slot, noun, nounZh] = slotsCycle[(t + ri) % 3];
+      const aid = `genr_armor_${t}_${rar}`;
+      const mods = { hpBonus: powerOf[rar] };
+      if (rar === 'legendary') mods.flatDR = 2 + t;
+      if (rar === 'divine') { mods.flatDR = 3 + t * 2; mods.qiBonus = 10 + t * 8; }
+      ARMOR[aid] = {
+        name: `${RARITY_PFX[rar][0]} ${WEAPON_GEN_TIER[t].pfx[1][0]} ${noun}`, zh: `${RARITY_PFX[rar][1]}${WEAPON_GEN_TIER[t].pfx[1][1]}${nounZh}`,
+        slot, rarity: rar, mods,
+        desc: rar === 'divine'
+          ? `The realm's apex ${noun.toLowerCase()} — armor to shame the next realm's standard issue.`
+          : `A ${rar} ${noun.toLowerCase()} pattern of this realm.`,
+      };
+      const mats = {};
+      const costMult = [1.5, 2, 3][ri];
+      Object.entries(WEAPON_GEN_TIER[t].mats).forEach(([m, n]) => { mats[m] = Math.max(1, Math.round(n * costMult)); });
+      if (rar === 'divine' && t < 6) {
+        const nextFirst = Object.keys(WEAPON_GEN_TIER[t + 1].mats)[0];
+        mats[nextFirst] = (mats[nextFirst] || 0) + 1;
+      }
+      ARMOR_RECIPES.push({ id: aid, materials: mats, minRealmTier: t, minLayer: ri + 1 });
+    });
+  }
+})();
+
+// ============================================================
 // v0.59 ARMOR & ACCESSORIES — 2-3 new pieces per realm, with the five-element
 // interaction channels (elementWard on defensive pieces, elementAmp / elementBoostAll
 // on offensive accessories). All craftable; recipes use the v0.58 boss materials.
@@ -7217,28 +7303,65 @@ function chooseDestiny(id) {
 // on capabilities (sect-taught techniques) + resources. Lifetime contribution sets your RANK,
 // which grants a small passive cultivation bonus. Per-life (reset on ascension/reincarnation).
 // ============================================================
-// v0.60: 8 ranks, much longer ramp (operator: sect depth + longer advancement).
-// Index-compatible with old saves (same +5%/rank cult bonus; titles shift, mult preserved).
+// v0.60: 8 ranks. v0.65: thresholds x10 (operator: 10x longer ramp; existing saves'
+// lifetime contribution is migrated x10 so nobody loses their standing), and rank is now
+// EARNED — lifetime makes you eligible, but you must defeat a sect elder in a promotion
+// duel to claim it (state.sectRank).
 const SECT_RANKS = [
   { name: 'Outer Disciple',   zh: '外门弟子', at: 0 },
-  { name: 'Inner Disciple',   zh: '内门弟子', at: 800 },
-  { name: 'Core Disciple',    zh: '核心弟子', at: 4000 },
-  { name: 'True Inheritor',   zh: '真传弟子', at: 12000 },
-  { name: 'Sect Elder',       zh: '长老',     at: 30000 },
-  { name: 'Grand Elder',      zh: '太上长老', at: 80000 },
-  { name: 'Sect Pillar',      zh: '宗门柱石', at: 200000 },
-  { name: 'Honored Ancestor', zh: '荣誉老祖', at: 500000 },
+  { name: 'Inner Disciple',   zh: '内门弟子', at: 8000 },
+  { name: 'Core Disciple',    zh: '核心弟子', at: 40000 },
+  { name: 'True Inheritor',   zh: '真传弟子', at: 120000 },
+  { name: 'Sect Elder',       zh: '长老',     at: 300000 },
+  { name: 'Grand Elder',      zh: '太上长老', at: 800000 },
+  { name: 'Sect Pillar',      zh: '宗门柱石', at: 2000000 },
+  { name: 'Honored Ancestor', zh: '荣誉老祖', at: 5000000 },
 ];
 const SLAY_BOUNTY_N = 10;
 function grantContribution(n) {
   state.contribution = (state.contribution || 0) + n;
   state.contributionLifetime = (state.contributionLifetime || 0) + n;
 }
-function sectRankIdx() {
+// v0.65: rank is EARNED via promotion duels, not derived from lifetime.
+function sectRankIdx() { return Math.min((state && state.sectRank) || 0, SECT_RANKS.length - 1); }
+// Lifetime contribution gates ELIGIBILITY for the next promotion duel.
+function sectRankEligibleIdx() {
   const lt = (state && state.contributionLifetime) || 0;
   let idx = 0;
   for (let i = 0; i < SECT_RANKS.length; i++) if (lt >= SECT_RANKS[i].at) idx = i;
   return idx;
+}
+function sectPromotionAvailable() { return sectRankEligibleIdx() > sectRankIdx(); }
+// The promotion duel: a sect elder of YOUR school, scaled to YOUR realm, whose technique
+// list deepens with the rank at stake (higher ranks field the school's nastier forms).
+function startSectPromotionDuel() {
+  if (!sectPromotionAvailable() || combat) return;
+  const targetRank = sectRankIdx() + 1;
+  const school = SCHOOLS[state.selectedSchool];
+  if (!school) return;
+  // Technique pool: school base kit (damaging/status forms only — stances mean nothing
+  // in an elder's hands here), then realm-gated + mastery forms as the stakes rise.
+  const isUsable = tid => { const t = TECHNIQUES[tid]; return t && ((t.damage || 0) > 0 || t.effect); };
+  const baseT = school.techniques.filter(isUsable);
+  const deeper = Object.entries(TECHNIQUES)
+    .filter(([tid, t]) => t.school === state.selectedSchool && t.minRealmTier > 0 && isUsable(tid))
+    .sort((a, b) => (a[1].minRealmTier || 0) - (b[1].minRealmTier || 0))
+    .map(([tid]) => tid);
+  const extra = targetRank >= 5 ? 4 : targetRank >= 3 ? 2 : targetRank >= 2 ? 1 : 0;
+  const techIds = baseT.slice(0, 3).concat(deeper.slice(0, extra));
+  mkEnemy('sect_promotion_elder', {
+    name: `${SECT_RANKS[targetRank].name} Examiner`, zh: '考核长老',
+    tier: Math.min(6, state.realm.tierIdx || 0), arch: 'elite',
+    power: 0.95 + targetRank * 0.09,   // higher ranks: more devastating
+    kind: 'human', element: (playerElements(state)[0] || 'metal'),
+    techIds,
+    intro: `An elder of ${school.name} descends to the examination ring, your own forms resting easy in their hands. "Show me the style. Properly."`,
+    victory: `The elder stops, nods once, and writes your new rank in the sect register. "${SECT_RANKS[targetRank].name}. Carry it."`,
+    defeat: 'The elder helps you up. "The style is there. The weight behind it is not. Return when it is."',
+  });
+  initCombat(['sect_promotion_elder'], 1);
+  if (combat) combat.sectDuel = targetRank;
+  render();
 }
 function sectRankMult() { return 1 + sectRankIdx() * 0.05; }  // +5% cultivation per rank above Outer
 function slayBountyReward() { return 40 + ((state.realm && state.realm.tierIdx) || 0) * 20; }
@@ -7302,7 +7425,11 @@ const SECT_ARTS = {
     desc: 'Sect Art (Sect Pillar+). Borrow, for one swing, the strength of every ancestor on the sect\'s memorial wall.',
     logHit: (a,t) => `Behind ${a}, for one heartbeat, stand all the dead of the sect — and they are not pleased with ${t}.` },
 };
-Object.entries(SECT_ARTS).forEach(([id, t]) => { TECHNIQUES[id] = t; });
+Object.entries(SECT_ARTS).forEach(([id, t]) => {
+  t.sect = true;  // v0.65: counts as a technique of YOUR school (bonuses + kit synergy apply)
+  t.desc += ' Counts as a technique of YOUR school: school bonuses apply, and your passive (Everburn, Sword Intent, Oathbrand...) rides on its hits.';
+  TECHNIQUES[id] = t;
+});
 function buySectArt(techId) {
   const t = SECT_ARTS[techId];
   if (!t) return false;
@@ -7318,26 +7445,72 @@ function buySectArt(techId) {
   return true;
 }
 
-// v0.60: Sect Armory — rank-gated weapons bought with contribution (not forged).
-const SECT_WEAPONS = {
-  sect_banner_blade: { sectRank: 2, contribCost: 600,
-    def: { name: 'Sect Banner-Blade', zh: '宗旗刃', power: 16, slots: 3, kind: 'sword', rarity: 'rare',
-      desc: 'A standard-bearer\'s sword, point heavy with the sect\'s colors. +20% posture damage.',
-      apply: m => { m.postureMult *= 1.20; } } },
-  sect_elder_staff: { sectRank: 4, contribCost: 2500,
-    def: { name: "Elder's Mountain Staff", zh: '长老山杖', power: 28, slots: 4, kind: 'staff', rarity: 'legendary',
-      desc: 'Carried by three elders before you. +8% cultivation rate and +40 max qi while equipped.',
-      apply: m => { m.cultMult *= 1.08; m.qiBonus += 40; } } },
-  sect_pillar_greatsword: { sectRank: 6, contribCost: 10000,
-    def: { name: 'Pillar-Carrier Greatsword', zh: '柱石巨剑', power: 45, slots: 5, kind: 'greatsword', rarity: 'legendary',
-      desc: 'Forged from a load-bearing beam of the first sect hall. +10 DR, +25% damage when bloodied.',
-      apply: m => { m.flatDR += 10; m.lowHpBonus += 0.25; } } },
-  sect_ancestor_relic: { sectRank: 7, contribCost: 40000,
-    def: { name: "Ancestor's Relic Blade", zh: '老祖遗刃', power: 52, slots: 5, kind: 'sword', rarity: 'divine',
-      desc: 'The founder\'s own blade, lent — never given — to each Honored Ancestor. +6% crit, element-overcome amplified 20%.',
-      apply: m => { m.critChance += 0.06; m.elementBoostAll += 0.20; } } },
+// v0.60/v0.65: Sect Armory — rank-gated relic weapons bought with contribution.
+// v0.65 rework (operator): sect weapons now MATCH YOUR SCHOOL'S MAIN WEAPON and
+// amplify its gameplan. 4 ranks x 15 schools generated below; the v0.60 generic four
+// stay registered so existing owned copies keep working (no longer sold).
+const LEGACY_SECT_WEAPONS = {
+  sect_banner_blade: { name: 'Sect Banner-Blade', zh: '宗旗刃', power: 16, slots: 3, kind: 'sword', rarity: 'rare',
+    desc: 'A standard-bearer\'s sword (legacy issue). +20% posture damage.',
+    apply: m => { m.postureMult *= 1.20; } },
+  sect_elder_staff: { name: "Elder's Mountain Staff", zh: '长老山杖', power: 28, slots: 4, kind: 'staff', rarity: 'legendary',
+    desc: 'Carried by three elders before you (legacy issue). +8% cultivation, +40 max qi.',
+    apply: m => { m.cultMult *= 1.08; m.qiBonus += 40; } },
+  sect_pillar_greatsword: { name: 'Pillar-Carrier Greatsword', zh: '柱石巨剑', power: 45, slots: 5, kind: 'greatsword', rarity: 'legendary',
+    desc: 'Forged from a beam of the first sect hall (legacy issue). +10 DR, +25% when bloodied.',
+    apply: m => { m.flatDR += 10; m.lowHpBonus += 0.25; } },
+  sect_ancestor_relic: { name: "Ancestor's Relic Blade", zh: '老祖遗刃', power: 52, slots: 5, kind: 'sword', rarity: 'divine',
+    desc: 'The founder\'s own blade (legacy issue). +6% crit, element-overcome amplified 20%.',
+    apply: m => { m.critChance += 0.06; m.elementBoostAll += 0.20; } },
 };
-Object.entries(SECT_WEAPONS).forEach(([id, w]) => { WEAPONS[id] = w.def; });
+Object.entries(LEGACY_SECT_WEAPONS).forEach(([id, def]) => { WEAPONS[id] = def; });
+
+// Per-school amplifier (scaled by rank via scaleBossMods: x1 / x1.8 / x3 / x4.2).
+const SCHOOL_SECT_AMP = {
+  azure_sword:       { critChance: 0.03, techDamageMult: 1.05 },
+  iron_body:         { flatDR: 3, hpBonus: 30 },
+  whispering_array:  { dotMult: 1.06, qiRegenBonus: 1 },
+  crimson_flame:     { dotMult: 1.08 },
+  moonlit_water:     { incomingMult: 0.97, postureMult: 1.05 },
+  silent_daggers:    { critChance: 0.03, critMult: 1.06 },
+  demon_heart:       { lifestealPct: 0.03 },
+  starfall:          { critChance: 0.02, firstStrikeBonus: 0.06 },
+  verdant_monastery: { hpBonus: 35, qiRegenBonus: 1 },
+  thunder_hammer:    { postureMult: 1.08 },
+  cloud_traveler:    { dodgeChance: 0.015 },
+  bone_reed:         { spiritDamageMult: 1.08, spiritBonus: 4 },
+  jade_inkwell:      { techDamageMult: 1.06, qiBonus: 10 },
+  dragonforge:       { lowHpBonus: 0.06, weaponBonus: 2 },
+  chain_saint:       { spiritDamageMult: 1.05, postureMult: 1.05 },
+};
+const SECT_W_RANKS = [
+  { sectRank: 2, contribCost: 600,   power: 16, slots: 3, rarity: 'rare',      pfx: ["Standard-Bearer's", '旗手'], scale: 1.0 },
+  { sectRank: 4, contribCost: 2500,  power: 28, slots: 4, rarity: 'legendary', pfx: ["Elder's", '长老'],          scale: 1.8 },
+  { sectRank: 6, contribCost: 10000, power: 45, slots: 5, rarity: 'legendary', pfx: ["Pillar's", '柱石'],         scale: 3.0 },
+  { sectRank: 7, contribCost: 40000, power: 52, slots: 5, rarity: 'divine',    pfx: ["Founder's", '祖师'],        scale: 4.2 },
+];
+const SECT_WEAPONS = {};
+Object.keys(SCHOOLS).forEach(sid => {
+  const school = SCHOOLS[sid];
+  const kindNoun = WEAPON_GEN_KINDS.find(k => k[0] === (WEAPONS[school.weapon] || {}).kind) || ['sword', 'Blade', '刃'];
+  const amp = SCHOOL_SECT_AMP[sid] || {};
+  const kit = SCHOOL_KITS[sid] || {};
+  SECT_W_RANKS.forEach((r, i) => {
+    const wid = `sect_w_${sid}_${i}`;
+    const mods = scaleBossMods(amp, r.scale);
+    WEAPONS[wid] = {
+      name: `${r.pfx[0]} ${kindNoun[1]}`, zh: `${r.pfx[1]}${kindNoun[2]}`,
+      power: r.power, slots: r.slots, kind: kindNoun[0], rarity: r.rarity,
+      desc: `${school.name} issue, rank-bound. Built to amplify ${kit.passiveName || 'the school style'}: ${modSummary(mods)}.`,
+      apply: m => mergeMods(m, mods),
+      sectSchool: sid,
+    };
+    SECT_WEAPONS[wid] = { sectRank: r.sectRank, contribCost: r.contribCost, school: sid, def: WEAPONS[wid] };
+  });
+});
+function sectWeaponsForSchool(sid) {
+  return Object.entries(SECT_WEAPONS).filter(([, w]) => w.school === sid);
+}
 function buySectWeapon(wid) {
   const w = SECT_WEAPONS[wid];
   if (!w) return false;
@@ -7518,7 +7691,11 @@ function seekOpportunity() {
 // the cooldown-gated Seek Opportunity so the spammable button can't farm gear.
 const WALK_EVENT_IDS = new Set(['stones', 'materials', 'insight', 'herbs', 'spring', 'spar', 'wandering_market']);
 function walkAStretchCombatChance(luck) { return Math.max(0, (16 - luck) / 16) * 0.5; }  // 50% @ Fortune 0, 0% @ 16+
+const WALK_CD_MS = 5 * 60 * 1000;   // v0.65: operator-set 5-minute cooldown
+function walkCooldownLeft() { return Math.max(0, ((state.lastWalk || 0) + WALK_CD_MS) - Date.now()); }
 function walkAStretch() {
+  if (walkCooldownLeft() > 0) return;
+  state.lastWalk = Date.now();
   const luck = (state.finalStats && state.finalStats.luck) || 0;
   if (Math.random() < walkAStretchCombatChance(luck)) {
     const enc = rollMarketEncounter();
@@ -8791,6 +8968,7 @@ function newCharacter(seed, childhood = null) {
     bossKills: {},  // v0.58: per-boss kill counts (first kill = bonus cache)
     demonic: false, // v0.61: demonic-path flag (chosen at chargen; demon_heart forces it)
     bossCooldowns: {}, // v0.62: per-boss challenge timestamps
+    sectRank: 0, sectRampV65: true, lastWalk: 0, // v0.65: earned rank + walk cooldown
     // Wave 3a: fortune-encounter cooldown timer.
     lastOpportunity: 0,
     // Wave 3b: secret-realm dive (active run state + entry cooldown).
@@ -9623,7 +9801,9 @@ function buildEnemyCombat(enemyId) {
   const enemyData = ENEMIES[enemyId];
   if (!enemyData) return null;
   const eTechs = {};
-  enemyData.techIds.forEach(id => { eTechs[id] = ENEMY_TECHS[id]; });
+  // v0.65: sect promotion elders fight with PLAYER school techniques — fall through to
+  // TECHNIQUES for ids not in ENEMY_TECHS (the field shapes are compatible).
+  enemyData.techIds.forEach(id => { eTechs[id] = ENEMY_TECHS[id] || TECHNIQUES[id]; });
   // v0.62: bosses do NOT scale with the player's layer. They are anchored at the
   // difficulty of their realm's MIDPOINT, times BOSS_DIFFICULTY_MULT — very very hard
   // below mid-realm, a real fight at it, conquerable beyond. (Mortal's single layer
@@ -10135,13 +10315,17 @@ function playerStrike(opts) {
   endPlayerAction();
 }
 
+// v0.65: sect arts (tech.sect) count as techniques of YOUR school — school damage/qi
+// bonuses from heritage, gear and kits apply to them.
+function techSchoolOf(tech) { return tech.sect ? state.selectedSchool : tech.school; }
 function effectiveQiCost(p, tech) {
   let cost = tech.qi;
-  const schoolMult = p.mods.schoolQiMult[tech.school];
+  const schoolMult = p.mods.schoolQiMult[techSchoolOf(tech)];
   if (schoolMult) cost *= schoolMult;
   const hm = heritageMech();
-  if (hm.schoolQiDiscount && hm.schoolQiDiscount[tech.school]) cost *= hm.schoolQiDiscount[tech.school];
-  if (hm.schoolQiPenalty && hm.schoolQiPenalty[tech.school]) cost *= hm.schoolQiPenalty[tech.school];
+  const sQi = techSchoolOf(tech);
+  if (hm.schoolQiDiscount && hm.schoolQiDiscount[sQi]) cost *= hm.schoolQiDiscount[sQi];
+  if (hm.schoolQiPenalty && hm.schoolQiPenalty[sQi]) cost *= hm.schoolQiPenalty[sQi];
   cost *= boonQiCostMult();
   const qiUp = p.effects.find(ef => ef.kind === 'qi_cost_up');
   if (qiUp) cost *= qiUp.value;
@@ -10168,8 +10352,9 @@ function playerTechnique(techId) {
 
   let dmg = p.weaponPower * (tech.damage || 0) * (p.mods.techDamageMult || 1);
   const hm0 = heritageMech();
-  if (hm0.schoolDamageMult && hm0.schoolDamageMult[tech.school]) dmg *= hm0.schoolDamageMult[tech.school];
-  if (p.mods.schoolDamageMult && p.mods.schoolDamageMult[tech.school]) dmg *= p.mods.schoolDamageMult[tech.school];
+  const sDmg = techSchoolOf(tech);
+  if (hm0.schoolDamageMult && hm0.schoolDamageMult[sDmg]) dmg *= hm0.schoolDamageMult[sDmg];
+  if (p.mods.schoolDamageMult && p.mods.schoolDamageMult[sDmg]) dmg *= p.mods.schoolDamageMult[sDmg];
   if (hm0.rivalDamageMult && combat.enemyId && RIVAL_ENEMY_IDS.has(combat.enemyId)) dmg *= hm0.rivalDamageMult;
   if (p.buffs.nextDamageTurns > 0 && dmg > 0) {
     dmg *= p.buffs.nextDamageMult;
@@ -10198,7 +10383,7 @@ function playerTechnique(techId) {
   }
 
   let pierce = tech.pierceQi || 0;
-  if (hm0.schoolPierceBonus && hm0.schoolPierceBonus[tech.school]) pierce = Math.min(1, pierce + hm0.schoolPierceBonus[tech.school]);
+  if (hm0.schoolPierceBonus && hm0.schoolPierceBonus[sDmg]) pierce = Math.min(1, pierce + hm0.schoolPierceBonus[sDmg]);
   const directSpiritAmt = (tech.directSpirit || 0) * (p.mods.spiritDamageMult || 1);
   const postureBoostMult = (p.buffs && p.buffs.postureBoostTurns > 0) ? (p.buffs.postureBoost || 1) : 1;  // v0.57 Stormcall
   const postureAmtBase = Math.round((tech.postureBuild || 0) * p.mods.postureMult * (hm0.postureDamageMult || 1) * postureBoostMult);
@@ -10554,6 +10739,13 @@ function checkDeath() {
       }
       pendingTribulation = null;
       if (state.confirmed) state.finalStats = finalStats(state);
+    }
+
+    // v0.65: promotion duel won — the rank is claimed.
+    if (combat.sectDuel != null) {
+      state.sectRank = combat.sectDuel;
+      pushLog('reward', `Promotion! You now stand as ${SECT_RANKS[state.sectRank].name} of the sect (+${state.sectRank * 5}% cultivation).`);
+      combat.sectDuel = null;
     }
 
     const hmVictory = heritageMech();
@@ -12816,6 +13008,7 @@ function renderCharSheet() {
     <p style="font-size:0.85rem;color:var(--ink-soft);margin:0 0 0.4rem">Wander the road for whatever fate brings — spirit stones, materials, a spring's blessing, a rare wandering stall, or a fight. Your <strong>Fortune (${walkLuck})</strong> makes hostile encounters rarer (~<strong>${walkCombatPct}%</strong> now, 0% at 16+) and good finds more likely.</p>
     ${state.lastWalkResult ? `<p style="font-size:0.88rem;margin:0 0 0.4rem;color:var(--gold)">${state.lastWalkResult}</p>` : ''}
     <div class="button-row"><button id="random-encounter">Walk a Stretch</button></div>`;
+  // v0.65: cooldown label handled after mount (see the random-encounter hookup).
   appendPanel(roadP, 'market');
 
   // --- Sect Hall (Wave 2b): contribution economy + duties + sect-taught techniques ---
@@ -12827,8 +13020,32 @@ function renderCharSheet() {
   const contrib = state.contribution || 0;
   const lifetime = state.contributionLifetime || 0;
   sectP.innerHTML = `<h3>${school.name} — Sect Hall <span style="font-weight:normal;color:var(--ink-soft);font-size:0.85rem">宗门</span></h3>
-    <p style="font-size:0.85rem;color:var(--ink-soft);margin:0 0 0.5rem">Rank: <strong style="color:var(--gold)">${rank.name}</strong> <span style="font-size:0.8rem">${rank.zh}</span> · Contribution: <strong style="color:var(--gold)">${contrib.toLocaleString()}</strong> · Rank bonus: +${rankIdx * 5}% cultivation${nextRank ? ` · Next rank at ${nextRank.at.toLocaleString()} lifetime (you have ${lifetime.toLocaleString()})` : ' · highest rank reached'}</p>
-    <div style="font-weight:bold;margin:0.3rem 0">Sect Duties</div>`;
+    <p style="font-size:0.85rem;color:var(--ink-soft);margin:0 0 0.5rem">Rank: <strong style="color:var(--gold)">${rank.name}</strong> <span style="font-size:0.8rem">${rank.zh}</span> · Contribution: <strong style="color:var(--gold)">${contrib.toLocaleString()}</strong> · Rank bonus: +${rankIdx * 5}% cultivation${nextRank ? ` · Next rank: ${nextRank.name} at ${nextRank.at.toLocaleString()} lifetime (you have ${lifetime.toLocaleString()})` : ' · highest rank reached'}</p>`;
+  // v0.65: promotion duel — lifetime makes you eligible; the examiner makes you worthy.
+  if (sectPromotionAvailable()) {
+    const duelRow = document.createElement('div');
+    duelRow.className = 'consumable-row';
+    duelRow.innerHTML = `<div class="consumable-info">
+        <div class="consumable-name" style="color:var(--gold)">Promotion Examination <span style="color:var(--ink-soft);font-size:0.75rem">晋升考核</span></div>
+        <div class="consumable-desc">You are eligible for <strong>${SECT_RANKS[rankIdx + 1].name}</strong>. An elder of your own school awaits in the examination ring — they fight in YOUR style, scaled to your realm, and the higher the rank, the deeper their command of its forms.</div>
+      </div>`;
+    const duelBtns = document.createElement('div'); duelBtns.className = 'consumable-buttons';
+    const duelBtn = document.createElement('button');
+    duelBtn.className = 'gold';
+    duelBtn.textContent = 'Enter the Ring';
+    duelBtn.onclick = () => startSectPromotionDuel();
+    duelBtns.appendChild(duelBtn); duelRow.appendChild(duelBtns); sectP.appendChild(duelRow);
+  } else if (nextRank) {
+    const note = document.createElement('div');
+    note.className = 'consumable-desc';
+    note.style.cssText = 'margin:0 0 0.3rem;opacity:0.85';
+    note.textContent = `Promotion to ${nextRank.name} unlocks at ${nextRank.at.toLocaleString()} lifetime contribution, then must be EARNED in an examination duel.`;
+    sectP.appendChild(note);
+  }
+  const dutiesHdr = document.createElement('div');
+  dutiesHdr.style.cssText = 'font-weight:bold;margin:0.3rem 0';
+  dutiesHdr.textContent = 'Sect Duties';
+  sectP.appendChild(dutiesHdr);
   // Hunt bounty
   const kills = Math.min(state.sectKills || 0, SLAY_BOUNTY_N);
   const slayReady = (state.sectKills || 0) >= SLAY_BOUNTY_N;
@@ -12934,7 +13151,7 @@ function renderCharSheet() {
   armoryHdr.style.cssText = 'font-weight:bold;margin:0.6rem 0 0.3rem';
   armoryHdr.textContent = 'Sect Armory — relic weapons for contribution';
   sectP.appendChild(armoryHdr);
-  Object.entries(SECT_WEAPONS).forEach(([wid, sw]) => {
+  sectWeaponsForSchool(state.selectedSchool).forEach(([wid, sw]) => {
     const w = WEAPONS[wid];
     const owned = state.weapons.owned.includes(wid) || state.weapon === wid;
     const rankMet = rankIdx >= sw.sectRank;
@@ -13035,7 +13252,15 @@ function renderCharSheet() {
   lsBtns.appendChild(lsBtn); lsRow.appendChild(lsBtns); cfgP.appendChild(lsRow);
   appendPanel(buildConfigPanel(), 'config');  // unified: the in-game tab shows the same panel as the title screen
   const reBtn = document.getElementById('random-encounter');
-  if (reBtn) reBtn.onclick = () => walkAStretch();
+  if (reBtn) {
+    const wcd = walkCooldownLeft();
+    if (wcd > 0) {
+      reBtn.textContent = `Walk a Stretch (${Math.ceil(wcd / 60000)}m)`;
+      reBtn.disabled = true;
+    } else {
+      reBtn.onclick = () => walkAStretch();
+    }
+  }
 
   const dz = document.createElement('div');
   dz.className = 'panel';
@@ -13404,6 +13629,17 @@ try {
       if (!parsed.settings) parsed.settings = { noAgeDeath: false };
       if (!parsed.bossKills) parsed.bossKills = {};  // v0.58 boss roster
       if (!parsed.bossCooldowns) parsed.bossCooldowns = {};  // v0.62 boss challenge cooldowns
+      // v0.65: sect ramp x10 — migrate lifetime once so existing standing is preserved,
+      // and seed the new EARNED rank from it (no one re-fights for a rank they held).
+      if (!parsed.sectRampV65) {
+        parsed.sectRampV65 = true;
+        parsed.contributionLifetime = (parsed.contributionLifetime || 0) * 10;
+        let idx = 0;
+        for (let i = 0; i < SECT_RANKS.length; i++) if (parsed.contributionLifetime >= SECT_RANKS[i].at) idx = i;
+        parsed.sectRank = idx;
+      }
+      if (parsed.sectRank == null) parsed.sectRank = 0;
+      if (parsed.lastWalk == null) parsed.lastWalk = 0;
       // v0.61: demonic path flag. Existing demon_heart characters walked it all along.
       if (parsed.demonic == null) parsed.demonic = !!(SCHOOLS[parsed.selectedSchool] && SCHOOLS[parsed.selectedSchool].isDemon);
       // v0.56 FIX ("5th slot showing but not working"): techniques deleted/renamed in
