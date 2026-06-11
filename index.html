@@ -541,7 +541,7 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v0.67';
+const GAME_VERSION = 'v0.68';
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
 const ELEMENT_ZH   = { metal:'金', wood:'木', water:'水', fire:'火', earth:'土' };
@@ -1650,8 +1650,8 @@ const TECHNIQUES = {
     logHit: (a,t) => `${a} drives their own blood into the edge; the cut sears.` },
   anvilbreak: {
     name: 'Anvilbreak', zh: '砧破', school: 'dragonforge',
-    qi: 18, cd: 3, damage: 4.6, pierceQi: 0.55, postureBuild: 26,
-    desc: 'A decisive downswing that cleaves qi shields in half.',
+    qi: 18, cd: 3, damage: 4.6, pierceQi: 0.55, postureBuild: 33,
+    desc: 'A decisive downswing that cleaves qi shields in half and CRUSHES stance (+25% posture).',
     logHit: (a,t) => `${a}'s greatsword falls. Nothing in its line holds up.` },
   dragon_stance: {
     name: 'Quench', zh: '淬火', school: 'dragonforge',
@@ -2189,7 +2189,7 @@ const SCHOOLS = {
     name: 'Dragonforge Conclave', zh: '龙炉阁',
     weapon: 'forge_greatsword',
     techniques: ['forge_slash','heatfold_cleave','anvilbreak','dragon_stance','forge_slag'],
-    specialty: 'PURE SINGLE-TARGET armor-melter. Moltenwake Sunders with every technique hit: +6% damage taken per stack and enemy armor stops counting. Slow swings; each lands heavier than the last.',
+    specialty: 'PURE SINGLE-TARGET posture-breaker. Moltenwake Sunders on EVERY hit (strikes too): +6% damage taken and +10% posture damage taken per stack, armor stops counting. Melt the guard, crush the stance, Quench the wreckage.',
     bestStats: ['body','spirit'],
     flavor: 'A sect-forge built around a caldera. The greatswords they make are said to still remember the mountain they came from.',
   },
@@ -2352,8 +2352,9 @@ const SCHOOL_KITS = {
   },
   dragonforge: {
     passiveName: 'Moltenwake', passiveZh: '熔迹',
-    passiveDesc: 'Technique hits Sunder: +6% damage taken per stack (max 5), and Sundered armor stops counting.',
+    passiveDesc: 'EVERY hit — strikes included — Sunders: +6% damage taken AND +10% posture damage taken per stack (max 5), and Sundered armor stops counting.',
     onTechHit: { kind: 'sunder', value: 0.06, turns: 3 },
+    strikeAppliesOnHit: true,   // v0.68: basic strikes sunder too (operator)
   },
   chain_saint: {
     passiveName: 'Oathbrand', passiveZh: '誓烙',
@@ -2380,6 +2381,46 @@ const DEMONIC_TWISTS = {
   dragonforge:       { onTechHit: { kind: 'sunder', value: 0.09, turns: 3 }, twistDesc: 'Sunder bites +9% per stack.' },
   chain_saint:       { onTechHit: { kind: 'oathbound', power: 0.40, turns: 2 }, twistDesc: 'Backlash collects at 40% weapon power.' },
 };
+// v0.68: every school has a DEMONIC identity — the heretical mirror of itself.
+// Displayed everywhere the school name/flavor shows when the character walks the path.
+const DEMONIC_SCHOOL_LORE = {
+  azure_sword:       { name: 'Asura Blade Pavilion', zh: '修罗刃阁',
+    flavor: 'The same jade peak, after the massacre. The students still sleep beside their blades; now the blades dream back.' },
+  iron_body:         { name: 'Blood-Forged Body Hall', zh: '血锻堂',
+    flavor: "Flesh is still the only scripture — but heresy annotates it in other people's blood. The floor stains are fresher here." },
+  whispering_array:  { name: 'Screaming Glyph Coven', zh: '嚎纹邪阁',
+    flavor: 'The dao is not arranged here. It is bound, gagged, and made to confess. The ink screams quietly while it works.' },
+  crimson_flame:     { name: 'Heart-Furnace Crematorium', zh: '心炉焚殿',
+    flavor: 'The brazier at the peak finally found better fuel. Disciples learn to burn what they were, then what everyone else was.' },
+  moonlit_water:     { name: 'Drowned Moon Cult', zh: '溺月教',
+    flavor: 'The lake that never froze has a floor now, paved with petitioners. The moon they worship is the one underneath.' },
+  silent_daggers:    { name: 'Throat-Debt Brotherhood', zh: '索喉会',
+    flavor: 'Still no halls, no gates, no names. The note under your pillow is an invoice now. Every throat owes; the Brotherhood collects.' },
+  demon_heart:       { name: 'Demon Heart Palace', zh: '魔心殿',
+    flavor: 'THE FIRST HERESY. Every demonic path walked by any school is a commentary on this palace\'s sutras. It has no doors because it has never needed to keep anyone out — only in.' },
+  starfall:          { name: 'Star-Devourer Hunters', zh: '食星猎团',
+    flavor: 'They memorized the constellations by touch. Then they began eating them, one cold light at a time, and calling it archery.' },
+  verdant_monastery: { name: 'Strangler-Root Temple', zh: '绞根寺',
+    flavor: 'The grove is still older than the monks. It has simply stopped pretending the monks are in charge — or that visitors leave.' },
+  thunder_hammer:    { name: 'Tomb-Iron Foundry', zh: '墓铁炉',
+    flavor: "The great anvil rings again — struck with grave-iron, quenched in last breaths. The founder's rule died with the founder." },
+  cloud_traveler:    { name: 'Plague-Wind Drifters', zh: '瘟风客',
+    flavor: 'Still no halls, no meetings. The shared trick now is stepping where the wind sickens, and leaving before the burials.' },
+  bone_reed:         { name: 'Wailing Marrow Choir', zh: '嚎髓唱社',
+    flavor: 'Seven flutes, a brass kettle, and a new repertoire. The cave performs requiems for audiences who are about to need them.' },
+  jade_inkwell:      { name: 'Blood-Ink Tribunal', zh: '血墨衙',
+    flavor: 'Three hundred desks; the master still only corrects calligraphy. The ink is sourced differently, and the corrections are final.' },
+  dragonforge:       { name: 'Moltenbone Conclave', zh: '熔骨阁',
+    flavor: "The caldera-forge learned what burns hotter than dragon memory: dragon grief. Their greatswords remember being something's spine." },
+  chain_saint:       { name: 'Oathbreaker Cloister', zh: '破誓禅',
+    flavor: 'They swore their first vow to the chain. Then they learned what the chain pays for BROKEN vows, and the cloister got rich.' },
+};
+// Demonic-aware school display: name/zh/flavor swap when the character walks the path.
+function schoolDisplay(sid, char) {
+  const s = SCHOOLS[sid] || {};
+  const d = isDemonic(char) && DEMONIC_SCHOOL_LORE[sid];
+  return d ? { name: d.name, zh: d.zh, flavor: d.flavor } : { name: s.name, zh: s.zh, flavor: s.flavor };
+}
 function isDemonic(char) { return !!((char || state) && (char || state).demonic); }
 function schoolKitFor(char) {
   const sid = (char && char.selectedSchool) || (state && state.selectedSchool);
@@ -2414,9 +2455,10 @@ const STATUS_INFO = {
   silence:    { label: 'silenced',    tip: ef => `Silenced: cannot use techniques. ${ef.turns} turn(s) left.` },
   resonance:  { label: 'resonance',   tip: ef => `Resonating: losing ${ef.value} spirit per turn. ${ef.turns} turn(s) left.` },
   oathbound:  { label: 'oath-bound',  tip: ef => `Oath-bound: takes ${ef.value} backlash damage whenever it uses a technique. ${ef.turns} turn(s) left.` },
+  hellfire:   { label: 'hellfire',    tip: ef => `Demonic hellfire x${ef.stacks || 1}: burns ${ef.stacks || 1}% of MISSING health per turn (ignores qi shield). ${ef.turns} turn(s) left.` },
 };
 // Stacking caps per status kind (1 = refresh-only, no stacking).
-const STATUS_STACK_CAP = { burn: 5, poison: 8, sunder: 5, bleed: 3 };
+const STATUS_STACK_CAP = { burn: 5, poison: 8, sunder: 5, bleed: 3, hellfire: 5 };
 
 // Apply a status to a combatant's effects[] with per-kind stacking semantics:
 // stackable kinds accumulate value up to their cap; refresh-only kinds keep the strongest
@@ -4427,6 +4469,27 @@ function mkEnemy(id, d) {
 const DEMON_TRIBS = { 1: 'heavens_first_glare', 2: 'thunder_brand_envoy', 3: 'heaven_chain_warden',
                       4: 'karmic_fire_judge', 5: 'silence_decree_lord', 6: 'annihilation_chooser' };
 
+// v0.68: RIGHTEOUS HUNTERS — demonic cultivators are ambushed on ordinary ventures by
+// sect enforcers of their own realm. Worth TRIPLE insight (the slaughter economy).
+const HUNTER_TECHS_BY_TIER = [
+  ['novice_cut', 'staggering_palm'], ['wind_slash', 'bandit_volley'], ['mirror_cut', 'jade_spike'],
+  ['crescent_arc', 'golden_grid'], ['golden_radiance', 'crushing_grip'], ['phantom_sword', 'silent_verdict'],
+  ['immortal_cut', 'heaven_word'],
+];
+for (let ht = 0; ht <= 6; ht++) {
+  mkEnemy('righteous_hunter_t' + ht, {
+    name: ['Sect Novice-Hunter', 'Righteous Enforcer', 'Foundation Inquisitor', 'Core Witch-Hunter',
+           'Golden Tribunal Blade', 'Soul-Hunting Elder', 'Severance Crusader'][ht],
+    zh: '正道猎人', tier: ht, arch: 'assassin', power: 1.1, kind: 'human', element: 'metal',
+    techIds: HUNTER_TECHS_BY_TIER[ht],
+    intro: 'A righteous cultivator steps onto the road, warrant in hand. "Heretic. The sects send their regards."',
+    victory: 'The hunter falls. Their warrant — and their accumulated dao — feed yours. The bounty on you just went up.',
+    defeat: 'The hunter leaves you alive, branded, and reported. The road home is long and watched.',
+  });
+  ENEMIES['righteous_hunter_t' + ht].insightReward *= 3;   // triple insight (operator)
+}
+const HUNTER_AMBUSH_CHANCE = 0.20;
+
 // ============================================================
 // v0.63 MATERIAL SUPPLY AUDIT FIX — every forging material must be farmable in
 // Journeys at (or before) the realm that first needs it. The audit found three
@@ -4984,6 +5047,17 @@ const SKILLS = [
     requires: ['ca_elemental_attune'], effect: { kind: 'mods', mods: { elementBoostAll: 0.60 } },
     desc: 'Element overcome bonus amplified a further 60% (stacks with Attunement). All five elements kneel.' },
 
+  // ============ v0.68: Heretical Arts — demonic-path-only tree nodes ============
+  { id: 'ha_sea_of_sin', name: 'Sea of Sin', zh: '罪海', category: 'Heretical Arts', cost: 20000, minTier: 2, demonicOnly: true,
+    effect: { kind: 'mods', mods: { lifestealPct: 0.05 } },
+    desc: 'DEMONIC ONLY. Heal 5% of all damage you deal. Every wound is a tributary.' },
+  { id: 'ha_defier_marrow', name: "Heaven-Defier's Marrow", zh: '逆天髓', category: 'Heretical Arts', cost: 120000, minTier: 3, demonicOnly: true,
+    effect: { kind: 'mods', mods: { hpBonus: 150, flatDR: 8 } },
+    desc: 'DEMONIC ONLY. +150 max HP, +8 flat damage reduction. The body learns to hold a grudge against harm itself.' },
+  { id: 'ha_calamity_tempo', name: 'Calamity Tempo', zh: '劫律', category: 'Heretical Arts', cost: 700000, minTier: 4, demonicOnly: true,
+    effect: { kind: 'mods', mods: { perTurnRamp: 0.02, dotMult: 1.15 } },
+    desc: 'DEMONIC ONLY. +2% damage per combat turn and your DOTs (hellfire included by spirit if not by letter) tick +15%.' },
+
   // Cultivation
   { id: 'cult_1', name: 'Steady Breath', zh: '稳息', category: 'Cultivation', cost: 1500, minTier: 1,
     effect: { kind: 'cultivation_mult', value: 1.15 },
@@ -5202,6 +5276,7 @@ function hasSkill(id) { return (state.skills || []).includes(id); }
 function findSkillDef(id) { return SKILLS.find(x => x.id === id) || SKILL_BOOKS[id]; }
 
 function meetsSkillReq(skill) {
+  if (skill.demonicOnly && !state.demonic) return false;   // v0.68: heretical arts
   if (state.realm.tierIdx < (skill.minTier || 0)) return false;
   if (state.realm.tierIdx === (skill.minTier || 0) && skill.minLayer && state.realm.layer < skill.minLayer) return false;
   if (skill.requires && skill.requires.some(r => !hasSkill(r))) return false;
@@ -7625,6 +7700,25 @@ Object.keys(SCHOOLS).forEach(sid => {
 function sectWeaponsForSchool(sid) {
   return Object.entries(SECT_WEAPONS).filter(([, w]) => w.school === sid);
 }
+
+// ============================================================
+// v0.68 WEAPON POWER FLOOR (operator): NO weapon — junk, mortal craftables, drops —
+// may be weaker than the school starter of its kind. The ladder STARTS at the starter
+// and scales up. Runs after every weapon-registering block above.
+// ============================================================
+(function enforceWeaponPowerFloor() {
+  const starterIds = new Set(Object.values(SCHOOLS).map(s => s.weapon));
+  const starterPowerByKind = {};
+  starterIds.forEach(id => {
+    const w = WEAPONS[id];
+    if (w) starterPowerByKind[w.kind] = Math.max(starterPowerByKind[w.kind] || 0, w.power);
+  });
+  Object.entries(WEAPONS).forEach(([id, w]) => {
+    if (starterIds.has(id)) return;
+    const floor = (starterPowerByKind[w.kind] || 6) + 1;
+    if (w.power < floor) w.power = floor;
+  });
+})();
 function buySectWeapon(wid) {
   const w = SECT_WEAPONS[wid];
   if (!w) return false;
@@ -7968,6 +8062,31 @@ const ARRAYS = {
     cost: { storm_crystal: 1, heavenly_jade: 1, spirit_stone: 25 },
     mods: { bossCdMult: 0.65 }, minTier: 4,
   },
+  // v0.68: PLAYSTYLE glyphs — array support for the major build directions (all upgradeable).
+  venom_array: {
+    name: 'Venom-Script Array', zh: '毒文阵',
+    desc: 'Glyphs that teach wounds to linger. Your damage-over-time effects tick +10% while active.',
+    cost: { spirit_pearl: 1, verdant_bark: 3, spirit_stone: 8 },
+    mods: { dotMult: 1.10 }, minTier: 2,
+  },
+  executioner_array: {
+    name: "Executioner's Sightline", zh: '刑目阵',
+    desc: 'A glyph that keeps one eye always on the opening. +3% critical chance while active.',
+    cost: { star_iron: 2, moonshadow_silk: 2, spirit_stone: 10 },
+    mods: { critChance: 0.03 }, minTier: 3,
+  },
+  mountain_press_array: {
+    name: 'Mountain-Press Array', zh: '压山阵',
+    desc: 'The house leans its weight into your blows. +12% posture damage while active.',
+    cost: { star_iron: 2, beast_sinew: 4, spirit_stone: 8 },
+    mods: { postureMult: 1.12 }, minTier: 2,
+  },
+  asura_feast_array: {
+    name: 'Asura Feast Array', zh: '修罗宴阵',
+    desc: 'DEMONIC ONLY. A standing banquet for the hungry dao: +4% lifesteal while active.',
+    cost: { ghost_bone: 4, soul_ember: 2, spirit_stone: 12 },
+    mods: { lifestealPct: 0.04 }, minTier: 3, demonicOnly: true,
+  },
   spirit_gather: {
     name: 'Spirit-Gathering Array', zh: '聚灵阵',
     desc: 'A simple ringed glyph that pulls ambient qi inward. +15% cultivation rate.',
@@ -8073,6 +8192,7 @@ function canBuildArray(arrayId) {
   if (!state || !state.confirmed) return false;
   const a = ARRAYS[arrayId];
   if (!a) return false;
+  if (a.demonicOnly && !state.demonic) return false;   // v0.68
   if (state.realm.tierIdx < (a.minTier || 0)) return false;
   if (activeArrays(state).length >= arrayCapacity(state)) return false;
   if ((state.base.arrays || []).includes(arrayId)) return false;  // one of each
@@ -9217,7 +9337,7 @@ function finalStats(st) {
       latent = mech.latentStatsTier.value;
     }
   }
-  const demonBonus = st.demonic ? 2 : 0;  // v0.61: the demon path pays in raw talent
+  const demonBonus = st.demonic ? 4 : 0;  // v0.68: +4 all (was +2) — the path must FEEL worth the heavens
   STAT_KEYS.forEach(k => {
     const v = st.baseStats[k] + st.allocation[k] + (h[k] || 0) + latent + demonBonus + ((st.freeAlloc && st.freeAlloc[k]) || 0);
     out[k] = Math.max(6, v);
@@ -9534,7 +9654,8 @@ function computeMaxHP(char) {
   // each scaled together so tier curve stays the same shape, just taller.
   const base = 63 + char.finalStats.body * 7 + Math.round(realmBonusFor(char).hp * 1.4);
   const mods = computeMods(char);
-  return base + activeBuffValue('hp_max_add', 0) + boonHPAdd() + skillHPAdd() + (mods.hpBonus || 0) + metaHPAdd() + bodyQuenchHPAdd();
+  const total = base + activeBuffValue('hp_max_add', 0) + boonHPAdd() + skillHPAdd() + (mods.hpBonus || 0) + metaHPAdd() + bodyQuenchHPAdd();
+  return Math.round(total * (char.demonic ? 1.2 : 1));   // v0.68: demonic vitality x1.2
 }
 function computeMaxQi(char) {
   const mods = computeMods(char);
@@ -9864,7 +9985,9 @@ function cultivationRate() {
   // Wave 1: spirit-root grade (gentle, upside-only) + foundation quality (set at breakthroughs).
   const rootGrade = (state.spiritRoot && state.spiritRoot.grade) || 1;
   const foundation = state.foundationQuality || 1;
-  const demonCult = state.demonic ? 1.5 : 1;  // v0.61: heresy is the shortcut
+  // v0.68 IDENTITY FLIP (operator): the demonic dao feeds on SLAUGHTER, not stillness.
+  // Raw cultivation runs at HALF pace; the killing economy (below) more than repays it.
+  const demonCult = state.demonic ? 0.5 : 1;
   return (base + statBonus) * method.mult * locMult * realmMult * cultBuff * boonCultivationMult() * skillCultivationMult() * heritageCult * gearCult * rootGrade * foundation * sectRankMult() * metaCultMult() * demonCult;
 }
 
@@ -9987,6 +10110,12 @@ let atTitle = true;  // title screen / main menu — shown at boot and reachable
 // based on the location's enemyPool. "Elite" is determined by archetype tag (Phase 2). Locations
 // without an elite in their pool fall back to single / 2-mook.
 function rollEncounter(loc) {
+  // v0.68: demonic cultivators are hunted — ordinary grounds can spawn a righteous
+  // enforcer of the player's realm instead (worth 3x insight). Demon grounds are safe;
+  // the righteous do not venture there.
+  if (state.demonic && !loc.demonOnly && Math.random() < HUNTER_AMBUSH_CHANCE) {
+    return ['righteous_hunter_t' + Math.min(6, state.realm.tierIdx || 0)];
+  }
   const pool = loc.enemyPool || [];
   if (!pool.length) return [];
   const pick = arr => arr[Math.floor(Math.random() * arr.length)];
@@ -10267,6 +10396,9 @@ function applyPosture(target, amount, isBreaker, breakDuration) {
   if (amount > 0 && target.effects) {
     const pr = target.effects.find(ef => ef.kind === 'pressured');
     if (pr) amount = Math.round(amount * (1 + pr.value));
+    // v0.68: Sundered stances crumble — +10% posture damage taken per Sunder stack.
+    const su = target.effects.find(ef => ef.kind === 'sunder');
+    if (su) amount = Math.round(amount * (1 + 0.10 * (su.stacks || 1)));
   }
   target.posture += amount;
   if (isBreaker) target.posture = target.postureMax;  // guaranteed break
@@ -10418,6 +10550,8 @@ function applyPlayerOutgoingMods(p, dmg, target, ctx) {
   if (m.lateBonus > 0 && turn >= 4) dmg *= 1 + m.lateBonus;
   // v0.64: cultivator might — the whole of your accumulated power leans on every blow.
   if (combat && combat.mightDamageBonus) dmg *= 1 + combat.mightDamageBonus;
+  // v0.68: the demonic path hits 20% harder, full stop.
+  if (state.demonic) dmg *= 1.2;
   // v0.64: chill now works ON the player too (enemies can inflict it).
   const pChill = (p.effects || []).find(ef => ef.kind === 'chill');
   if (pChill) dmg *= Math.max(0, 1 - pChill.value);
@@ -10444,6 +10578,13 @@ function applyPlayerOutgoingMods(p, dmg, target, ctx) {
     ctx.crit = true;
   }
   return dmg;
+}
+
+// v0.68: the demonic path's universal on-hit — every landed strike or technique brands
+// the target with HELLFIRE (stacks to 5; each stack burns 1% of MISSING hp per turn).
+function applyDemonicHellfire(tgt) {
+  if (!state.demonic || !tgt || tgt.hp <= 0) return;
+  applyStatusTo(tgt, 'hellfire', 0, 3, 'Hellfire');
 }
 
 // v0.45: shared on-hit hook for school passives that apply statuses (Everburn, Coated
@@ -10508,6 +10649,11 @@ function playerStrike(opts) {
               : `${p.name} strikes — a clean, disciplined blow.`));
   pushLog('hurt', damageLogLine(res, e));
   applyPostHitTriggers(p, res);
+  if (!res.dodged) {
+    applyDemonicHellfire(e);   // v0.68: demonic hellfire brands every landed blow
+    // v0.68: schools with strikeAppliesOnHit (Dragonforge's Moltenwake) sunder on STRIKES too.
+    if (schoolKit().strikeAppliesOnHit) applySchoolOnHit(p, e);
+  }
   const hmStrike = heritageMech();
   const postureAmt = Math.round(10 * p.mods.postureMult * (hmStrike.postureDamageMult || 1) * ((p.buffs.postureBoostTurns > 0) ? (p.buffs.postureBoost || 1) : 1));
   const broke = applyPosture(e, postureAmt, false, 3 + p.mods.postureBreakBonus);
@@ -10632,7 +10778,7 @@ function playerTechnique(techId) {
         pushLog('hurt', damageLogLine(res, tgt));
         applyPostHitTriggers(p, res);
         // v0.45: school passive on-hit statuses ride along on every damaging hit.
-        if (!res.dodged) applySchoolOnHit(p, tgt);
+        if (!res.dodged) { applySchoolOnHit(p, tgt); applyDemonicHellfire(tgt); }
       }
     }
     // v0.57 Ashfall Detonation: blow up an existing DOT on the target for its remaining
@@ -11074,6 +11220,17 @@ function tickCombatantEffects(c, opts) {
           ht.hp = Math.min(ht.hpMax, ht.hp + lost);
           if (ht.hp > beforeHeal) pushLog('heal', `  → +${ht.hp - beforeHeal} hp drained through ${ef.name}.`);
         }
+      }
+    }
+    // v0.68 demonic hellfire: per-turn damage = stacks x 1% of MISSING health — an
+    // execute that accelerates as the wound deepens. Computed at tick time (dynamic).
+    if (ef.kind === 'hellfire') {
+      const missing = Math.max(0, (c.hpMax || 0) - c.hp);
+      const burn = Math.max(1, Math.round(missing * 0.01 * (ef.stacks || 1)));
+      if (c.hp > 0 && missing > 0) {
+        c.hp = Math.max(0, c.hp - burn);
+        pushLog('hurt', `  → ${c.name} loses ${burn} hp to hellfire (x${ef.stacks || 1}).`);
+        if (combat && c === combat.player) c.lastHpHit = Math.max(c.lastHpHit || 0, burn);
       }
     }
     if (ef.kind === 'resonance') {
@@ -11866,12 +12023,13 @@ function renderCreation() {
   const demonForced = !!(SCHOOLS[state.selectedSchool] && SCHOOLS[state.selectedSchool].isDemon);
   if (demonForced) state.demonic = true;
   const demonOn = !!state.demonic;
+  const demonLore = state.selectedSchool && DEMONIC_SCHOOL_LORE[state.selectedSchool];
   const twistLine = (state.selectedSchool && DEMONIC_TWISTS[state.selectedSchool])
-    ? `<div style="font-size:0.8rem;margin-top:0.3rem"><strong>Your school's demonic form:</strong> ${DEMONIC_TWISTS[state.selectedSchool].twistDesc}</div>` : '';
+    ? `<div style="font-size:0.8rem;margin-top:0.3rem"><strong>Your school's demonic form${demonLore ? ` — ${demonLore.name} ${demonLore.zh}` : ''}:</strong> ${DEMONIC_TWISTS[state.selectedSchool].twistDesc}${demonLore ? `<div style="color:var(--ink-soft);margin-top:0.15rem">${demonLore.flavor}</div>` : ''}</div>` : '';
   dP.innerHTML = `<strong>The Demonic Path</strong> <span style="color:var(--ink-soft);font-size:0.85rem">魔道</span>
-    <p style="font-size:0.85rem;color:var(--ink-soft);margin:0.3rem 0 0.4rem">Any school can be walked as heresy. The demonic road is FASTER and STRONGER — and the heavens hate it.</p>
-    <div style="font-size:0.82rem"><strong style="color:var(--gold)">Gains:</strong> +2 to every stat · cultivation ×1.5 · +50% insight from kills · your school's passive sharpened into its demonic form · entry to six demon-only grounds the righteous cannot see.</div>
-    <div style="font-size:0.82rem;margin-top:0.25rem"><strong style="color:var(--crimson)">Price:</strong> a heavenly tribulation bars EVERY realm breakthrough (righteous cultivators face only three), and the heavens send executioners far above your realm's measure.</div>
+    <p style="font-size:0.85rem;color:var(--ink-soft);margin:0.3rem 0 0.4rem">Any school can be walked as heresy — each has a demonic mirror of itself. The demonic dao grows by SLAUGHTER, not stillness.</p>
+    <div style="font-size:0.82rem"><strong style="color:var(--gold)">Gains:</strong> +4 to every stat · +20% max HP · +20% to ALL damage · every landed blow brands HELLFIRE (stacks to 5; each stack burns 1% of the target's MISSING health per turn) · +50% insight from kills, and righteous hunters who ambush you are worth TRIPLE · your school's passive sharpened · six demon-only grounds.</div>
+    <div style="font-size:0.82rem;margin-top:0.25rem"><strong style="color:var(--crimson)">Price:</strong> raw cultivation runs at HALF pace (this dao is fed, not sat with) · a heavenly tribulation bars EVERY breakthrough, against executioners far above your realm · righteous sects hunt you on the road.</div>
     ${twistLine}`;
   const dBtnRow = document.createElement('div');
   dBtnRow.className = 'button-row';
@@ -12229,6 +12387,7 @@ function renderCharSheet() {
     <p style="font-size:0.85rem;color:var(--ink-soft);margin:0 0 0.4rem">Spend insight to unlock permanent passive bonuses. Higher realms unlock higher nodes.</p>`;
   const categories = {};
   SKILLS.forEach(sk => {
+    if (sk.demonicOnly && !state.demonic) return;   // v0.68: invisible to the righteous
     if (!categories[sk.category]) categories[sk.category] = [];
     categories[sk.category].push(sk);
   });
@@ -12625,6 +12784,7 @@ function renderCharSheet() {
   arraysHeader.innerHTML = `<strong>Arrays</strong> <span style="color:var(--ink-soft);font-weight:normal;font-size:0.75rem">— fixtures built into the house. ${active.length}/${arrCap} active.</span>`;
   gP.appendChild(arraysHeader);
   Object.entries(ARRAYS).forEach(([aid, a]) => {
+    if (a.demonicOnly && !state.demonic) return;   // v0.68: invisible to the righteous
     const tier = state.realm.tierIdx;
     const isActive = active.includes(aid);
     const tierMet = tier >= (a.minTier || 0);
@@ -12831,8 +12991,9 @@ function renderCharSheet() {
   const kitLoad = SCHOOL_KITS[state.selectedSchool];
   const roleLabelLoad = { single: 'Pure Single-Target', aoe: 'Pure AOE', mixed: 'Mixed' }[school.role] || '';
   const roleColorLoad = { single: '#9ec5e8', aoe: '#e89e9e', mixed: '#c9b97a' }[school.role] || 'var(--gold)';
-  let loadoutHTML = `<h3>${school.name} ${roleLabelLoad ? `<span style="font-size:0.7rem;font-weight:normal;color:${roleColorLoad};border:1px solid ${roleColorLoad};padding:0.1rem 0.4rem;border-radius:0.3rem;vertical-align:middle">${roleLabelLoad}</span>` : ''}</h3>
-    <p style="font-size:0.85rem;color:var(--ink-soft);margin:0 0 0.4rem">${school.flavor}</p>
+  const dispLoad = schoolDisplay(state.selectedSchool, state);
+  let loadoutHTML = `<h3>${dispLoad.name} ${roleLabelLoad ? `<span style="font-size:0.7rem;font-weight:normal;color:${roleColorLoad};border:1px solid ${roleColorLoad};padding:0.1rem 0.4rem;border-radius:0.3rem;vertical-align:middle">${roleLabelLoad}</span>` : ''}</h3>
+    <p style="font-size:0.85rem;color:var(--ink-soft);margin:0 0 0.4rem">${dispLoad.flavor}</p>
     ${kitLoad ? `<p style="font-size:0.82rem;margin:0 0 0.4rem"><strong style="color:var(--gold)">Passive — ${kitLoad.passiveName}</strong> <span style="color:var(--ink-soft);font-size:0.78rem">${kitLoad.passiveZh}</span>: ${kitLoad.passiveDesc}</p>` : ''}
     <p style="font-size:0.82rem;color:var(--ink-soft);margin:0 0 0.5rem">Active Abilities <strong style="color:var(--gold)">${activeCount}/${activeCap}</strong> — only active techniques can be used in combat. Tap to slot / unslot. Slots grow +1 at Golden Core and +1 at Nascent Soul.</p>
     <div class="tech-list">`;
@@ -13315,7 +13476,7 @@ function renderCharSheet() {
   const nextRank = SECT_RANKS[rankIdx + 1];
   const contrib = state.contribution || 0;
   const lifetime = state.contributionLifetime || 0;
-  sectP.innerHTML = `<h3>${school.name} — Sect Hall <span style="font-weight:normal;color:var(--ink-soft);font-size:0.85rem">宗门</span></h3>
+  sectP.innerHTML = `<h3>${schoolDisplay(state.selectedSchool, state).name} — Sect Hall <span style="font-weight:normal;color:var(--ink-soft);font-size:0.85rem">宗门</span></h3>
     <p style="font-size:0.85rem;color:var(--ink-soft);margin:0 0 0.5rem">Rank: <strong style="color:var(--gold)">${rank.name}</strong> <span style="font-size:0.8rem">${rank.zh}</span> · Contribution: <strong style="color:var(--gold)">${contrib.toLocaleString()}</strong> · Rank bonus: +${rankIdx * 5}% cultivation${nextRank ? ` · Next rank: ${nextRank.name} at ${nextRank.at.toLocaleString()} lifetime (you have ${lifetime.toLocaleString()})` : ' · highest rank reached'}</p>`;
   // v0.65: promotion duel — lifetime makes you eligible; the examiner makes you worthy.
   if (sectPromotionAvailable()) {
