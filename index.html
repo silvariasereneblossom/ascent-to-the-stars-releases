@@ -541,7 +541,7 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v0.62';
+const GAME_VERSION = 'v0.63';
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
 const ELEMENT_ZH   = { metal:'金', wood:'木', water:'水', fire:'火', earth:'土' };
@@ -4427,6 +4427,54 @@ function mkEnemy(id, d) {
 const DEMON_TRIBS = { 1: 'heavens_first_glare', 2: 'thunder_brand_envoy', 3: 'heaven_chain_warden',
                       4: 'karmic_fire_judge', 5: 'silence_decree_lord', 6: 'annihilation_chooser' };
 
+// ============================================================
+// v0.63 MATERIAL SUPPLY AUDIT FIX — every forging material must be farmable in
+// Journeys at (or before) the realm that first needs it. The audit found three
+// materials with NO source at all (thunder_shard / ancient_rust / phoenix_feather),
+// three arriving realms late (abyssal_ash / ghost_bone / soul_ember), and four
+// hanging on a single enemy (star_iron / glacial_core / beast_sinew /
+// ascension_feather). Flavor-matched drops added below; caravan stock extended too.
+// ============================================================
+const SUPPLY_PATCH = {
+  // no source at all
+  stone_elemental:     [{ id: 'thunder_shard',     chance: 0.35, count: [1, 2] }],
+  thunder_shaman:      [{ id: 'thunder_shard',     chance: 0.50, count: [1, 3] }],
+  quiet_thunder_guard: [{ id: 'thunder_shard',     chance: 0.50, count: [1, 3] }],
+  corpse_walker:       [{ id: 'ancient_rust',      chance: 0.40, count: [1, 2] }],
+  mirror_swordsman:    [{ id: 'ancient_rust',      chance: 0.35, count: [1, 2] }],
+  mound_ancestor:      [{ id: 'ancient_rust',      chance: 0.45, count: [1, 3] }],
+  ember_monk:          [{ id: 'phoenix_feather',   chance: 0.30, count: [1, 1] }],
+  ash_leopard:         [{ id: 'phoenix_feather',   chance: 0.12, count: [1, 1] },
+                        { id: 'beast_sinew',       chance: 0.40, count: [1, 2] }],
+  dawn_herald:         [{ id: 'phoenix_feather',   chance: 0.50, count: [1, 2] },
+                        { id: 'ascension_feather', chance: 0.30, count: [1, 1] }],
+  cinder_abbot:        [{ id: 'phoenix_feather',   chance: 0.40, count: [1, 2] }],
+  // arrives later than first needed
+  blood_saber:         [{ id: 'abyssal_ash',       chance: 0.30, count: [1, 2] }],
+  marsh_inkfiend:      [{ id: 'abyssal_ash',       chance: 0.35, count: [1, 2] }],
+  ghost_daoist:        [{ id: 'ghost_bone',        chance: 0.40, count: [1, 2] }],
+  ferry_ghost:         [{ id: 'ghost_bone',        chance: 0.35, count: [1, 2] }],
+  lantern_keeper:      [{ id: 'soul_ember',        chance: 0.25, count: [1, 1] }],
+  echo_acolyte:        [{ id: 'soul_ember',        chance: 0.30, count: [1, 2] }],
+  // single-source
+  mine_haunt:          [{ id: 'star_iron',         chance: 0.30, count: [1, 2] }],
+  crater_stalker:      [{ id: 'star_iron',         chance: 0.45, count: [1, 2] }],
+  frost_warden:        [{ id: 'glacial_core',      chance: 0.35, count: [1, 1] }],
+  lake_devourer:       [{ id: 'glacial_core',      chance: 0.50, count: [1, 2] }],
+  wolf_demon:          [{ id: 'beast_sinew',       chance: 0.40, count: [1, 2] }],
+  vein_drake:          [{ id: 'beast_sinew',       chance: 0.50, count: [2, 3] }],
+  // pre-existing gaps: the GC/NS arrays (starforge_lattice / time_folding_glyph) want
+  // divine mats before any t<=5 source existed — GC/NS bosses now trickle them.
+  mirage_emperor:      [{ id: 'dao_crystal',       chance: 0.25, count: [1, 1] }],
+  war_court_lord:      [{ id: 'dao_crystal',       chance: 0.30, count: [1, 1] },
+                        { id: 'ascension_feather', chance: 0.25, count: [1, 1] }],
+};
+Object.entries(SUPPLY_PATCH).forEach(([eid, drops]) => {
+  if (ENEMIES[eid]) {
+    ENEMIES[eid].materialDrops = (ENEMIES[eid].materialDrops || []).concat(drops);
+  }
+});
+
 // Boss roster metadata: realm tier, hunt blurb, first-kill material cache.
 const BOSSES = {
   boar_king:            { tier: 0, blurb: 'Terror of the withered wood. The first name every village hunter learns to fear.',
@@ -7668,6 +7716,12 @@ const MARKET_OFFERS = {
   body_root:         { price: 6,   minTier: 0, kind: 'herb' },
   jade_lotus:        { price: 22,  minTier: 1, kind: 'herb' },
   star_iron:         { price: 28,  minTier: 2 },
+  // v0.63 supply-audit additions — deterministic fallback for farmable-but-rare mats
+  beast_sinew:       { price: 5,   minTier: 0 },
+  thunder_shard:     { price: 10,  minTier: 1 },
+  ancient_rust:      { price: 14,  minTier: 2 },
+  glacial_core:      { price: 30,  minTier: 2 },
+  phoenix_feather:   { price: 45,  minTier: 3 },
   dragon_scale:      { price: 60,  minTier: 3 },
   heavenly_jade:     { price: 120, minTier: 4 },
   primordial_stone:  { price: 180, minTier: 5 },
