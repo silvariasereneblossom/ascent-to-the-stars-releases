@@ -541,7 +541,12 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v0.77';
+const GAME_VERSION = 'v0.78';
+// v0.78: CI injects the build's short sha here; the APK shell reads it FROM THE RUNNING
+// PAGE (window.BUILD_SHA) and compares against the repo head — staleness detection that
+// cannot be fooled by cached metadata. '2d425ae' = local/dev build (shell falls back).
+const BUILD_SHA = '2d425ae';
+if (typeof window !== 'undefined') window.BUILD_SHA = BUILD_SHA;
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
 const ELEMENT_ZH   = { metal:'金', wood:'木', water:'水', fire:'火', earth:'土' };
