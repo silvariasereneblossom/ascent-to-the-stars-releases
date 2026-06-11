@@ -541,7 +541,7 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v0.73';
+const GAME_VERSION = 'v0.74';
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
 const ELEMENT_ZH   = { metal:'金', wood:'木', water:'水', fire:'火', earth:'土' };
@@ -4722,6 +4722,39 @@ Object.entries(SUPPLY_PATCH).forEach(([eid, drops]) => {
   }
 });
 
+// v0.74 BASIC-MAT JOURNEY COVERAGE (operator): every realm's crafting-basket materials
+// must drop at a DECENT rate (>=0.35) from at least one enemy fielded in a journey OF
+// THAT REALM — starting with spirit iron at Mortal. Flavor-matched additions:
+const SUPPLY_PATCH_2 = {
+  // Mortal (basket: spirit_iron, qi_wood)
+  clay_soldier:       [{ id: 'spirit_iron',     chance: 0.50, count: [1, 2] }],   // kiln-fired body = ore
+  briar_spirit:       [{ id: 'qi_wood',         chance: 0.50, count: [1, 2] }],
+  bandit_cultivator:  [{ id: 'spirit_iron',     chance: 0.35, count: [1, 2] }],   // stolen sect supplies
+  // QC (spirit_iron, beast_sinew — sinew covered by wolf/leopard already)
+  bamboo_swordsman:   [{ id: 'qi_wood',         chance: 0.40, count: [1, 2] }],
+  // FE (star_iron, spirit_pearl, spirit_iron)
+  moon_pirate:        [{ id: 'star_iron',       chance: 0.35, count: [1, 2] }],   // plundered meteor-iron
+  coral_siren:        [{ id: 'spirit_pearl',    chance: 0.40, count: [1, 1] }],   // pearls, naturally
+  // CF (flame_marrow, glacial_core, star_iron)
+  ember_monk:         [{ id: 'flame_marrow',    chance: 0.40, count: [1, 1] }],
+  lotus_blade_dancer: [{ id: 'glacial_core',    chance: 0.35, count: [1, 1] }],   // the iron-lotus lake ice
+  // GC (storm_crystal, thunder_shard — shard covered)
+  thunder_shaman:     [{ id: 'storm_crystal',   chance: 0.40, count: [1, 1] }],
+  // NS (void_silk, heavenly_jade, moonshadow_silk)
+  scar_horror:        [{ id: 'void_silk',       chance: 0.35, count: [1, 1] }],   // spun from the seam
+  war_court_judge:    [{ id: 'heavenly_jade',   chance: 0.35, count: [1, 1] }],
+  lake_devourer:      [{ id: 'moonshadow_silk', chance: 0.40, count: [1, 2] }],
+  // SS (sun_fragment, heaven_silver, primordial_stone)
+  dawn_herald:        [{ id: 'sun_fragment',    chance: 0.35, count: [1, 1] }],
+  names_gatekeeper:   [{ id: 'heaven_silver',   chance: 0.35, count: [1, 1] }],
+  star_leviathan:     [{ id: 'primordial_stone', chance: 0.40, count: [1, 1] }],
+};
+Object.entries(SUPPLY_PATCH_2).forEach(([eid, drops]) => {
+  if (ENEMIES[eid]) {
+    ENEMIES[eid].materialDrops = (ENEMIES[eid].materialDrops || []).concat(drops);
+  }
+});
+
 // ============================================================
 // v0.64 BOSS SIGNATURE ATTACKS — every boss gets a thematic special carrying a status
 // effect, slotted at the TOP of its priority list (the boss leads with its identity
@@ -8701,20 +8734,25 @@ function collectSellableItems(char) {
     if (equippedWids.has(wid)) return;
     const w = WEAPONS[wid]; if (!w) return;
     const price = MARKET_SELL_PRICE[w.rarity] || 5;
+    const removeWeapon = () => {
+      char.weapons.owned.splice(char.weapons.owned.indexOf(wid), 1);
+      // v0.24a: if the player is selling the LAST copy of a crafted id, drop the
+      // crafted tag too — otherwise re-acquiring (e.g. as a drop) would falsely
+      // re-show a Crafted badge.
+      if (char.weapons.crafted && !char.weapons.owned.includes(wid)) {
+        const cidx = char.weapons.crafted.indexOf(wid);
+        if (cidx >= 0) char.weapons.crafted.splice(cidx, 1);
+      }
+    };
     out.push({
       name: w.name, kindLabel: 'weapon', rarity: w.rarity, price,
       sell: () => {
-        char.weapons.owned.splice(char.weapons.owned.indexOf(wid), 1);
-        // v0.24a: if the player is selling the LAST copy of a crafted id, drop the
-        // crafted tag too — otherwise re-acquiring (e.g. as a drop) would falsely
-        // re-show a Crafted badge.
-        if (char.weapons.crafted && !char.weapons.owned.includes(wid)) {
-          const cidx = char.weapons.crafted.indexOf(wid);
-          if (cidx >= 0) char.weapons.crafted.splice(cidx, 1);
-        }
+        removeWeapon();
         char.base.materials.spirit_stone = (char.base.materials.spirit_stone || 0) + price;
         saveChar();
       },
+      dyield: disassembleYield(w.rarity),
+      disassemble: () => { removeWeapon(); grantYield(disassembleYield(w.rarity)); },
     });
   });
   // Inscriptions: owned but not slotted.
@@ -8727,6 +8765,11 @@ function collectSellableItems(char) {
         char.inscriptions.owned.splice(char.inscriptions.owned.indexOf(id), 1);
         char.base.materials.spirit_stone = (char.base.materials.spirit_stone || 0) + price;
         saveChar();
+      },
+      dyield: { spirit_stone: INSCRIPTION_DISASSEMBLE_STONES[ins.rarity] || 4 },
+      disassemble: () => {
+        char.inscriptions.owned.splice(char.inscriptions.owned.indexOf(id), 1);
+        grantYield({ spirit_stone: INSCRIPTION_DISASSEMBLE_STONES[ins.rarity] || 4 });
       },
     });
   });
@@ -8742,6 +8785,11 @@ function collectSellableItems(char) {
         char.armor.owned.splice(char.armor.owned.indexOf(id), 1);
         char.base.materials.spirit_stone = (char.base.materials.spirit_stone || 0) + price;
         saveChar();
+      },
+      dyield: disassembleYield(a.rarity),
+      disassemble: () => {
+        char.armor.owned.splice(char.armor.owned.indexOf(id), 1);
+        grantYield(disassembleYield(a.rarity));
       },
     });
   });
@@ -8759,15 +8807,24 @@ function collectSellableItems(char) {
         char.base.materials.spirit_stone = (char.base.materials.spirit_stone || 0) + price;
         saveChar();
       },
+      dyield: disassembleYield(a.rarity),
       disassemble: () => disassembleArtifact(id),
     });
   });
   return out;
 }
 
-// v0.67: break an artifact down into materials. Yield = your realm's material basket
-// scaled by the artifact's rarity, plus a few spirit stones.
+// v0.67/v0.74: break gear down into materials. Yield = your realm's material basket
+// scaled by the item's rarity, plus spirit stones. Applies to weapons (junk included),
+// armor, and artifacts; INSCRIPTIONS yield pure spirit stones (operator spec).
 const DISASSEMBLE_RARITY_MULT = { common: 0.5, rare: 1, legendary: 2, divine: 3 };
+const INSCRIPTION_DISASSEMBLE_STONES = { common: 4, rare: 10, legendary: 25, divine: 50 };
+function grantYield(yld) {
+  Object.entries(yld).forEach(([m, n]) => {
+    state.base.materials[m] = (state.base.materials[m] || 0) + n;
+  });
+  saveChar();
+}
 function disassembleYield(rarity) {
   const t = Math.min(6, (state.realm && state.realm.tierIdx) || 0);
   const mult = DISASSEMBLE_RARITY_MULT[rarity] || 1;
@@ -13873,7 +13930,7 @@ function renderCharSheet() {
       b.onclick = () => { item.sell(); render(); };
       btns.appendChild(b);
       if (item.disassemble) {
-        const yld = disassembleYield(item.rarity);
+        const yld = item.dyield || disassembleYield(item.rarity);
         const dStr = Object.entries(yld).map(([m, n]) => `${n}x ${(MATERIALS[m] && MATERIALS[m].name) || m}`).join(', ');
         const db = document.createElement('button');
         db.className = 'small tip';
