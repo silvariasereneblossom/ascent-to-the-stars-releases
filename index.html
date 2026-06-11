@@ -541,7 +541,7 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v0.72';
+const GAME_VERSION = 'v0.73';
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
 const ELEMENT_ZH   = { metal:'金', wood:'木', water:'水', fire:'火', earth:'土' };
@@ -8922,9 +8922,7 @@ function selectSlot(n) {
   if (typeof location !== 'undefined' && location.reload) location.reload();
 }
 function deleteSlot(n) {
-  const info = slotInfo(n);
-  const who = info.empty ? ('the empty slot ' + (n + 1)) : (info.name + ' (slot ' + (n + 1) + ')');
-  if (!confirm('Delete ' + who + '? The character AND its souls are erased — this cannot be undone.')) return;
+  // v0.72: confirmation moved to the button (two-tap arming) — window.confirm is dead in the WebView.
   try { localStorage.removeItem(charKey(n)); localStorage.removeItem(metaKey(n)); } catch (e) {}
   if (n === ACTIVE_SLOT) { if (typeof location !== 'undefined' && location.reload) location.reload(); }
   else render();
@@ -11834,6 +11832,33 @@ function appendPanel(panel, tab) {
   app.appendChild(panel);
 }
 
+// v0.72 FIX (operator: "Abandon this Life is broken"): window.confirm() NEVER shows in a
+// bare Android WebView (no WebChromeClient installed) — it silently returns false, so every
+// confirm-gated destructive button no-opped on the phone while working on desktop. Replaced
+// with a WebView-proof TWO-TAP arming: first tap arms (button turns crimson and asks again,
+// 5s to decide), second tap executes.
+function armDestructiveButton(btn, armedText, action) {
+  let armed = false, timer = null;
+  const orig = btn.textContent;
+  btn.onclick = () => {
+    if (!armed) {
+      armed = true;
+      btn.textContent = armedText;
+      btn.style.color = 'var(--crimson)';
+      btn.style.borderColor = 'var(--crimson)';
+      timer = setTimeout(() => {
+        armed = false;
+        btn.textContent = orig;
+        btn.style.color = '';
+        btn.style.borderColor = '';
+      }, 5000);
+    } else {
+      clearTimeout(timer);
+      action();
+    }
+  };
+}
+
 // v0.58: shared per-realm sub-tab chips. uiKey persists the choice in state.ui;
 // countFn(tier) -> entry count shown on the chip. Defaults to the player's realm.
 function selectedRealmTab(uiKey) {
@@ -11976,13 +12001,11 @@ function renderTitle() {
     row.appendChild(cont); actP.appendChild(row);
     const row2 = document.createElement('div'); row2.className = 'button-row'; row2.style.marginTop = '0.4rem';
     const nl = document.createElement('button'); nl.className = 'ghost'; nl.textContent = 'Abandon & Start a New Life';
-    nl.onclick = () => {
-      if (confirm('Abandon ' + state.name + ' and begin a new life? This cannot be undone.')) {
-        lastDeath = null;
-        state = newPreCharacter((Date.now() ^ Math.floor(Math.random() * 1e9)) >>> 0);
-        atTitle = false; render();
-      }
-    };
+    armDestructiveButton(nl, 'Tap again to abandon ' + state.name, () => {
+      lastDeath = null;
+      state = newPreCharacter((Date.now() ^ Math.floor(Math.random() * 1e9)) >>> 0);
+      atTitle = false; render();
+    });
     row2.appendChild(nl); actP.appendChild(row2);
   } else {
     actP.innerHTML = `<p style="margin:0 0 0.6rem;color:var(--ink-soft)">No cultivator yet walks the path.</p>`;
@@ -12028,7 +12051,7 @@ function appendSlotPicker() {
     }
     if (!info.empty) {
       const del = document.createElement('button'); del.className = 'ghost'; del.textContent = 'Delete';
-      del.onclick = () => deleteSlot(n);
+      armDestructiveButton(del, 'Tap again - erases character AND souls', () => deleteSlot(n));
       btns.appendChild(del);
     }
     row.appendChild(btns); sp.appendChild(row);
@@ -14136,13 +14159,12 @@ function renderCharSheet() {
   </div>
   <p style="font-size:0.75rem;color:var(--ink-soft);margin-top:0.4rem">Starts character creation from the beginning. Your saved character will be erased.</p>`;
   app.appendChild(dz);  // always visible (footer)
-  document.getElementById('restart').onclick = () => {
-    if (!confirm('Abandon this cultivator? All progress will be lost.')) return;
+  armDestructiveButton(document.getElementById('restart'), 'Tap again to abandon - all progress lost', () => {
     localStorage.removeItem(charKey());
     state = null;
     if (cultivationTimer) { clearInterval(cultivationTimer); cultivationTimer = null; }
     render();
-  };
+  });
 }
 
 function renderConsumableRow(id, c) {
