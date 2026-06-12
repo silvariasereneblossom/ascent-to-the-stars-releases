@@ -541,11 +541,11 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v0.84';
+const GAME_VERSION = 'v0.85';
 // v0.78: CI injects the build's short sha here; the APK shell reads it FROM THE RUNNING
 // PAGE (window.BUILD_SHA) and compares against the repo head — staleness detection that
-// cannot be fooled by cached metadata. 'ae6b463' = local/dev build (shell falls back).
-const BUILD_SHA = 'ae6b463';
+// cannot be fooled by cached metadata. '4263fdc' = local/dev build (shell falls back).
+const BUILD_SHA = '4263fdc';
 if (typeof window !== 'undefined') window.BUILD_SHA = BUILD_SHA;
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
@@ -9314,12 +9314,39 @@ const TRACKS = {
     { file: 'Wuxia.mp3',         title: 'Wuxia',          note: 'heroic erhu & orchestra' },
     { file: 'Wuxia2.mp3',        title: 'Wuxia II',       note: 'driving, martial' },
     { file: 'IntoTheWilds.mp3',  title: 'Into the Wilds', note: 'heroic orchestral' },
+    // v0.85: Kevin MacLeod (incompetech.com), CC BY 4.0
+    { file: 'km_heroicage.mp3',     title: 'Heroic Age',       note: 'martial, rising' },
+    { file: 'km_fivearmies.mp3',    title: 'Five Armies',      note: 'driving battle' },
+    { file: 'km_riteofpassage.mp3', title: 'Rite of Passage',  note: 'tense, building' },
+    { file: 'km_preludeaction.mp3', title: 'Prelude and Action', note: 'urgent action' },
   ],
   boss: [
     { file: 'Wuxia3.mp3',         title: 'Wuxia III',         note: 'grand, climactic' },
     { file: 'SongOfTheForge.mp3', title: 'Song of the Forge', note: 'epic war march & choir' },
     { file: 'Aphelion.mp3',       title: 'Aphelion',          note: 'building to epic' },
+    // v0.85: Kevin MacLeod (incompetech.com), CC BY 4.0 — generic boss-tier (tribulations, elites)
+    { file: 'km_crusade.mp3',      title: 'Crusade',          note: 'heavy, ominous march' },
+    { file: 'km_achaidh.mp3',      title: 'Achaidh Cheide',   note: 'driving epic' },
+    { file: 'km_clenchedteeth.mp3', title: 'Clenched Teeth',  note: 'tense climax' },
   ],
+};
+// v0.85: a UNIQUE theme per named boss (Kevin MacLeod, incompetech.com, CC BY 4.0), mood-matched.
+// Plays only while challenging that specific boss; otherwise the generic 'boss' pool is used.
+const BOSS_THEMES = {
+  boar_king:            'km_heavyinterlude.mp3',
+  kiln_mother:          'km_volatile.mp3',
+  fox_saint:            'km_mesmerize.mp3',
+  mine_golem:           'km_thedescent.mp3',
+  bell_abbot:           'km_longnotethree.mp3',
+  tide_queen:           'km_lightlessdawn.mp3',
+  cinder_abbot:         'km_ossuary1.mp3',
+  prison_warden:        'km_hiddenagenda.mp3',
+  vein_matriarch:       'km_crypto.mp3',
+  mirage_emperor:       'km_staticmotion.mp3',
+  war_court_lord:       'km_darkestchild.mp3',
+  moon_eater:           'km_anguish.mp3',
+  heavenly_executioner: 'km_reawakening.mp3',
+  dawn_sovereign:       'km_epicunease.mp3',
 };
 const MUSIC = { el: null, cat: 'menu', idx: 0, started: false, fails: 0 };
 // True while the element is actually trying to play (paused flips back to true if
@@ -9327,13 +9354,23 @@ const MUSIC = { el: null, cat: 'menu', idx: 0, started: false, fails: 0 };
 function musicActuallyPlaying() { return !!(MUSIC.el && !MUSIC.el.paused); }
 function musicEnabled() { return !!(META.settings && META.settings.music); }
 function musicVolume() { return (META.settings && typeof META.settings.musicVol === 'number') ? META.settings.musicVol : 0.6; }
-function musicList() { return TRACKS[MUSIC.cat] || TRACKS.menu; }
+function musicList() {
+  if (MUSIC.cat && MUSIC.cat.indexOf('boss:') === 0) {
+    const bid = MUSIC.cat.slice(5);
+    const f = BOSS_THEMES[bid];
+    if (f) return [{ file: f, title: (ENEMIES[bid] ? ENEMIES[bid].name : bid) + ' — theme', note: 'boss theme' }];
+  }
+  return TRACKS[MUSIC.cat] || TRACKS.menu;
+}
 function currentTrack() { const l = musicList(); return l[MUSIC.idx % l.length] || l[0]; }
 // Which playlist the current game state calls for: a tribulation OR a boss-tier ('elite'
 // archetype) enemy => boss; any other active combat => battle; otherwise => menu.
 function musicCategoryFor() {
   if (typeof combat !== 'undefined' && combat) {
+    // v0.85: a named boss you're challenging gets its own theme (category 'boss:<id>').
+    if (combat.bossFight && combat.enemyId && BOSS_THEMES[combat.enemyId]) return 'boss:' + combat.enemyId;
     if (combat.tribulation) return 'boss';
+    if (combat.bossFight) return 'boss';
     if (combat.enemies && combat.enemies.some(e => e && ENEMY_ARCHETYPES[e.id] === 'elite')) return 'boss';
     return 'battle';
   }
