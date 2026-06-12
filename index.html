@@ -541,11 +541,11 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v0.83';
+const GAME_VERSION = 'v0.84';
 // v0.78: CI injects the build's short sha here; the APK shell reads it FROM THE RUNNING
 // PAGE (window.BUILD_SHA) and compares against the repo head — staleness detection that
-// cannot be fooled by cached metadata. 'b49308d' = local/dev build (shell falls back).
-const BUILD_SHA = 'b49308d';
+// cannot be fooled by cached metadata. 'ae6b463' = local/dev build (shell falls back).
+const BUILD_SHA = 'ae6b463';
 if (typeof window !== 'undefined') window.BUILD_SHA = BUILD_SHA;
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
@@ -5509,6 +5509,64 @@ const SKILL_BOOKS = {
   },
 };
 
+// v0.84: skill books are now REALM-ORGANIZED. Backfill minTier on the hand-authored 20 by
+// rarity, then generate a robust per-realm ladder weighted toward % MULTIPLIER effects (the
+// operator's "more % based skills as multipliers" — they scale the player's power curve so
+// difficulty stays meaningful, and they're what bosses drop). BOOK_RARITY_WEIGHTS is declared
+// below; rollBookAtTier reads it lazily at call time, so the forward reference is fine.
+Object.values(SKILL_BOOKS).forEach(b => {
+  if (b.minTier == null) b.minTier = { common: 0, rare: 2, legendary: 4, divine: 6 }[b.rarity] || 0;
+});
+const RARITY_ORDER = { common: 0, rare: 1, legendary: 2, divine: 3 };
+const BOOK_TIER_RARITY = ['common', 'common', 'rare', 'rare', 'legendary', 'legendary', 'divine'];
+const BOOK_TIER_COST   = [800, 3000, 12000, 40000, 120000, 350000, 900000];
+const BOOK_ARCHETYPES = [
+  ['breath',  'Cloudbreath Manual',    '云息诀', t => ({ kind: 'cultivation_mult', value: +(1 + 0.08 + 0.02 * t).toFixed(3) }), t => `+${Math.round((0.08 + 0.02 * t) * 100)}% cultivation rate`],
+  ['edge',    'Edgework Scripture',    '锋法经', t => ({ kind: 'mods', mods: { strikeDamageMult: +(1 + 0.05 + 0.015 * t).toFixed(3) } }), t => `+${Math.round((0.05 + 0.015 * t) * 100)}% strike damage`],
+  ['art',     'Inner-Art Treatise',    '内法论', t => ({ kind: 'mods', mods: { techDamageMult: +(1 + 0.05 + 0.015 * t).toFixed(3) } }), t => `+${Math.round((0.05 + 0.015 * t) * 100)}% technique damage`],
+  ['ward',    'Iron-Ward Sutra',       '铁护经', t => ({ kind: 'incoming_mult_perm', value: +(1 - (0.04 + 0.008 * t)).toFixed(3) }), t => `-${Math.round((0.04 + 0.008 * t) * 100)}% incoming damage`],
+  ['keen',    'Keen-Eye Record',       '锐目录', t => ({ kind: 'mods', mods: { critChance: +(0.03 + 0.008 * t).toFixed(3) } }), t => `+${(3 + 0.8 * t).toFixed(1)}% critical chance`],
+  ['venom',   'Lingering-Rot Codex',   '余腐典', t => ({ kind: 'mods', mods: { dotMult: +(1 + 0.06 + 0.015 * t).toFixed(3) } }), t => `+${Math.round((0.06 + 0.015 * t) * 100)}% damage-over-time`],
+  ['marrow',  'Marrow-Forge Manual',   '炼髓诀', t => ({ kind: 'hp_add', value: 50 * (t + 1) }), t => `+${50 * (t + 1)} max HP`],
+  ['blood',   'Blood-Drinking Scroll', '饮血卷', t => ({ kind: 'mods', mods: { lifestealPct: +(0.03 + 0.008 * t).toFixed(3) } }), t => `+${Math.round((0.03 + 0.008 * t) * 100)}% lifesteal`],
+];
+(function generateBookLadder() {
+  for (let t = 0; t <= 6; t++) {
+    BOOK_ARCHETYPES.forEach(([stub, name, zh, eff, blurb], ai) => {
+      const id = `genbook_${stub}_${t}`;
+      let rar = BOOK_TIER_RARITY[t];
+      if (ai % 4 === 3) rar = ['common', 'rare', 'legendary', 'divine'][Math.min(3, RARITY_ORDER[rar] + 1)];
+      SKILL_BOOKS[id] = {
+        name: `${name} · ${REALMS[t].name}`, zh: `${zh}·${REALMS[t].zh || ''}`,
+        rarity: rar, cost: BOOK_TIER_COST[t], minTier: t, gen: true,
+        effect: eff(t),
+        desc: `${blurb(t)}. A ${REALMS[t].name}-era manual.`,
+      };
+    });
+  }
+})();
+function rollBookAtTier(maxTier, opts) {
+  opts = opts || {};
+  const minR = opts.minRarity ? RARITY_ORDER[opts.minRarity] : 0;
+  const pool = Object.keys(SKILL_BOOKS).filter(id => {
+    const b = SKILL_BOOKS[id];
+    if (hasSkill(id) || (state.foundBooks || []).includes(id)) return false;
+    if ((b.minTier || 0) > maxTier) return false;
+    if (RARITY_ORDER[b.rarity] < minR) return false;
+    return true;
+  });
+  if (!pool.length) return null;
+  let total = 0;
+  const weighted = pool.map(id => {
+    const b = SKILL_BOOKS[id];
+    const w = (BOOK_RARITY_WEIGHTS[b.rarity] || 0.1) * (1 + (b.minTier || 0)) / (1 + (maxTier - (b.minTier || 0)));
+    total += w; return { id, w };
+  });
+  let r = Math.random() * total;
+  for (const x of weighted) { r -= x.w; if (r <= 0) return x.id; }
+  return weighted[weighted.length - 1].id;
+}
+
 function learnedSkillEffects(kind) {
   // Returns an array of {value, ...} for all learned skills/books of that kind
   const out = [];
@@ -5638,22 +5696,7 @@ const BOOK_RARITY_WEIGHTS = { common: 0.5, rare: 0.3, legendary: 0.15, divine: 0
 
 function rollBookDrop(chance) {
   if (Math.random() >= (chance || 0)) return null;
-  // Filter to books not already discovered or learned
-  const pool = Object.keys(SKILL_BOOKS).filter(id => {
-    return !hasSkill(id) && !(state.foundBooks || []).includes(id);
-  });
-  if (!pool.length) return null;
-  // Pick rarity first
-  const rarityRoll = Math.random();
-  let chosen = 'common', acc = 0;
-  for (const [r, w] of Object.entries(BOOK_RARITY_WEIGHTS)) {
-    acc += w;
-    if (rarityRoll < acc) { chosen = r; break; }
-  }
-  // Narrow to pool of that rarity
-  let candidates = pool.filter(id => SKILL_BOOKS[id].rarity === chosen);
-  if (!candidates.length) candidates = pool;  // fallback: any rarity
-  return candidates[Math.floor(Math.random() * candidates.length)];
+  return rollBookAtTier((state.realm && state.realm.tierIdx) || 0, {});   // v0.84: realm-gated
 }
 
 function applyBoonsOnNewCharacter(char) {
@@ -10167,10 +10210,10 @@ function realmBonusFor(char) {
 // v0.80: LAYER_SCALE_COEF widens the within-realm difficulty gap ~3x (was 3.0) so layers
 // feel like a real climb — early layers easy, late layers a wall. Single tuning knob; if the
 // back half feels too brutal, lower it further. Bosses use their OWN anchor (bossAnchorScale, 3.0) so they remain a fixed, farmable mid-realm reference, not part of this ramp.
-const LAYER_SCALE_COEF = 3.0;   // v0.83: back to the pre-v0.80 baseline (v0.80/81 overshot the back half)
+const LAYER_SCALE_COEF = 3.75;  // v0.84: midpoint of v0.83's 3.0 and v0.81's 4.5 (v0.83 read too easy)
 // v0.83: double the player's posture damage (operator: bosses too hard to stagger even w/ the
 // v0.81 boss-posture cut). If 2.0 overshoots, drop to 1.25 — single knob.
-const PLAYER_POSTURE_MULT = 2.0;
+const PLAYER_POSTURE_MULT = 1.25;   // v0.84: 2.0 overshot (operator); 1.25 is the keep-value
 function playerLayerScale(char) {
   const tier = REALMS[char.realm.tierIdx];
   if (!tier || tier.layers <= 1) return { stats: 1.0, reward: 1.0 };
@@ -10869,11 +10912,17 @@ function buildEnemyCombat(enemyId) {
   // use the player's tier; bosses their own anchor tier). Applies to HP and damage.
   const buffTier = (enemyData.isBoss && BOSSES[enemyId]) ? BOSSES[enemyId].tier : (state.realm.tierIdx || 0);
   const realmBuff = REALM_ENEMY_BUFF[Math.min(6, buffTier)];
-  // v0.83: BACK-HALF bump REMOVED + layer coef restored to 3.0 — the latter half of a realm
-  // was ~2x too strong (operator). The layer curve alone now carries within-realm difficulty.
-  // v0.83: TRIBULATION fights halved across the board (they overshot badly).
-  const tribMult = (typeof pendingTribulation !== 'undefined' && pendingTribulation) ? 0.5 : 1;
-  const scaledHpMax = Math.round(enemyData.hpMax * scale.stats * 2.5 * hpBoost * eliteHpExtra * realmBuff * tribMult);
+  // v0.84: GENTLE back-half bump restored (midpoint of v0.83's none and v0.81's 1.2-1.4):
+  // 1.1 at the realm midpoint ramping to 1.2 at the top layer. Bosses exempt.
+  let backHalf = 1;
+  if (!enemyData.isBoss) {
+    const tl = (REALMS[state.realm.tierIdx] || {}).layers || 1;
+    const lf = tl > 1 ? (state.realm.layer - 1) / (tl - 1) : 0;
+    if (lf > 0.5) backHalf = 1.1 + 0.2 * (lf - 0.5);   // 1.1 @ mid -> 1.2 @ top
+  }
+  // v0.84: TRIBULATION fights at 0.75 (midpoint of v0.83's 0.5 and the un-halved 1.0 — QC trib read too easy).
+  const tribMult = (typeof pendingTribulation !== 'undefined' && pendingTribulation) ? 0.75 : 1;
+  const scaledHpMax = Math.round(enemyData.hpMax * scale.stats * 2.5 * hpBoost * eliteHpExtra * realmBuff * tribMult * backHalf);
   const scaledQiMax = Math.round(enemyData.qiMax * scale.stats * 2 * qiBoost);
   const scaledSpiritMax = Math.round(enemyData.spiritMax * scale.stats * 2 * qiBoost);
   // v0.81: enemy posture pools were too deep to break — normals x0.75, bosses x0.40 (even
@@ -10881,7 +10930,7 @@ function buildEnemyCombat(enemyId) {
   // HP clone; it should be reachable.
   const posMult = enemyData.isBoss ? 0.40 : 0.75;
   const scaledPostureMax = Math.round(enemyData.postureMax * scale.stats * 2 * postureBoost * posMult);
-  const scaledWeaponPower = Math.max(1, Math.round(enemyData.weaponPower * scale.stats * 2 * wpnBoost * realmBuff * tribMult));
+  const scaledWeaponPower = Math.max(1, Math.round(enemyData.weaponPower * scale.stats * 2 * wpnBoost * realmBuff * tribMult * backHalf));
   // Flat damage reduction. Elites get a thicker pad; normals get a small one (v0.23.2)
   // that scales gently by tier. Both blunt chip-damage / multi-hit AOE strategies.
   const tierIdx = state.realm.tierIdx || 0;
@@ -11684,6 +11733,24 @@ function grantEnemyDefeatRewards(e) {
     const bossInsight = Math.round((500 + Math.random() * 500) * 3 * (1 + bossTierIns));
     addInsight(bossInsight);
     pushLog('reward', `The fall of something this old teaches: +${bossInsight.toLocaleString()} insight.`);
+    // v0.84: bosses drop a GUARANTEED rare-or-better skill book + 1-3 random ones (at the
+    // boss's realm tier). foundBooks is pushed as we go, so rollBookAtTier never repeats.
+    if (!state.foundBooks) state.foundBooks = [];
+    const bossBooks = [];
+    const guaranteed = rollBookAtTier(bossTierIns, { minRarity: 'rare' });
+    if (guaranteed) { state.foundBooks.push(guaranteed); bossBooks.push(guaranteed); }
+    const extraN = 1 + Math.floor(Math.random() * 3);   // 1-3
+    for (let i = 0; i < extraN; i++) {
+      const b = rollBookAtTier(bossTierIns, {});
+      if (b) { state.foundBooks.push(b); bossBooks.push(b); }
+    }
+    bossBooks.forEach(id => {
+      const bk = SKILL_BOOKS[id];
+      if (bk) pushLog('reward', `Skill book recovered: ${bk.name} (${bk.rarity}).`);
+    });
+    combat.rewards = combat.rewards || { insight: 0, drops: [], weaponDrops: [], bookDrops: [], armorDrops: [], artifactDrops: [], materialDrops: {} };
+    if (!combat.rewards.bookDrops) combat.rewards.bookDrops = [];
+    bossBooks.forEach(id => combat.rewards.bookDrops.push(id));
     const meta = BOSSES[e.id];
     if (meta && meta.firstKill && state.bossKills[e.id] === 1) {
       Object.entries(meta.firstKill).forEach(([mid, n]) => {
