@@ -541,11 +541,11 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v0.81';
+const GAME_VERSION = 'v0.82';
 // v0.78: CI injects the build's short sha here; the APK shell reads it FROM THE RUNNING
 // PAGE (window.BUILD_SHA) and compares against the repo head — staleness detection that
-// cannot be fooled by cached metadata. '87ce5e0' = local/dev build (shell falls back).
-const BUILD_SHA = '87ce5e0';
+// cannot be fooled by cached metadata. '7808970' = local/dev build (shell falls back).
+const BUILD_SHA = '7808970';
 if (typeof window !== 'undefined') window.BUILD_SHA = BUILD_SHA;
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
@@ -10279,7 +10279,9 @@ function computeMaxHP(char) {
 }
 function computeMaxQi(char) {
   const mods = computeMods(char);
-  return 25 + char.finalStats.spirit * 4 + realmBonusFor(char).qi + (mods.qiBonus || 0);
+  // v0.82: base 25 -> 38 (x1.5); spirit weight 4 -> 8 (stats matter more); every flat qiBonus
+  // source DOUBLED (building qi pays double — more than just the base boost).
+  return 38 + char.finalStats.spirit * 8 + realmBonusFor(char).qi + (mods.qiBonus || 0) * 2;
 }
 function computeMaxSpirit(char) {
   const mods = computeMods(char);
@@ -11592,10 +11594,12 @@ function playerMeditate() {
   const regen = Math.ceil(p.qiMax * 0.5 * p.mods.meditateMult * schoolMed);
   const before = p.qi;
   p.qi = Math.min(p.qiMax, p.qi + regen);
-  p.buffs.incomingMult = 1.6;
+  // v0.82: meditating no longer leaves you vulnerable — losing the turn is tradeoff enough.
+  // Instead you guard inward: -30% incoming damage this round.
+  p.buffs.incomingMult = 0.7;
   p.buffs.incomingTurns = 1;
   pushLog('line', `${p.name} folds inward, drawing heaven-qi through open meridians.`);
-  pushLog('heal', `  → +${p.qi - before} qi (vulnerable until next turn)`);
+  pushLog('heal', `  → +${p.qi - before} qi (guarded: −30% incoming this round)`);
   // v0.45 Sword Intent: meditating sheathes the blade — the edge is lost.
   if (p.swordIntent > 0) {
     pushLog('flavor', `  → The gathered Sword Intent disperses with the breath.`);
@@ -14706,8 +14710,8 @@ function renderCombat() {
   const medBtn = document.createElement('button');
   medBtn.className = 'action-btn basic tip';
   const medAmount = Math.ceil(p.qiMax * 0.5 * p.mods.meditateMult);
-  medBtn.setAttribute('data-tip', `Recover +${medAmount} qi immediately. Vulnerable: you take 60% more damage until next round.`);
-  medBtn.innerHTML = `<span class="name">Meditate</span><span class="meta">+${medAmount} qi · vulnerable</span>`;
+  medBtn.setAttribute('data-tip', `Recover +${medAmount} qi immediately, and guard: −30% incoming damage until next round.`);
+  medBtn.innerHTML = `<span class="name">Meditate</span><span class="meta">+${medAmount} qi · guard</span>`;
   medBtn.onclick = playerMeditate;
   grid2.appendChild(medBtn);
 
