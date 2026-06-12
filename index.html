@@ -541,11 +541,11 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v0.85';
+const GAME_VERSION = 'v0.86';
 // v0.78: CI injects the build's short sha here; the APK shell reads it FROM THE RUNNING
 // PAGE (window.BUILD_SHA) and compares against the repo head — staleness detection that
-// cannot be fooled by cached metadata. '4263fdc' = local/dev build (shell falls back).
-const BUILD_SHA = '4263fdc';
+// cannot be fooled by cached metadata. '35f9033' = local/dev build (shell falls back).
+const BUILD_SHA = '35f9033';
 if (typeof window !== 'undefined') window.BUILD_SHA = BUILD_SHA;
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
@@ -7029,6 +7029,131 @@ const WEAPON_GEN_EFFECT = {
 // ============================================================
 const RARITY_LADDER = ['common', 'rare', 'legendary', 'divine'];
 const RARITY_PFX = { common: ['Sect-Issue', '宗制'], rare: ['Refined', '精制'], legendary: ['Resplendent', '辉煌'], divine: ['Apex', '绝巅'] };
+// v0.86: the Apex (divine) line gets UNIQUE names + flavor instead of the stacked
+// "Apex Riverworn Jian" prefix pile (operator). Keyed [kind][tier] -> [en, zh, descLine].
+// Cells that already carry a hand-authored divine keep their own name; this only feeds
+// the generated `genr_*_divine` entries.
+const APEX_WEAPON_NAMES = {
+  sword: [
+    ['Riverteeth', '河齿', 'A village smith\'s one perfect blade; the river ground its edge for thirty years.'],
+    ['Breath-of-the-Valley', '谷息剑', 'It swings on the inhale and arrives on the exhale.'],
+    ['Bedrock Oath', '磐誓剑', 'Forged across a foundation stone; it has never once wavered.'],
+    ['Core-Splitter', '裂丹剑', 'Quenched in a furnace that burned a decade without tending.'],
+    ['Gilded Meridian', '金脉剑', 'A golden line runs hilt to point; it knows where the dao is thinnest.'],
+    ['Soul-Echo Jian', '婴鸣剑', 'It hums a second after each cut, in a younger voice.'],
+    ['World-Parting Stroke', '分世剑', 'Drawn, it divides the room into before and after.'],
+  ],
+  saber: [
+    ['Butcher\'s Honor', '屠誉刀', 'It fed a village before it ever fought, and is ashamed of neither.'],
+    ['Mist-Drinker', '饮雾刀', 'Morning qi beads along its spine and runs to the edge.'],
+    ['Stoneheart Cleaver', '石心刀', 'It does not cut around hard things. It does not believe in them.'],
+    ['Cinder-Tongue', '烬舌刀', 'The edge glows faintly when blood is owed.'],
+    ['Golden Tithe', '金贡刀', 'Every stroke takes a tenth more than was offered.'],
+    ['Hungry Cradle', '饥婴刀', 'It drinks like something newly born and twice as certain.'],
+    ['Last-Light Saber', '残光刀', 'What it severs, dusk keeps.'],
+  ],
+  unarmed: [
+    ['Millstone Fists', '磨石拳', 'Hands that learned patience grinding grain. They have stopped being patient.'],
+    ['Qi-Callus Wraps', '灵茧缠', 'Each knuckle holds a year of stance work.'],
+    ['Mountain-Root Grips', '山根拳', 'Strike from a footing nothing has ever moved.'],
+    ['Furnace Knuckles', '炉拳', 'They remember the heat of their forging fondly, and pass it on.'],
+    ['Sun-Palm Gauntlets', '阳掌套', 'A press of the palm leaves a brand of noon.'],
+    ['Second-Self Fists', '化身拳', 'Each blow lands twice — once from you, once from what you are becoming.'],
+    ['Severance Grips', '断缘拳', 'They let go of nothing they have not first broken.'],
+  ],
+  focus: [
+    ['Ancestor\'s Abacus', '祖算珠', 'It counts breaths, debts, and enemies — in that order.'],
+    ['Dewlight Vessel', '露光器', 'It gathers morning qi the way a leaf gathers dew.'],
+    ['Keystone Mirror', '基镜', 'It reflects only what is firmly founded.'],
+    ['Core-Furnace Orb', '丹炉珠', 'A miniature furnace with opinions about your technique.'],
+    ['Golden Notary Seal', '金判印', 'Its stamps are binding upon spirits and minor magistrates.'],
+    ['Cradle-Star Lantern', '婴星灯', 'It lights toward what your soul will be next.'],
+    ['Silence Bottle', '默瓶', 'It holds one captured silence. Uncorked, arguments end.'],
+  ],
+  polearm: [
+    ['Boar-Line Spear', '守猪枪', 'Three generations held the field-line with it. The boars remember.'],
+    ['Heron\'s Reach', '鹭及枪', 'It strikes from where it appears to be resting.'],
+    ['Pillar-Lance', '柱枪', 'Cut from a temple pillar that held while everything else burned.'],
+    ['Core-Piercer', '穿丹枪', 'It was made for one specific apology and accepts substitutes.'],
+    ['Gilded Horizon', '金际枪', 'Its point rests where the sky touches the gold of evening.'],
+    ['Soul-Needle Lance', '引魂枪', 'It threads gaps that exist only briefly.'],
+    ['Heaven-Sutured Spear', '缝天枪', 'It once held a tear in the sky closed. It pulls open as well as shut.'],
+  ],
+  dagger: [
+    ['Trade-Debt Knives', '偿债匕', 'Paid to a smith in two installments. He regretted accepting both.'],
+    ['Whisper-Pair', '私语匕', 'They confer between strikes, briefly and to the point.'],
+    ['Set-Stone Fangs', '定石匕', 'Drawn from the same quarry as a sect\'s first hall.'],
+    ['Ember-Tooth Pair', '烬牙匕', 'They bite low and leave heat behind.'],
+    ['Gold-Vein Talons', '金络爪', 'They follow wealth — yours first, then the target\'s.'],
+    ['Twin Unborn', '双未生', 'Two blades that do not exist until they are already withdrawn.'],
+    ['Mercy-and-Otherwise', '慈与否', 'One blade for each. You choose which late.'],
+  ],
+  bow: [
+    ['Granary Sentinel', '守仓弓', 'It kept rats and bandits to the same standard.'],
+    ['Breath-Nocked Bow', '息扣弓', 'Loosed between heartbeats, where the air is still.'],
+    ['Cliff-Spine Bow', '崖脊弓', 'Carved from a ridgeline that refused erosion.'],
+    ['Kiln-Heart Recurve', '窑心弓', 'Its arrows arrive warm.'],
+    ['Dawn-Tithe Bow', '晓贡弓', 'Each dawn owes it one golden arrow; collection varies.'],
+    ['Spirit-Calling Arc', '唤灵弓', 'The arrow asks directions from the dead, who are honest.'],
+    ['Penultimate Star', '次星弓', 'It fires the second-to-last light of a closing day.'],
+  ],
+  staff: [
+    ['Ferryman\'s Pole', '渡杖', 'It has carried more weight than any sect treasure and complained less.'],
+    ['Cloud-Tap Staff', '叩云杖', 'Knock twice; the weather considers you.'],
+    ['Foundation Plumb', '定基杖', 'It points true down. Most arguments end there.'],
+    ['Core-Tender\'s Crook', '守丹杖', 'It stirs furnaces and battle lines with the same motion.'],
+    ['Gilded Bo of Hours', '金时杖', 'It strikes the hour. The hour is always now.'],
+    ['Cradle-Tree Branch', '婴树枝', 'Still growing, slowly, toward what you will become.'],
+    ['Worldroot Quarterstaff', '世根杖', 'One end touches the floor; the other, somewhere important.'],
+  ],
+  hammer: [
+    ['Honest Toll', '拙钟锤', 'It rang the village bell and the village\'s enemies with equal civic duty.'],
+    ['Qi-Packed Maul', '蕴灵锤', 'Heavy with breath held since its forging.'],
+    ['Cornerstone Maul', '奠基锤', 'Whatever it strikes becomes, briefly, part of the ground.'],
+    ['Furnace-Door Hammer', '炉门锤', 'A kiln door on a handle. The kiln objects to visitors.'],
+    ['Golden Verdict', '金判锤', 'The gavel of a court too rich to bribe.'],
+    ['Soul-Anvil Crusher', '魂砧锤', 'It strikes the shape of you out of whatever stands in the way.'],
+    ['Full Stop', '句终锤', 'There is no sentence it cannot end.'],
+  ],
+  chakram: [
+    ['Harvest Halo', '收环', 'A sharpened threshing ring. The harvest broadened.'],
+    ['Wind-Borrowed Ring', '借风环', 'It returns the wind, eventually, with interest.'],
+    ['Ring of Set Stone', '定石环', 'It orbits like something with a permanent address.'],
+    ['Kiln-Ring of Cinders', '烬环', 'It leaves a smoke ring through what it passes.'],
+    ['Gilt Eclipse', '金蚀环', 'In flight it briefly outshines the sun, which has complained.'],
+    ['Soul-Orbit Wheel', '魂轨环', 'It circles you like a small loyal moon with an edge.'],
+    ['Severed Halo', '断晕环', 'Cut from the crown of something that no longer needs one.'],
+  ],
+  greatsword: [
+    ['Plow-Brother', '犁兄剑', 'Re-forged from the village plow. It still works the earth, differently.'],
+    ['Valley-Span Blade', '跨谷剑', 'Wide as the argument it usually settles.'],
+    ['Load-Bearing Edge', '承重剑', 'A wall that decided to participate.'],
+    ['Core-Cleaving Slab', '劈丹剑', 'A furnace lid with a grudge and an edge.'],
+    ['Golden Meridian Slab', '金经巨剑', 'It falls the way sunset does: slowly, then all at once.'],
+    ['Soul-Weight Greatsword', '魂重剑', 'Light to you. The target carries its true weight.'],
+    ['Horizon-Ender', '尽际剑', 'Swung level, it edits the skyline.'],
+  ],
+  chain: [
+    ['Well-Bucket Chain', '井链', 'It hauled water for sixty years and learned everything about reach.'],
+    ['Breath-Link Whip', '息环链', 'Each link inhales in turn; the tip exhales.'],
+    ['Footing-Thief', '夺基链', 'It disagrees with other people\'s stances.'],
+    ['Slag-Whip', '熔渣链', 'Still warm from a forge it technically escaped.'],
+    ['Gold-Ledger Chain', '金账链', 'Every link an entry; every strike a balance due.'],
+    ['Umbilical of the New Self', '化婴链', 'It tethers what you were to what you are becoming, and swings both.'],
+    ['Sky-Mooring', '系天链', 'It once held the sky at anchor. The sky still flinches.'],
+  ],
+};
+// Apex armor: one divine piece per realm, slot follows the ladder's (t+2)%3 rotation
+// (t0 Boots, t1 Helm, t2 Robe, t3 Boots, t4 Helm, t5 Robe, t6 Boots).
+const APEX_ARMOR_NAMES = [
+  ['Hundred-League Sandals', '百里履', 'They have walked every road out of the village and chosen to stay.'],
+  ['Mist-Crown Helm', '雾冠盔', 'Morning qi pools in its crest and refuses to leave.'],
+  ['Bedrock Robe', '磐袍', 'Woven stone-thread; it sits on the shoulders like a well-built house.'],
+  ['Kiln-Stride Greaves', '窑步靴', 'Each step lands with a furnace\'s confidence.'],
+  ['Gilded Meridian Crown', '金络冠', 'Golden channels comb the thoughts straight.'],
+  ['Cradle-Silk Vestment', '婴绡袍', 'Spun around a soul mid-becoming; it fits next year\'s you as well.'],
+  ['Last-Silence Boots', '默尽靴', 'They make no sound. Increasingly, neither does anything near them.'],
+];
 // v0.83: per-realm armor flavor — each realm's gear reads distinct instead of "a rare pattern".
 const REALM_GEAR_FLAVOR = [
   'hammered from honest village iron and patience',
@@ -7067,14 +7192,17 @@ function realmGearFlavor(tier, slot, rarity, noun) {
         if (have.has(rar)) return;
         const wid = `genr_${kind}_${t}_${rar}`;
         const [fx, blurb] = WEAPON_GEN_EFFECT[kind](t);
+        // v0.86: divine entries carry their unique Apex name + flavor line.
+        const apex = rar === 'divine' && APEX_WEAPON_NAMES[kind] && APEX_WEAPON_NAMES[kind][t];
         const w = {
-          name: `${RARITY_PFX[rar][0]} ${row.pfx[0][0]} ${noun}`, zh: `${RARITY_PFX[rar][1]}${row.pfx[0][1]}${nounZh}`,
+          name: apex ? apex[0] : `${RARITY_PFX[rar][0]} ${row.pfx[0][0]} ${noun}`,
+          zh: apex ? apex[1] : `${RARITY_PFX[rar][1]}${row.pfx[0][1]}${nounZh}`,
           power: powerOf[rar], slots: Math.min(6, 2 + Math.ceil(t / 2) + (rar === 'divine' ? 1 : 0)),
           kind, rarity: rar,
           desc: rar === 'common'
             ? `Standard ${noun.toLowerCase()} pattern of this realm. Honest work.`
             : rar === 'divine'
-              ? `The realm's apex ${noun.toLowerCase()} — the equal of the next realm's standard issue. ${blurb}.`
+              ? `${apex ? apex[2] + ' ' : ''}The realm's apex ${noun.toLowerCase()} — the equal of the next realm's standard issue. ${blurb}.`
               : `A ${rar} ${noun.toLowerCase()} pattern: ${blurb}.`,
         };
         if (rar !== 'common') w.apply = fx;
@@ -7105,10 +7233,14 @@ function realmGearFlavor(tier, slot, rarity, noun) {
       const mods = { hpBonus: powerOf[rar] };
       if (rar === 'legendary') mods.flatDR = 2 + t;
       if (rar === 'divine') { mods.flatDR = 3 + t * 2; mods.qiBonus = 10 + t * 8; }
+      // v0.86: divine armor carries its unique Apex name + flavor line.
+      const apexA = rar === 'divine' && APEX_ARMOR_NAMES[t];
       ARMOR[aid] = {
-        name: `${RARITY_PFX[rar][0]} ${WEAPON_GEN_TIER[t].pfx[1][0]} ${noun}`, zh: `${RARITY_PFX[rar][1]}${WEAPON_GEN_TIER[t].pfx[1][1]}${nounZh}`,
+        name: apexA ? apexA[0] : `${RARITY_PFX[rar][0]} ${WEAPON_GEN_TIER[t].pfx[1][0]} ${noun}`,
+        zh: apexA ? apexA[1] : `${RARITY_PFX[rar][1]}${WEAPON_GEN_TIER[t].pfx[1][1]}${nounZh}`,
         slot, rarity: rar, mods,
-        desc: realmGearFlavor(t, slot, rar, noun),   // v0.83: varied per-realm flavor
+        desc: apexA ? `${apexA[2]} The equal of the next realm's standard issue.`
+                    : realmGearFlavor(t, slot, rar, noun),   // v0.83: varied per-realm flavor
       };
       ARMOR[aid].genArmor = true;   // v0.72: marks ladder pieces for rarity enrichment
       const mats = {};
@@ -7553,12 +7685,15 @@ const ARMOR_SETS = {
 // previously-crafted relics still resolve, but it is no longer offered (see the Bosses tab).
 // ============================================================
 const BOSS_LOOT = {
+  // v0.86: Mortal (t0) set numbers toned down — operator rule: a Mortal boss set should be
+  // competitive with EARLY Qi Condensation gear but must NOT beat QC's divine pieces
+  // (genr_armor_1_divine is ~50 HP + 5 DR + 18 qi per slot; the old 40/120 totals blew past it).
   boar_king:            { setName: 'Withered-Wood Warplate', setZh: '枯林战甲',
-    set: { hpBonus: 40, postureMult: 1.06 }, set2: { postureMult: 1.10 }, set4: { hpBonus: 120, lowHpBonus: 0.12 },
+    set: { hpBonus: 22, postureMult: 1.06 }, set2: { postureMult: 1.10 }, set4: { hpBonus: 60, lowHpBonus: 0.10 },
     refName: "Boar-King's Fury", refZh: '猪王怒', refine: { lowHpBonus: 0.06, postureMult: 1.04 },
     refBlurb: 'bloodied damage + posture' },
   kiln_mother:          { setName: 'Kiln-Glaze Regalia', setZh: '窑釉袍',
-    set: { hpBonus: 35, elementWard: { fire: 0.06 } }, set2: { elementWard: { fire: 0.12 } }, set4: { hpBonus: 100, dotMult: 1.12 },
+    set: { hpBonus: 20, elementWard: { fire: 0.06 } }, set2: { elementWard: { fire: 0.12 } }, set4: { hpBonus: 55, dotMult: 1.12 },
     refName: 'Mother-Glaze Coating', refZh: '母釉淬', refine: { dotMult: 1.06, hpBonus: 14 },
     refBlurb: 'damage-over-time' },
   fox_saint:            { setName: 'Nine-Tail Silks', setZh: '九尾绡',
@@ -9011,8 +9146,8 @@ function collectSellableItems(char) {
         char.base.materials.spirit_stone = (char.base.materials.spirit_stone || 0) + price;
         saveChar();
       },
-      dyield: disassembleYield(w.rarity),
-      disassemble: () => { removeWeapon(); grantYield(disassembleYield(w.rarity)); },
+      dyield: disassembleYield(w.rarity, weaponTierOf(wid)),
+      disassemble: () => { removeWeapon(); grantYield(disassembleYield(w.rarity, weaponTierOf(wid))); },
     });
   });
   // Inscriptions: owned but not slotted.
@@ -9042,10 +9177,10 @@ function collectSellableItems(char) {
         char.base.materials.spirit_stone = (char.base.materials.spirit_stone || 0) + price;
         saveChar();
       },
-      dyield: disassembleYield(a.rarity),
+      dyield: disassembleYield(a.rarity, armorTierOf(id)),
       disassemble: () => {
         char.armor.owned.splice(char.armor.owned.indexOf(id), 1);
-        grantYield(disassembleYield(a.rarity));
+        grantYield(disassembleYield(a.rarity, armorTierOf(id)));
       },
     });
   });
@@ -9063,32 +9198,106 @@ function collectSellableItems(char) {
         char.base.materials.spirit_stone = (char.base.materials.spirit_stone || 0) + price;
         saveChar();
       },
-      dyield: disassembleYield(a.rarity),
+      dyield: disassembleYield(a.rarity, artifactTierOf(id)),
       disassemble: () => disassembleArtifact(id),
     });
   });
   return out;
 }
 
-// v0.67/v0.74: break gear down into materials. Yield = your realm's material basket
-// scaled by the item's rarity, plus spirit stones. Applies to weapons (junk included),
-// armor, and artifacts; INSCRIPTIONS yield pure spirit stones (operator spec).
+// v0.67/v0.74: break gear down into materials. v0.86: yield = the ITEM'S realm basket
+// (was the player's realm) scaled by rarity, plus spirit stones, plus a rarity-matched
+// guarantee mat for rare+. Applies to weapons (junk included), armor, and artifacts;
+// INSCRIPTIONS yield pure spirit stones (operator spec).
 const DISASSEMBLE_RARITY_MULT = { common: 0.5, rare: 1, legendary: 2, divine: 3 };
 const INSCRIPTION_DISASSEMBLE_STONES = { common: 4, rare: 10, legendary: 25, divine: 50 };
+const RARITY_RANK = { common: 0, rare: 1, legendary: 2, divine: 3 };
+const RARITY_FALLBACK_TIER = { common: 0, rare: 2, legendary: 4, divine: 6 };
+// v0.86: which realm a material "belongs to" — the first realm whose recipes need it
+// (the farmable-at-first-need rule makes that the canonical home). Boss uniques sit at
+// their boss's realm; drop-only leftovers fall back by rarity. Lazy: built on first use,
+// after every generator/registration pass has pushed its recipes.
+function matTier(mid) {
+  if (!matTier._m) {
+    const m = {};
+    ARTIFACT_RECIPES.concat(ARMOR_RECIPES).forEach(r => {
+      Object.keys(r.materials || {}).forEach(id => {
+        const t = r.minRealmTier || 0;
+        if (!(id in m) || t < m[id]) m[id] = t;
+      });
+    });
+    Object.entries(BOSS_UNIQUE_MATS).forEach(([bid, [id]]) => { m[id] = BOSSES[bid].tier; });
+    Object.entries(MATERIALS).forEach(([id, mat]) => {
+      if (!(id in m)) m[id] = RARITY_FALLBACK_TIER[mat.rarity] || 0;
+    });
+    matTier._m = m;
+  }
+  return (mid in matTier._m) ? matTier._m[mid] : 0;
+}
+// Tier of the ITEM being broken down (v0.86: yield is keyed to the gear's realm, not the
+// player's — a Qi Condensation piece returns QC-era materials no matter when you scrap it).
+function recipeTierOf(id) {
+  if (!recipeTierOf._m) {
+    const m = {};
+    ARTIFACT_RECIPES.concat(ARMOR_RECIPES).forEach(r => {
+      if (!(r.id in m) || (r.minRealmTier || 0) < m[r.id]) m[r.id] = r.minRealmTier || 0;
+    });
+    recipeTierOf._m = m;
+  }
+  return recipeTierOf._m[id];
+}
+function weaponTierOf(wid) {
+  const rt = recipeTierOf(wid);
+  if (rt !== undefined) return rt;
+  const w = WEAPONS[wid] || {};
+  let t = 0;
+  WEAPON_GEN_TIER.forEach((row, i) => { if ((w.power || 0) >= row.power) t = i; });
+  return t;
+}
+function armorTierOf(aid) {
+  const a = ARMOR[aid] || {};
+  if (a.bossSet && BOSSES[a.bossSet]) return BOSSES[a.bossSet].tier;
+  const rt = recipeTierOf(aid);
+  if (rt !== undefined) return rt;
+  return RARITY_FALLBACK_TIER[a.rarity] || 0;
+}
+function artifactTierOf(id) {
+  return RARITY_FALLBACK_TIER[(ARTIFACTS[id] || {}).rarity] || 0;
+}
+// The rarity-matched guarantee mat for a tier: nearest-realm material of that rarity,
+// boss uniques excluded (those stay boss-specific). QC rare -> Star Iron, per the operator.
+function guaranteeMatFor(rarity, t) {
+  const bossMats = new Set(Object.values(BOSS_UNIQUE_MATS).map(x => x[0]));
+  let best = null, bestD = 99;
+  Object.entries(MATERIALS).forEach(([mid, mat]) => {
+    if (mat.rarity !== rarity || mid === 'spirit_stone' || bossMats.has(mid)) return;
+    const mt = matTier(mid);
+    const d = Math.abs(mt - t) + (mt > t + 1 ? 2 : 0);   // reaching far above the item's realm costs extra
+    if (d < bestD) { bestD = d; best = mid; }
+  });
+  return best;
+}
 function grantYield(yld) {
   Object.entries(yld).forEach(([m, n]) => {
     state.base.materials[m] = (state.base.materials[m] || 0) + n;
   });
   saveChar();
 }
-function disassembleYield(rarity) {
-  const t = Math.min(6, (state.realm && state.realm.tierIdx) || 0);
+function disassembleYield(rarity, itemTier) {
+  const t = Math.min(6, itemTier !== undefined ? itemTier : ((state.realm && state.realm.tierIdx) || 0));
   const mult = DISASSEMBLE_RARITY_MULT[rarity] || 1;
   const out = {};
   Object.entries(WEAPON_GEN_TIER[t].mats).forEach(([m, n]) => {
     if (m === 'spirit_stone') return;
     out[m] = Math.max(1, Math.round(n * mult));
   });
+  // v0.86: rare+ gear always returns at least one material OF ITS OWN RARITY from its
+  // realm's neighborhood (operator: "a QC Rare artifact should give 1 Star Iron").
+  const wantRank = RARITY_RANK[rarity] || 0;
+  if (wantRank >= 1 && !Object.keys(out).some(m => (RARITY_RANK[(MATERIALS[m] || {}).rarity] || 0) >= wantRank)) {
+    const g = guaranteeMatFor(rarity, t);
+    if (g) out[g] = (out[g] || 0) + (rarity === 'divine' ? 2 : 1);
+  }
   out.spirit_stone = Math.round(3 * mult * (1 + t));
   return out;
 }
@@ -9098,7 +9307,7 @@ function disassembleArtifact(id) {
   if (i < 0 || !a) return null;
   if (equippedArtifacts(state).includes(id)) return null;   // never break an equipped piece
   state.artifacts.owned.splice(i, 1);
-  const yld = disassembleYield(a.rarity);
+  const yld = disassembleYield(a.rarity, artifactTierOf(id));
   Object.entries(yld).forEach(([m, n]) => {
     state.base.materials[m] = (state.base.materials[m] || 0) + n;
   });
@@ -9396,6 +9605,9 @@ function ensureMusicEl() {
 function playCurrentTrack() {
   const a = ensureMusicEl();
   a.src = MUSIC_BASE + currentTrack().file;
+  // v0.86: single-track playlists (the per-boss themes) loop natively — gapless, and no
+  // re-fetch through the 'ended' handler. Multi-track playlists keep advancing as before.
+  a.loop = musicList().length === 1;
   a.volume = musicVolume();
   const p = a.play();
   if (p && p.catch) p.catch(() => {});  // autoplay rejection: retries on the next gesture
@@ -10248,6 +10460,10 @@ function realmBonusFor(char) {
 // feel like a real climb — early layers easy, late layers a wall. Single tuning knob; if the
 // back half feels too brutal, lower it further. Bosses use their OWN anchor (bossAnchorScale, 3.0) so they remain a fixed, farmable mid-realm reference, not part of this ramp.
 const LAYER_SCALE_COEF = 3.75;  // v0.84: midpoint of v0.83's 3.0 and v0.81's 4.5 (v0.83 read too easy)
+// v0.86: global difficulty tick (operator: "+20-25% overall"). Multiplies enemy HP and
+// weapon power in buildEnemyCombat — normals, elites, bosses, and rift enemies alike.
+// Rift REWARDS untouched. Single knob; 1.0 restores v0.85 difficulty.
+const DIFFICULTY_TICK = 1.22;
 // v0.83: double the player's posture damage (operator: bosses too hard to stagger even w/ the
 // v0.81 boss-posture cut). If 2.0 overshoots, drop to 1.25 — single knob.
 const PLAYER_POSTURE_MULT = 1.25;   // v0.84: 2.0 overshot (operator); 1.25 is the keep-value
@@ -10263,7 +10479,13 @@ function advanceInfo(char) {
   const tier = REALMS[char.realm.tierIdx];
   if (char.realm.layer < tier.layers) {
     const nextLayer = char.realm.layer + 1;
-    const cost = tier.insightPerLayer + char.realm.layer * (tier.insightPerLayerStep || 0);
+    // v0.86: layer costs COMPOUND — each layer ~1.2x the one before (1.3x on 5-layer
+    // realms, 1.4x on 3-layer realms so short realms still climb). Operator: layers 1-9
+    // were flying by. First layer of a realm is unchanged (mult^0); the back half walls
+    // up (~3.6x the old linear cost at QC L8). Rift REWARDS deliberately untouched.
+    const linear = tier.insightPerLayer + char.realm.layer * (tier.insightPerLayerStep || 0);
+    const compounding = tier.layers >= 9 ? 1.2 : tier.layers >= 5 ? 1.3 : 1.4;
+    const cost = Math.round(linear * Math.pow(compounding, char.realm.layer - 1));
     return { kind: 'within', cost, label: `${tier.name} Layer ${nextLayer}` };
   }
   const next = REALMS[char.realm.tierIdx + 1];
@@ -10959,7 +11181,7 @@ function buildEnemyCombat(enemyId) {
   }
   // v0.84: TRIBULATION fights at 0.75 (midpoint of v0.83's 0.5 and the un-halved 1.0 — QC trib read too easy).
   const tribMult = (typeof pendingTribulation !== 'undefined' && pendingTribulation) ? 0.75 : 1;
-  const scaledHpMax = Math.round(enemyData.hpMax * scale.stats * 2.5 * hpBoost * eliteHpExtra * realmBuff * tribMult * backHalf);
+  const scaledHpMax = Math.round(enemyData.hpMax * scale.stats * 2.5 * hpBoost * eliteHpExtra * realmBuff * tribMult * backHalf * DIFFICULTY_TICK);
   const scaledQiMax = Math.round(enemyData.qiMax * scale.stats * 2 * qiBoost);
   const scaledSpiritMax = Math.round(enemyData.spiritMax * scale.stats * 2 * qiBoost);
   // v0.81: enemy posture pools were too deep to break — normals x0.75, bosses x0.40 (even
@@ -10967,7 +11189,7 @@ function buildEnemyCombat(enemyId) {
   // HP clone; it should be reachable.
   const posMult = enemyData.isBoss ? 0.40 : 0.75;
   const scaledPostureMax = Math.round(enemyData.postureMax * scale.stats * 2 * postureBoost * posMult);
-  const scaledWeaponPower = Math.max(1, Math.round(enemyData.weaponPower * scale.stats * 2 * wpnBoost * realmBuff * tribMult * backHalf));
+  const scaledWeaponPower = Math.max(1, Math.round(enemyData.weaponPower * scale.stats * 2 * wpnBoost * realmBuff * tribMult * backHalf * DIFFICULTY_TICK));
   // Flat damage reduction. Elites get a thicker pad; normals get a small one (v0.23.2)
   // that scales gently by tier. Both blunt chip-damage / multi-hit AOE strategies.
   const tierIdx = state.realm.tierIdx || 0;
@@ -13870,9 +14092,12 @@ function renderCharSheet() {
       .slice().sort((a, b) => ((a.minLayer || 0) - (b.minLayer || 0)))
       .forEach(recipe => fP.appendChild(buildArmorRecipeRow(recipe)));
   } else {
+    // v0.86: materials ordered by realm (matTier), then rarity within a realm, with
+    // realm header rows — mirrors the pills/potions grouping.
     const matsList = Object.entries(MATERIALS).filter(([id]) => id !== 'spirit_stone').sort((a, b) => {
-      const order = { common: 0, rare: 1, legendary: 2 };
-      return (order[a[1].rarity] || 99) - (order[b[1].rarity] || 99);
+      const order = { common: 0, rare: 1, legendary: 2, divine: 3 };
+      return (matTier(a[0]) - matTier(b[0])) ||
+        ((order[a[1].rarity] || 0) - (order[b[1].rarity] || 0));
     });
     const stones = state.base.materials.spirit_stone || 0;
     const stoneRow = document.createElement('div');
@@ -13882,7 +14107,16 @@ function renderCharSheet() {
       <div class="consumable-desc"><strong>${stones}</strong> in purse. Used to buy techniques from the Wandering Master and to anchor greater forge work.</div>
     </div>`;
     fP.appendChild(stoneRow);
+    let lastMatTier = -1;
     matsList.forEach(([mid, mat]) => {
+      const mt = matTier(mid);
+      if (mt !== lastMatTier) {
+        lastMatTier = mt;
+        const th = document.createElement('div');
+        th.style.cssText = 'font-size:0.78rem;color:var(--ink-soft);margin:0.45rem 0 0.1rem;border-bottom:1px solid rgba(120,120,120,0.25);padding-bottom:0.1rem';
+        th.innerHTML = `<strong>${REALMS[mt].name}</strong> ${REALMS[mt].zh || ''}`;
+        fP.appendChild(th);
+      }
       const have = state.base.materials[mid] || 0;
       const row = document.createElement('div');
       row.className = 'consumable-row tip';
