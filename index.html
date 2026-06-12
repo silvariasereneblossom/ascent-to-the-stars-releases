@@ -541,11 +541,11 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v0.80';
+const GAME_VERSION = 'v0.81';
 // v0.78: CI injects the build's short sha here; the APK shell reads it FROM THE RUNNING
 // PAGE (window.BUILD_SHA) and compares against the repo head — staleness detection that
-// cannot be fooled by cached metadata. '580de52' = local/dev build (shell falls back).
-const BUILD_SHA = '580de52';
+// cannot be fooled by cached metadata. '87ce5e0' = local/dev build (shell falls back).
+const BUILD_SHA = '87ce5e0';
 if (typeof window !== 'undefined') window.BUILD_SHA = BUILD_SHA;
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
@@ -10126,9 +10126,8 @@ function realmBonusFor(char) {
 // Insight reward stays gentler (1.0x to 2.0x) so the cost doesn't compound brutally with HP.
 // v0.80: LAYER_SCALE_COEF widens the within-realm difficulty gap ~3x (was 3.0) so layers
 // feel like a real climb — early layers easy, late layers a wall. Single tuning knob; if the
-// back half feels too brutal, lower it. Bosses use their OWN anchor (bossAnchorScale, kept at
-// the old 3.0) so they remain a fixed, farmable mid-realm reference, not part of this ramp.
-const LAYER_SCALE_COEF = 9.0;
+// back half feels too brutal, lower it further. Bosses use their OWN anchor (bossAnchorScale, 3.0) so they remain a fixed, farmable mid-realm reference, not part of this ramp.
+const LAYER_SCALE_COEF = 4.5;   // v0.81: halved from 9.0 (v0.80 overshot); ~1.5x the pre-v0.80 baseline of 3.0
 function playerLayerScale(char) {
   const tier = REALMS[char.realm.tierIdx];
   if (!tier || tier.layers <= 1) return { stats: 1.0, reward: 1.0 };
@@ -10836,7 +10835,11 @@ function buildEnemyCombat(enemyId) {
   const scaledHpMax = Math.round(enemyData.hpMax * scale.stats * 2.5 * hpBoost * eliteHpExtra * realmBuff * backHalf);
   const scaledQiMax = Math.round(enemyData.qiMax * scale.stats * 2 * qiBoost);
   const scaledSpiritMax = Math.round(enemyData.spiritMax * scale.stats * 2 * qiBoost);
-  const scaledPostureMax = Math.round(enemyData.postureMax * scale.stats * 2 * postureBoost);
+  // v0.81: enemy posture pools were too deep to break — normals x0.75, bosses x0.40 (even
+  // dedicated posture-break builds stalled on bosses). Posture is the stagger axis, not an
+  // HP clone; it should be reachable.
+  const posMult = enemyData.isBoss ? 0.40 : 0.75;
+  const scaledPostureMax = Math.round(enemyData.postureMax * scale.stats * 2 * postureBoost * posMult);
   const scaledWeaponPower = Math.max(1, Math.round(enemyData.weaponPower * scale.stats * 2 * wpnBoost * realmBuff * backHalf));
   // Flat damage reduction. Elites get a thicker pad; normals get a small one (v0.23.2)
   // that scales gently by tier. Both blunt chip-damage / multi-hit AOE strategies.
