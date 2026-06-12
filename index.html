@@ -541,11 +541,11 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v0.82';
+const GAME_VERSION = 'v0.83';
 // v0.78: CI injects the build's short sha here; the APK shell reads it FROM THE RUNNING
 // PAGE (window.BUILD_SHA) and compares against the repo head — staleness detection that
-// cannot be fooled by cached metadata. '7808970' = local/dev build (shell falls back).
-const BUILD_SHA = '7808970';
+// cannot be fooled by cached metadata. 'b49308d' = local/dev build (shell falls back).
+const BUILD_SHA = 'b49308d';
 if (typeof window !== 'undefined') window.BUILD_SHA = BUILD_SHA;
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
@@ -4896,22 +4896,46 @@ function bossAnchorScale(bossTier) {
   }
   return { stats: stats * BOSS_DIFFICULTY_MULT, reward: 1.5 };
 }
-// v0.62/v0.77: per-boss challenge cooldown — 30 min base, stamped ON KILL ONLY
-// (a defeat allows an immediate retry), reducible by glyph arrays (floor 35%).
-const BOSS_CD_MS = 30 * 60 * 1000;
-function bossCooldownMs() {
-  const m = computeMods(state).bossCdMult || 1;
-  return BOSS_CD_MS * Math.max(0.35, m);
+// v0.83: per-boss CHARGE system (operator) — up to 5 stored challenges. A kill spends a
+// charge; defeats are free. Charges refill ONE at a time, slower as you near full: the
+// interval to gain the Nth charge (from N-1) is [10, 20, 40, 60, 60] minutes. Glyph arrays
+// (bossCdMult, floor 35%) shorten every interval. Lazy accrual on read.
+const BOSS_CHARGE_MAX = 5;
+const BOSS_CHARGE_INTERVALS_MS = [10, 20, 40, 60, 60].map(m => m * 60 * 1000);  // index c = c->c+1 charges
+function bossCdMult() { return Math.max(0.35, computeMods(state).bossCdMult || 1); }
+// Settle the stored {c, t} forward to now, accruing charges across the staged intervals.
+function settleBossCharges(bossId) {
+  if (!state.bossCharges) state.bossCharges = {};
+  let rec = state.bossCharges[bossId];
+  if (!rec) { rec = { c: BOSS_CHARGE_MAX, t: Date.now() }; state.bossCharges[bossId] = rec; return rec; }
+  const mult = bossCdMult();
+  let guard = 0;
+  while (rec.c < BOSS_CHARGE_MAX && guard++ < 100) {
+    const need = BOSS_CHARGE_INTERVALS_MS[rec.c] * mult;
+    if (Date.now() - rec.t >= need) { rec.c++; rec.t += need; }
+    else break;
+  }
+  if (rec.c >= BOSS_CHARGE_MAX) rec.t = Date.now();   // full: clean origin for the next spend
+  return rec;
 }
-function bossCooldownLeft(bossId) {
-  const last = (state.bossCooldowns && state.bossCooldowns[bossId]) || 0;
-  return Math.max(0, last + bossCooldownMs() - Date.now());
+function bossChargeCount(bossId) { return settleBossCharges(bossId).c; }
+function bossNextChargeMs(bossId) {
+  const rec = settleBossCharges(bossId);
+  if (rec.c >= BOSS_CHARGE_MAX) return 0;
+  return Math.max(0, BOSS_CHARGE_INTERVALS_MS[rec.c] * bossCdMult() - (Date.now() - rec.t));
+}
+function consumeBossCharge(bossId) {
+  const rec = settleBossCharges(bossId);
+  if (rec.c <= 0) return;
+  const wasFull = rec.c >= BOSS_CHARGE_MAX;
+  rec.c--;
+  if (wasFull) rec.t = Date.now();   // start the recharge clock from this spend
 }
 function startBossFight(bossId) {
   const meta = BOSSES[bossId];
   if (!meta || !ENEMIES[bossId]) return;
   if ((state.realm.tierIdx || 0) < meta.tier) return;
-  if (bossCooldownLeft(bossId) > 0) return;
+  if (bossChargeCount(bossId) < 1) return;   // need a charge to attempt; the KILL spends it
   initCombat([bossId], 1);
   if (combat) combat.bossFight = true;
   render();
@@ -6962,6 +6986,24 @@ const WEAPON_GEN_EFFECT = {
 // ============================================================
 const RARITY_LADDER = ['common', 'rare', 'legendary', 'divine'];
 const RARITY_PFX = { common: ['Sect-Issue', '宗制'], rare: ['Refined', '精制'], legendary: ['Resplendent', '辉煌'], divine: ['Apex', '绝巅'] };
+// v0.83: per-realm armor flavor — each realm's gear reads distinct instead of "a rare pattern".
+const REALM_GEAR_FLAVOR = [
+  'hammered from honest village iron and patience',
+  'forged in a qi-condensation furnace, still humming faintly',
+  'laid over a settled foundation — it no longer fears a hard blow',
+  'tempered around a formed core, the metal half-alive',
+  'gilded with golden-core radiance that warms the wearer',
+  'woven through with nascent-soul thread that mends its own scratches',
+  'spun from spirit-severing silence — it makes no sound, even struck',
+];
+function realmGearFlavor(tier, slot, rarity, noun) {
+  const base = REALM_GEAR_FLAVOR[Math.min(6, tier)] || REALM_GEAR_FLAVOR[0];
+  const slotLine = { helmet: 'Sits light, sees far.', chest: 'Takes the blow so you need not.',
+    gloves: 'A surer grip, a harder knuckle.', boots: 'Quick to where the fight is not.' }[slot] || '';
+  if (rarity === 'divine') return `An apex ${noun.toLowerCase()} ${base} — the equal of the next realm's standard issue. ${slotLine}`;
+  if (rarity === 'legendary') return `A resplendent ${noun.toLowerCase()} ${base}. ${slotLine}`;
+  return `A ${rarity} ${noun.toLowerCase()} ${base}. ${slotLine}`;
+}
 (function generateRarityLadder() {
   const cellRarities = {};
   ARTIFACT_RECIPES.forEach(r => {
@@ -7023,9 +7065,7 @@ const RARITY_PFX = { common: ['Sect-Issue', '宗制'], rare: ['Refined', '精制
       ARMOR[aid] = {
         name: `${RARITY_PFX[rar][0]} ${WEAPON_GEN_TIER[t].pfx[1][0]} ${noun}`, zh: `${RARITY_PFX[rar][1]}${WEAPON_GEN_TIER[t].pfx[1][1]}${nounZh}`,
         slot, rarity: rar, mods,
-        desc: rar === 'divine'
-          ? `The realm's apex ${noun.toLowerCase()} — armor to shame the next realm's standard issue.`
-          : `A ${rar} ${noun.toLowerCase()} pattern of this realm.`,
+        desc: realmGearFlavor(t, slot, rar, noun),   // v0.83: varied per-realm flavor
       };
       ARMOR[aid].genArmor = true;   // v0.72: marks ladder pieces for rarity enrichment
       const mats = {};
@@ -9221,7 +9261,6 @@ const TRACKS = {
     { file: 'Shenxian.mp3',              title: 'Shenxian',                note: 'elegant guzheng & erhu' },
     { file: 'Shenyang.mp3',              title: 'Shenyang',                note: 'erhu, pipa & yangqin' },
     { file: 'Taohua.mp3',                title: 'Taohua',                  note: 'calm erhu & dizi' },
-    { file: 'TeaRoots.mp3',              title: 'Tea Roots',               note: 'mellow erhu' },
     { file: 'Chinatown_Healing.mp3',     title: 'Chinatown (Healing)',     note: 'serene erhu & guzheng' },
     { file: 'GuzhengCity.mp3',           title: 'Guzheng City',            note: 'calm guzheng' },
     { file: 'rain-on-banana-leaves.ogg', title: 'Rain on Banana Leaves',   note: 'Cantonese erhu' },
@@ -9910,6 +9949,7 @@ function newCharacter(seed, childhood = null) {
     heavenConquest: 0, // v0.71: Conquest of Heaven stages cleared (demonic ascension)
     bodyInscriptions: [], riftRun: null, lastRiftRun: 0, // v0.77
     sectBountyClaims: 0, weaponBossRefine: {}, // v0.79
+    bossCharges: {}, // v0.83
     // Wave 3a: fortune-encounter cooldown timer.
     lastOpportunity: 0,
     // Wave 3b: secret-realm dive (active run state + entry cooldown).
@@ -10127,7 +10167,10 @@ function realmBonusFor(char) {
 // v0.80: LAYER_SCALE_COEF widens the within-realm difficulty gap ~3x (was 3.0) so layers
 // feel like a real climb — early layers easy, late layers a wall. Single tuning knob; if the
 // back half feels too brutal, lower it further. Bosses use their OWN anchor (bossAnchorScale, 3.0) so they remain a fixed, farmable mid-realm reference, not part of this ramp.
-const LAYER_SCALE_COEF = 4.5;   // v0.81: halved from 9.0 (v0.80 overshot); ~1.5x the pre-v0.80 baseline of 3.0
+const LAYER_SCALE_COEF = 3.0;   // v0.83: back to the pre-v0.80 baseline (v0.80/81 overshot the back half)
+// v0.83: double the player's posture damage (operator: bosses too hard to stagger even w/ the
+// v0.81 boss-posture cut). If 2.0 overshoots, drop to 1.25 — single knob.
+const PLAYER_POSTURE_MULT = 2.0;
 function playerLayerScale(char) {
   const tier = REALMS[char.realm.tierIdx];
   if (!tier || tier.layers <= 1) return { stats: 1.0, reward: 1.0 };
@@ -10826,15 +10869,11 @@ function buildEnemyCombat(enemyId) {
   // use the player's tier; bosses their own anchor tier). Applies to HP and damage.
   const buffTier = (enemyData.isBoss && BOSSES[enemyId]) ? BOSSES[enemyId].tier : (state.realm.tierIdx || 0);
   const realmBuff = REALM_ENEMY_BUFF[Math.min(6, buffTier)];
-  // v0.80: BACK-HALF bump — normal venture encounters past the realm's midpoint hit harder,
-  // ramping 1.2x at the halfway layer to 1.4x at the top. Bosses are exempt (own anchor).
-  let backHalf = 1;
-  if (!enemyData.isBoss) {
-    const tl = (REALMS[state.realm.tierIdx] || {}).layers || 1;
-    const lf = tl > 1 ? (state.realm.layer - 1) / (tl - 1) : 0;
-    if (lf > 0.5) backHalf = 1.2 + 0.4 * (lf - 0.5);   // 1.2 @ mid -> 1.4 @ top
-  }
-  const scaledHpMax = Math.round(enemyData.hpMax * scale.stats * 2.5 * hpBoost * eliteHpExtra * realmBuff * backHalf);
+  // v0.83: BACK-HALF bump REMOVED + layer coef restored to 3.0 — the latter half of a realm
+  // was ~2x too strong (operator). The layer curve alone now carries within-realm difficulty.
+  // v0.83: TRIBULATION fights halved across the board (they overshot badly).
+  const tribMult = (typeof pendingTribulation !== 'undefined' && pendingTribulation) ? 0.5 : 1;
+  const scaledHpMax = Math.round(enemyData.hpMax * scale.stats * 2.5 * hpBoost * eliteHpExtra * realmBuff * tribMult);
   const scaledQiMax = Math.round(enemyData.qiMax * scale.stats * 2 * qiBoost);
   const scaledSpiritMax = Math.round(enemyData.spiritMax * scale.stats * 2 * qiBoost);
   // v0.81: enemy posture pools were too deep to break — normals x0.75, bosses x0.40 (even
@@ -10842,7 +10881,7 @@ function buildEnemyCombat(enemyId) {
   // HP clone; it should be reachable.
   const posMult = enemyData.isBoss ? 0.40 : 0.75;
   const scaledPostureMax = Math.round(enemyData.postureMax * scale.stats * 2 * postureBoost * posMult);
-  const scaledWeaponPower = Math.max(1, Math.round(enemyData.weaponPower * scale.stats * 2 * wpnBoost * realmBuff * backHalf));
+  const scaledWeaponPower = Math.max(1, Math.round(enemyData.weaponPower * scale.stats * 2 * wpnBoost * realmBuff * tribMult));
   // Flat damage reduction. Elites get a thicker pad; normals get a small one (v0.23.2)
   // that scales gently by tier. Both blunt chip-damage / multi-hit AOE strategies.
   const tierIdx = state.realm.tierIdx || 0;
@@ -11327,7 +11366,7 @@ function playerStrike(opts) {
     if (schoolKit().strikeAppliesOnHit) applySchoolOnHit(p, e);
   }
   const hmStrike = heritageMech();
-  const postureAmt = Math.round(10 * p.mods.postureMult * (hmStrike.postureDamageMult || 1) * ((p.buffs.postureBoostTurns > 0) ? (p.buffs.postureBoost || 1) : 1));
+  const postureAmt = Math.round(10 * PLAYER_POSTURE_MULT * p.mods.postureMult * (hmStrike.postureDamageMult || 1) * ((p.buffs.postureBoostTurns > 0) ? (p.buffs.postureBoost || 1) : 1));
   const broke = applyPosture(e, postureAmt, false, 3 + p.mods.postureBreakBonus);
   if (broke) pushLog('posture', `${e.name}'s stance shatters! Qi damage doubled for ${e.broken} turns.`);
   if (p.mods.strikeHeal > 0 && res.qiAbsorbed + res.hpDamage > 0) {
@@ -11409,7 +11448,7 @@ function playerTechnique(techId) {
   if (hm0.schoolPierceBonus && hm0.schoolPierceBonus[sDmg]) pierce = Math.min(1, pierce + hm0.schoolPierceBonus[sDmg]);
   const directSpiritAmt = (tech.directSpirit || 0) * (p.mods.spiritDamageMult || 1);
   const postureBoostMult = (p.buffs && p.buffs.postureBoostTurns > 0) ? (p.buffs.postureBoost || 1) : 1;  // v0.57 Stormcall
-  const postureAmtBase = Math.round((tech.postureBuild || 0) * p.mods.postureMult * (hm0.postureDamageMult || 1) * postureBoostMult);
+  const postureAmtBase = Math.round((tech.postureBuild || 0) * PLAYER_POSTURE_MULT * p.mods.postureMult * (hm0.postureDamageMult || 1) * postureBoostMult);
 
   const kit = schoolKit();
   // v0.51: instance count. tech.hits (e.g. Starfall Volley) = N full instances per target; Celestial
@@ -11633,9 +11672,8 @@ function grantEnemyDefeatRewards(e) {
   if (enemyData.isBoss) {
     if (!state.bossKills) state.bossKills = {};
     state.bossKills[e.id] = (state.bossKills[e.id] || 0) + 1;
-    // v0.77: the cooldown starts when the boss FALLS — defeats allow instant retries.
-    if (!state.bossCooldowns) state.bossCooldowns = {};
-    state.bossCooldowns[e.id] = Date.now();
+    // v0.83: a kill spends a boss charge (defeats are free).
+    consumeBossCharge(e.id);
     // v0.60: the sect honors boss kills — automatic contribution bounty.
     const bossBounty = 30 + 30 * ((BOSSES[e.id] && BOSSES[e.id].tier) || 0);
     grantContribution(bossBounty);
@@ -13996,18 +14034,25 @@ function renderCharSheet() {
       <div class="location-actions" id="boss-actions-${bid}"></div>`;
     bossP.appendChild(card);
     if (unlocked) {
-      const cdLeft = bossCooldownLeft(bid);
+      // v0.83: charge system — up to 5 stored challenges; a kill spends one, defeats are free.
+      const charges = bossChargeCount(bid);
       const b = document.createElement('button');
       b.className = 'gold';
-      if (cdLeft > 0) {
-        const mins = Math.ceil(cdLeft / 60000);
-        b.textContent = `Rests (${mins}m)`;
+      if (charges < 1) {
+        const mins = Math.ceil(bossNextChargeMs(bid) / 60000);
+        b.textContent = `No charges (next in ${mins}m)`;
         b.disabled = true;
       } else {
-        b.textContent = kills > 0 ? 'Challenge Again' : 'Challenge';
+        b.textContent = (kills > 0 ? 'Challenge Again' : 'Challenge') + ` (${charges}/${BOSS_CHARGE_MAX})`;
         b.onclick = () => startBossFight(bid);
       }
       card.querySelector('.location-actions').appendChild(b);
+      if (charges > 0 && charges < BOSS_CHARGE_MAX) {
+        const cn = document.createElement('div');
+        cn.style.cssText = 'font-size:0.72rem;color:var(--ink-soft);margin-top:0.2rem';
+        cn.textContent = `${charges}/${BOSS_CHARGE_MAX} charges · next +1 in ${Math.ceil(bossNextChargeMs(bid) / 60000)}m`;
+        card.querySelector('.location-actions').appendChild(cn);
+      }
     } else {
       card.querySelector('.location-actions').innerHTML = `<span style="font-size:0.78rem;color:var(--crimson)">Requires ${REALMS[meta.tier].name}.</span>`;
     }
@@ -14097,7 +14142,7 @@ function renderCharSheet() {
   });
   const glyphNote = document.createElement('p');
   glyphNote.style.cssText = 'font-size:0.78rem;color:var(--ink-soft);margin-top:0.5rem';
-  glyphNote.textContent = 'A slain boss rests 30 minutes before it can be hunted again (defeats cost no cooldown - retry at will). The Challenge-Summons / War-Summons glyphs (House tab) shorten the rest; upgrade them with spirit stones.';
+  glyphNote.textContent = 'Each boss holds up to 5 challenge charges; a KILL spends one (defeats are free - retry at will). Charges refill one at a time, slower as you near full (10 / 20 / 40 / 60 / 60 min). The Challenge-Summons / War-Summons glyphs (House tab) shorten every interval; upgrade them with spirit stones.';
   bossP.appendChild(glyphNote);
   appendPanel(bossP, 'bosses');
 
@@ -14906,6 +14951,7 @@ try {
       if (!parsed.bodyInscriptions) parsed.bodyInscriptions = [];      // v0.77 demonic flesh-carving
       if (parsed.sectBountyClaims == null) parsed.sectBountyClaims = 0; // v0.79 escalating bounty
       if (!parsed.weaponBossRefine) parsed.weaponBossRefine = {};       // v0.79 boss refine tracks
+      if (!parsed.bossCharges) parsed.bossCharges = {};                 // v0.83 boss charge system
       if (parsed.lastRiftRun == null) parsed.lastRiftRun = 0;          // v0.77 Warped Rift-Gate
       if (parsed.riftRun === undefined) parsed.riftRun = null;
       // v0.61: demonic path flag. Existing demon_heart characters walked it all along.
