@@ -541,11 +541,11 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v0.89';
+const GAME_VERSION = 'v0.90';
 // v0.78: CI injects the build's short sha here; the APK shell reads it FROM THE RUNNING
 // PAGE (window.BUILD_SHA) and compares against the repo head — staleness detection that
-// cannot be fooled by cached metadata. '8e4f716' = local/dev build (shell falls back).
-const BUILD_SHA = '8e4f716';
+// cannot be fooled by cached metadata. 'b02efb4' = local/dev build (shell falls back).
+const BUILD_SHA = 'b02efb4';
 if (typeof window !== 'undefined') window.BUILD_SHA = BUILD_SHA;
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
@@ -8973,97 +8973,175 @@ function armorDrFloor(t, rarity) {
   return m ? Math.round(m * Math.pow(1.6, Math.min(6, t))) : 0;
 }
 // ============================================================
-// v0.89 STYLE LINES — a clean offensive-vs-defensive choice the player can craft at every
-// realm (operator: "more offensive (damage stats) vs more defensive (+HP, HP%, DR%)").
-// Two parallel craftable lines per realm, from generic realm materials (not boss-gated):
-//   • OFFENSIVE: damage stats (weapon power, crit, strike/tech damage). Accessories carry
-//     NO HP so they stay pure-offense through the v0.87 floor pass.
-//   • DEFENSIVE: the bulk axis — flat HP, HP% (hpMult), flat DR, and DR% (incomingMult).
-// Each is a full 4-piece armor SET (axis-leaning 2pc/4pc bonuses) PLUS a single accessory,
-// so the choice reaches both the armor slots and the two accessory slots. Registered before
-// scaleArmorWithRealm so set/accessory HP and DR get realm-floored like everything else.
+// v0.89/v0.90 STYLE LINES — craftable build-identity gear at every realm, three axes the
+// player picks between (operator: offensive vs defensive in v0.89; v0.90 adds the light-
+// armor glass-cannon). All from generic realm materials (not boss-gated). Each axis = a
+// 4-piece armor SET (axis-leaning 2pc/4pc bonuses) + a single accessory, so the choice
+// reaches the armor slots AND the two accessory slots. Registered BEFORE scaleArmorWithRealm
+// so HP/DR get realm-floored (the BURST line is flagged lightArmor -> a reduced HP floor,
+// so it's genuinely fragile). v0.90: every piece carries a unique per-realm NAME + LORE
+// (operator: "interesting lore blurbs and names") instead of the old "Name · Realm" stamp.
+//   • OFFENSIVE — heavy bruiser: weapon power, crit, strike/tech damage. Tanky baseline
+//     (it's armor) that hits harder. Accessory is pure offense (no HP).
+//   • DEFENSIVE — bulwark: flat HP, HP% (hpMult), flat DR, DR% (incomingMult).
+//   • BURST (v0.90) — glass cannon: LIGHT armor (~35% HP floor), extreme alpha-strike
+//     (opener, crit, crit damage) and bloodied-damage (lowHpBonus) — it hits hardest at
+//     death's door, which is where light armor tends to put you. No HP%/DR% at all.
 // ============================================================
-const STYLE_SET_PIECES = [['helmet', 'Helm', '盔'], ['chest', 'Cuirass', '甲'], ['gloves', 'Gauntlets', '护手'], ['boots', 'Greaves', '胫甲']];
+const LIGHT_ARMOR_HP_MULT = 0.35;   // v0.90: lightArmor pieces floor to this fraction of normal
 function styleRealmBasket(t, mult) {
   const cost = {};
   Object.entries(WEAPON_GEN_TIER[t].mats).forEach(([m, n]) => { cost[m] = Math.max(1, Math.round(n * mult)); });
   cost.spirit_stone = (cost.spirit_stone || 0) + (3 + t * 2);
   return cost;
 }
+// Per-realm names + lore, indexed by realm tier 0..6. [setName, setZh, setLore] / [accName, accZh, accLore].
+const STYLE_FLAVOR = {
+  off: {
+    slotNouns: [['helmet', 'Helm', '盔'], ['chest', 'Cuirass', '甲'], ['gloves', 'Gauntlets', '护手'], ['boots', 'Greaves', '胫甲']],
+    sets: [
+      ["Bandit-King's Harness", '马贼王甲', 'Stitched from the armor of every caravan guard who said no. The first lesson of war is that asking is optional.'],
+      ["Vanguard's Aspect", '先锋相', 'Worn by the one who reaches the wall first and decides who follows. Qi-tempered at the seams, where the blows always land.'],
+      ['Banner-Breaker Plate', '破旗铠', "Foundations don't win battles; the willingness to spend them does. This plate has spent several, and regrets none."],
+      ["Warlord's Crimson Regalia", '赤霄战袍', "A core-formed warlord wears their reputation as armor. The reputation, in every account, is simply: forward."],
+      ['Sky-Toppling War-Regalia', '倾天战甲', 'Golden-core generals stop counting enemies and start counting horizons. This armor was built to close the distance between them.'],
+      ['Dominion Aspect', '主宰相', 'Nascent-soul conquerors no longer fight wars. They end the question of whether there will be one.'],
+      ['World-Subduing Panoply', '镇世甲', "Spirit-severing made the wearer's ambition a feature of the terrain. Hills, it is said, lean slightly away from this armor."],
+    ],
+    accs: [
+      ['Notched-Hilt Tally', '缺柄牌', 'One notch per name that mattered. It is more notch than hilt now, and the owner counts that as progress.'],
+      ['Warhorn Sigil', '战角徽', 'It hums, very faintly, just before a charge — as though remembering every wall it has ever helped break.'],
+      ["Field-Marshal's Seal", '帅印', 'Pressed into wax over orders that ended things. The wax was, by long tradition, red before it was poured.'],
+      ["Conqueror's Oath-Ring", '征誓环', 'Sworn on the morning of a battle nobody expected to survive. It was won by noon. The ring has been insufferable since.'],
+      ["Mandate-Taker's Token", '夺命符', 'Heaven grants mandates slowly, with paperwork. This token was used to take one early, and without.'],
+      ['Throne-Splitting Tally', '裂座牌', 'It has tallied the fall of three thrones. There is room on it for more. There is always room.'],
+      ['Crown of the Unanswered', '无对冠', 'Worn by one to whom no challenge was ever returned. Every challenge, the histories note carefully, was accounted for.'],
+    ],
+  },
+  def: {
+    slotNouns: [['helmet', 'Helm', '盔'], ['chest', 'Plastron', '胸甲'], ['gloves', 'Bracers', '臂甲'], ['boots', 'Sabatons', '足甲']],
+    sets: [
+      ["Doorkeeper's Plate", '守门甲', 'Worn by the one who stood in the gateway so the others could sleep. Dented everywhere; breached nowhere.'],
+      ["Watchman's Aegis", '守夜铠', 'Qi-set into a stance rather than a shape. The longer the night runs, the heavier it holds the line.'],
+      ['Foundation Wall Plate', '基墙甲', 'Built on the same principle as a sect\'s outer wall: be unremarkable, and be there in the morning.'],
+      ['Mountain-Sitting Regalia', '坐山铠', 'A core-formed bulwark neither advances nor retreats. Mountains do neither, and outlast both armies.'],
+      ['Unbroken Dynasty Plate', '不堕朝甲', 'Golden-core endurance: the wearer becomes the thing histories are measured against — the one still standing.'],
+      ['World-Root Bulwark', '世根铠', 'Nascent-soul defenders root to something older than the fight: the stone the world itself was stacked upon.'],
+      ['Eternal Bastion Panoply', '永壁甲', 'Spirit-severing turned the wearer into a fixed point in the dao. The world erodes around it; it declines to participate.'],
+    ],
+    accs: [
+      ['Riverstone Ballast', '河石坠', 'A stone that has lain underwater for a century and is in no particular hurry to be anywhere else.'],
+      ['Anchor-Knot Charm', '锚结符', 'Tied by sailors who never reached shore. It has still not learned how to let go of anything.'],
+      ['Cornerstone Pendant', '奠石坠', 'Cut from the first stone of a hall that outlived its founders, its students, and three dynasties of weather.'],
+      ['Tortoise-Spine Talisman', '龟脊符', 'Modeled on a spirit-tortoise that survived a heavenly tribulation by, witnesses agree, declining to notice it.'],
+      ['Deathless Tortoise Seal', '玄武印', 'The Black Tortoise of the north lent its patience to one seal. Patience, it turns out, is also a weapon.'],
+      ['Immovable Pillar Bead', '定柱珠', 'It marks a point that does not move. Everything else in the battle is measured against it, and found wanting.'],
+      ['Axis-of-Heaven Charm', '天枢符', 'The still hinge the sky turns on. Worn at the hip, it makes the wearer the one thing the battle must revolve around.'],
+    ],
+  },
+  burst: {
+    slotNouns: [['helmet', 'Circlet', '圈'], ['chest', 'Robe', '袍'], ['gloves', 'Wraps', '缠'], ['boots', 'Slippers', '履']],
+    light: true,
+    sets: [
+      ["Tattered Duelist's Wrap", '破衣斗装', 'No armor to speak of, because the plan was never to be hit. The plan, to be fair, usually works once.'],
+      ['Mayfly Silks', '蜉蝣绡', 'Woven for cultivators who intend to win before the dew dries. They rarely budget for a second day.'],
+      ['Reckless-Heart Raiment', '莽心衣', 'A foundation spent entirely on the cutting edge, with nothing set aside for the part that gets cut.'],
+      ['Edge-of-Ruin Vestments', '临渊袍', 'Crimson-thin and getting thinner. It rewards standing at the cliff\'s edge — by pushing, gently, from behind.'],
+      ['Last-Breath Brocade', '残息锦', 'The nearer the wearer is to the end, the brighter its gold thread burns. It is, at least, an honest garment.'],
+      ['Suicide-Blossom Shroud', '殉花氅', 'Named for a flower that blooms once, enormously, and dies of the effort. Nascent-soul duelists found this relatable.'],
+      ['Final-Stroke Funeral Robes', '终斩丧袍', 'Tailored for the one cut that ends the conversation. Duelists are buried in these — having, as a rule, already used them.'],
+    ],
+    accs: [
+      ['Cracked Mirror-Shard', '裂镜片', 'It shows you the one opening, with perfect clarity, for exactly as long as the opening lasts.'],
+      ['Held-Breath Charm', '屏息符', 'Worn against the heart. It does not let the breath back out until the strike does.'],
+      ['Coiled-Spring Sigil', '蓄势徽', 'Tighter with every moment you wait. It is not a patient charm, and it makes you less of one.'],
+      ['Drawn-Bowstring Talisman', '满弦符', 'Held at full draw since the day it was made. Loosing is the only thing it has ever known how to do.'],
+      ['Lightning-Before-Thunder Bead', '先雷珠', 'The flash arrives first and does all the work. The thunder is merely the paperwork that follows.'],
+      ['All-or-Nothing Wager', '孤注符', 'It pays out only on the all. There is no consolation clause; the maker considered one distasteful.'],
+      ['One Perfect Cut', '一斩', 'Not a weapon. A promise, worn at the throat, that there will be no need for a second.'],
+    ],
+  },
+};
 (function generateStyleLines() {
+  const r2 = n => +n.toFixed(3);
   for (let t = 0; t <= 6; t++) {
     const rar = bossSetRarity(t);
-    const realmName = REALMS[t].name, realmZh = REALMS[t].zh || '';
-    const r2 = n => +n.toFixed(3);
 
-    // ---- Offensive set: "Conqueror's War-Regalia" ----
-    const offSet = `style_off_${t}`;
-    STYLE_SET_PIECES.forEach(([slot, noun, nounZh], i) => {
-      const id = `${offSet}_${slot}`;
-      const mods = { weaponBonus: 3 + t * 2 };
-      if (slot === 'gloves') mods.critChance = r2(0.02 + 0.004 * t);
-      if (slot === 'boots') mods.firstStrikeBonus = r2(0.06 + 0.015 * t);
-      ARMOR[id] = {
-        name: `Conqueror's ${noun} · ${realmName}`, zh: `征服${nounZh}·${realmZh}`,
-        slot, rarity: rar, set: offSet, mods,
-        desc: `Forged for those who answer a longer reach with a harder one. Part of the Conqueror's War-Regalia (${realmName}). [2/4-piece set bonuses]`,
+    // mods + set-bonus builders per axis (t-scaled)
+    const AXES = {
+      off: {
+        pieceMods: slot => { const m = { weaponBonus: 3 + t * 2 };
+          if (slot === 'gloves') m.critChance = r2(0.02 + 0.004 * t);
+          if (slot === 'boots') m.firstStrikeBonus = r2(0.06 + 0.015 * t); return m; },
+        bonuses: [
+          { pieces: 2, desc: `+${Math.round((0.08 + 0.012 * t) * 100)}% strike & technique damage`,
+            apply: m => { const v = 1 + 0.08 + 0.012 * t; m.strikeDamageMult *= v; m.techDamageMult *= v; } },
+          { pieces: 4, desc: `+${10 + 5 * t} weapon power, +6% crit, +25% crit damage`,
+            apply: m => { m.weaponBonus += 10 + 5 * t; m.critChance += 0.06; m.critMult += 0.25; } },
+        ],
+        accMods: () => ({ weaponBonus: 4 + t * 3, critChance: r2(0.03 + 0.005 * t),
+          strikeDamageMult: r2(1 + 0.04 + 0.015 * t), techDamageMult: r2(1 + 0.04 + 0.015 * t) }),
+        pieceTag: 'A bruiser\'s plate: it answers a longer reach with a harder one.',
+        accTag: 'Pure offense — weapon power, crit, and strike/technique damage. No padding.',
+      },
+      def: {
+        pieceMods: slot => { const m = { flatDR: 1 + Math.floor(t / 2) };
+          if (slot === 'chest') m.hpMult = r2(1 + 0.03 + 0.005 * t); return m; },
+        bonuses: [
+          { pieces: 2, desc: `+${Math.round((0.07 + 0.01 * t) * 100)}% max HP`,
+            apply: m => { m.hpMult = (m.hpMult || 1) * (1 + 0.07 + 0.01 * t); } },
+          { pieces: 4, desc: `-${Math.round((0.09 + 0.01 * t) * 100)}% incoming damage, +5% max HP`,
+            apply: m => { m.incomingMult *= (1 - (0.09 + 0.01 * t)); m.hpMult = (m.hpMult || 1) * 1.05; } },
+        ],
+        accMods: () => ({ hpBonus: 20 + 30 * t, hpMult: r2(1 + 0.04 + 0.01 * t),
+          flatDR: 2 + t, incomingMult: r2(1 - (0.02 + 0.005 * t)) }),
+        pieceTag: 'Plate that intends to still be standing at the end of the fight.',
+        accTag: 'Pure defense — +HP, +HP%, flat DR, and reduced incoming damage.',
+      },
+      burst: {
+        light: true,
+        pieceMods: slot => { const m = {};   // NO HP/DR — fragile by design (lightArmor floors HP low)
+          if (slot === 'helmet') m.critChance = r2(0.02 + 0.004 * t);
+          if (slot === 'chest') m.weaponBonus = 4 + t * 3;
+          if (slot === 'gloves') m.critMult = r2(1 + 0.12 + 0.03 * t);   // multiplier (mergeMods multiplies base 1.5)
+          if (slot === 'boots') m.firstStrikeBonus = r2(0.06 + 0.02 * t); return m; },
+        bonuses: [
+          { pieces: 2, desc: '+8% crit, +30% crit damage',
+            apply: m => { m.critChance += 0.08; m.critMult += 0.30; } },
+          { pieces: 4, desc: `+${Math.round((0.30 + 0.03 * t) * 100)}% opening-strike damage, +25% damage while bloodied, +${12 + 6 * t} weapon power`,
+            apply: m => { m.firstStrikeBonus += 0.30 + 0.03 * t; m.lowHpBonus += 0.25; m.weaponBonus += 12 + 6 * t; m.critChance += 0.04; } },
+        ],
+        accMods: () => ({ critChance: r2(0.05 + 0.006 * t), critMult: r2(1 + 0.20 + 0.04 * t),   // multiplier
+          firstStrikeBonus: r2(0.10 + 0.02 * t), weaponBonus: 6 + t * 3 }),
+        pieceTag: 'Almost no armor at all — everything traded for the edge. Hits hardest when you have least left to lose.',
+        accTag: 'Pure burst — crit, crit damage, opener, and weapon power. Nothing to protect you; that was the deal.',
+      },
+    };
+
+    Object.entries(AXES).forEach(([axis, A]) => {
+      const flav = STYLE_FLAVOR[axis];
+      const [setName, setZh, setLore] = flav.sets[t];
+      const setKey = `style_${axis}_${t}`;
+      flav.slotNouns.forEach(([slot, noun, nounZh], i) => {
+        const id = `${setKey}_${slot}`;
+        ARMOR[id] = {
+          name: `${setName} ${noun}`, zh: `${setZh}${nounZh}`,
+          slot, rarity: rar, set: setKey, mods: A.pieceMods(slot),
+          desc: `${setLore} ${A.pieceTag} [${setName} — 2/4-piece set bonuses]`,
+        };
+        if (A.light) ARMOR[id].lightArmor = true;
+        ARMOR_RECIPES.push({ id, materials: styleRealmBasket(t, 1.5), minRealmTier: t, minLayer: Math.min(i + 1, REALMS[t].layers) });
+      });
+      ARMOR_SETS[setKey] = { name: setName, zh: setZh, bonuses: A.bonuses };
+
+      const [accName, accZh, accLore] = flav.accs[t];
+      const accId = `style_acc_${axis}_${t}`;
+      ARMOR[accId] = {
+        name: accName, zh: accZh, slot: 'accessory', rarity: rar, mods: A.accMods(),
+        desc: `${accLore} ${A.accTag}`,
       };
-      ARMOR_RECIPES.push({ id, materials: styleRealmBasket(t, 1.5), minRealmTier: t, minLayer: Math.min(i + 1, REALMS[t].layers) });
+      ARMOR_RECIPES.push({ id: accId, materials: styleRealmBasket(t, 1.5), minRealmTier: t, minLayer: Math.min(2, REALMS[t].layers) });
     });
-    ARMOR_SETS[offSet] = {
-      name: `Conqueror's War-Regalia · ${realmName}`, zh: `征服战袍·${realmZh}`,
-      bonuses: [
-        { pieces: 2, desc: `+${Math.round((0.08 + 0.012 * t) * 100)}% strike & technique damage`,
-          apply: m => { const v = 1 + 0.08 + 0.012 * t; m.strikeDamageMult *= v; m.techDamageMult *= v; } },
-        { pieces: 4, desc: `+${10 + 5 * t} weapon power, +${Math.round((0.06) * 100)}% crit, +25% crit damage`,
-          apply: m => { m.weaponBonus += 10 + 5 * t; m.critChance += 0.06; m.critMult += 0.25; } },
-      ],
-    };
-
-    // ---- Defensive set: "Bastion Bulwark" ----
-    const defSet = `style_def_${t}`;
-    STYLE_SET_PIECES.forEach(([slot, noun, nounZh], i) => {
-      const id = `${defSet}_${slot}`;
-      const mods = { flatDR: 1 + Math.floor(t / 2) };   // floored up by scaleArmorWithRealm; HP floored too
-      if (slot === 'chest') mods.hpMult = r2(1 + 0.03 + 0.005 * t);   // the chest carries a little HP%
-      ARMOR[id] = {
-        name: `Bastion ${noun} · ${realmName}`, zh: `壁垒${nounZh}·${realmZh}`,
-        slot, rarity: rar, set: defSet, mods,
-        desc: `Plate that intends to still be standing at the end of the fight. Part of the Bastion Bulwark (${realmName}). [2/4-piece set bonuses]`,
-      };
-      ARMOR_RECIPES.push({ id, materials: styleRealmBasket(t, 1.5), minRealmTier: t, minLayer: Math.min(i + 1, REALMS[t].layers) });
-    });
-    ARMOR_SETS[defSet] = {
-      name: `Bastion Bulwark · ${realmName}`, zh: `壁垒重铠·${realmZh}`,
-      bonuses: [
-        { pieces: 2, desc: `+${Math.round((0.07 + 0.01 * t) * 100)}% max HP`,
-          apply: m => { m.hpMult = (m.hpMult || 1) * (1 + 0.07 + 0.01 * t); } },
-        { pieces: 4, desc: `-${Math.round((0.09 + 0.01 * t) * 100)}% incoming damage, +5% max HP`,
-          apply: m => { m.incomingMult *= (1 - (0.09 + 0.01 * t)); m.hpMult = (m.hpMult || 1) * 1.05; } },
-      ],
-    };
-
-    // ---- Offensive accessory: "Warmark Talisman" (no HP — stays pure-offense) ----
-    const offAcc = `style_acc_off_${t}`;
-    ARMOR[offAcc] = {
-      name: `Warmark Talisman · ${realmName}`, zh: `战记符·${realmZh}`,
-      slot: 'accessory', rarity: rar,
-      mods: { weaponBonus: 4 + t * 3, critChance: r2(0.03 + 0.005 * t),
-              strikeDamageMult: r2(1 + 0.04 + 0.015 * t), techDamageMult: r2(1 + 0.04 + 0.015 * t) },
-      desc: `A soldier's tally-charm, one notch per ended fight. Pure offense — +weapon power, crit, and strike/technique damage.`,
-    };
-    ARMOR_RECIPES.push({ id: offAcc, materials: styleRealmBasket(t, 1.5), minRealmTier: t, minLayer: Math.min(2, REALMS[t].layers) });
-
-    // ---- Defensive accessory: "Bulwark Charm" (HP, HP%, DR, DR%) ----
-    const defAcc = `style_acc_def_${t}`;
-    ARMOR[defAcc] = {
-      name: `Bulwark Charm · ${realmName}`, zh: `壁垒符·${realmZh}`,
-      slot: 'accessory', rarity: rar,
-      mods: { hpBonus: 20 + 30 * t, hpMult: r2(1 + 0.04 + 0.01 * t),
-              flatDR: 2 + t, incomingMult: r2(1 - (0.02 + 0.005 * t)) },
-      desc: `A stone worn smooth by everyone who survived wearing it. Pure defense — +HP, +HP%, flat DR, and reduced incoming damage.`,
-    };
-    ARMOR_RECIPES.push({ id: defAcc, materials: styleRealmBasket(t, 1.5), minRealmTier: t, minLayer: Math.min(2, REALMS[t].layers) });
   }
 })();
 
@@ -9073,8 +9151,11 @@ function styleRealmBasket(t, mult) {
     const t = armorTierOf(aid);
     // Pure-utility accessories (wards, amps — no HP) keep their identity; everything
     // else, and any accessory that already grants HP, is pulled up to the curve.
+    // v0.90: lightArmor pieces (the glass-cannon burst line) floor to a fraction of normal
+    // so they stay genuinely fragile — the damage is the whole point.
     if (a.slot !== 'accessory' || (a.mods.hpBonus || 0) > 0) {
-      a.mods.hpBonus = Math.max(a.mods.hpBonus || 0, armorHpFloor(t, a.rarity, a.slot));
+      const floor = Math.round(armorHpFloor(t, a.rarity, a.slot) * (a.lightArmor ? LIGHT_ARMOR_HP_MULT : 1));
+      a.mods.hpBonus = Math.max(a.mods.hpBonus || 0, floor);
     }
     if ((a.mods.flatDR || 0) > 0) {
       a.mods.flatDR = Math.max(a.mods.flatDR, armorDrFloor(t, a.rarity));
@@ -9176,7 +9257,7 @@ function modSummary(mods) {
     postureMult: 'posture', techDamageMult: 'tech dmg', strikeDamageMult: 'strike dmg',
     incomingMult: 'incoming', insightMult: 'insight', meditateMult: 'meditate',
     weaponMultFlat: 'wpn', cultMult: 'cultivation', spiritDamageMult: 'spirit dmg',
-    dotMult: 'DOT', bossCdMult: 'boss cooldown', hpMult: 'max HP',
+    dotMult: 'DOT', bossCdMult: 'boss cooldown', hpMult: 'max HP', critMult: 'crit dmg',
   };
   Object.entries(mods).forEach(([k, v]) => {
     if (labels[k] && v) {
