@@ -541,11 +541,11 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v0.88';
+const GAME_VERSION = 'v0.89';
 // v0.78: CI injects the build's short sha here; the APK shell reads it FROM THE RUNNING
 // PAGE (window.BUILD_SHA) and compares against the repo head — staleness detection that
-// cannot be fooled by cached metadata. '6117297' = local/dev build (shell falls back).
-const BUILD_SHA = '6117297';
+// cannot be fooled by cached metadata. '8e4f716' = local/dev build (shell falls back).
+const BUILD_SHA = '8e4f716';
 if (typeof window !== 'undefined') window.BUILD_SHA = BUILD_SHA;
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
@@ -3986,6 +3986,7 @@ function baseInscriptionMods() {
     postureBreakBonus: 0,
     // ---- new channels ----
     hpBonus: 0,
+    hpMult: 1,               // v0.89: multiplicative max-HP bonus (HP%), defensive-style stat
     qiBonus: 0,
     spiritBonus: 0,
     incomingMult: 1,
@@ -8971,6 +8972,101 @@ function armorDrFloor(t, rarity) {
   const m = { legendary: 3, divine: 5 }[rarity];
   return m ? Math.round(m * Math.pow(1.6, Math.min(6, t))) : 0;
 }
+// ============================================================
+// v0.89 STYLE LINES — a clean offensive-vs-defensive choice the player can craft at every
+// realm (operator: "more offensive (damage stats) vs more defensive (+HP, HP%, DR%)").
+// Two parallel craftable lines per realm, from generic realm materials (not boss-gated):
+//   • OFFENSIVE: damage stats (weapon power, crit, strike/tech damage). Accessories carry
+//     NO HP so they stay pure-offense through the v0.87 floor pass.
+//   • DEFENSIVE: the bulk axis — flat HP, HP% (hpMult), flat DR, and DR% (incomingMult).
+// Each is a full 4-piece armor SET (axis-leaning 2pc/4pc bonuses) PLUS a single accessory,
+// so the choice reaches both the armor slots and the two accessory slots. Registered before
+// scaleArmorWithRealm so set/accessory HP and DR get realm-floored like everything else.
+// ============================================================
+const STYLE_SET_PIECES = [['helmet', 'Helm', '盔'], ['chest', 'Cuirass', '甲'], ['gloves', 'Gauntlets', '护手'], ['boots', 'Greaves', '胫甲']];
+function styleRealmBasket(t, mult) {
+  const cost = {};
+  Object.entries(WEAPON_GEN_TIER[t].mats).forEach(([m, n]) => { cost[m] = Math.max(1, Math.round(n * mult)); });
+  cost.spirit_stone = (cost.spirit_stone || 0) + (3 + t * 2);
+  return cost;
+}
+(function generateStyleLines() {
+  for (let t = 0; t <= 6; t++) {
+    const rar = bossSetRarity(t);
+    const realmName = REALMS[t].name, realmZh = REALMS[t].zh || '';
+    const r2 = n => +n.toFixed(3);
+
+    // ---- Offensive set: "Conqueror's War-Regalia" ----
+    const offSet = `style_off_${t}`;
+    STYLE_SET_PIECES.forEach(([slot, noun, nounZh], i) => {
+      const id = `${offSet}_${slot}`;
+      const mods = { weaponBonus: 3 + t * 2 };
+      if (slot === 'gloves') mods.critChance = r2(0.02 + 0.004 * t);
+      if (slot === 'boots') mods.firstStrikeBonus = r2(0.06 + 0.015 * t);
+      ARMOR[id] = {
+        name: `Conqueror's ${noun} · ${realmName}`, zh: `征服${nounZh}·${realmZh}`,
+        slot, rarity: rar, set: offSet, mods,
+        desc: `Forged for those who answer a longer reach with a harder one. Part of the Conqueror's War-Regalia (${realmName}). [2/4-piece set bonuses]`,
+      };
+      ARMOR_RECIPES.push({ id, materials: styleRealmBasket(t, 1.5), minRealmTier: t, minLayer: Math.min(i + 1, REALMS[t].layers) });
+    });
+    ARMOR_SETS[offSet] = {
+      name: `Conqueror's War-Regalia · ${realmName}`, zh: `征服战袍·${realmZh}`,
+      bonuses: [
+        { pieces: 2, desc: `+${Math.round((0.08 + 0.012 * t) * 100)}% strike & technique damage`,
+          apply: m => { const v = 1 + 0.08 + 0.012 * t; m.strikeDamageMult *= v; m.techDamageMult *= v; } },
+        { pieces: 4, desc: `+${10 + 5 * t} weapon power, +${Math.round((0.06) * 100)}% crit, +25% crit damage`,
+          apply: m => { m.weaponBonus += 10 + 5 * t; m.critChance += 0.06; m.critMult += 0.25; } },
+      ],
+    };
+
+    // ---- Defensive set: "Bastion Bulwark" ----
+    const defSet = `style_def_${t}`;
+    STYLE_SET_PIECES.forEach(([slot, noun, nounZh], i) => {
+      const id = `${defSet}_${slot}`;
+      const mods = { flatDR: 1 + Math.floor(t / 2) };   // floored up by scaleArmorWithRealm; HP floored too
+      if (slot === 'chest') mods.hpMult = r2(1 + 0.03 + 0.005 * t);   // the chest carries a little HP%
+      ARMOR[id] = {
+        name: `Bastion ${noun} · ${realmName}`, zh: `壁垒${nounZh}·${realmZh}`,
+        slot, rarity: rar, set: defSet, mods,
+        desc: `Plate that intends to still be standing at the end of the fight. Part of the Bastion Bulwark (${realmName}). [2/4-piece set bonuses]`,
+      };
+      ARMOR_RECIPES.push({ id, materials: styleRealmBasket(t, 1.5), minRealmTier: t, minLayer: Math.min(i + 1, REALMS[t].layers) });
+    });
+    ARMOR_SETS[defSet] = {
+      name: `Bastion Bulwark · ${realmName}`, zh: `壁垒重铠·${realmZh}`,
+      bonuses: [
+        { pieces: 2, desc: `+${Math.round((0.07 + 0.01 * t) * 100)}% max HP`,
+          apply: m => { m.hpMult = (m.hpMult || 1) * (1 + 0.07 + 0.01 * t); } },
+        { pieces: 4, desc: `-${Math.round((0.09 + 0.01 * t) * 100)}% incoming damage, +5% max HP`,
+          apply: m => { m.incomingMult *= (1 - (0.09 + 0.01 * t)); m.hpMult = (m.hpMult || 1) * 1.05; } },
+      ],
+    };
+
+    // ---- Offensive accessory: "Warmark Talisman" (no HP — stays pure-offense) ----
+    const offAcc = `style_acc_off_${t}`;
+    ARMOR[offAcc] = {
+      name: `Warmark Talisman · ${realmName}`, zh: `战记符·${realmZh}`,
+      slot: 'accessory', rarity: rar,
+      mods: { weaponBonus: 4 + t * 3, critChance: r2(0.03 + 0.005 * t),
+              strikeDamageMult: r2(1 + 0.04 + 0.015 * t), techDamageMult: r2(1 + 0.04 + 0.015 * t) },
+      desc: `A soldier's tally-charm, one notch per ended fight. Pure offense — +weapon power, crit, and strike/technique damage.`,
+    };
+    ARMOR_RECIPES.push({ id: offAcc, materials: styleRealmBasket(t, 1.5), minRealmTier: t, minLayer: Math.min(2, REALMS[t].layers) });
+
+    // ---- Defensive accessory: "Bulwark Charm" (HP, HP%, DR, DR%) ----
+    const defAcc = `style_acc_def_${t}`;
+    ARMOR[defAcc] = {
+      name: `Bulwark Charm · ${realmName}`, zh: `壁垒符·${realmZh}`,
+      slot: 'accessory', rarity: rar,
+      mods: { hpBonus: 20 + 30 * t, hpMult: r2(1 + 0.04 + 0.01 * t),
+              flatDR: 2 + t, incomingMult: r2(1 - (0.02 + 0.005 * t)) },
+      desc: `A stone worn smooth by everyone who survived wearing it. Pure defense — +HP, +HP%, flat DR, and reduced incoming damage.`,
+    };
+    ARMOR_RECIPES.push({ id: defAcc, materials: styleRealmBasket(t, 1.5), minRealmTier: t, minLayer: Math.min(2, REALMS[t].layers) });
+  }
+})();
+
 (function scaleArmorWithRealm() {
   Object.entries(ARMOR).forEach(([aid, a]) => {
     if (!a.mods) return;
@@ -9080,7 +9176,7 @@ function modSummary(mods) {
     postureMult: 'posture', techDamageMult: 'tech dmg', strikeDamageMult: 'strike dmg',
     incomingMult: 'incoming', insightMult: 'insight', meditateMult: 'meditate',
     weaponMultFlat: 'wpn', cultMult: 'cultivation', spiritDamageMult: 'spirit dmg',
-    dotMult: 'DOT', bossCdMult: 'boss cooldown',
+    dotMult: 'DOT', bossCdMult: 'boss cooldown', hpMult: 'max HP',
   };
   Object.entries(mods).forEach(([k, v]) => {
     if (labels[k] && v) {
@@ -11707,7 +11803,9 @@ function computeMaxHP(char) {
   const base = 63 + char.finalStats.body * 7 + Math.round(realmBonusFor(char).hp * 1.4);
   const mods = computeMods(char);
   const total = base + activeBuffValue('hp_max_add', 0) + boonHPAdd() + skillHPAdd() + (mods.hpBonus || 0) + metaHPAdd() + bodyQuenchHPAdd();
-  return Math.round(total * (char.demonic ? 1.2 : 1));   // v0.68: demonic vitality x1.2
+  // v0.89: hpMult (HP%) scales the whole pool — flat +HP and HP% on the same defensive
+  // piece compound, the intended bulwark synergy. Demonic x1.2 stacks on top.
+  return Math.round(total * (mods.hpMult || 1) * (char.demonic ? 1.2 : 1));   // v0.68: demonic vitality x1.2
 }
 function computeMaxQi(char) {
   const mods = computeMods(char);
