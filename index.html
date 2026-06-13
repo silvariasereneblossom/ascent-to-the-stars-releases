@@ -541,11 +541,11 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v0.87';
+const GAME_VERSION = 'v0.88';
 // v0.78: CI injects the build's short sha here; the APK shell reads it FROM THE RUNNING
 // PAGE (window.BUILD_SHA) and compares against the repo head — staleness detection that
-// cannot be fooled by cached metadata. 'a4c5a52' = local/dev build (shell falls back).
-const BUILD_SHA = 'a4c5a52';
+// cannot be fooled by cached metadata. '6117297' = local/dev build (shell falls back).
+const BUILD_SHA = '6117297';
 if (typeof window !== 'undefined') window.BUILD_SHA = BUILD_SHA;
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
@@ -2285,6 +2285,1009 @@ Object.entries(MASTERY_UNLOCKS).forEach(([tid, tier]) => {
 });
 
 // ============================================================
+// v0.88 SCHOOL EXPANSION LADDERS — every school gets a 12-step unlock line (one ACTIVE
+// + one PASSIVE per realm QC -> SS), on top of the v0.46 mastery ladder. Actives at odd
+// tiers are STRONGER FORMS of base techniques (amplified + a new twist, the operator's
+// "Quench update" pattern); actives at even tiers are ALTERNATE-PLAYSTYLE tools.
+// Passives are always-on once learned (passive: true): `kitMod(kit)` amplifies the
+// school kit inside schoolKitFor, `applyMods(m)` folds into combat mod channels.
+// Costs auto-stamp below: MASTERY_TIER_COST x1.5 for passives. The shared demonic
+// ladder (demonicOnly: true, school-agnostic) sits at the end.
+// ============================================================
+const EXPANSION_TECHS = {
+  // ============ Azure Sword Sect — Intent crescendo ============
+  azure_flash_twinned: {
+    name: 'Azure Flash: Twinned Light', zh: '青锋双闪', school: 'azure_sword', minRealmTier: 1,
+    qi: 7, cd: 1, damage: 2.2, postureBuild: 20, intentStacks: 1,
+    desc: 'The descending cut, taught to its own reflection. Hits harder and feeds +1 Sword Intent.',
+    logHit: (a,t) => `${a} cuts once; two lines of azure light disagree about which was first.` },
+  azure_p1_whetstone: {
+    name: 'Whetstone Mind', zh: '砺心', school: 'azure_sword', minRealmTier: 1, passive: true,
+    kitMod: k => { k.intentCap = (k.intentCap || 5) + 1; },
+    desc: 'PASSIVE. The edge of attention holds one more thought: Sword Intent stacks +1 higher.' },
+  azure_riverline_parry: {
+    name: 'Riverline Parry', zh: '河纹格', school: 'azure_sword', minRealmTier: 2,
+    qi: 8, cd: 3, damage: 0, postureBuild: 8, intentGain: 1,
+    buff: { incomingMult: 0.55, reflectPct: 0.35, turns: 1 },
+    desc: 'Meet the blow on the flat and read it: -45% incoming and 35% returned for a round, +1 Intent.',
+    logHit: (a,t) => `${a} turns the strike along the river-line of the blade; it flows back to its sender.` },
+  azure_p2_sheathed: {
+    name: 'Sheathed Lightning', zh: '鞘中雷', school: 'azure_sword', minRealmTier: 2, passive: true,
+    applyMods: m => { m.firstStrikeBonus += 0.12; },
+    desc: 'PASSIVE. The draw is the strike: +12% damage on your opening blow.' },
+  azure_thousand_flood: {
+    name: 'Thousand Strikes: Flood Season', zh: '千漪泛汛', school: 'azure_sword', minRealmTier: 3,
+    qi: 15, cd: 2, damage: 3.6, postureBuild: 42, intentStacks: 1,
+    desc: 'The cascade at high water. Heavier, faster, and the rhythm itself feeds +1 Intent.',
+    logHit: (a,t) => `${a}'s blade comes down like a river that has been waiting all winter.` },
+  azure_p3_stillpoint: {
+    name: 'Stillpoint Tempering', zh: '定锋炼', school: 'azure_sword', minRealmTier: 3, passive: true,
+    kitMod: k => { k.intentCap = (k.intentCap || 5) + 1; },
+    applyMods: m => { m.critChance += 0.03; },
+    desc: 'PASSIVE. Intent stacks +1 higher again, and the still point between strokes sharpens: +3% crit.' },
+  azure_drawn_breath: {
+    name: 'Edge of the Drawn Breath', zh: '引息锋', school: 'azure_sword', minRealmTier: 4,
+    qi: 5, cd: 4, damage: 0, instant: true, intentGain: 3, qiRestore: 18,
+    desc: 'Free action. One full breath behind the blade: +3 Sword Intent and +18 qi without spending your turn.',
+    logHit: (a,t) => `${a} inhales; the room gets measurably narrower for everyone else.` },
+  azure_p4_river_remembers: {
+    name: 'The River Remembers', zh: '河忆', school: 'azure_sword', minRealmTier: 4, passive: true,
+    applyMods: m => { m.critChance += 0.05; m.critMult += 0.15; },
+    desc: 'PASSIVE. Every cut you have ever made informs this one: +5% crit, +15% crit damage.' },
+  azure_severing_sky: {
+    name: 'Mountain-Severing: Sky Above It', zh: '断山及天', school: 'azure_sword', minRealmTier: 5,
+    qi: 30, cd: 3, damage: 7.2, postureBuild: 16, pierceQi: 0.35,
+    desc: 'The devastating cleave, no longer stopping at mountains. Pierces 35% of qi shields.',
+    logHit: (a,t) => `${a} severs the air, the guard inside it, and a little of the weather.` },
+  azure_p5_single_minded: {
+    name: 'Single-Minded Dao', zh: '一念道', school: 'azure_sword', minRealmTier: 5, passive: true,
+    kitMod: k => { k.intentPerHit = (k.intentPerHit || 1) + 1; },
+    desc: 'PASSIVE. There is only the line. Every technique hit builds +2 Sword Intent instead of +1.' },
+  azure_one_cut: {
+    name: 'One Cut, One World', zh: '一斩一界', school: 'azure_sword', minRealmTier: 6,
+    qi: 42, cd: 4, damage: 9.4, postureBuild: 20, pierceQi: 0.5,
+    desc: 'The cut the school exists to teach. Enormous damage, half of all qi shielding ignored.',
+    logHit: (a,t) => `${a} draws once. The world on the far side of the line is a different world.` },
+  azure_p6_saint_quiet: {
+    name: "Sword Saint's Quiet", zh: '剑圣寂', school: 'azure_sword', minRealmTier: 6, passive: true,
+    applyMods: m => { m.techDamageMult *= 1.10; },
+    desc: 'PASSIVE. Nothing wasted, nothing said: all technique damage +10%.' },
+
+  // ============ Iron Body Hall — the wall that hits back ============
+  iron_palm_mountain: {
+    name: 'Iron Palm: Mountain Weight', zh: '铁掌山重', school: 'iron_body', minRealmTier: 1,
+    qi: 6, cd: 1, damage: 2.1, directHP: 9, postureBuild: 18,
+    desc: 'The tempered palm with a mountain behind it. More damage, and 9 bleeds through any shield.',
+    logHit: (a,t) => `${a}'s palm arrives like geography.` },
+  iron_p1_settled: {
+    name: 'Settled Bones', zh: '定骨', school: 'iron_body', minRealmTier: 1, passive: true,
+    applyMods: m => { m.hpBonus += 60; m.flatDR += 3; },
+    desc: 'PASSIVE. The frame stops arguing with the load: +60 HP, +3 flat damage reduction.' },
+  iron_grudge_stance: {
+    name: 'Grudge-Holding Stance', zh: '记仇势', school: 'iron_body', minRealmTier: 2,
+    qi: 9, cd: 3, damage: 0, postureBuild: 12,
+    buff: { incomingMult: 0.5, reflectPct: 0.45, turns: 2 },
+    desc: 'Take half and return nearly half, for two rounds. The hall teaches forgiveness last.',
+    logHit: (a,t) => `${a} plants their feet and starts keeping score.` },
+  iron_p2_thick_blood: {
+    name: 'Thick Blood', zh: '稠血', school: 'iron_body', minRealmTier: 2, passive: true,
+    kitMod: k => { k.reflectPct = (k.reflectPct || 0) + 0.05; },
+    desc: 'PASSIVE. Iron Skin reflects +5% more of everything it tastes.' },
+  iron_stone_quarry: {
+    name: 'Stone-Breaking: Quarry Method', zh: '碎石采山', school: 'iron_body', minRealmTier: 3,
+    qi: 14, cd: 2, damage: 3.6, pierceQi: 0.55, postureBuild: 32,
+    desc: 'Why break one stone? Pierces 55% of qi shielding with crushing posture pressure.',
+    logHit: (a,t) => `${a} treats ${t}'s guard as a seam to be worked.` },
+  iron_p3_oxhide: {
+    name: 'Ox-Hide Tempering', zh: '牛皮炼', school: 'iron_body', minRealmTier: 3, passive: true,
+    kitMod: k => { k.flatDRBase = (k.flatDRBase || 0) + 3; },
+    applyMods: m => { m.hpBonus += 80; },
+    desc: 'PASSIVE. Iron Skin sits +3 thicker at its base, and the body beneath holds +80 HP.' },
+  iron_immovable_decree: {
+    name: 'Immovable Decree', zh: '不动令', school: 'iron_body', minRealmTier: 4,
+    qi: 12, cd: 4, damage: 0, instant: true, qiRestore: 10,
+    buff: { incomingMult: 0.35, turns: 1 },
+    desc: 'Free action. Declare yourself terrain: incoming drops to 35% this round, +10 qi.',
+    logHit: (a,t) => `${a} informs the fight, politely, that this spot is no longer negotiable.` },
+  iron_p4_avalanche_debt: {
+    name: 'Avalanche Debt', zh: '雪崩债', school: 'iron_body', minRealmTier: 4, passive: true,
+    applyMods: m => { m.lowHpBonus += 0.15; },
+    desc: 'PASSIVE. Bloodied iron is angrier iron: +15% damage while below a third of your health.' },
+  iron_bloodbone_tithe: {
+    name: 'Bloodbone: Marrow Tithe', zh: '血骨髓贡', school: 'iron_body', minRealmTier: 5,
+    qi: 0, hpCost: 22, cd: 3, damage: 7.4, postureBuild: 18,
+    desc: 'The finisher, paid from deeper in the bone. Costs more blood; mountains cost more than hills.',
+    logHit: (a,t) => `${a} spends what cannot be lent and buys what cannot be refused.` },
+  iron_p5_living_anvil: {
+    name: 'Living Anvil', zh: '活砧', school: 'iron_body', minRealmTier: 5, passive: true,
+    kitMod: k => { k.reflectPct = (k.reflectPct || 0) + 0.05; },
+    applyMods: m => { m.flatDR += 8; },
+    desc: 'PASSIVE. +8 flat DR and Iron Skin reflects +5% more — striking you becomes the mistake.' },
+  iron_mountain_buries: {
+    name: 'The Mountain Buries Its Dead', zh: '山葬式', school: 'iron_body', minRealmTier: 6,
+    qi: 18, hpCost: 30, cd: 4, damage: 9.6, postureBuild: 30,
+    desc: 'The hall\'s last lesson. Pay 30 HP; deliver an ending with a mountain\'s patience behind it.',
+    logHit: (a,t) => `${a} falls on ${t} the way a hillside does — once, and comprehensively.` },
+  iron_p6_scripture: {
+    name: 'Scripture of Standing', zh: '立身经', school: 'iron_body', minRealmTier: 6, passive: true,
+    applyMods: m => { m.hpBonus += 200; m.incomingMult *= 0.94; },
+    desc: 'PASSIVE. The flesh finishes its argument: +200 HP and all incoming damage -6%.' },
+
+  // ============ Whispering Array Pavilion — the field is the weapon ============
+  array_binding_double: {
+    name: 'Binding Glyph: Double Inscription', zh: '双书束缚', school: 'whispering_array', minRealmTier: 1,
+    qi: 10, cd: 1, damage: 1.4, postureBuild: 14, target: 'aoe',
+    effect: 'qi_drain', effectValue: 12, effectTurns: 3,
+    desc: 'The draining glyph, written twice without lifting the brush. 12 qi/turn from every standing foe.',
+    logHit: (a,t) => `${a} writes the glyph and its echo; the air starts paying both.` },
+  array_p1_inkwell: {
+    name: 'Deep Inkwell', zh: '深砚', school: 'whispering_array', minRealmTier: 1, passive: true,
+    applyMods: m => { m.qiBonus += 12; m.qiRegenBonus += 1; },
+    desc: 'PASSIVE. The well never quite empties: +24 max qi and +1 qi regen per turn.' },
+  array_glyph_cage: {
+    name: 'Glyph Cage', zh: '纹笼', school: 'whispering_array', minRealmTier: 2,
+    qi: 13, cd: 3, damage: 0.9, postureBuild: 10, target: 'aoe',
+    effect: 'entangle', effectValue: 0, effectTurns: 2,
+    desc: 'A cage written around the whole field: every enemy is Entangled for 2 turns.',
+    logHit: (a,t) => `${a} closes the final stroke; the battlefield acquires walls only the enemy can feel.` },
+  array_p2_margins: {
+    name: 'Patient Margins', zh: '宽边', school: 'whispering_array', minRealmTier: 2, passive: true,
+    kitMod: k => { k.debuffTurnsBonus = (k.debuffTurnsBonus || 0) + 1; },
+    desc: 'PASSIVE. Lingering Glyphs linger longer still: all your statuses last +1 further turn.' },
+  array_severing_redacted: {
+    name: 'Severing Array: Redacted Sky', zh: '删天断阵', school: 'whispering_array', minRealmTier: 3,
+    qi: 18, cd: 2, damage: 3.2, postureBuild: 18, target: 'aoe',
+    effect: 'qi_cost_up', effectValue: 1.5, effectTurns: 2,
+    desc: 'The severing array, editing the enemy\'s grammar: AOE damage and their techniques cost x1.5 qi.',
+    logHit: (a,t) => `${a} strikes three characters from the field's vocabulary. Casting becomes expensive.` },
+  array_p3_doublestroke: {
+    name: 'Double-Stroke Authority', zh: '复笔权', school: 'whispering_array', minRealmTier: 3, passive: true,
+    applyMods: m => { m.spiritDamageMult *= 1.12; m.qiBonus += 15; },
+    desc: 'PASSIVE. Two strokes where one would do: +12% spirit damage, +30 max qi.' },
+  array_anchor_throne: {
+    name: 'Anchor: Borrowed Throne', zh: '锚借座', school: 'whispering_array', minRealmTier: 4,
+    qi: 10, cd: 4, damage: 0, instant: true, qiRestore: 22,
+    buff: { incomingMult: 0.7, turns: 2 },
+    desc: 'Free action. Sit the array\'s center like a magistrate: +22 qi and -30% incoming for 2 rounds.',
+    logHit: (a,t) => `${a} takes the seat the array has been holding open. The fight reorganizes around it.` },
+  array_p4_living_ink: {
+    name: 'Living Ink', zh: '活墨', school: 'whispering_array', minRealmTier: 4, passive: true,
+    kitMod: k => { k.debuffTurnsBonus = (k.debuffTurnsBonus || 0) + 1; },
+    applyMods: m => { m.dotMult *= 1.10; },
+    desc: 'PASSIVE. The ink keeps writing after the brush lifts: statuses +1 turn AGAIN, ticking damage +10%.' },
+  array_meridian_prison: {
+    name: 'Hundred-Hand Meridian Prison', zh: '百手锁脉狱', school: 'whispering_array', minRealmTier: 5,
+    qi: 30, cd: 3, damage: 6.4, postureBuild: 22, target: 'aoe',
+    effect: 'qi_drain', effectValue: 20, effectTurns: 3,
+    desc: 'The pavilion\'s great work: heavy AOE damage and 20 qi/turn siphoned from everything standing.',
+    logHit: (a,t) => `${a} unfolds the full array. A hundred inked hands take hold of every meridian present.` },
+  array_p5_witnessed: {
+    name: 'The Witnessed Dao', zh: '见证道', school: 'whispering_array', minRealmTier: 5, passive: true,
+    applyMods: m => { m.techDamageMult *= 1.08; m.dodgeChance += 0.04; },
+    desc: 'PASSIVE. What is properly arranged need not be fought for: +8% technique damage, +4% dodge.' },
+  array_final_arrangement: {
+    name: 'The Final Arrangement', zh: '终阵', school: 'whispering_array', minRealmTier: 6,
+    qi: 44, cd: 4, damage: 8.6, postureBuild: 24, target: 'aoe',
+    effect: 'silence', effectValue: 0, effectTurns: 2,
+    desc: 'The arrangement after which nothing needs arranging: massive AOE and the field is Silenced 2 turns.',
+    logHit: (a,t) => `${a} dots the last stroke. The argument is over; the fight simply hasn't noticed yet.` },
+  array_p6_white_space: {
+    name: 'Mastery of White Space', zh: '留白功', school: 'whispering_array', minRealmTier: 6, passive: true,
+    kitMod: k => { k.debuffTurnsBonus = (k.debuffTurnsBonus || 0) + 1; },
+    applyMods: m => { m.incomingMult *= 0.93; },
+    desc: 'PASSIVE. What you leave unwritten protects you: statuses +1 more turn, incoming damage -7%.' },
+
+  // ============ Crimson Flame Pagoda — the fire keeps its own books ============
+  flame_rend_feastfire: {
+    name: 'Burning Rend: Feast-Fire', zh: '焚裂飨火', school: 'crimson_flame', minRealmTier: 1,
+    qi: 11, cd: 2, damage: 2.6, postureBuild: 14, target: 'aoe',
+    effect: 'burn', effectPower: 0.14, effectTurns: 3,
+    desc: 'The rending flame, fed properly: AOE damage and a fresh Burn on everything it touches.',
+    logHit: (a,t) => `${a} opens the field like a banquet, and the fire is seated first.` },
+  flame_p1_kindling: {
+    name: 'Kindling Discipline', zh: '蓄薪律', school: 'crimson_flame', minRealmTier: 1, passive: true,
+    kitMod: k => { k.stackCapBonus = Object.assign({}, k.stackCapBonus, { burn: ((k.stackCapBonus || {}).burn || 0) + 1 }); },
+    desc: 'PASSIVE. Stack the wood higher before lighting it: Burn stacks +1 higher.' },
+  flame_backdraft: {
+    name: 'Backdraft', zh: '回燃', school: 'crimson_flame', minRealmTier: 2,
+    qi: 12, cd: 3, damage: 2.2, postureBuild: 12, consumeBonus: { kind: 'burn', perStack: 0.55 },
+    desc: 'The payoff swing: consumes the target\'s Burn stacks for +55% damage per stack. Cook, then carve.',
+    logHit: (a,t) => `${a} reaches into the fire already living in ${t} and pulls it all out at once.` },
+  flame_p2_ashes: {
+    name: 'Ash Ledger', zh: '灰账', school: 'crimson_flame', minRealmTier: 2, passive: true,
+    applyMods: m => { m.dotMult *= 1.12; },
+    desc: 'PASSIVE. The fire keeps accounts: all damage-over-time ticks +12% harder.' },
+  flame_phoenix_second: {
+    name: 'Phoenix Cry: Second Dawn', zh: '凤鸣二晓', school: 'crimson_flame', minRealmTier: 3,
+    qi: 17, cd: 2, damage: 3.8, postureBuild: 16, target: 'aoe',
+    effect: 'burn', effectPower: 0.16, effectTurns: 3, effectStacks: 2,
+    desc: 'The cry that answers itself: heavier AOE and 2 Burn stacks on every target.',
+    logHit: (a,t) => `${a} cries the note twice; the second dawn is the one that takes.` },
+  flame_p3_nine_century: {
+    name: 'Nine-Century Patience', zh: '九百年候', school: 'crimson_flame', minRealmTier: 3, passive: true,
+    kitMod: k => { if (k.onTechHit && k.onTechHit.kind === 'burn') k.onTechHit = Object.assign({}, k.onTechHit, { power: k.onTechHit.power + 0.04 }); },
+    desc: 'PASSIVE. Everburn learns from the pagoda\'s brazier: its Burns tick noticeably hotter.' },
+  flame_ember_throne: {
+    name: 'Ember Throne', zh: '烬座', school: 'crimson_flame', minRealmTier: 4,
+    qi: 10, cd: 4, damage: 0, instant: true, qiRestore: 14,
+    buff: { incomingMult: 0.75, turns: 2 },
+    desc: 'Free action. Sit inside your own heat: +14 qi, -25% incoming for 2 rounds. Fire respects fire.',
+    logHit: (a,t) => `${a} settles into the warmth like a returning landlord.` },
+  flame_p4_oven_walls: {
+    name: 'Oven-Wall Skin', zh: '窑壁肤', school: 'crimson_flame', minRealmTier: 4, passive: true,
+    applyMods: m => { m.hpBonus += 100; m.elementBoostAll += 0.06; },
+    desc: 'PASSIVE. Fired clay over living coal: +100 HP and your elemental advantages bite +6% deeper.' },
+  flame_ashfall_famine: {
+    name: 'Ashfall: Famine of Air', zh: '灰落绝息', school: 'crimson_flame', minRealmTier: 5,
+    qi: 30, cd: 3, damage: 6.6, postureBuild: 18, target: 'aoe',
+    effect: 'burn', effectPower: 0.20, effectTurns: 4, effectStacks: 2,
+    desc: 'Ashfall taught to eat the air on its way down. Heavy AOE; long, deep double Burns.',
+    logHit: (a,t) => `${a} brings the sky down in grey sheets. Breathing becomes a negotiation.` },
+  flame_p5_everburn_truth: {
+    name: 'The Everburn Truth', zh: '不熄谛', school: 'crimson_flame', minRealmTier: 5, passive: true,
+    kitMod: k => { k.stackCapBonus = Object.assign({}, k.stackCapBonus, { burn: ((k.stackCapBonus || {}).burn || 0) + 1 });
+                   if (k.onTechHit && k.onTechHit.kind === 'burn') k.onTechHit = Object.assign({}, k.onTechHit, { turns: k.onTechHit.turns + 1 }); },
+    desc: 'PASSIVE. The fire does not end; it waits. Burn stacks +1 higher AND every Burn lasts +1 turn.' },
+  flame_pyre_of_realms: {
+    name: 'Pyre of Realms', zh: '焚界葬', school: 'crimson_flame', minRealmTier: 6,
+    qi: 42, cd: 4, damage: 8.4, postureBuild: 20, target: 'aoe', consumeBonus: { kind: 'burn', perStack: 0.5 },
+    desc: 'The pagoda\'s final argument: enormous AOE that ALSO consumes the primary target\'s Burns for +50% per stack.',
+    logHit: (a,t) => `${a} stops feeding the fire and starts spending it. The field becomes a single bright debt.` },
+  flame_p6_brazier_heart: {
+    name: 'Brazier Heart', zh: '炉心', school: 'crimson_flame', minRealmTier: 6, passive: true,
+    applyMods: m => { m.dotMult *= 1.15; m.techDamageMult *= 1.06; },
+    desc: 'PASSIVE. Nine centuries without fuel, and now it has you: DOTs +15%, technique damage +6%.' },
+
+  // ============ Moonlit Water Sect — the lake always wins eventually ============
+  water_edge_blackice: {
+    name: 'Frozen Edge: Black Ice', zh: '玄冰锋', school: 'moonlit_water', minRealmTier: 1,
+    qi: 8, cd: 1, damage: 2.3, postureBuild: 16,
+    effect: 'chill', effectValue: 0.25, effectTurns: 2,
+    desc: 'The frozen edge at midnight temperature: more damage and a deeper Chill (-25% enemy damage).',
+    logHit: (a,t) => `${a}'s spear writes frost on ${t} in a hand too cold to argue with.` },
+  water_p1_lakebed: {
+    name: 'Lakebed Stillness', zh: '湖底静', school: 'moonlit_water', minRealmTier: 1, passive: true,
+    applyMods: m => { m.qiRegenBonus += 1; m.hpBonus += 40; },
+    desc: 'PASSIVE. Settle like silt: +40 HP and +1 qi regen per turn.' },
+  water_still_surface: {
+    name: 'Still Surface', zh: '止水面', school: 'moonlit_water', minRealmTier: 2,
+    qi: 9, cd: 3, damage: 0, postureBuild: 6, qiRestore: 12,
+    buff: { incomingMult: 0.5, turns: 1 },
+    desc: 'Become the unbroken surface: -50% incoming for a round and +12 qi. Let them tire against water.',
+    logHit: (a,t) => `${a} goes flat and reflective; the next blow lands on its own image.` },
+  water_p2_patient_cold: {
+    name: 'Patient Cold', zh: '恒寒', school: 'moonlit_water', minRealmTier: 2, passive: true,
+    kitMod: k => { if (k.onTechHit) k.onTechHit = Object.assign({}, k.onTechHit, { turns: k.onTechHit.turns + 1 }); },
+    desc: 'PASSIVE. Deep Cold settles in to stay: your Chills last +1 turn.' },
+  water_undertow_grasp: {
+    name: 'Undertow: Second Grasp', zh: '潜流再握', school: 'moonlit_water', minRealmTier: 3,
+    qi: 16, cd: 2, damage: 3.4, postureBuild: 20, target: 'aoe',
+    effect: 'chill', effectValue: 0.28, effectTurns: 2,
+    desc: 'The undertow that does not let go on the first pull: AOE damage and a -28% Chill across the field.',
+    logHit: (a,t) => `The water under everyone's footing develops opinions, all of them downward.` },
+  water_p3_glacier: {
+    name: 'Glacier Patience', zh: '冰川忍', school: 'moonlit_water', minRealmTier: 3, passive: true,
+    kitMod: k => { if (k.onTechHit) k.onTechHit = Object.assign({}, k.onTechHit, { value: k.onTechHit.value + 0.05 }); },
+    applyMods: m => { m.flatDR += 4; },
+    desc: 'PASSIVE. Deep Cold saps -5% more, and +4 flat DR — glaciers are not in a hurry.' },
+  water_mirror_moon: {
+    name: 'Mirror-Moon Vigil', zh: '镜月守', school: 'moonlit_water', minRealmTier: 4,
+    qi: 11, cd: 4, damage: 0, instant: true, qiRestore: 16,
+    buff: { dodgeChance: 0.30, counterOnDodge: 0.7, turns: 2 },
+    desc: 'Free action. Hold the moon\'s reflection in your guard: +30% dodge and dodged blows answered at 70% weapon power, 2 rounds.',
+    logHit: (a,t) => `${a} raises the spear to where the moon would be. Attacks start missing on principle.` },
+  water_p4_two_moons: {
+    name: 'Doctrine of Two Moons', zh: '双月论', school: 'moonlit_water', minRealmTier: 4, passive: true,
+    applyMods: m => { m.dodgeChance += 0.05; m.incomingMult *= 0.95; },
+    desc: 'PASSIVE. Strike the moon above or the moon below — both are wrong: +5% dodge, -5% incoming.' },
+  water_shatter_frozen: {
+    name: 'Shatter the Frozen', zh: '碎冻', school: 'moonlit_water', minRealmTier: 5,
+    qi: 28, cd: 3, damage: 5.8, postureBuild: 30, consumeBonus: { kind: 'chill', perStack: 0.9 },
+    desc: 'The attrition pays out: consumes the target\'s Chill for +90% damage per stack. Freeze, then break.',
+    logHit: (a,t) => `${a} taps once, precisely, and everything the cold has been holding lets go at once.` },
+  water_p5_never_freezes: {
+    name: 'The Lake That Never Freezes', zh: '不冻湖', school: 'moonlit_water', minRealmTier: 5, passive: true,
+    kitMod: k => { if (k.onTechHit) k.onTechHit = Object.assign({}, k.onTechHit, { value: k.onTechHit.value + 0.05 }); },
+    applyMods: m => { m.qiBonus += 20; },
+    desc: 'PASSIVE. Moving water, colder than ice: Chill saps another -5%, +40 max qi.' },
+  water_tide_takes: {
+    name: 'The Tide That Takes', zh: '收潮', school: 'moonlit_water', minRealmTier: 6,
+    qi: 40, cd: 4, damage: 8.4, postureBuild: 26, target: 'aoe',
+    effect: 'chill', effectValue: 0.4, effectTurns: 3,
+    desc: 'The lake stands up. Massive AOE and a -40% Chill that outlasts most resolutions.',
+    logHit: (a,t) => `${a} lifts the spear; the water table follows it. What the tide takes, it keeps.` },
+  water_p6_drowned_patience: {
+    name: 'Drowned Patience', zh: '溺忍', school: 'moonlit_water', minRealmTier: 6, passive: true,
+    applyMods: m => { m.incomingMult *= 0.92; m.techDamageMult *= 1.06; },
+    desc: 'PASSIVE. Outlast everything, then collect: -8% incoming, +6% technique damage.' },
+
+  // ============ Silent Daggers Sect — the invoice arrives before the blade ============
+  daggers_cut_ledger: {
+    name: 'Silent Cut: Ledger Entry', zh: '寂斩入账', school: 'silent_daggers', minRealmTier: 1,
+    qi: 7, cd: 1, damage: 2.2, postureBuild: 12,
+    effect: 'poison', effectPower: 0.10, effectTurns: 4,
+    desc: 'The opening cut, now itemized: more damage and its own Poison line-item.',
+    logHit: (a,t) => `${a}'s blade signs ${t} somewhere load-bearing.` },
+  daggers_p1_oiled: {
+    name: 'Oiled Hinges', zh: '滑枢', school: 'silent_daggers', minRealmTier: 1, passive: true,
+    applyMods: m => { m.firstStrikeBonus += 0.10; m.dodgeChance += 0.02; },
+    desc: 'PASSIVE. Nothing squeaks: +10% opener damage, +2% dodge.' },
+  daggers_smoke_veil: {
+    name: 'Smoke-Debt Veil', zh: '烟债帷', school: 'silent_daggers', minRealmTier: 2,
+    qi: 9, cd: 4, damage: 0, postureBuild: 0,
+    buff: { dodgeChance: 0.40, counterOnDodge: 0.6, turns: 2 },
+    desc: 'Vanish into owed smoke: +40% dodge for 2 rounds, and every miss against you is invoiced at 60% weapon power.',
+    logHit: (a,t) => `${a} is suddenly a rumor with knives.` },
+  daggers_p2_venom_interest: {
+    name: 'Compounding Venom', zh: '复利毒', school: 'silent_daggers', minRealmTier: 2, passive: true,
+    kitMod: k => { k.stackCapBonus = Object.assign({}, k.stackCapBonus, { poison: ((k.stackCapBonus || {}).poison || 0) + 2 }); },
+    desc: 'PASSIVE. The toxin accrues: Poison stacks +2 higher.' },
+  daggers_flurry_audit: {
+    name: 'Assassin Flurry: Full Audit', zh: '杀阵清查', school: 'silent_daggers', minRealmTier: 3,
+    qi: 15, cd: 2, damage: 3.6, postureBuild: 18,
+    effect: 'poison', effectPower: 0.11, effectTurns: 4, effectStacks: 2,
+    desc: 'The flurry, line by line: heavier damage and 2 Poison stacks per pass.',
+    logHit: (a,t) => `${a} checks every entry on ${t} twice, in red.` },
+  daggers_p3_quiet_craft: {
+    name: 'Quiet Craft', zh: '静工', school: 'silent_daggers', minRealmTier: 3, passive: true,
+    kitMod: k => { k.critBonus = (k.critBonus || 0) + 0.05; },
+    desc: 'PASSIVE. Coated Blades, better coated: +5% critical chance on top of the school\'s edge.' },
+  daggers_killing_quiet: {
+    name: "The Killing Quiet", zh: '杀寂', school: 'silent_daggers', minRealmTier: 4,
+    qi: 8, cd: 4, damage: 0, instant: true,
+    effect: 'mark', effectValue: 0.30, effectTurns: 3,
+    desc: 'Free action. Decide, quietly, that they are next: Mark for +30% damage from you, 3 turns.',
+    logHit: (a,t) => `${a} looks at ${t} the way an accountant looks at a rounding error.` },
+  daggers_p4_red_arithmetic: {
+    name: 'Red Arithmetic', zh: '朱算', school: 'silent_daggers', minRealmTier: 4, passive: true,
+    applyMods: m => { m.critMult += 0.25; },
+    desc: 'PASSIVE. When the blade finds the sum, it carries the remainder: +25% critical damage.' },
+  daggers_venom_estate: {
+    name: 'Venom of the Whole Estate', zh: '満门毒', school: 'silent_daggers', minRealmTier: 5,
+    qi: 26, cd: 3, damage: 5.6, postureBuild: 14,
+    effect: 'poison', effectPower: 0.14, effectTurns: 5, effectStacks: 4,
+    desc: 'The full inheritance, administered at once: 4 deep Poison stacks that run long.',
+    logHit: (a,t) => `${a} delivers the entire estate to ${t}'s bloodstream, probate included.` },
+  daggers_p5_collectors_eye: {
+    name: "Collector's Eye", zh: '收债眼', school: 'silent_daggers', minRealmTier: 5, passive: true,
+    kitMod: k => { k.critBonus = (k.critBonus || 0) + 0.03;
+                   if (k.onTechHit) k.onTechHit = Object.assign({}, k.onTechHit, { power: k.onTechHit.power + 0.03 }); },
+    desc: 'PASSIVE. +3% crit and the coating bites harder — the Brotherhood always collects.' },
+  daggers_debt_collected: {
+    name: 'Debt Collected In Full', zh: '清账', school: 'silent_daggers', minRealmTier: 6,
+    qi: 38, cd: 4, damage: 7.8, postureBuild: 16, consumeBonus: { kind: 'poison', perStack: 0.45 },
+    desc: 'The closing entry: consumes every Poison stack for +45% damage each. The account is settled.',
+    logHit: (a,t) => `${a} calls in everything swimming in ${t}'s veins, at once, with interest.` },
+  daggers_p6_no_witnesses: {
+    name: 'No Witnesses Clause', zh: '灭口条', school: 'silent_daggers', minRealmTier: 6, passive: true,
+    applyMods: m => { m.critChance += 0.05; m.firstStrikeBonus += 0.15; },
+    desc: 'PASSIVE. The first cut should be the verdict: +5% crit, +15% opener damage.' },
+
+  // ============ Demon Heart Palace — the appetite is the curriculum ============
+  demon_reap_harvest: {
+    name: 'Demon Reap: Open Harvest', zh: '魔收开镰', school: 'demon_heart', minRealmTier: 1,
+    qi: 8, cd: 1, damage: 2.3, postureBuild: 14,
+    effect: 'leech', effectPower: 0.20, effectTurns: 2,
+    desc: 'The reaping stroke with the granary doors open: more damage and a Leech that feeds you.',
+    logHit: (a,t) => `${a} swings, and something in ${t} starts walking toward ${a} of its own accord.` },
+  demon_p1_first_hunger: {
+    name: 'First Hunger', zh: '初饥', school: 'demon_heart', minRealmTier: 1, passive: true,
+    kitMod: k => { k.lifestealBonus = (k.lifestealBonus || 0) + 0.03; },
+    desc: 'PASSIVE. The Hungry Dao notices you sooner: +3% of all damage returns as your HP.' },
+  demon_banquet_posture: {
+    name: 'Banquet Posture', zh: '宴势', school: 'demon_heart', minRealmTier: 2,
+    qi: 10, cd: 3, damage: 1.4, postureBuild: 10,
+    effect: 'leech', effectPower: 0.30, effectTurns: 3,
+    desc: 'Set the table mid-fight: modest damage, but a deep 3-turn Leech that keeps the plates coming.',
+    logHit: (a,t) => `${a} tucks in a napkin. ${t} is encouraged not to read into it.` },
+  demon_p2_palace_manners: {
+    name: 'Palace Table Manners', zh: '殿仪', school: 'demon_heart', minRealmTier: 2, passive: true,
+    applyMods: m => { m.lifestealPct += 0.04; },
+    desc: 'PASSIVE. Waste nothing: +4% lifesteal on everything you deal.' },
+  demon_devour_marrow: {
+    name: 'Devour: Down to Marrow', zh: '吞至髓', school: 'demon_heart', minRealmTier: 3,
+    qi: 15, cd: 2, damage: 3.8, postureBuild: 16,
+    effect: 'leech', effectPower: 0.25, effectTurns: 2,
+    desc: 'The devouring taken seriously: heavy damage and a fresh Leech. Leave the plate clean.',
+    logHit: (a,t) => `${a} takes a portion of ${t} that ${t} had filed under non-negotiable.` },
+  demon_p3_growing_boy: {
+    name: 'A Growing Appetite', zh: '长饥', school: 'demon_heart', minRealmTier: 3, passive: true,
+    kitMod: k => { k.lifestealBonus = (k.lifestealBonus || 0) + 0.03; },
+    applyMods: m => { m.hpBonus += 80; },
+    desc: 'PASSIVE. +3% more of the Hungry Dao and +80 HP — you are what you eat, cumulatively.' },
+  demon_seat_at_table: {
+    name: 'Seat at the Long Table', zh: '长桌座', school: 'demon_heart', minRealmTier: 4,
+    qi: 12, cd: 4, damage: 0, instant: true, qiRestore: 14,
+    buff: { incomingMult: 0.65, turns: 2 },
+    desc: 'Free action. Claim your chair: +14 qi, -35% incoming for 2 rounds. The Palace protects its diners.',
+    logHit: (a,t) => `${a} sits, in some sense that the fight is forced to respect.` },
+  demon_p4_iron_stomach: {
+    name: 'Iron Stomach', zh: '铁胃', school: 'demon_heart', minRealmTier: 4, passive: true,
+    applyMods: m => { m.lowHpBonus += 0.12; m.lifestealPct += 0.03; },
+    desc: 'PASSIVE. Hunger sharpens near the bone: +12% damage while bloodied, +3% lifesteal.' },
+  demon_parasite_court: {
+    name: 'Parasite Court', zh: '寄生朝', school: 'demon_heart', minRealmTier: 5,
+    qi: 28, cd: 3, damage: 6.6, postureBuild: 18,
+    effect: 'leech', effectPower: 0.40, effectTurns: 3,
+    desc: 'Install a whole bureaucracy of appetite: heavy damage and a 40%-power Leech holding session for 3 turns.',
+    logHit: (a,t) => `${a} appoints officials inside ${t}. They begin collecting taxes immediately.` },
+  demon_p5_deep_cellar: {
+    name: 'The Deep Cellar', zh: '深窖', school: 'demon_heart', minRealmTier: 5, passive: true,
+    kitMod: k => { k.lifestealBonus = (k.lifestealBonus || 0) + 0.04; },
+    applyMods: m => { m.qiBonus += 25; },
+    desc: 'PASSIVE. The Palace stores what it drinks: +4% Hungry Dao, +50 max qi.' },
+  demon_doors_open: {
+    name: 'The Palace Opens Its Doors', zh: '魔殿开门', school: 'demon_heart', minRealmTier: 6,
+    qi: 40, cd: 4, damage: 9.0, postureBuild: 22,
+    effect: 'leech', effectPower: 0.50, effectTurns: 3,
+    desc: 'The doors it never needed open ONCE, outward: enormous damage and a half-power Leech. Dinner is served.',
+    logHit: (a,t) => `Doors that ${t} cannot see swing wide. ${a} stands in them, patient as an invitation.` },
+  demon_p6_first_heresy: {
+    name: 'Sutra of the First Heresy', zh: '初魔经', school: 'demon_heart', minRealmTier: 6, passive: true,
+    applyMods: m => { m.lifestealPct += 0.05; m.techDamageMult *= 1.08; },
+    desc: 'PASSIVE. The original commentary, memorized: +5% lifesteal, +8% technique damage.' },
+
+  // ============ Starfall Archers — the sky keeps appointments ============
+  star_arrow_named: {
+    name: 'Star Arrow: Named Star', zh: '名星矢', school: 'starfall', minRealmTier: 1,
+    qi: 8, cd: 1, damage: 2.3, postureBuild: 12,
+    effect: 'mark', effectValue: 0.15, effectTurns: 2,
+    desc: 'An arrow with an address on it: more damage and a light Mark (+15% from you, 2 turns).',
+    logHit: (a,t) => `${a} looses an arrow that knows exactly whom it is for.` },
+  star_p1_night_eyes: {
+    name: 'Night-Adapted Eyes', zh: '夜目', school: 'starfall', minRealmTier: 1, passive: true,
+    kitMod: k => { k.critBonus = (k.critBonus || 0) + 0.04; },
+    desc: 'PASSIVE. The dark peak trains the eye: +4% critical chance into Celestial Sight\'s pipeline.' },
+  star_patient_constellation: {
+    name: 'Patient Constellation', zh: '恒星阵', school: 'starfall', minRealmTier: 2,
+    qi: 9, cd: 4, damage: 0, instant: true, qiRestore: 12,
+    effect: 'mark', effectValue: 0.25, effectTurns: 3,
+    desc: 'Free action. Chart them into your sky: Mark for +25%, 3 turns, and +12 qi while you wait.',
+    logHit: (a,t) => `${a} fixes ${t}'s position among the stars. The stars take note.` },
+  star_p2_fletchers_oath: {
+    name: "Fletcher's Oath", zh: '矢誓', school: 'starfall', minRealmTier: 2, passive: true,
+    applyMods: m => { m.firstStrikeBonus += 0.12; },
+    desc: 'PASSIVE. The first arrow is a promise: +12% opener damage.' },
+  star_volley_meteor: {
+    name: 'Starfall Volley: Meteor Season', zh: '坠星流火', school: 'starfall', minRealmTier: 3,
+    qi: 16, cd: 2, damage: 3.4, postureBuild: 14, target: 'aoe',
+    desc: 'The volley during the busy season: heavy AOE arrows with the sky\'s full cooperation.',
+    logHit: (a,t) => `${a} signals; the night sky clears its calendar.` },
+  star_p3_windless: {
+    name: 'Windless Release', zh: '无风放', school: 'starfall', minRealmTier: 3, passive: true,
+    kitMod: k => { k.critBonus = (k.critBonus || 0) + 0.03; },
+    applyMods: m => { m.critMult += 0.15; },
+    desc: 'PASSIVE. Loosed between breaths: +3% crit, +15% crit damage.' },
+  star_falling_appointment: {
+    name: 'Falling Appointment', zh: '坠约', school: 'starfall', minRealmTier: 4,
+    qi: 18, cd: 3, damage: 4.6, postureBuild: 16,
+    effect: 'mark', effectValue: 0.30, effectTurns: 2,
+    desc: 'One arrow, pre-booked at terminal velocity: heavy single-target damage and a +30% Mark.',
+    logHit: (a,t) => `${a}'s arrow arrives precisely when it always said it would.` },
+  star_p4_astronomer: {
+    name: "Astronomer's Ledger", zh: '司天账', school: 'starfall', minRealmTier: 4, passive: true,
+    applyMods: m => { m.critChance += 0.04; m.dodgeChance += 0.03; },
+    desc: 'PASSIVE. Know where everything will be: +4% crit, +3% dodge.' },
+  star_hail_reckoning: {
+    name: 'Star-Hail: The Reckoning Sky', zh: '星雹算天', school: 'starfall', minRealmTier: 5,
+    qi: 30, cd: 3, damage: 6.4, postureBuild: 18, target: 'aoe',
+    effect: 'mark', effectValue: 0.20, effectTurns: 2,
+    desc: 'The hail with names on every stone: heavy AOE and a +20% Mark on everything still standing.',
+    logHit: (a,t) => `${a} brings the census down. Everyone present is counted, hard.` },
+  star_p5_second_sight: {
+    name: 'Second Sight of the Peak', zh: '峰二目', school: 'starfall', minRealmTier: 5, passive: true,
+    kitMod: k => { k.critBonus = (k.critBonus || 0) + 0.05; },
+    desc: 'PASSIVE. Celestial Sight, squared: +5% more critical chance feeding the split-shot engine.' },
+  star_sky_falls_in_order: {
+    name: 'The Sky Falls In Order', zh: '天序坠', school: 'starfall', minRealmTier: 6,
+    qi: 40, cd: 4, damage: 8.6, postureBuild: 18, consumeBonus: { kind: 'mark', perStack: 1.1 },
+    desc: 'The appointment kept: enormous damage that consumes the Mark for +110% per stack. The ledger closes.',
+    logHit: (a,t) => `Every star ${a} ever charted above ${t} arrives at once, in alphabetical order.` },
+  star_p6_constant_star: {
+    name: 'The Constant Star', zh: '恒星', school: 'starfall', minRealmTier: 6, passive: true,
+    applyMods: m => { m.critChance += 0.05; m.critMult += 0.20; },
+    desc: 'PASSIVE. One light never moves, and it is yours: +5% crit, +20% crit damage.' },
+
+  // ============ Verdant Monastery — the grove enrolls everyone eventually ============
+  grove_strike_rings: {
+    name: 'Grove Strike: Year-Rings', zh: '林击年轮', school: 'verdant_monastery', minRealmTier: 1,
+    qi: 8, cd: 1, damage: 2.2, postureBuild: 16,
+    effect: 'leech', effectPower: 0.15, effectTurns: 2,
+    desc: 'The staff lands with a century of growth rings behind it, and roots drink from the bruise.',
+    logHit: (a,t) => `${a}'s staff lands; somewhere under the floor, roots turn toward the sound.` },
+  grove_p1_deep_roots: {
+    name: 'Deep Roots', zh: '深根', school: 'verdant_monastery', minRealmTier: 1, passive: true,
+    applyMods: m => { m.hpBonus += 70; },
+    desc: 'PASSIVE. What is well-rooted is hard to uproot: +70 HP.' },
+  grove_thorn_communion: {
+    name: 'Thorn Communion', zh: '棘通', school: 'verdant_monastery', minRealmTier: 2,
+    qi: 12, cd: 3, damage: 1.3, postureBuild: 10, target: 'aoe',
+    effect: 'entangle', effectValue: 0, effectTurns: 2,
+    desc: 'Invite the field to be held: AOE damage and 2-turn Entangle on everything standing.',
+    logHit: (a,t) => `The floor sprouts opinions. Everyone present is gently, firmly included.` },
+  grove_p2_evergreen: {
+    name: 'Evergreen Vow', zh: '常青誓', school: 'verdant_monastery', minRealmTier: 2, passive: true,
+    kitMod: k => { k.regenPct = (k.regenPct || 0) + 0.01; },
+    desc: 'PASSIVE. Sap of the Grove runs richer: regrow +1% more max HP each round.' },
+  grove_greenwave_flood: {
+    name: 'Greenwave: Canopy Flood', zh: '绿浪冠洪', school: 'verdant_monastery', minRealmTier: 3,
+    qi: 16, cd: 2, damage: 3.4, postureBuild: 18, target: 'aoe',
+    effect: 'leech', effectPower: 0.15, effectTurns: 2,
+    desc: 'The sweep at canopy height: heavy AOE and leeching roots in every wound.',
+    logHit: (a,t) => `${a} brings the whole green weight of the season down across the field.` },
+  grove_p3_heartwood: {
+    name: 'Heartwood Constitution', zh: '心材骨', school: 'verdant_monastery', minRealmTier: 3, passive: true,
+    applyMods: m => { m.hpBonus += 90; m.flatDR += 4; },
+    desc: 'PASSIVE. Grow a core that saws disagree with: +90 HP, +4 flat DR.' },
+  grove_quiet_season: {
+    name: 'The Quiet Season', zh: '静季', school: 'verdant_monastery', minRealmTier: 4,
+    qi: 10, cd: 4, damage: 0, instant: true, qiRestore: 16,
+    buff: { incomingMult: 0.6, turns: 2 },
+    desc: 'Free action. Winter the trunk: -40% incoming for 2 rounds and +16 qi. Growth waits; it does not stop.',
+    logHit: (a,t) => `${a} goes still the way an orchard does — which is to say, busily.` },
+  grove_p4_monk_rings: {
+    name: 'Elder-Disciple Rings', zh: '长老轮', school: 'verdant_monastery', minRealmTier: 4, passive: true,
+    kitMod: k => { k.regenPct = (k.regenPct || 0) + 0.01; },
+    applyMods: m => { m.qiRegenBonus += 1; },
+    desc: 'PASSIVE. The trees tutor the blood: +1% more regrowth per round and +1 qi regen.' },
+  grove_worldtrunk: {
+    name: 'Worldtrunk Descends', zh: '世干落', school: 'verdant_monastery', minRealmTier: 5,
+    qi: 28, cd: 3, damage: 6.6, postureBuild: 30,
+    desc: 'Borrow the weight of the oldest tree: enormous single-target damage with crushing posture.',
+    logHit: (a,t) => `${a} swings something that remembers being a forest. ${t} remembers being elsewhere.` },
+  grove_p5_grove_provides: {
+    name: 'The Grove Provides', zh: '林养', school: 'verdant_monastery', minRealmTier: 5, passive: true,
+    applyMods: m => { m.lifestealPct += 0.04; m.hpBonus += 100; },
+    desc: 'PASSIVE. Everything returns to the soil, then to you: +4% lifesteal, +100 HP.' },
+  grove_stands_forever: {
+    name: 'The Grove Stands Forever', zh: '林永立', school: 'verdant_monastery', minRealmTier: 6,
+    qi: 40, cd: 4, damage: 8.2, postureBuild: 24, target: 'aoe',
+    effect: 'entangle', effectValue: 0, effectTurns: 2,
+    desc: 'The monastery\'s oldest sermon, delivered all at once: massive AOE, and the congregation is Rooted.',
+    logHit: (a,t) => `${a} speaks for the grove. The field, overruled, becomes garden.` },
+  grove_p6_older_than_monks: {
+    name: 'Older Than the Monks', zh: '先僧而立', school: 'verdant_monastery', minRealmTier: 6, passive: true,
+    kitMod: k => { k.regenPct = (k.regenPct || 0) + 0.02; },
+    desc: 'PASSIVE. Be the thing the monastery was built around: regrow +2% more max HP every round.' },
+
+  // ============ Thunder Hammer Forge — every stance is provisional ============
+  storm_smash_forgefall: {
+    name: 'Storm Smash: Forge-Fall', zh: '暴砸炉落', school: 'thunder_hammer', minRealmTier: 1,
+    qi: 9, cd: 1, damage: 2.2, postureBuild: 24, target: 'aoe',
+    desc: 'The opening smash with the forge\'s full weight: AOE with brutal posture pressure.',
+    logHit: (a,t) => `${a}'s hammer comes down like an industrial accident with intentions.` },
+  thunder_p1_anvil_shoulders: {
+    name: 'Anvil Shoulders', zh: '砧肩', school: 'thunder_hammer', minRealmTier: 1, passive: true,
+    applyMods: m => { m.postureMult *= 1.10; },
+    desc: 'PASSIVE. Carry the anvil; become the anvil: +10% posture damage.' },
+  thunder_grounding_bolt: {
+    name: 'Grounding Bolt', zh: '接地霆', school: 'thunder_hammer', minRealmTier: 2,
+    qi: 11, cd: 3, damage: 1.8, postureBuild: 18,
+    effect: 'shock', effectValue: 0, effectTurns: 1, effectChance: 0.6,
+    desc: 'Drive the storm through one body into the earth: 60% chance to Shock (loses its next action).',
+    logHit: (a,t) => `${a} introduces ${t} to the ground, electrically.` },
+  thunder_p2_ringing_ear: {
+    name: 'Ringing-Ear Doctrine', zh: '鸣耳论', school: 'thunder_hammer', minRealmTier: 2, passive: true,
+    kitMod: k => { k.postureBonus = (k.postureBonus || 0) + 0.08; },
+    desc: 'PASSIVE. Aftershock echoes harder: +8% more posture damage on everything.' },
+  thunder_pin_riveted: {
+    name: 'Thunder Pin: Riveted Sky', zh: '雷钉铆天', school: 'thunder_hammer', minRealmTier: 3,
+    qi: 15, cd: 2, damage: 3.4, postureBuild: 34,
+    desc: 'Pin them to the moment like a rivet through plate: heavy damage, devastating posture.',
+    logHit: (a,t) => `${a} fixes ${t} in place with one descending argument.` },
+  thunder_p3_forge_lungs: {
+    name: 'Forge-Bellows Lungs', zh: '炉肺', school: 'thunder_hammer', minRealmTier: 3, passive: true,
+    applyMods: m => { m.postureBreakBonus += 1; m.hpBonus += 60; },
+    desc: 'PASSIVE. Breathe like the bellows: stance breaks last +1 turn, +60 HP.' },
+  thunder_quench_hiss: {
+    name: 'Quenching Hiss', zh: '淬嘶', school: 'thunder_hammer', minRealmTier: 4,
+    qi: 12, cd: 4, damage: 0, instant: true, qiRestore: 14,
+    buff: { postureBoost: 1.6, turns: 2 },
+    desc: 'Free action. Plunge the head and let it scream: +60% posture damage for 2 rounds, +14 qi.',
+    logHit: (a,t) => `${a}'s hammer hisses like the forge tank. The next blows will be measured in masonry.` },
+  thunder_p4_temple_bell: {
+    name: 'Stolen Temple Bell', zh: '窃钟', school: 'thunder_hammer', minRealmTier: 4, passive: true,
+    applyMods: m => { m.postureMult *= 1.10; m.flatDR += 5; },
+    desc: 'PASSIVE. Wear the bell\'s patience: +10% posture damage, +5 flat DR.' },
+  thunder_anvil_heaven: {
+    name: "Anvil-Fall: Heaven's Workbench", zh: '砧落天案', school: 'thunder_hammer', minRealmTier: 5,
+    qi: 30, cd: 3, damage: 6.2, postureBuild: 40, target: 'aoe',
+    effect: 'shock', effectValue: 0, effectTurns: 1, effectChance: 0.35,
+    desc: 'Drop the workbench itself: massive AOE posture ruin, 35% Shock on every target.',
+    logHit: (a,t) => `${a} borrows heaven's anvil and returns it via everyone present.` },
+  thunder_p5_aftershock_law: {
+    name: 'Law of Aftershocks', zh: '余震律', school: 'thunder_hammer', minRealmTier: 5, passive: true,
+    kitMod: k => { k.postureBonus = (k.postureBonus || 0) + 0.10; },
+    desc: 'PASSIVE. The second tremor is the lesson: +10% more posture damage.' },
+  thunder_founders_stroke: {
+    name: "The Founder's Stroke", zh: '祖锤一击', school: 'thunder_hammer', minRealmTier: 6,
+    qi: 42, cd: 4, damage: 8.8, postureBuild: 50,
+    desc: 'The strike the great anvil has waited four hundred years to hear again. Stances are a rumor afterward.',
+    logHit: (a,t) => `${a} strikes the way the founder did. The anvil, far away, rings in recognition.` },
+  thunder_p6_standing_iron: {
+    name: 'Standing Iron', zh: '立铁', school: 'thunder_hammer', minRealmTier: 6, passive: true,
+    applyMods: m => { m.postureMult *= 1.12; m.strikeDamageMult *= 1.08; },
+    desc: 'PASSIVE. Iron that has decided: +12% posture damage, +8% strike damage.' },
+
+  // ============ Cloud Travelers Guild — never quite where the blow lands ============
+  cloud_ring_circuit: {
+    name: 'Cloud Ring: Long Circuit', zh: '云环长巡', school: 'cloud_traveler', minRealmTier: 1,
+    qi: 9, cd: 1, damage: 2.1, postureBuild: 14, target: 'aoe',
+    desc: 'The chakram takes the scenic route through everyone: improved AOE chip with travel pay.',
+    logHit: (a,t) => `${a}'s ring goes sightseeing through the entire opposition.` },
+  cloud_p1_loose_grip: {
+    name: 'Loose Grip', zh: '松握', school: 'cloud_traveler', minRealmTier: 1, passive: true,
+    kitMod: k => { k.dodgeChance = (k.dodgeChance || 0) + 0.02; },
+    desc: 'PASSIVE. Hold nothing tightly, least of all your position: +2% innate dodge.' },
+  cloud_eye_of_gale: {
+    name: 'Eye of the Gale', zh: '飙眼', school: 'cloud_traveler', minRealmTier: 2,
+    qi: 10, cd: 4, damage: 0, postureBuild: 0,
+    buff: { dodgeChance: 0.35, counterOnDodge: 0.65, turns: 2 },
+    desc: 'Stand in the storm\'s pupil: +35% dodge for 2 rounds, and every miss is answered at 65% weapon power.',
+    logHit: (a,t) => `${a} stops being a place where attacks happen.` },
+  cloud_p2_borrowed_wind: {
+    name: 'Borrowed Wind', zh: '借风', school: 'cloud_traveler', minRealmTier: 2, passive: true,
+    applyMods: m => { m.firstStrikeBonus += 0.10; m.dodgeChance += 0.02; },
+    desc: 'PASSIVE. Arrive with the gust: +10% opener damage, +2% dodge.' },
+  cloud_vortex_pilgrimage: {
+    name: 'Spiraling Vortex: Pilgrimage', zh: '旋涡巡礼', school: 'cloud_traveler', minRealmTier: 3,
+    qi: 16, cd: 2, damage: 3.3, postureBuild: 16, target: 'aoe',
+    effect: 'chill', effectValue: 0.15, effectTurns: 2,
+    desc: 'The vortex visits every shrine on the field: heavy AOE, and the wind-chill saps -15% damage.',
+    logHit: (a,t) => `${a} sets the air walking in circles. Everyone inside walks with it, unwillingly.` },
+  cloud_p3_no_address: {
+    name: 'No Fixed Address', zh: '无定所', school: 'cloud_traveler', minRealmTier: 3, passive: true,
+    kitMod: k => { k.dodgeChance = (k.dodgeChance || 0) + 0.03; },
+    desc: 'PASSIVE. Mail cannot find you; neither can fists: +3% more innate dodge.' },
+  cloud_skyline_toll: {
+    name: 'Skyline Toll', zh: '天际税', school: 'cloud_traveler', minRealmTier: 4,
+    qi: 18, cd: 3, damage: 4.4, postureBuild: 18,
+    effect: 'mark', effectValue: 0.20, effectTurns: 2,
+    desc: 'The cut that charges for the view: heavy single-target damage and a +20% Mark.',
+    logHit: (a,t) => `${a}'s ring clips ${t} at the exact height where the horizon keeps its accounts.` },
+  cloud_p4_guild_dues: {
+    name: 'Guild Dues, Paid Forward', zh: '门费先缴', school: 'cloud_traveler', minRealmTier: 4, passive: true,
+    applyMods: m => { m.dodgeChance += 0.04; m.critChance += 0.03; },
+    desc: 'PASSIVE. The guild looks after its own: +4% dodge, +3% crit.' },
+  cloud_mistwalk_nation: {
+    name: 'Mistwalk: A Nation of Fog', zh: '雾行雾国', school: 'cloud_traveler', minRealmTier: 5,
+    qi: 26, cd: 4, damage: 2.0, postureBuild: 10, target: 'aoe',
+    buff: { dodgeChance: 0.45, counterOnDodge: 0.8, turns: 2 },
+    desc: 'Declare independence from geography: AOE chip, then +45% dodge with 80%-power counters for 2 rounds.',
+    logHit: (a,t) => `${a} secedes from the battlefield. The battlefield keeps paying taxes anyway.` },
+  cloud_p5_wind_underfoot: {
+    name: 'Wind Underfoot', zh: '足下风', school: 'cloud_traveler', minRealmTier: 5, passive: true,
+    kitMod: k => { k.dodgeChance = (k.dodgeChance || 0) + 0.03; },
+    applyMods: m => { m.qiRegenBonus += 1; },
+    desc: 'PASSIVE. The road carries you: +3% more innate dodge, +1 qi regen.' },
+  cloud_sky_without_witnesses: {
+    name: 'Sky Without Witnesses', zh: '无证天', school: 'cloud_traveler', minRealmTier: 6,
+    qi: 40, cd: 4, damage: 8.2, postureBuild: 20, target: 'aoe',
+    desc: 'The whole guild\'s trick at once: the wind erases the field\'s testimony, massively, everywhere.',
+    logHit: (a,t) => `${a} steps where the wind is — which is suddenly everywhere — and the field signs nothing.` },
+  cloud_p6_weightless_dao: {
+    name: 'Weightless Dao', zh: '无重道', school: 'cloud_traveler', minRealmTier: 6, passive: true,
+    applyMods: m => { m.dodgeChance += 0.05; m.techDamageMult *= 1.06; },
+    desc: 'PASSIVE. Nothing to put down, nothing to defend: +5% dodge, +6% technique damage.' },
+
+  // ============ Bone Reed Hermitage — the soul hears it first ============
+  reed_whisper_chorus: {
+    name: 'Reed Whisper: Two Voices', zh: '苇语双声', school: 'bone_reed', minRealmTier: 1,
+    qi: 8, cd: 1, damage: 1.8, directSpirit: 8, postureBuild: 10,
+    desc: 'The whisper learns harmony: more damage and 8 direct to the spirit pool.',
+    logHit: (a,t) => `${a} plays a note pitched for the part of ${t} that has no ears.` },
+  reed_p1_hollow_bones: {
+    name: 'Hollow Bones', zh: '空骨', school: 'bone_reed', minRealmTier: 1, passive: true,
+    kitMod: k => { k.spiritDamageBonus = (k.spiritDamageBonus || 0) + 0.08; },
+    desc: 'PASSIVE. Resonance needs hollow spaces: +8% spirit damage.' },
+  reed_kettle_song: {
+    name: 'Kettle Song', zh: '壶歌', school: 'bone_reed', minRealmTier: 2,
+    qi: 11, cd: 3, damage: 1.2, directSpirit: 10, postureBuild: 8, target: 'aoe',
+    effect: 'resonance', effectValue: 8, effectTurns: 3,
+    desc: 'The brass kettle joins in: AOE spirit pressure and a long Resonance toward soul-break.',
+    logHit: (a,t) => `Somewhere in the cave, the kettle starts to sing along. It knows this one.` },
+  reed_p2_seven_flutes: {
+    name: 'Seven Flutes Doctrine', zh: '七笛论', school: 'bone_reed', minRealmTier: 2, passive: true,
+    applyMods: m => { m.spiritDamageMult *= 1.10; },
+    desc: 'PASSIVE. Each flute teaches the others: +10% spirit damage on everything.' },
+  reed_spine_drum_deep: {
+    name: 'Spine Drum: Deep Register', zh: '脊鼓沉音', school: 'bone_reed', minRealmTier: 3,
+    qi: 15, cd: 2, damage: 3.0, directSpirit: 16, postureBuild: 22,
+    desc: 'Play the vertebrae like a low drum: heavy damage, 16 direct spirit, real posture.',
+    logHit: (a,t) => `${a} finds the rhythm ${t}'s skeleton was built around and changes it.` },
+  reed_p3_grief_pitch: {
+    name: 'Grief-Pitch Training', zh: '哀律训', school: 'bone_reed', minRealmTier: 3, passive: true,
+    kitMod: k => { k.spiritDamageBonus = (k.spiritDamageBonus || 0) + 0.08; },
+    applyMods: m => { m.qiBonus += 15; },
+    desc: 'PASSIVE. Learn the note sorrow answers to: +8% more spirit damage, +30 max qi.' },
+  reed_rest_between_notes: {
+    name: 'The Rest Between Notes', zh: '音歇', school: 'bone_reed', minRealmTier: 4,
+    qi: 9, cd: 4, damage: 0, instant: true, qiRestore: 18,
+    buff: { incomingMult: 0.7, turns: 1 },
+    desc: 'Free action. The silence is part of the music: +18 qi and -30% incoming for a round.',
+    logHit: (a,t) => `${a} lowers the flute. The quiet is somehow worse.` },
+  reed_p4_funeral_acoustics: {
+    name: 'Funeral Acoustics', zh: '葬礼声学', school: 'bone_reed', minRealmTier: 4, passive: true,
+    applyMods: m => { m.spiritDamageMult *= 1.10; m.hpBonus += 70; },
+    desc: 'PASSIVE. Rooms learn to carry your sound: +10% spirit damage, +70 HP.' },
+  reed_hollow_aria: {
+    name: 'Hollow Song: Full Aria', zh: '空歌全咏', school: 'bone_reed', minRealmTier: 5,
+    qi: 28, cd: 3, damage: 5.4, directSpirit: 28, postureBuild: 16, target: 'aoe',
+    effect: 'resonance', effectValue: 12, effectTurns: 3,
+    desc: 'The song performed in full: heavy AOE, 28 direct spirit, deep Resonance. Souls check the exits.',
+    logHit: (a,t) => `${a} performs the whole piece. The audience's souls give a standing ovation, involuntarily.` },
+  reed_p5_marrow_choir: {
+    name: 'Marrow Choir', zh: '髓唱', school: 'bone_reed', minRealmTier: 5, passive: true,
+    kitMod: k => { k.spiritDamageBonus = (k.spiritDamageBonus || 0) + 0.10; },
+    desc: 'PASSIVE. Your own bones hum the bass line: +10% more spirit damage.' },
+  reed_last_lullaby: {
+    name: 'The Last Lullaby', zh: '终摇篮曲', school: 'bone_reed', minRealmTier: 6,
+    qi: 40, cd: 4, damage: 7.6, directSpirit: 40, postureBuild: 18, target: 'aoe',
+    effect: 'resonance', effectValue: 16, effectTurns: 3,
+    desc: 'The piece the hermitage saves for last: enormous AOE spirit ruin. Most souls leave before the coda.',
+    logHit: (a,t) => `${a} plays the one that ends with the audience asleep, permanently inclined.` },
+  reed_p6_cliff_cave: {
+    name: 'Acoustics of the Cliff Cave', zh: '崖洞音', school: 'bone_reed', minRealmTier: 6, passive: true,
+    applyMods: m => { m.spiritDamageMult *= 1.12; m.techDamageMult *= 1.05; },
+    desc: 'PASSIVE. The cave was the first instrument: +12% spirit damage, +5% technique damage.' },
+
+  // ============ Jade Inkwell Academy — the record is binding ============
+  ink_stroke_corrected: {
+    name: 'Inkstroke: Corrected Copy', zh: '墨笔校本', school: 'jade_inkwell', minRealmTier: 1,
+    qi: 8, cd: 1, damage: 2.2, postureBuild: 12,
+    effect: 'qi_drain', effectValue: 6, effectTurns: 2,
+    desc: 'The stroke, corrected in the master\'s hand: more damage and a small qi tax.',
+    logHit: (a,t) => `${a} rewrites one line of ${t} more correctly. ${t} objects; the page does not.` },
+  ink_p1_good_paper: {
+    name: 'Good Paper', zh: '良纸', school: 'jade_inkwell', minRealmTier: 1, passive: true,
+    applyMods: m => { m.qiBonus += 12; m.insightMult *= 1.04; },
+    desc: 'PASSIVE. Quality materials: +24 max qi and +4% insight from all sources.' },
+  ink_margin_notes: {
+    name: 'Margin Notes', zh: '眉批', school: 'jade_inkwell', minRealmTier: 2,
+    qi: 9, cd: 3, damage: 0.8, postureBuild: 6, instant: true,
+    effect: 'silence', effectValue: 0, effectTurns: 1,
+    desc: 'Free action. A note in the margin of their next sentence: light damage and 1 turn of Silence.',
+    logHit: (a,t) => `${a} annotates ${t}'s intentions. The intentions are returned for revision.` },
+  ink_p2_red_brush: {
+    name: 'Standing Red Brush', zh: '常朱笔', school: 'jade_inkwell', minRealmTier: 2, passive: true,
+    kitMod: k => { k.ampVsDebuffed = (k.ampVsDebuffed || 0) + 0.05; },
+    desc: 'PASSIVE. Red-Ink Authority extends: +5% more damage to anything under your writs.' },
+  ink_binding_edict: {
+    name: 'Binding Character: Edict', zh: '缚字成敕', school: 'jade_inkwell', minRealmTier: 3,
+    qi: 16, cd: 2, damage: 3.0, postureBuild: 14, target: 'aoe',
+    effect: 'qi_cost_up', effectValue: 1.4, effectTurns: 2,
+    desc: 'The binding character, promoted to law: AOE damage and enemy techniques cost x1.4 qi.',
+    logHit: (a,t) => `${a} publishes the edict mid-air. Compliance is extracted, not requested.` },
+  ink_p3_archivists_eye: {
+    name: "Archivist's Eye", zh: '档目', school: 'jade_inkwell', minRealmTier: 3, passive: true,
+    kitMod: k => { k.ampVsDebuffed = (k.ampVsDebuffed || 0) + 0.05; },
+    applyMods: m => { m.critChance += 0.03; },
+    desc: 'PASSIVE. Know where every error is filed: +5% more vs debuffed foes, +3% crit.' },
+  ink_recess_of_court: {
+    name: 'Recess of the Court', zh: '休庭', school: 'jade_inkwell', minRealmTier: 4,
+    qi: 10, cd: 4, damage: 0, instant: true, qiRestore: 20,
+    buff: { incomingMult: 0.7, turns: 1 },
+    desc: 'Free action. Gavel down a recess: +20 qi and -30% incoming while the court considers.',
+    logHit: (a,t) => `${a} calls a recess nobody else heard scheduled. It is, nonetheless, in effect.` },
+  ink_p4_precedent: {
+    name: 'Weight of Precedent', zh: '判例重', school: 'jade_inkwell', minRealmTier: 4, passive: true,
+    applyMods: m => { m.techDamageMult *= 1.07; m.qiBonus += 18; },
+    desc: 'PASSIVE. Every prior ruling stands behind this one: +7% technique damage, +36 max qi.' },
+  ink_contract_sealed: {
+    name: 'Final Contract: Sealed Court', zh: '终契封庭', school: 'jade_inkwell', minRealmTier: 5,
+    qi: 28, cd: 3, damage: 6.2, postureBuild: 16,
+    effect: 'silence', effectValue: 0, effectTurns: 2,
+    desc: 'The contract executed with the doors barred: heavy damage and 2 turns of Silence.',
+    logHit: (a,t) => `${a} seals the court. ${t}'s appeals are noted, filed, and burned.` },
+  ink_p5_unblotted: {
+    name: 'The Unblotted Line', zh: '无瑕行', school: 'jade_inkwell', minRealmTier: 5, passive: true,
+    kitMod: k => { k.ampVsDebuffed = (k.ampVsDebuffed || 0) + 0.07; },
+    desc: 'PASSIVE. A perfect line admits no argument: +7% more damage vs debuffed foes.' },
+  ink_final_edition: {
+    name: 'The Final Edition', zh: '定本', school: 'jade_inkwell', minRealmTier: 6,
+    qi: 40, cd: 4, damage: 8.8, postureBuild: 18,
+    effect: 'silence', effectValue: 0, effectTurns: 2,
+    desc: 'The academy publishes its conclusion: enormous damage, 2 turns of Silence, no further corrections.',
+    logHit: (a,t) => `${a} closes the book on ${t}. The binding is excellent; the ending, final.` },
+  ink_p6_master_correction: {
+    name: "The Master's Correction", zh: '师正', school: 'jade_inkwell', minRealmTier: 6, passive: true,
+    applyMods: m => { m.techDamageMult *= 1.08; m.critChance += 0.04; },
+    desc: 'PASSIVE. She corrects your calligraphy once more, quietly: +8% technique damage, +4% crit.' },
+
+  // ============ Dragonforge Conclave — melt the guard, keep the temperature ============
+  forge_slash_twicefolded: {
+    name: 'Forge Slash: Twice-Folded', zh: '炉斩再折', school: 'dragonforge', minRealmTier: 1,
+    qi: 8, cd: 1, damage: 2.4, postureBuild: 18,
+    effect: 'sunder', effectValue: 0.06, effectTurns: 3,
+    desc: 'The slash folded back through the heat: more damage and its own Sunder stamped on arrival.',
+    logHit: (a,t) => `${a}'s edge arrives still glowing along the fold-line.` },
+  forge_p1_caldera_grip: {
+    name: 'Caldera Grip', zh: '火口握', school: 'dragonforge', minRealmTier: 1, passive: true,
+    applyMods: m => { m.postureMult *= 1.08; },
+    desc: 'PASSIVE. Hold the blade like the mountain held it: +8% posture damage.' },
+  forge_bellows_stance: {
+    name: 'Bellows Stance', zh: '风箱势', school: 'dragonforge', minRealmTier: 2,
+    qi: 10, cd: 4, damage: 0, postureBuild: 8, instant: true, qiRestore: 12,
+    buff: { postureBoost: 1.5, turns: 2 },
+    desc: 'Free action. Breathe like the forge breathes: +50% posture damage for 2 rounds and +12 qi.',
+    logHit: (a,t) => `${a} exhales, and the air arrives pre-heated.` },
+  forge_p2_slag_eye: {
+    name: 'Slag-Reader\'s Eye', zh: '渣目', school: 'dragonforge', minRealmTier: 2, passive: true,
+    kitMod: k => { k.stackCapBonus = Object.assign({}, k.stackCapBonus, { sunder: ((k.stackCapBonus || {}).sunder || 0) + 1 }); },
+    desc: 'PASSIVE. Read the melt like a ledger: Sunder stacks +1 higher.' },
+  forge_heatfold_riverline: {
+    name: 'Heatfold: Riverline Pour', zh: '热叠浇河', school: 'dragonforge', minRealmTier: 3,
+    qi: 15, cd: 2, damage: 3.6, postureBuild: 24,
+    effect: 'sunder', effectValue: 0.06, effectTurns: 3, effectStacks: 2,
+    desc: 'The cleave poured in one continuous line: heavy damage and 2 Sunder stacks in a single pass.',
+    logHit: (a,t) => `${a} pours the stroke down ${t}'s guard like tapping a furnace.` },
+  forge_p3_dragonbreath_draft: {
+    name: 'Dragonbreath Draft', zh: '龙息引', school: 'dragonforge', minRealmTier: 3, passive: true,
+    kitMod: k => { if (k.onTechHit && k.onTechHit.kind === 'sunder') k.onTechHit = Object.assign({}, k.onTechHit, { value: k.onTechHit.value + 0.02 }); },
+    desc: 'PASSIVE. The forge draft runs hotter: every Moltenwake Sunder bites +2% deeper.' },
+  forge_door_test: {
+    name: 'Forge-Door Test', zh: '炉门试', school: 'dragonforge', minRealmTier: 4,
+    qi: 18, cd: 3, damage: 4.6, pierceQi: 0.5, postureBuild: 30,
+    desc: 'The blow used to test the great doors: heavy damage, half of qi shielding ignored, brutal posture.',
+    logHit: (a,t) => `${a} tests whether ${t} is forge-door grade. The results are conclusive.` },
+  forge_p4_tempered_core: {
+    name: 'Tempered Core', zh: '淬核', school: 'dragonforge', minRealmTier: 4, passive: true,
+    applyMods: m => { m.hpBonus += 90; m.flatDR += 5; },
+    desc: 'PASSIVE. Quench the self as carefully as the steel: +90 HP, +5 flat DR.' },
+  forge_quench_dragons_memory: {
+    name: "Quench: Dragon's Memory", zh: '淬火龙忆', school: 'dragonforge', minRealmTier: 5,
+    qi: 26, cd: 3, damage: 3.2, postureBuild: 20, consumeBonus: { kind: 'sunder', perStack: 1.1 },
+    effect: 'sunder', effectValue: 0.06, effectTurns: 3, effectStacks: 2, qiRestore: 12,
+    desc: 'Quench, perfected: consumes Sunder at +110% damage per stack, the slag RE-APPLIES 2 fresh stacks, and the hiss returns 12 qi. The wreckage keeps working.',
+    logHit: (a,t) => `${a} quenches the blade in everything Moltenwake loosened — and the steam remembers being a dragon.` },
+  forge_p5_mountain_memory: {
+    name: 'Memory of the Mountain', zh: '山忆', school: 'dragonforge', minRealmTier: 5, passive: true,
+    kitMod: k => { k.stackCapBonus = Object.assign({}, k.stackCapBonus, { sunder: ((k.stackCapBonus || {}).sunder || 0) + 1 }); },
+    applyMods: m => { m.strikeDamageMult *= 1.06; },
+    desc: 'PASSIVE. The greatsword remembers its caldera: Sunder stacks +1 higher AGAIN, +6% strike damage.' },
+  forge_caldera_verdict: {
+    name: 'Caldera Verdict', zh: '火口判', school: 'dragonforge', minRealmTier: 6,
+    qi: 42, cd: 4, damage: 8.6, postureBuild: 36, consumeBonus: { kind: 'sunder', perStack: 0.6 },
+    desc: 'The conclave\'s final ruling: enormous damage that ALSO spends Sunder at +60% per stack. The mountain signs it.',
+    logHit: (a,t) => `${a} delivers the verdict the caldera reached years ago about things shaped like ${t}.` },
+  forge_p6_what_burns_hotter: {
+    name: 'What Burns Hotter', zh: '更炽者', school: 'dragonforge', minRealmTier: 6, passive: true,
+    kitMod: k => { if (k.onTechHit && k.onTechHit.kind === 'sunder') k.onTechHit = Object.assign({}, k.onTechHit, { value: k.onTechHit.value + 0.02 }); },
+    applyMods: m => { m.postureMult *= 1.10; },
+    desc: 'PASSIVE. Sunder bites +2% deeper again and +10% posture damage. The forge has opinions about endings.' },
+
+  // ============ Chain-Saint Cloister — the terms were always binding ============
+  chain_lash_witnessed: {
+    name: 'Chain Lash: Witnessed', zh: '链鞭立证', school: 'chain_saint', minRealmTier: 1,
+    qi: 8, cd: 1, damage: 2.2, postureBuild: 18, target: 'aoe',
+    desc: 'The lash with the cloister watching: improved AOE and the chain remembers each face it touches.',
+    logHit: (a,t) => `${a}'s chain cracks across the field, taking attendance.` },
+  chain_p1_first_vow: {
+    name: 'Weight of the First Vow', zh: '初誓重', school: 'chain_saint', minRealmTier: 1, passive: true,
+    applyMods: m => { m.postureMult *= 1.08; },
+    desc: 'PASSIVE. The chain pulls with your first promise behind it: +8% posture damage.' },
+  chain_penance_coil: {
+    name: 'Penance Coil', zh: '苦修缠', school: 'chain_saint', minRealmTier: 2,
+    qi: 11, cd: 3, damage: 1.6, postureBuild: 12,
+    effect: 'oathbound', effectPower: 0.45, effectTurns: 2,
+    desc: 'A single coil, tightened personally: deep Oathbind at 45% backlash for the one who most needs it.',
+    logHit: (a,t) => `${a} wraps one loop around ${t} and reads the fine print aloud.` },
+  chain_p2_notary_links: {
+    name: 'Notary Links', zh: '证链环', school: 'chain_saint', minRealmTier: 2, passive: true,
+    kitMod: k => { if (k.onTechHit) k.onTechHit = Object.assign({}, k.onTechHit, { turns: k.onTechHit.turns + 1 }); },
+    desc: 'PASSIVE. Every bind is properly witnessed: your Oathbinds last +1 turn.' },
+  chain_wrap_congregation: {
+    name: 'Binding Wrap: Congregation', zh: '缚环聚众', school: 'chain_saint', minRealmTier: 3,
+    qi: 16, cd: 2, damage: 2.8, postureBuild: 14, target: 'aoe',
+    effect: 'qi_drain', effectValue: 14, effectTurns: 3,
+    desc: 'The praying wrap, scaled to the whole congregation: AOE damage and 14 qi/turn from every foe.',
+    logHit: (a,t) => `${a}'s chain takes the whole field into the cloister's care, snugly.` },
+  chain_p3_collection_round: {
+    name: 'Collection Rounds', zh: '巡收', school: 'chain_saint', minRealmTier: 3, passive: true,
+    kitMod: k => { if (k.onTechHit) k.onTechHit = Object.assign({}, k.onTechHit, { power: k.onTechHit.power + 0.08 }); },
+    desc: 'PASSIVE. The cloister collects on schedule: Oathbind backlash +8% weapon power.' },
+  chain_sanctuary_links: {
+    name: 'Sanctuary of Links', zh: '链庇所', school: 'chain_saint', minRealmTier: 4,
+    qi: 12, cd: 4, damage: 0, instant: true, qiRestore: 14,
+    buff: { incomingMult: 0.6, reflectPct: 0.3, turns: 2 },
+    desc: 'Free action. Coil the chain into a sanctuary: -40% incoming, 30% reflected, 2 rounds, +14 qi.',
+    logHit: (a,t) => `${a} stands inside a geometry of consecrated iron. Visitors are processed.` },
+  chain_p4_oath_calligraphy: {
+    name: 'Oath Calligraphy', zh: '誓书法', school: 'chain_saint', minRealmTier: 4, passive: true,
+    applyMods: m => { m.spiritDamageMult *= 1.10; m.hpBonus += 70; },
+    desc: 'PASSIVE. Vows written on the soul directly: +10% spirit damage, +70 HP.' },
+  chain_soul_pull_verdict: {
+    name: 'Soul Pull: Standing Verdict', zh: '魂拽定谳', school: 'chain_saint', minRealmTier: 5,
+    qi: 28, cd: 3, damage: 6.0, directSpirit: 24, pierceQi: 0.4, postureBuild: 24,
+    effect: 'oathbound', effectPower: 0.5, effectTurns: 2,
+    desc: 'The hook with the court\'s full authority: heavy damage, 24 direct spirit, and a 50% Oathbind.',
+    logHit: (a,t) => `${a}'s chain finds ${t}'s soul and serves it papers it cannot decline.` },
+  chain_p5_unbreakable_terms: {
+    name: 'Unbreakable Terms', zh: '不毁约', school: 'chain_saint', minRealmTier: 5, passive: true,
+    kitMod: k => { if (k.onTechHit) k.onTechHit = Object.assign({}, k.onTechHit, { power: k.onTechHit.power + 0.10 }); },
+    desc: 'PASSIVE. Renegotiation is unavailable: Oathbind backlash +10% more weapon power.' },
+  chain_all_debts_due: {
+    name: 'All Debts Called Due', zh: '万债齐索', school: 'chain_saint', minRealmTier: 6,
+    qi: 42, cd: 4, damage: 8.0, postureBuild: 22, target: 'aoe', consumeBonus: { kind: 'oathbound', perStack: 1.2 },
+    desc: 'The cloister forecloses: massive AOE that consumes the primary target\'s Oathbind for +120% per stack.',
+    logHit: (a,t) => `${a} pulls every chain at once. The ledger balances, loudly, in the cloister's favor.` },
+  chain_p6_chain_remembers: {
+    name: 'The Chain Remembers', zh: '链记', school: 'chain_saint', minRealmTier: 6, passive: true,
+    applyMods: m => { m.techDamageMult *= 1.08; m.flatDR += 6; },
+    desc: 'PASSIVE. It has kept every vow ever sworn to it: +8% technique damage, +6 flat DR.' },
+
+  // ============ THE DEMONIC LADDER — school-agnostic, heresy-locked ============
+  // Walking the path opens a parallel curriculum. Sold by the Wandering Master (who
+  // deals with anyone) only while state.demonic; invisible to the righteous.
+  dem_bloodprice_edge: {
+    name: 'Bloodprice Edge', zh: '血价锋', minRealmTier: 1, demonicOnly: true,
+    qi: 2, hpCost: 8, cd: 1, damage: 2.6, postureBuild: 14,
+    effect: 'bleed', effectPower: 0.10, effectTurns: 3,
+    desc: 'Pay 8 HP, cut far above your station, and leave the wound open. The heavens take notes.',
+    logHit: (a,t) => `${a} pays in advance; ${t} covers the remainder, in installments.` },
+  dem_p1_scar_ledger: {
+    name: 'Scar Ledger', zh: '疤账', minRealmTier: 1, demonicOnly: true, passive: true,
+    applyMods: m => { m.lowHpBonus += 0.10; },
+    desc: 'PASSIVE (demonic). Every scar is an entry in your favor: +10% damage while bloodied.' },
+  dem_hellfire_brand: {
+    name: 'Hellfire Brand', zh: '狱火烙', minRealmTier: 2, demonicOnly: true,
+    qi: 10, hpCost: 6, cd: 2, damage: 2.2, postureBuild: 10,
+    effect: 'hellfire', effectPower: 0.14, effectTurns: 3, effectStacks: 2,
+    desc: 'Brand them with the fire that follows heretics home: 2 Hellfire stacks that burn past everything.',
+    logHit: (a,t) => `${a} presses the brand home. The fire recognizes ${t} now, anywhere.` },
+  dem_p2_heretic_vitality: {
+    name: 'Heretic Vitality', zh: '逆徒元气', minRealmTier: 2, demonicOnly: true, passive: true,
+    applyMods: m => { m.hpBonus += 90; },
+    desc: 'PASSIVE (demonic). What heaven rejects, the body keeps: +90 HP.' },
+  dem_devour_falling: {
+    name: 'Devour the Falling', zh: '噬坠者', minRealmTier: 3, demonicOnly: true,
+    qi: 14, cd: 2, damage: 3.8, postureBuild: 16,
+    effect: 'leech', effectPower: 0.30, effectTurns: 2,
+    desc: 'Strike hardest at what is already failing: heavy damage and a deep Leech.',
+    logHit: (a,t) => `${a} takes from ${t} the way gravity takes — impersonally, and all the way down.` },
+  dem_p3_red_meridians: {
+    name: 'Red Meridians', zh: '赤脉', minRealmTier: 3, demonicOnly: true, passive: true,
+    applyMods: m => { m.lifestealPct += 0.05; },
+    desc: 'PASSIVE (demonic). The channels run scarlet and thirsty: +5% lifesteal.' },
+  dem_tribulation_spite: {
+    name: 'Tribulation Spite', zh: '抗劫怨', minRealmTier: 4, demonicOnly: true,
+    qi: 10, hpCost: 12, cd: 4, damage: 0, instant: true,
+    buff: { incomingMult: 0.55, reflectPct: 0.45, turns: 2 },
+    desc: 'Free action. Wear the grudge you hold against heaven as armor: -45% incoming, 45% reflected, 2 rounds.',
+    logHit: (a,t) => `${a} remembers every tribulation, fondly, the way one remembers debts owed TO them.` },
+  dem_p4_calamity_diet: {
+    name: 'Calamity Diet', zh: '食劫', minRealmTier: 4, demonicOnly: true, passive: true,
+    applyMods: m => { m.critChance += 0.04; m.dotMult *= 1.08; },
+    desc: 'PASSIVE (demonic). Disasters are nutritious if chewed properly: +4% crit, DOTs +8%.' },
+  dem_throneless_sovereign: {
+    name: 'Throneless Sovereign', zh: '无座君', minRealmTier: 5, demonicOnly: true,
+    qi: 24, hpCost: 20, cd: 3, damage: 7.8, postureBuild: 20,
+    effect: 'bleed', effectPower: 0.12, effectTurns: 3, effectStacks: 3,
+    desc: 'Rule without permission: pay 20 HP for devastating damage and 3 Bleed stacks. Thrones are for the patient.',
+    logHit: (a,t) => `${a} issues a decree with no seal but the wound it leaves in ${t}.` },
+  dem_p5_demon_core: {
+    name: 'Demon-Core Tempering', zh: '魔核炼', minRealmTier: 5, demonicOnly: true, passive: true,
+    kitMod: k => { k.stackCapBonus = Object.assign({}, k.stackCapBonus, { hellfire: ((k.stackCapBonus || {}).hellfire || 0) + 1 }); },
+    applyMods: m => { m.qiBonus += 30; },
+    desc: 'PASSIVE (demonic). The core hardens around the heresy: Hellfire stacks +1 higher, +60 max qi.' },
+  dem_eat_the_heavens: {
+    name: 'Eat the Heavens', zh: '吞天', minRealmTier: 6, demonicOnly: true,
+    qi: 36, hpCost: 26, cd: 4, damage: 8.4, postureBuild: 22, target: 'aoe',
+    effect: 'leech', effectPower: 0.35, effectTurns: 3,
+    desc: 'The path\'s destination, rehearsed: pay 26 HP for enormous AOE and leeches in everything standing.',
+    logHit: (a,t) => `${a} opens wide. The sky, sensibly, backs up a span.` },
+  dem_p6_path_complete: {
+    name: 'The Path, Complete', zh: '道全', minRealmTier: 6, demonicOnly: true, passive: true,
+    applyMods: m => { m.techDamageMult *= 1.08; m.strikeDamageMult *= 1.08; },
+    desc: 'PASSIVE (demonic). Nothing above you, nothing barred: +8% technique AND strike damage.' },
+};
+Object.entries(EXPANSION_TECHS).forEach(([tid, def]) => {
+  TECHNIQUES[tid] = def;
+  // Costs follow the v0.46 convention; passives run x1.5 (always-on, no slot pressure).
+  def.cost = Math.round(MASTERY_TIER_COST[def.minRealmTier] * (def.passive ? 1.5 : 1));
+});
+
+// ============================================================
 // v0.45: School Kits — each school's always-on passive + machine-readable hook data.
 // The combat engine reads these via schoolKit(). Text fields surface in the school card,
 // the Loadout panel, and chargen.
@@ -2581,6 +3584,16 @@ function schoolKitFor(char) {
   if (tw || (isDemonic(char) && sid === 'demon_heart')) {
     kit.stackCapBonus = Object.assign({}, kit.stackCapBonus, { hellfire: ((kit.stackCapBonus || {}).hellfire || 0) + s });
   }
+  // v0.88: learned passive techniques modify the kit LAST (they build on the demonic
+  // twist and realm scaling). kitMod must mutate `kit` in place.
+  const cP = char || state;
+  (((cP) && cP.loadout) || []).forEach(tid => {
+    const pt = TECHNIQUES[tid];
+    if (!pt || !pt.passive || !pt.kitMod) return;
+    if (pt.school && pt.school !== sid) return;
+    if (pt.demonicOnly && !isDemonic(cP)) return;
+    pt.kitMod(kit, cP);
+  });
   return kit;
 }
 function schoolKit(schoolId) {
@@ -3020,7 +4033,21 @@ function computeMods(char) {
   applySkillModsToMods(mods, char);
   applyBodyInscriptionsToMods(mods, char);   // v0.77: demonic flesh-carved inscriptions
   applyBossRefineToMods(mods, char);         // v0.79: themed boss weapon-refinement tracks
+  applyPassiveTechsToMods(mods, char);       // v0.88: learned passive techniques (mods half)
   return mods;
+}
+
+// v0.88: PASSIVE TECHNIQUES — `passive: true` entries in the loadout are always-on.
+// Two hooks: `applyMods(m)` folds into the combat mod channels here; `kitMod(kit, char)`
+// amplifies the school kit inside schoolKitFor. Passives never occupy active slots.
+function applyPassiveTechsToMods(mods, char) {
+  ((char && char.loadout) || []).forEach(tid => {
+    const t = TECHNIQUES[tid];
+    if (!t || !t.passive || !t.applyMods) return;
+    if (t.school && t.school !== char.selectedSchool) return;
+    if (t.demonicOnly && !char.demonic) return;
+    t.applyMods(mods);
+  });
 }
 
 // v0.57: SKILLS nodes with effect {kind:'mods', mods:{...}} fold straight into the
@@ -8555,7 +9582,7 @@ function buySectTechnique(techId) {
   state.contribution -= cost;
   state.loadout.push(techId);
   if (!state.activeSkills) state.activeSkills = [];
-  if (state.activeSkills.length < activeSlotsForRealm(state) && !state.activeSkills.includes(techId)) state.activeSkills.push(techId);
+  if (!t.passive && state.activeSkills.length < activeSlotsForRealm(state) && !state.activeSkills.includes(techId)) state.activeSkills.push(techId);
   saveChar();
 }
 
@@ -10618,7 +11645,9 @@ function buyTechnique(techId) {
   if (!state || !state.confirmed) return false;
   const tech = TECHNIQUES[techId];
   if (!tech) return false;
-  if (tech.school !== state.selectedSchool) return false;
+  // v0.88: demonic-path techniques are school-agnostic but heresy-locked.
+  if (tech.demonicOnly && !state.demonic) return false;
+  if (tech.school !== state.selectedSchool && !(tech.demonicOnly && state.demonic)) return false;
   const min = tech.minRealmTier || 0;
   if (min === 0) return false;  // base techs aren't for sale; they're starter-given
   if (state.realm.tierIdx < min) return false;
@@ -10628,8 +11657,9 @@ function buyTechnique(techId) {
   state.base.materials.spirit_stone -= cost;
   state.loadout.push(techId);
   // Wave 1d: auto-slot the new technique into an Active Ability slot if one's free.
+  // v0.88: passives never occupy a slot — they're always-on from the library.
   if (!state.activeSkills) state.activeSkills = [];
-  if (state.activeSkills.length < activeSlotsForRealm(state) && !state.activeSkills.includes(techId)) {
+  if (!tech.passive && state.activeSkills.length < activeSlotsForRealm(state) && !state.activeSkills.includes(techId)) {
     state.activeSkills.push(techId);
   }
   saveChar();
@@ -10647,7 +11677,7 @@ function activeSlotsForRealm(char) {
 }
 function activeSkillsList(char) {
   const cap = activeSlotsForRealm(char);
-  let arr = (char.activeSkills || []).filter(tid => TECHNIQUES[tid] && (char.loadout || []).includes(tid));
+  let arr = (char.activeSkills || []).filter(tid => TECHNIQUES[tid] && !TECHNIQUES[tid].passive && (char.loadout || []).includes(tid));
   arr = arr.filter((tid, i) => arr.indexOf(tid) === i);  // dedupe
   if (!arr.length) {
     const school = SCHOOLS[char.selectedSchool];
@@ -10661,6 +11691,7 @@ function toggleActiveSkill(tid) {
   // occupy a slot (the "ghost 5th slot" bug — the cap check counted dead entries).
   state.activeSkills = state.activeSkills.filter(t => TECHNIQUES[t]);
   if (!TECHNIQUES[tid] || !(state.loadout || []).includes(tid)) return;
+  if (TECHNIQUES[tid].passive) return;   // v0.88: passives are always-on, never slotted
   const i = state.activeSkills.indexOf(tid);
   if (i >= 0) state.activeSkills.splice(i, 1);
   else {
@@ -14209,6 +15240,14 @@ function renderCharSheet() {
   state.loadout.forEach(tid => {
     const t = TECHNIQUES[tid];
     if (!t) return;
+    // v0.88: passive techniques render as always-on rows — no slot, no toggle.
+    if (t.passive) {
+      loadoutHTML += `<div class="tech-entry tip" data-tip="${escapeTip(t.desc)}" style="border-left:3px solid #b8a44a;padding-left:0.4rem;">
+        <div><span class="name">${t.name}</span><span class="zh">${t.zh}</span> <span style="color:var(--ink-soft);font-size:0.75rem">[Passive]</span> <span class="rarity-tag" style="background:rgba(184,164,74,0.18);border-color:#b8a44a">always on</span></div>
+        <div class="desc">${t.desc}</div>
+      </div>`;
+      return;
+    }
     const effQi = Math.ceil(t.qi * (mods.schoolQiMult[t.school] || 1));
     const effHp = t.hpCost ? Math.ceil(t.hpCost * mods.hpCostMult) : 0;
     // v0.45: ST/AOE + status badges on every technique row.
@@ -14554,8 +15593,10 @@ function renderCharSheet() {
   masterP.className = 'panel';
   masterP.innerHTML = `<h3>Wandering Master <span style="font-weight:normal;color:var(--ink-soft);font-size:0.85rem">游师</span></h3>
     <p style="font-size:0.85rem;color:var(--ink-soft);margin:0 0 0.6rem">Sells fragments of the deeper forms of your school. Costs scale with the realm of the form.</p>`;
+  // v0.88: demonic-path techniques (school-agnostic, heresy-locked) sell here too —
+  // the wandering master deals with anyone. Hidden entirely from the righteous.
   const gatedTechs = Object.entries(TECHNIQUES)
-    .filter(([, t]) => t.minRealmTier && t.school === state.selectedSchool)
+    .filter(([, t]) => t.minRealmTier && (t.school === state.selectedSchool || (t.demonicOnly && state.demonic)))
     .sort((a, b) => (a[1].minRealmTier - b[1].minRealmTier) || ((a[1].cost || 0) - (b[1].cost || 0)));  // v0.46: realm-sorted ladder
   if (!gatedTechs.length) {
     masterP.innerHTML += `<div style="font-size:0.85rem;color:var(--ink-soft);font-style:italic">The master has nothing to teach a sect that does not branch beyond its starting form.</div>`;
@@ -14564,14 +15605,19 @@ function renderCharSheet() {
     const owned = state.loadout.includes(tid);
     const tierMet = state.realm.tierIdx >= tech.minRealmTier;
     const canAfford = stones >= (tech.cost || 0);
-    const targetLabel = tech.target === 'aoe' ? '<span style="color:#e89e9e">AOE</span>' : 'Single';
+    const targetLabel = tech.passive ? '<span style="color:#b8a44a">PASSIVE</span>'
+      : tech.target === 'aoe' ? '<span style="color:#e89e9e">AOE</span>' : 'Single';
+    const demonTag = tech.demonicOnly ? ' <span style="color:#c06060;font-size:0.7rem">[HERESY]</span>' : '';
+    const statLine = tech.passive
+      ? 'Always on once learned — no ability slot needed'
+      : `${tech.qi} qi · ${tech.cd} cd · ${tech.damage}× weapon`;
     const row = document.createElement('div');
     row.className = 'consumable-row';
     row.innerHTML = `
       <div class="consumable-info">
-        <div class="consumable-name">${tech.name} <span style="color:var(--ink-soft);font-size:0.75rem">${tech.zh || ''}</span> <span style="color:var(--ink-soft);font-size:0.7rem">[${targetLabel}]</span></div>
+        <div class="consumable-name">${tech.name} <span style="color:var(--ink-soft);font-size:0.75rem">${tech.zh || ''}</span> <span style="color:var(--ink-soft);font-size:0.7rem">[${targetLabel}]</span>${demonTag}</div>
         <div class="consumable-desc">${tech.desc || ''}</div>
-        <div class="consumable-desc"><strong>${REALMS[tech.minRealmTier].name}+</strong> · ${tech.cost || 0} spirit stones · ${tech.qi} qi · ${tech.cd} cd · ${tech.damage}× weapon</div>
+        <div class="consumable-desc"><strong>${REALMS[tech.minRealmTier].name}+</strong> · ${tech.cost || 0} spirit stones · ${statLine}</div>
       </div>`;
     const btns = document.createElement('div');
     btns.className = 'consumable-buttons';
@@ -14794,9 +15840,9 @@ function renderCharSheet() {
     const cost = sectTechCost(tech);
     const row = document.createElement('div'); row.className = 'consumable-row';
     row.innerHTML = `<div class="consumable-info">
-        <div class="consumable-name">${tech.name} <span style="color:var(--ink-soft);font-size:0.75rem">${tech.zh || ''}</span></div>
+        <div class="consumable-name">${tech.name} <span style="color:var(--ink-soft);font-size:0.75rem">${tech.zh || ''}</span>${tech.passive ? ' <span style="color:#b8a44a;font-size:0.7rem">[PASSIVE]</span>' : ''}</div>
         <div class="consumable-desc">${tech.desc || ''}</div>
-        <div class="consumable-desc"><strong>${REALMS[tech.minRealmTier].name}+</strong> · ${cost} contribution · ${tech.qi} qi · ${tech.cd} cd</div>
+        <div class="consumable-desc"><strong>${REALMS[tech.minRealmTier].name}+</strong> · ${cost} contribution · ${tech.passive ? 'always on once learned' : `${tech.qi} qi · ${tech.cd} cd`}</div>
       </div>`;
     const tbtns = document.createElement('div'); tbtns.className = 'consumable-buttons';
     const tb = document.createElement('button');
