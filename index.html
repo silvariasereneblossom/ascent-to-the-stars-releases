@@ -541,11 +541,11 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v0.93';
+const GAME_VERSION = 'v0.94';
 // v0.78: CI injects the build's short sha here; the APK shell reads it FROM THE RUNNING
 // PAGE (window.BUILD_SHA) and compares against the repo head — staleness detection that
-// cannot be fooled by cached metadata. 'f22b7a1' = local/dev build (shell falls back).
-const BUILD_SHA = 'f22b7a1';
+// cannot be fooled by cached metadata. 'd60cfae' = local/dev build (shell falls back).
+const BUILD_SHA = 'd60cfae';
 if (typeof window !== 'undefined') window.BUILD_SHA = BUILD_SHA;
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
@@ -10774,6 +10774,9 @@ const TRACKS = {
     { file: 'rain-on-banana-leaves.ogg', title: 'Rain on Banana Leaves',   note: 'Cantonese erhu' },
     { file: 'interlocking-rings.ogg',    title: 'Interlocking Rings',      note: 'gentle gaohu' },
     { file: 'erquan-yingyue.ogg',        title: 'Moon Over Second Spring', note: 'erhu, contemplative' },
+    // v0.94 operator adds (CC BY)
+    { file: 'AllTheTeaInChina.mp3',      title: 'All The Tea In China',    note: 'Shane Ivers, CC BY 4.0' },
+    { file: 'LunarNewYear.mp3',          title: 'Lunar New Year',          note: 'Alex-Productions, CC BY 3.0 — calm Chinese lo-fi' },
   ],
   battle: [
     { file: 'Wuxia.mp3',         title: 'Wuxia',          note: 'heroic erhu & orchestra' },
@@ -10793,6 +10796,17 @@ const TRACKS = {
     { file: 'km_crusade.mp3',      title: 'Crusade',          note: 'heavy, ominous march' },
     { file: 'km_achaidh.mp3',      title: 'Achaidh Cheide',   note: 'driving epic' },
     { file: 'km_clenchedteeth.mp3', title: 'Clenched Teeth',  note: 'tense climax' },
+  ],
+  // v0.94 (operator): dedicated single-track categories — opening/title screen, Market tab, and
+  // ALL tribulations. Single-entry lists loop natively (playCurrentTrack sets a.loop). All CC BY.
+  title: [
+    { file: 'AndTheSunRises.mp3', title: 'And The Sun Rises', note: 'Darren-Curtis, CC BY 3.0 — opening dawn' },
+  ],
+  market: [
+    { file: 'Asia_FSM.mp3', title: 'Asia', note: 'FSM Team, CC BY 4.0 — marketplace' },
+  ],
+  tribulation: [
+    { file: 'BraceForTheStorm.mp3', title: 'Brace For The Storm', note: 'Darren-Curtis, CC BY 3.0 — heavenly tribulation' },
   ],
 };
 // v0.85: a UNIQUE theme per named boss, mood-matched. Plays only while challenging that
@@ -10838,11 +10852,14 @@ function musicCategoryFor() {
   if (typeof combat !== 'undefined' && combat) {
     // v0.85: a named boss you're challenging gets its own theme (category 'boss:<id>').
     if (combat.bossFight && combat.enemyId && BOSS_THEMES[combat.enemyId]) return 'boss:' + combat.enemyId;
-    if (combat.tribulation) return 'boss';
+    if (combat.tribulation) return 'tribulation';   // v0.94: all tribulations share one dedicated track
     if (combat.bossFight) return 'boss';
     if (combat.enemies && combat.enemies.some(e => e && ENEMY_ARCHETYPES[e.id] === 'elite')) return 'boss';
     return 'battle';
   }
+  // v0.94: out of combat — the opening/title screen and the Market tab get their own music.
+  if (typeof atTitle !== 'undefined' && atTitle) return 'title';
+  if (typeof activeTab !== 'undefined' && activeTab === 'market') return 'market';
   return 'menu';
 }
 function ensureMusicEl() {
@@ -14051,7 +14068,7 @@ function buildConfigPanel() {
 function appendMusicControls(cfgP) {
   const musOn = musicEnabled();
   const now = currentTrack();
-  const catLabel = ({ menu: 'Menu', battle: 'Battle', boss: 'Boss' })[MUSIC.cat] || 'Menu';
+  const catLabel = ({ menu: 'Menu', title: 'Title', market: 'Market', battle: 'Battle', boss: 'Boss', tribulation: 'Tribulation' })[MUSIC.cat] || (MUSIC.cat && MUSIC.cat.indexOf('boss:') === 0 ? 'Boss' : 'Menu');
   const musRow = document.createElement('div'); musRow.className = 'consumable-row';
   musRow.innerHTML = `<div class="consumable-info">
       <div class="consumable-name">Music <span style="color:var(--ink-soft);font-size:0.75rem">古韵</span></div>
@@ -14076,7 +14093,7 @@ function appendMusicControls(cfgP) {
   volWrap.appendChild(vol); cfgP.appendChild(volWrap);
   const cred = document.createElement('p');
   cred.style.cssText = 'font-size:0.72rem;color:var(--ink-soft);margin:0.3rem 0 0;line-height:1.45';
-  cred.innerHTML = `<strong>Music credits.</strong> Menu: <a href="https://peritune.com" style="color:var(--ink-soft)">PeriTune</a> (CC BY 4.0), <a href="https://incompetech.com" style="color:var(--ink-soft)">Kevin MacLeod</a> (CC BY), and Zhang Peijian via <a href="https://commons.wikimedia.org" style="color:var(--ink-soft)">Wikimedia Commons</a> (CC BY-SA 4.0). Battle/boss: PeriTune, Kevin MacLeod, <a href="https://www.scottbuckley.com.au" style="color:var(--ink-soft)">Scott Buckley</a>, and Darren-Curtis &amp; Alex-Productions via <a href="https://www.free-stock-music.com" style="color:var(--ink-soft)">Free Stock Music</a> (CC BY). Files unmodified.`;
+  cred.innerHTML = `<strong>Music credits.</strong> Menu/title/market: <a href="https://peritune.com" style="color:var(--ink-soft)">PeriTune</a> (CC BY 4.0), <a href="https://incompetech.com" style="color:var(--ink-soft)">Kevin MacLeod</a> (CC BY), Zhang Peijian via <a href="https://commons.wikimedia.org" style="color:var(--ink-soft)">Wikimedia Commons</a> (CC BY-SA 4.0), Shane Ivers / <a href="https://www.silvermansound.com" style="color:var(--ink-soft)">Silverman Sound</a> (CC BY 4.0), and Darren-Curtis, Alex-Productions &amp; FSM Team via <a href="https://www.free-stock-music.com" style="color:var(--ink-soft)">Free Stock Music</a> (CC BY). Battle/boss/tribulation: PeriTune, Kevin MacLeod, <a href="https://www.scottbuckley.com.au" style="color:var(--ink-soft)">Scott Buckley</a>, Darren-Curtis &amp; Alex-Productions (CC BY). Files unmodified.`;
   cfgP.appendChild(cred);
 }
 
