@@ -541,11 +541,11 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v0.91';
+const GAME_VERSION = 'v0.92';
 // v0.78: CI injects the build's short sha here; the APK shell reads it FROM THE RUNNING
 // PAGE (window.BUILD_SHA) and compares against the repo head — staleness detection that
-// cannot be fooled by cached metadata. '71234c4' = local/dev build (shell falls back).
-const BUILD_SHA = '71234c4';
+// cannot be fooled by cached metadata. '400ce8d' = local/dev build (shell falls back).
+const BUILD_SHA = '400ce8d';
 if (typeof window !== 'undefined') window.BUILD_SHA = BUILD_SHA;
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
@@ -5924,12 +5924,12 @@ function bossAnchorScale(bossTier) {
   }
   return { stats: stats * BOSS_DIFFICULTY_MULT, reward: 1.5 };
 }
-// v0.83: per-boss CHARGE system (operator) — up to 5 stored challenges. A kill spends a
-// charge; defeats are free. Charges refill ONE at a time, slower as you near full: the
-// interval to gain the Nth charge (from N-1) is [10, 20, 40, 60, 60] minutes. Glyph arrays
-// (bossCdMult, floor 35%) shorten every interval. Lazy accrual on read.
-const BOSS_CHARGE_MAX = 5;
-const BOSS_CHARGE_INTERVALS_MS = [10, 20, 40, 60, 60].map(m => m * 60 * 1000);  // index c = c->c+1 charges
+// v0.83: per-boss CHARGE system (operator) — up to 3 stored challenges (v0.92: was 5; dropped the
+// first two short intervals). A kill spends a charge; defeats are free. Charges refill ONE at a time,
+// slower as you near full: the interval to gain the Nth charge (from N-1) is [40, 60, 60] minutes.
+// Glyph arrays (bossCdMult, floor 35%) shorten every interval. Lazy accrual on read.
+const BOSS_CHARGE_MAX = 3;
+const BOSS_CHARGE_INTERVALS_MS = [40, 60, 60].map(m => m * 60 * 1000);  // v0.92: 40/60/60 (was [10,20,40,60,60]); index c = c->c+1 charges
 function bossCdMult() { return Math.max(0.35, computeMods(state).bossCdMult || 1); }
 // Settle the stored {c, t} forward to now, accruing charges across the staged intervals.
 function settleBossCharges(bossId) {
@@ -10817,7 +10817,7 @@ const BOSS_THEMES = {
   heavenly_executioner: 'EpicBattle_Deity.mp3',  // grand orchestral deity-battle — heaven's verdict
   dawn_sovereign:       'Helios.mp3',            // rising-sun build to choir climax — finale-grade
 };
-const MUSIC = { el: null, cat: 'menu', idx: 0, started: false, fails: 0 };
+const MUSIC = { el: null, cat: 'menu', idx: 0, started: false, fails: 0, wasPlaying: false };
 // True while the element is actually trying to play (paused flips back to true if
 // play() is rejected by autoplay policy, so this is safe to poll from gestures).
 function musicActuallyPlaying() { return !!(MUSIC.el && !MUSIC.el.paused); }
@@ -10925,6 +10925,22 @@ function primeMusicOnGesture() {
 }
 if (typeof document !== 'undefined' && document.addEventListener) {
   document.addEventListener('pointerup', primeMusicOnGesture);
+}
+// v0.92: pause music when the app is backgrounded / minimized. Android WebView and browsers both
+// fire visibilitychange with document.hidden=true on background. Resume the SAME track on return,
+// but only if it was actually playing when we left — never force-start on un-minimize.
+if (typeof document !== 'undefined' && document.addEventListener) {
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      MUSIC.wasPlaying = musicActuallyPlaying();
+      if (MUSIC.wasPlaying) stopMusic();
+    } else if (MUSIC.wasPlaying && musicEnabled() && MUSIC.started) {
+      MUSIC.wasPlaying = false;
+      const a = ensureMusicEl();
+      const p = a.play();
+      if (p && p.catch) p.catch(() => {});
+    }
+  });
 }
 
 // ============================================================
@@ -12416,6 +12432,9 @@ function buildEnemyCombat(enemyId) {
   const scale = (enemyData.isBoss && BOSSES[enemyId])
     ? bossAnchorScale(BOSSES[enemyId].tier)
     : playerLayerScale(state);
+  // v0.92: Mortal-tier bosses read a touch soft (by design they fall to a fresh QC cultivator, but
+  // the operator wants them ~1.25x meaner). Applies to HP + weapon power only.
+  const mortalBossMult = (enemyData.isBoss && BOSSES[enemyId] && BOSSES[enemyId].tier === 0) ? 1.25 : 1;
   // v0.23 robustness pass: separate normal vs elite multipliers stacked on top of the
   // existing v0.18 phase-2 bump (hp x2.5 / wpn x2 / qi-spirit-posture x2). Elite gets a
   // steeper bump so boss fights feel meaningfully harder than mooks at the same tier.
@@ -12447,7 +12466,7 @@ function buildEnemyCombat(enemyId) {
   }
   // v0.84: TRIBULATION fights at 0.75 (midpoint of v0.83's 0.5 and the un-halved 1.0 — QC trib read too easy).
   const tribMult = (typeof pendingTribulation !== 'undefined' && pendingTribulation) ? 0.75 : 1;
-  const scaledHpMax = Math.round(enemyData.hpMax * scale.stats * 2.5 * hpBoost * eliteHpExtra * realmBuff * tribMult * backHalf * DIFFICULTY_TICK);
+  const scaledHpMax = Math.round(enemyData.hpMax * scale.stats * 2.5 * hpBoost * eliteHpExtra * realmBuff * tribMult * backHalf * DIFFICULTY_TICK * mortalBossMult);
   const scaledQiMax = Math.round(enemyData.qiMax * scale.stats * 2 * qiBoost);
   const scaledSpiritMax = Math.round(enemyData.spiritMax * scale.stats * 2 * qiBoost);
   // v0.81: enemy posture pools were too deep to break — normals x0.75, bosses x0.40 (even
@@ -12455,7 +12474,7 @@ function buildEnemyCombat(enemyId) {
   // HP clone; it should be reachable.
   const posMult = enemyData.isBoss ? 0.40 : 0.75;
   const scaledPostureMax = Math.round(enemyData.postureMax * scale.stats * 2 * postureBoost * posMult);
-  const scaledWeaponPower = Math.max(1, Math.round(enemyData.weaponPower * scale.stats * 2 * wpnBoost * realmBuff * tribMult * backHalf * DIFFICULTY_TICK));
+  const scaledWeaponPower = Math.max(1, Math.round(enemyData.weaponPower * scale.stats * 2 * wpnBoost * realmBuff * tribMult * backHalf * DIFFICULTY_TICK * mortalBossMult));
   // Flat damage reduction. Elites get a thicker pad; normals get a small one (v0.23.2)
   // that scales gently by tier. Both blunt chip-damage / multi-hit AOE strategies.
   const tierIdx = state.realm.tierIdx || 0;
@@ -13242,6 +13261,19 @@ function grantEnemyDefeatRewards(e) {
   const insight = Math.round(enemyData.insightReward * rewardScale * boonInsightMult() * skillCombatInsightMult() * (combat.player.mods.insightMult || 1) * ((SCHOOLS[state.selectedSchool] && SCHOOLS[state.selectedSchool].insightFromKillsMult) || 1) * (hmVictory.combatInsightMult || 1) * combatInsightMult(combat) * metaInsightMult() * (state.demonic ? 1.5 : 1));
   addInsight(insight);
   state.sectKills = (state.sectKills || 0) + 1;  // Wave 2b: progress toward the sect hunt bounty
+  // v0.92: slaying a cultivator of the OPPOSING path earns sect contribution (operator) — a demonic
+  // cultivator is rewarded for putting down the righteous, and a righteous one for the demonic. Here
+  // "righteous cultivator" = human-kind, "demonic cultivator" = demonic-kind. 50 x realm level
+  // (1-based player realm); stacks with any boss bounty below.
+  {
+    const foeKind = e.kind || enemyKindFor(e.id);
+    const playerDemonic = !!state.demonic;
+    if ((playerDemonic && foeKind === 'human') || (!playerDemonic && foeKind === 'demonic')) {
+      const xp = 50 * ((state.realm.tierIdx || 0) + 1);
+      grantContribution(xp);
+      pushLog('reward', `${playerDemonic ? 'A righteous cultivator falls to your heresy' : 'A demon is put down'}: +${xp} contribution.`);
+    }
+  }
   // v0.58: boss kill tracking + first-kill material cache.
   if (enemyData.isBoss) {
     if (!state.bossKills) state.bossKills = {};
@@ -13249,7 +13281,7 @@ function grantEnemyDefeatRewards(e) {
     // v0.83: a kill spends a boss charge (defeats are free).
     consumeBossCharge(e.id);
     // v0.60: the sect honors boss kills — automatic contribution bounty.
-    const bossBounty = 30 + 30 * ((BOSSES[e.id] && BOSSES[e.id].tier) || 0);
+    const bossBounty = 100 * (((BOSSES[e.id] && BOSSES[e.id].tier) || 0) + 1);   // v0.92: 100 x realm level (1-based, so a Mortal boss = 100)
     grantContribution(bossBounty);
     pushLog('reward', `The sect honors the kill: +${bossBounty} contribution.`);
     // v0.62: a boss kill carries a great flash of comprehension —
