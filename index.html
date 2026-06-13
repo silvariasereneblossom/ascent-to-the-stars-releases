@@ -541,11 +541,11 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v0.86';
+const GAME_VERSION = 'v0.87';
 // v0.78: CI injects the build's short sha here; the APK shell reads it FROM THE RUNNING
 // PAGE (window.BUILD_SHA) and compares against the repo head — staleness detection that
-// cannot be fooled by cached metadata. '35f9033' = local/dev build (shell falls back).
-const BUILD_SHA = '35f9033';
+// cannot be fooled by cached metadata. 'a4c5a52' = local/dev build (shell falls back).
+const BUILD_SHA = 'a4c5a52';
 if (typeof window !== 'undefined') window.BUILD_SHA = BUILD_SHA;
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
@@ -7221,11 +7221,17 @@ function realmGearFlavor(tier, slot, rarity, noun) {
 })();
 // Armor rarity ladder: per realm, a rare / legendary / divine defensive piece (slots rotate),
 // divine again tuned to shade into the next realm's baseline.
+// v0.87: THE armor HP curve (single knob). Operator: "20 HP increments are far too small
+// when boss HP and damage is scaling much higher" — enemy weapon power grows ~96x Mortal->SS,
+// the old [14..460] curve only ~33x with flat hand-authored pieces on top. Index 7 is the
+// virtual t7 anchor so divine-of-SS still lands ~1.55x above SS common (the locked
+// divine(t) = common(t+1) rule holds at every tier by construction).
+const ARMOR_HP_BASE = [15, 34, 75, 165, 360, 700, 1300, 2000];
 (function generateArmorLadder() {
   const slotsCycle = [['helmet', 'Helm', '盔'], ['chest', 'Robe', '袍'], ['boots', 'Boots', '靴']];
-  const hpBase = [14, 25, 50, 95, 170, 290, 460];
+  const hpBase = ARMOR_HP_BASE;
   for (let t = 0; t <= 6; t++) {
-    const nextHp = t < 6 ? hpBase[t + 1] : Math.round(hpBase[t] * 1.55);
+    const nextHp = ARMOR_HP_BASE[t + 1];
     const powerOf = { rare: Math.round(hpBase[t] + (nextHp - hpBase[t]) * 0.33), legendary: Math.round(hpBase[t] + (nextHp - hpBase[t]) * 0.66), divine: nextHp };
     ['rare', 'legendary', 'divine'].forEach((rar, ri) => {
       const [slot, noun, nounZh] = slotsCycle[(t + ri) % 3];
@@ -7917,6 +7923,42 @@ ARMOR_SETS.vanquisher = {
       apply: m => { m.elementBoostAll += 0.20; m.flatDR += 8; m.critChance += 0.05; } },
   ],
 };
+
+// ============================================================
+// v0.87 ARMOR REALM SCALING — every armor piece's hpBonus (and flatDR where present)
+// is FLOORED at load to a per-(realm, rarity, slot) value off ARMOR_HP_BASE. This
+// drags the flat hand-authored pieces (and the GC-era regression) up to the curve;
+// pieces already above their floor (awakened relics, hand-tuned chests) keep their
+// numbers. Runs AFTER every ARMOR/ARMOR_RECIPES registration and AFTER the v0.72
+// rarity enrichment (which counts mod channels — adding HP first would starve it).
+// The v0.86 Mortal boss-set cap sits below its floor and is unaffected.
+// ============================================================
+const ARMOR_SLOT_WEIGHT = { chest: 1.0, helmet: 0.8, boots: 0.8, gloves: 0.7, accessory: 0.5 };
+function armorHpFloor(t, rarity, slot) {
+  const base = ARMOR_HP_BASE[Math.min(6, t)];
+  const next = ARMOR_HP_BASE[Math.min(7, t + 1)];
+  const frac = { common: 0, rare: 0.33, legendary: 0.66, divine: 1 }[rarity] || 0;
+  return Math.round((base + (next - base) * frac) * (ARMOR_SLOT_WEIGHT[slot] || 0.5));
+}
+function armorDrFloor(t, rarity) {
+  const m = { legendary: 3, divine: 5 }[rarity];
+  return m ? Math.round(m * Math.pow(1.6, Math.min(6, t))) : 0;
+}
+(function scaleArmorWithRealm() {
+  Object.entries(ARMOR).forEach(([aid, a]) => {
+    if (!a.mods) return;
+    const t = armorTierOf(aid);
+    // Pure-utility accessories (wards, amps — no HP) keep their identity; everything
+    // else, and any accessory that already grants HP, is pulled up to the curve.
+    if (a.slot !== 'accessory' || (a.mods.hpBonus || 0) > 0) {
+      a.mods.hpBonus = Math.max(a.mods.hpBonus || 0, armorHpFloor(t, a.rarity, a.slot));
+    }
+    if ((a.mods.flatDR || 0) > 0) {
+      a.mods.flatDR = Math.max(a.mods.flatDR, armorDrFloor(t, a.rarity));
+    }
+  });
+})();
+
 function ownsBossCrossGear(id) {
   const g = BOSS_CROSS_GEAR[id];
   if (!g) return false;
@@ -9257,6 +9299,16 @@ function weaponTierOf(wid) {
 function armorTierOf(aid) {
   const a = ARMOR[aid] || {};
   if (a.bossSet && BOSSES[a.bossSet]) return BOSSES[a.bossSet].tier;
+  if (a.bossGear && BOSSES[a.bossGear]) return BOSSES[a.bossGear].tier;   // v0.87: relic lines
+  // v0.87: cross-boss gear has no recipe — tier = highest boss whose unique mat it eats
+  if (typeof BOSS_CROSS_GEAR !== 'undefined' && BOSS_CROSS_GEAR[aid]) {
+    let t = 0;
+    const mats = BOSS_CROSS_GEAR[aid].mats || {};
+    Object.entries(BOSS_UNIQUE_MATS).forEach(([bid, [mid]]) => {
+      if (mats[mid]) t = Math.max(t, BOSSES[bid].tier);
+    });
+    return t;
+  }
   const rt = recipeTierOf(aid);
   if (rt !== undefined) return rt;
   return RARITY_FALLBACK_TIER[a.rarity] || 0;
@@ -9539,23 +9591,27 @@ const TRACKS = {
     { file: 'km_clenchedteeth.mp3', title: 'Clenched Teeth',  note: 'tense climax' },
   ],
 };
-// v0.85: a UNIQUE theme per named boss (Kevin MacLeod, incompetech.com, CC BY 4.0), mood-matched.
-// Plays only while challenging that specific boss; otherwise the generic 'boss' pool is used.
+// v0.85: a UNIQUE theme per named boss, mood-matched. Plays only while challenging that
+// specific boss; otherwise the generic 'boss' pool is used.
+// v0.87: themes re-picked for the xianxia palette (operator: "doesn't have to be
+// traditional, but fitting") — East-Asian-instrumented battle/ritual tracks, mostly
+// PeriTune's pre-March-2026 CC BY 4.0 catalogue. The v0.85 ambient/electronic KM set
+// is retired (files stay hosted; nothing references them).
 const BOSS_THEMES = {
-  boar_king:            'km_heavyinterlude.mp3',
-  kiln_mother:          'km_volatile.mp3',
-  fox_saint:            'km_mesmerize.mp3',
-  mine_golem:           'km_thedescent.mp3',
-  bell_abbot:           'km_longnotethree.mp3',
-  tide_queen:           'km_lightlessdawn.mp3',
-  cinder_abbot:         'km_ossuary1.mp3',
-  prison_warden:        'km_hiddenagenda.mp3',
-  vein_matriarch:       'km_crypto.mp3',
-  mirage_emperor:       'km_staticmotion.mp3',
-  war_court_lord:       'km_darkestchild.mp3',
-  moon_eater:           'km_anguish.mp3',
-  heavenly_executioner: 'km_reawakening.mp3',
-  dawn_sovereign:       'km_epicunease.mp3',
+  boar_king:            'Raid_Ethnic.mp3',       // driving ethnic battle percussion — feral charge
+  kiln_mother:          'Tatari.mp3',            // J-horror ritual: hichiriki, sho, wails — alive in the fire
+  fox_saint:            'Numina.mp3',            // erhu + guzheng + choir — hypnotic shrine deity
+  mine_golem:           'km_drumsofthedeep.mp3', // cavernous dark percussion, relentless
+  bell_abbot:           'Amenoshita3.mp3',       // stately taiko/tsuzumi/gong — measured judgment
+  tide_queen:           'TheGreatSea.mp3',       // sweeping oceanic orchestra — drowning grandeur
+  cinder_abbot:         'Undertaker.mp3',        // patient funereal march — unhurried, unending
+  prison_warden:        'Kengeki.mp3',           // sword-clash duel music, coiled and fast
+  vein_matriarch:       'Ametsuchi.mp3',         // heaven-and-earth koto + orchestra — buried majesty
+  mirage_emperor:       'Puppeteer.mp3',         // theatrical gothic — the court is a puppet show
+  war_court_lord:       'EpicBattle_J.mp3',      // Japanese epic cinematic battle — tribunal scale
+  moon_eater:           'Thunderclap.mp3',       // pipe organ + choir dread — devouring
+  heavenly_executioner: 'EpicBattle_Deity.mp3',  // grand orchestral deity-battle — heaven's verdict
+  dawn_sovereign:       'Helios.mp3',            // rising-sun build to choir climax — finale-grade
 };
 const MUSIC = { el: null, cat: 'menu', idx: 0, started: false, fails: 0 };
 // True while the element is actually trying to play (paused flips back to true if
@@ -12778,7 +12834,7 @@ function appendMusicControls(cfgP) {
   volWrap.appendChild(vol); cfgP.appendChild(volWrap);
   const cred = document.createElement('p');
   cred.style.cssText = 'font-size:0.72rem;color:var(--ink-soft);margin:0.3rem 0 0;line-height:1.45';
-  cred.innerHTML = `<strong>Music credits.</strong> Menu: <a href="https://peritune.com" style="color:var(--ink-soft)">PeriTune</a> (CC BY 4.0), <a href="https://incompetech.com" style="color:var(--ink-soft)">Kevin MacLeod</a> (CC BY), and Zhang Peijian via <a href="https://commons.wikimedia.org" style="color:var(--ink-soft)">Wikimedia Commons</a> (CC BY-SA 4.0). Battle/boss: PeriTune &amp; <a href="https://www.scottbuckley.com.au" style="color:var(--ink-soft)">Scott Buckley</a> (CC BY 4.0). Files unmodified.`;
+  cred.innerHTML = `<strong>Music credits.</strong> Menu: <a href="https://peritune.com" style="color:var(--ink-soft)">PeriTune</a> (CC BY 4.0), <a href="https://incompetech.com" style="color:var(--ink-soft)">Kevin MacLeod</a> (CC BY), and Zhang Peijian via <a href="https://commons.wikimedia.org" style="color:var(--ink-soft)">Wikimedia Commons</a> (CC BY-SA 4.0). Battle/boss: PeriTune, Kevin MacLeod &amp; <a href="https://www.scottbuckley.com.au" style="color:var(--ink-soft)">Scott Buckley</a> (CC BY). Files unmodified.`;
   cfgP.appendChild(cred);
 }
 
