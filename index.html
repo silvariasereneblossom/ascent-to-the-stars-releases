@@ -541,11 +541,11 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v0.92';
+const GAME_VERSION = 'v0.93';
 // v0.78: CI injects the build's short sha here; the APK shell reads it FROM THE RUNNING
 // PAGE (window.BUILD_SHA) and compares against the repo head — staleness detection that
-// cannot be fooled by cached metadata. '400ce8d' = local/dev build (shell falls back).
-const BUILD_SHA = '400ce8d';
+// cannot be fooled by cached metadata. 'f22b7a1' = local/dev build (shell falls back).
+const BUILD_SHA = 'f22b7a1';
 if (typeof window !== 'undefined') window.BUILD_SHA = BUILD_SHA;
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
@@ -10802,10 +10802,10 @@ const TRACKS = {
 // PeriTune's pre-March-2026 CC BY 4.0 catalogue. The v0.85 ambient/electronic KM set
 // is retired (files stay hosted; nothing references them).
 const BOSS_THEMES = {
-  boar_king:            'Raid_Ethnic.mp3',       // driving ethnic battle percussion — feral charge
+  boar_king:            'Eglair.mp3',            // v0.93 (operator): Alex-Productions "EGLAIR" (CC BY 3.0) — epic emotional cinematic
   kiln_mother:          'Tatari.mp3',            // J-horror ritual: hichiriki, sho, wails — alive in the fire
-  fox_saint:            'Numina.mp3',            // erhu + guzheng + choir — hypnotic shrine deity
-  mine_golem:           'km_drumsofthedeep.mp3', // cavernous dark percussion, relentless
+  fox_saint:            'WitchByTheSea.mp3',     // v0.93 (operator): Darren-Curtis "Witch By The Sea" (CC BY 3.0) — eerie, hypnotic shrine
+  mine_golem:           'Titan.mp3',             // v0.93 (operator): Alex-Productions "Titan" (CC BY 3.0) — iron, colossal, relentless
   bell_abbot:           'Amenoshita3.mp3',       // stately taiko/tsuzumi/gong — measured judgment
   tide_queen:           'TheGreatSea.mp3',       // sweeping oceanic orchestra — drowning grandeur
   cinder_abbot:         'Undertaker.mp3',        // patient funereal march — unhurried, unending
@@ -14076,7 +14076,7 @@ function appendMusicControls(cfgP) {
   volWrap.appendChild(vol); cfgP.appendChild(volWrap);
   const cred = document.createElement('p');
   cred.style.cssText = 'font-size:0.72rem;color:var(--ink-soft);margin:0.3rem 0 0;line-height:1.45';
-  cred.innerHTML = `<strong>Music credits.</strong> Menu: <a href="https://peritune.com" style="color:var(--ink-soft)">PeriTune</a> (CC BY 4.0), <a href="https://incompetech.com" style="color:var(--ink-soft)">Kevin MacLeod</a> (CC BY), and Zhang Peijian via <a href="https://commons.wikimedia.org" style="color:var(--ink-soft)">Wikimedia Commons</a> (CC BY-SA 4.0). Battle/boss: PeriTune, Kevin MacLeod &amp; <a href="https://www.scottbuckley.com.au" style="color:var(--ink-soft)">Scott Buckley</a> (CC BY). Files unmodified.`;
+  cred.innerHTML = `<strong>Music credits.</strong> Menu: <a href="https://peritune.com" style="color:var(--ink-soft)">PeriTune</a> (CC BY 4.0), <a href="https://incompetech.com" style="color:var(--ink-soft)">Kevin MacLeod</a> (CC BY), and Zhang Peijian via <a href="https://commons.wikimedia.org" style="color:var(--ink-soft)">Wikimedia Commons</a> (CC BY-SA 4.0). Battle/boss: PeriTune, Kevin MacLeod, <a href="https://www.scottbuckley.com.au" style="color:var(--ink-soft)">Scott Buckley</a>, and Darren-Curtis &amp; Alex-Productions via <a href="https://www.free-stock-music.com" style="color:var(--ink-soft)">Free Stock Music</a> (CC BY). Files unmodified.`;
   cfgP.appendChild(cred);
 }
 
