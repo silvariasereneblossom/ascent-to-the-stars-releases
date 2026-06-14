@@ -541,11 +541,11 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v0.95';
+const GAME_VERSION = 'v0.96';
 // v0.78: CI injects the build's short sha here; the APK shell reads it FROM THE RUNNING
 // PAGE (window.BUILD_SHA) and compares against the repo head — staleness detection that
-// cannot be fooled by cached metadata. 'a037c7e' = local/dev build (shell falls back).
-const BUILD_SHA = 'a037c7e';
+// cannot be fooled by cached metadata. '6d7ba8b' = local/dev build (shell falls back).
+const BUILD_SHA = '6d7ba8b';
 if (typeof window !== 'undefined') window.BUILD_SHA = BUILD_SHA;
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
@@ -10800,7 +10800,7 @@ const TRACKS = {
   // v0.94 (operator): dedicated single-track categories — opening/title screen, Market tab, and
   // ALL tribulations. Single-entry lists loop natively (playCurrentTrack sets a.loop). All CC BY.
   title: [
-    { file: 'AndTheSunRises.mp3', title: 'And The Sun Rises', note: 'Darren-Curtis, CC BY 3.0 — opening dawn' },
+    { file: 'LongWayToKunming.mp3', title: 'Long Way To Kunming', note: 'v0.96 (operator): John Bartmann, CC0 — gentle, wistful Chinese; opening' },
   ],
   market: [
     { file: 'Asia_FSM.mp3', title: 'Asia', note: 'FSM Team, CC BY 4.0 — marketplace' },
@@ -14093,7 +14093,7 @@ function appendMusicControls(cfgP) {
   volWrap.appendChild(vol); cfgP.appendChild(volWrap);
   const cred = document.createElement('p');
   cred.style.cssText = 'font-size:0.72rem;color:var(--ink-soft);margin:0.3rem 0 0;line-height:1.45';
-  cred.innerHTML = `<strong>Music credits.</strong> Menu/title/market: <a href="https://peritune.com" style="color:var(--ink-soft)">PeriTune</a> (CC BY 4.0), <a href="https://incompetech.com" style="color:var(--ink-soft)">Kevin MacLeod</a> (CC BY), Zhang Peijian via <a href="https://commons.wikimedia.org" style="color:var(--ink-soft)">Wikimedia Commons</a> (CC BY-SA 4.0), Shane Ivers / <a href="https://www.silvermansound.com" style="color:var(--ink-soft)">Silverman Sound</a> (CC BY 4.0), and Darren-Curtis, Alex-Productions &amp; FSM Team via <a href="https://www.free-stock-music.com" style="color:var(--ink-soft)">Free Stock Music</a> (CC BY). Battle/boss/tribulation: PeriTune, Kevin MacLeod, <a href="https://www.scottbuckley.com.au" style="color:var(--ink-soft)">Scott Buckley</a>, Darren-Curtis, Alex-Productions, Alexander Nakarada &amp; Shane Ivers (CC BY). Files unmodified.`;
+  cred.innerHTML = `<strong>Music credits.</strong> Menu/title/market: <a href="https://peritune.com" style="color:var(--ink-soft)">PeriTune</a> (CC BY 4.0), <a href="https://incompetech.com" style="color:var(--ink-soft)">Kevin MacLeod</a> (CC BY), Zhang Peijian via <a href="https://commons.wikimedia.org" style="color:var(--ink-soft)">Wikimedia Commons</a> (CC BY-SA 4.0), Shane Ivers / <a href="https://www.silvermansound.com" style="color:var(--ink-soft)">Silverman Sound</a> (CC BY 4.0), and Darren-Curtis, Alex-Productions &amp; FSM Team via <a href="https://www.free-stock-music.com" style="color:var(--ink-soft)">Free Stock Music</a> (CC BY), and John Bartmann (CC0). Battle/boss/tribulation: PeriTune, Kevin MacLeod, <a href="https://www.scottbuckley.com.au" style="color:var(--ink-soft)">Scott Buckley</a>, Darren-Curtis, Alex-Productions, Alexander Nakarada &amp; Shane Ivers (CC BY). Files unmodified.`;
   cfgP.appendChild(cred);
 }
 
