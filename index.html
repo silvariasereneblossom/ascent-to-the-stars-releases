@@ -541,11 +541,11 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v1.5';
+const GAME_VERSION = 'v1.6';
 // v0.78: CI injects the build's short sha here; the APK shell reads it FROM THE RUNNING
 // PAGE (window.BUILD_SHA) and compares against the repo head — staleness detection that
-// cannot be fooled by cached metadata. 'c84fdeb' = local/dev build (shell falls back).
-const BUILD_SHA = 'c84fdeb';
+// cannot be fooled by cached metadata. '4b087ed' = local/dev build (shell falls back).
+const BUILD_SHA = '4b087ed';
 if (typeof window !== 'undefined') window.BUILD_SHA = BUILD_SHA;
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
@@ -860,6 +860,9 @@ const WEAPONS = {
   bare_fists: { name: 'Tempered Fists', zh: '炼体双拳', power: 7, slots: 2, kind: 'unarmed', rarity: 'common',
     desc: 'Flesh and bone, worked like iron in the forge of a thousand drills.',
     apply: m => { m.hpBonus += 12; } },
+  demon_claws: { name: 'Hunger-Carved Claws', zh: '饥刻爪', power: 8, slots: 2, kind: 'unarmed', rarity: 'common',
+    desc: 'Your own nails, blackened and grown to talons by the demon you are becoming. They remember every taste.',
+    apply: m => { m.lifestealPct += 0.05; } },
   array_fan: { name: 'Paper Array Fan', zh: '阵纸扇', power: 6, slots: 2, kind: 'focus', rarity: 'common',
     desc: "A scholar's conduit, inked with half-learned glyphs that hum when moved.",
     apply: m => { m.qiBonus += 6; m.qiRegenBonus += 1; } },
@@ -1483,26 +1486,26 @@ const TECHNIQUES = {
 
   // ============ Demon Heart Palace (4) — the demon school ============
   demon_reap: {
-    name: 'Demon Reap', zh: '魔割', school: 'demon_heart',
+    name: 'Rending Demon-Claw', zh: '裂魔爪', school: 'demon_heart',
     qi: 4, cd: 1, damage: 1.7, directHP: 3, postureBuild: 14,
-    desc: 'A hungry saber-sweep that drinks through qi-armour.',
-    logHit: (a,t) => `${a}'s saber tastes ${t} first; the skin opens after.` },
+    desc: 'A raking talon-strike that drinks through qi-armour to the flesh beneath.',
+    logHit: (a,t) => `${a}'s claws taste ${t} first; the skin opens after.` },
   demon_devour: {
-    name: 'Devour Vitality', zh: '食生', school: 'demon_heart',
+    name: 'Soul-Devouring Palm', zh: '噬魂掌', school: 'demon_heart',
     qi: 12, cd: 2, damage: 2.2, directHP: 10, postureBuild: 16,
-    desc: "Tears a piece of the enemy's life into your own.",
-    logHit: (a,t) => `${a} inhales sharply — ${t} feels a warm thread leave them.` },
+    desc: "A pressing palm that tears a piece of the enemy's life into your own.",
+    logHit: (a,t) => `${a}'s palm settles on ${t}, and a warm thread leaves them for good.` },
   demon_seal: {
-    name: 'Demon-Seal Cut', zh: '魔封斩', school: 'demon_heart',
+    name: 'Meridian-Crush Grip', zh: '碎脉擒', school: 'demon_heart',
     qi: 10, cd: 2, damage: 1.6, postureBuild: 18,
     effect: 'qi_cost_up', effectValue: 1.7, effectTurns: 2,
-    desc: "Carves a demon-seal into the enemy's meridians. Their tech costs are +70% for 2 turns.",
-    logHit: (a,t) => `${a} paints a jagged seal mid-air; ${t}'s qi recoils.` },
+    desc: "Seizes the enemy's meridians in a demon's grip. Their tech costs are +70% for 2 turns.",
+    logHit: (a,t) => `${a}'s fingers dig into a meridian-knot; ${t}'s qi recoils.` },
   demon_ascendant: {
-    name: 'Crown of Hunger', zh: '食冕', school: 'demon_heart',
+    name: "Devourer's Crown", zh: '噬冕', school: 'demon_heart',
     qi: 22, hpCost: 10, cd: 3, damage: 5.4, directHP: 12, postureBuild: 14,
-    desc: 'A finisher that feeds on the enemy\'s life and, quietly, your own.',
-    logHit: (a,t) => `${a} grins with too many teeth and reaps.` },
+    desc: "A devouring-fist finisher that feeds on the enemy's life and, quietly, your own.",
+    logHit: (a,t) => `${a} closes a clawed fist around ${t} and feeds.` },
 
   // ============ Starfall Archers (4) ============
   star_arrow: {
@@ -2012,8 +2015,8 @@ const TECHNIQUES = {
     name: 'Parasite Brand', zh: '寄生印', school: 'demon_heart',
     qi: 10, cd: 2, damage: 1.7, postureBuild: 12,
     effect: 'leech', effectPower: 0.22, effectTurns: 3,
-    desc: 'A brand that eats in your name. ST. The wound feeds you each turn for 3 turns.',
-    logHit: (a,t) => `${a} presses a character into ${t} that means, roughly, "mine".` },
+    desc: 'A clawed brand that eats in your name. ST. The wound feeds you each turn for 3 turns.',
+    logHit: (a,t) => `${a} claws a character into ${t} that means, roughly, "mine".` },
   star_mark: {
     name: 'Marking Shot', zh: '定星矢', school: 'starfall', instant: true,
     qi: 7, cd: 2, damage: 1.6, postureBuild: 12,
@@ -2134,13 +2137,12 @@ const SCHOOLS = {
   // ============================================================
   demon_heart: {
     name: 'Demon Heart Palace', zh: '魔心殿',
-    weapon: 'dark_saber',
+    weapon: 'demon_claws',   // v1.6: unarmed demon-claw moveset
     techniques: ['demon_reap','demon_devour','demon_seal','demon_ascendant','demon_parasite'],
     specialty: 'You do not merely walk the demonic path — you BECOME a demon. No cultivation at all (insight comes only from battle and the rift-gate) and no lifespan to spend, but 1.5x the demonic bonuses, a Hungry-Dao lifesteal on every hit, and hellfire that burns 1% of MAX health per stack. The price: tribulations twice as cruel, sect hunters always a realm above you (rarely two), and a mounting hunt that ends you if their defeats stack to the realm cap. Purge the hunt at your sect — at the cost of falling to the bottom of your realm.',
     bestStats: ['spirit','will'],
     flavor: 'High on a black stone plateau where no birds fly. The palace has no doors. Students arrive by conviction.',
     isDemon: true,
-    insightFromKillsMult: 2.5,
   },
   starfall: {
     name: 'Starfall Archers', zh: '坠星射',
@@ -10195,6 +10197,23 @@ const WALK_EVENT_IDS = new Set(['stones', 'materials', 'insight', 'herbs', 'spri
 function walkAStretchCombatChance(luck) { return Math.max(0, (16 - luck) / 16) * 0.5; }  // 50% @ Fortune 0, 0% @ 16+
 const WALK_CD_MS = 5 * 60 * 1000;   // v0.65: operator-set 5-minute cooldown
 function walkCooldownLeft() { return Math.max(0, ((state.lastWalk || 0) + WALK_CD_MS) - Date.now()); }
+// v1.6: "Venture with Demonic Qi" (demonic cultivators only) — spend qi on a harder, richer road: foes are
+// 50% tougher and insight runs +50%, and NO tribulation/sect-hunter ambushes appear (a safer option) — but
+// a DEFEAT tears insight back out of you.
+function walkAStretchDemonicQi() {
+  if (!state.demonic || walkCooldownLeft() > 0) return;
+  state.lastWalk = Date.now();
+  const enc = rollMarketEncounter();
+  if (!enc.length) { state.lastWalkResult = 'The road is empty — no qi to spill.'; saveChar(); render(); return; }
+  state.lastWalkResult = null;
+  initCombat(enc);
+  if (combat && combat.enemies) {
+    combat.enemies.forEach(e => { e.hpMax = Math.round((e.hpMax || 1) * 1.5); e.hp = e.hpMax; e.weaponPower = Math.round((e.weaponPower || 0) * 1.5); });
+  }
+  if (combat) combat.demonicQiVenture = true;
+  pushLog('flavor', 'You walk the road wrapped in demonic qi — the foes hit harder and the spoils run richer, and the heavens look elsewhere. But fall here, and the qi tears insight back out of you.');
+  render();
+}
 function walkAStretch() {
   if (walkCooldownLeft() > 0) return;
   state.lastWalk = Date.now();
@@ -10286,7 +10305,7 @@ function realmRunDescend(slotKey) {
   const t = state.realm.tierIdx || 0;
   if (floor % 3 === 0) {
     // Safe treasure cache.
-    const ins = Math.round((30 + floor * 12) * (1 + t * 0.5) * 0.5);   // v0.97: rift insight halved
+    const ins = Math.round((30 + floor * 12) * (1 + t * 0.5));   // v1.6: rift insight nerf reverted (pre-v0.97) — a safe insight source again
     const st = 3 + floor + t * 2;
     run.insight += ins; run.stones += st;
     run.log = `Floor ${floor}: a quiet treasure vault — banked +${ins} insight, +${st} stones.`;
@@ -10297,7 +10316,7 @@ function realmRunDescend(slotKey) {
     const luck = (state.finalStats && state.finalStats.luck) || 0;
     const winChance = Math.max(0.1, Math.min(0.95, might / (might + diff) + luck * 0.01));
     if (Math.random() < winChance) {
-      const ins = Math.round((40 + floor * 16) * (1 + t * 0.5) * 0.5);   // v0.97: rift insight halved
+      const ins = Math.round((40 + floor * 16) * (1 + t * 0.5));   // v1.6: rift insight nerf reverted (pre-v0.97)
       const st = 4 + floor + t * 2;
       run.insight += ins; run.stones += st;
       run.log = `Floor ${floor}: you overcome the guardian — banked +${ins} insight, +${st} stones.`;
@@ -10316,7 +10335,7 @@ function realmRunDescend(slotKey) {
     const ids = Object.keys(ARTIFACTS);
     const relicId = ids[Math.floor(Math.random() * ids.length)];
     run.relics.push(relicId);
-    const bonus = Math.round((100 + floor * 40) * (1 + t * 0.5) * 0.5);   // v0.97: rift insight halved
+    const bonus = Math.round((100 + floor * 40) * (1 + t * 0.5));   // v1.6: rift insight nerf reverted (pre-v0.97)
     run.insight += bonus;
     run.log += ` An inheritance opens at the heart of floor ${floor}: <strong>${ARTIFACTS[relicId].name}</strong> + ${bonus} insight.`;
   }
@@ -13673,7 +13692,7 @@ function grantEnemyDefeatRewards(e) {
   const enemyData = ENEMIES[e.id];
   const hmVictory = heritageMech();
   const rewardScale = (e.scale && e.scale.reward) || 1;
-  const insight = Math.round(enemyData.insightReward * rewardScale * boonInsightMult() * skillCombatInsightMult() * (combat.player.mods.insightMult || 1) * ((SCHOOLS[state.selectedSchool] && SCHOOLS[state.selectedSchool].insightFromKillsMult) || 1) * (hmVictory.combatInsightMult || 1) * combatInsightMult(combat) * metaInsightMult() * (state.demonic ? 1.5 : 1) * 1.5);   // v0.97: +50% base combat insight (compounds through every multiplier above)
+  const insight = Math.round(enemyData.insightReward * rewardScale * boonInsightMult() * skillCombatInsightMult() * (combat.player.mods.insightMult || 1) * ((SCHOOLS[state.selectedSchool] && SCHOOLS[state.selectedSchool].insightFromKillsMult) || 1) * (hmVictory.combatInsightMult || 1) * combatInsightMult(combat) * metaInsightMult() * (isDemonHeart(state) ? 2 : (state.demonic ? 1.5 : 1)) * 1.5 * ((combat && combat.demonicQiVenture) ? 1.5 : 1));   // v1.6: demon-heart 2x; demonic-qi venture +50%; v0.97 +50% base
   addInsight(insight);
   state.sectKills = (state.sectKills || 0) + 1;  // Wave 2b: progress toward the sect hunt bounty
   // v0.92: slaying a cultivator of the OPPOSING path earns sect contribution (operator) — a demonic
@@ -13906,6 +13925,11 @@ function checkDeath() {
       saveChar();
       render();
       return true;
+    }
+    // v1.6: a demonic-qi venture defeat tears insight back out of you (its risk, in place of trib/hunter danger).
+    if (combat.demonicQiVenture) {
+      const loss = Math.round((state.realm.insight || 0) * 0.10);
+      if (loss > 0) { state.realm.insight = Math.max(0, state.realm.insight - loss); pushLog('defeat', `The demonic qi recoils — ${loss} insight is torn back out of you.`); }
     }
     // v0.50: a (non-tribulation) defeat exacts a lifespan toll.
     const lifeLoss = combatDefeatLifespanCost(combat.areaCultMult || 1) * (combat.bossFight ? 2 : 1) * lifespanConsumptionMult();  // v0.58 boss double; v0.77 body-inscription surcharge
@@ -14842,6 +14866,8 @@ function renderCreation() {
   // viewing — demonic name/flavor (schoolDisplay), heretical signature technique, sharpened passive.
   const demonView = !!state.demonic;
   Object.entries(SCHOOLS).forEach(([id, school]) => {
+    // v1.6: Demon Heart Palace (the demon transformation) only appears once the Demonic Path is chosen.
+    if (id === 'demon_heart' && !state.demonic) return;
     const card = document.createElement('div');
     card.className = 'school-card' + (state.selectedSchool === id ? ' selected' : '');
     const disp = schoolDisplay(id, state);
@@ -16531,7 +16557,8 @@ function renderCharSheet() {
   roadP.innerHTML = `<h3>Open Road <span style="font-weight:normal;color:var(--ink-soft);font-size:0.85rem">远路</span></h3>
     <p style="font-size:0.85rem;color:var(--ink-soft);margin:0 0 0.4rem">Wander the road for whatever fate brings — spirit stones, materials, a spring's blessing, a rare wandering stall, or a fight. Your <strong>Fortune (${walkLuck})</strong> makes hostile encounters rarer (~<strong>${walkCombatPct}%</strong> now, 0% at 16+) and good finds more likely.</p>
     ${state.lastWalkResult ? `<p style="font-size:0.88rem;margin:0 0 0.4rem;color:var(--gold)">${state.lastWalkResult}</p>` : ''}
-    <div class="button-row"><button id="random-encounter">Walk a Stretch</button></div>`;
+    <div class="button-row"><button id="random-encounter">Walk a Stretch</button>${state.demonic ? '<button id="demonic-qi-venture" class="ghost">Venture with Demonic Qi</button>' : ''}</div>
+    ${state.demonic ? `<p style="font-size:0.78rem;color:var(--ink-soft);margin:0.3rem 0 0">Demonic Qi: foes +50%, insight +50%, no tribulation/hunter ambush — but a defeat costs you 10% of this realm's insight.</p>` : ''}`;
   // v0.65: cooldown label handled after mount (see the random-encounter hookup).
   appendPanel(roadP, 'market');
 
@@ -16695,12 +16722,12 @@ function renderCharSheet() {
       <div style="font-size:0.8rem;color:var(--ink-soft);margin:0.15rem 0">Sect-hunter defeats this realm: <strong style="color:${hunters >= cap - 3 ? 'var(--crimson)' : 'var(--gold)'}">${hunters}/${cap}</strong> — death at the cap; slay a hunter to drop it by 2. Tribulation streak: <strong>${tribStreak}/3</strong>.</div>`;
     const pBtns = document.createElement('div'); pBtns.className = 'consumable-buttons';
     const pb = document.createElement('button'); pb.className = 'ghost small';
-    pb.textContent = 'Purify the Heart — reset the hunt + streak (fall to layer 1)';
+    pb.textContent = 'Purify the Heart — reset the hunt + streak (lose half your layers)';
     pb.onclick = () => {
-      if (!confirm("Purge the hunt and the tribulation streak — but you fall to the BOTTOM of your current realm (layer 1, this realm's insight lost). Proceed?")) return;
+      if (!confirm("Purge the hunt and the tribulation streak — but you fall back half the layers of your current realm (rounded down, this realm's insight reset). Proceed?")) return;
       state.demonHeartHunterDefeats = 0;
       state.tribulationFails = {};
-      state.realm.layer = 1;
+      state.realm.layer = Math.max(1, (state.realm.layer || 1) - Math.floor((state.realm.layer || 1) / 2));   // v1.6: lose half the layers, not all the way to 1
       state.realm.insight = 0;
       if (state.confirmed) state.finalStats = finalStats(state);
       saveChar();
@@ -16807,6 +16834,13 @@ function renderCharSheet() {
     } else {
       reBtn.onclick = () => walkAStretch();
     }
+  }
+  // v1.6: demonic-qi venture button (shares the Walk cooldown).
+  const dqBtn = document.getElementById('demonic-qi-venture');
+  if (dqBtn) {
+    const wcd2 = walkCooldownLeft();
+    if (wcd2 > 0) { dqBtn.textContent = `Demonic Qi (${Math.ceil(wcd2 / 60000)}m)`; dqBtn.disabled = true; }
+    else dqBtn.onclick = () => walkAStretchDemonicQi();
   }
 
   const dz = document.createElement('div');
