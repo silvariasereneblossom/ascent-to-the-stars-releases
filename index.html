@@ -541,11 +541,11 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v1.6';
+const GAME_VERSION = 'v1.7';
 // v0.78: CI injects the build's short sha here; the APK shell reads it FROM THE RUNNING
 // PAGE (window.BUILD_SHA) and compares against the repo head — staleness detection that
-// cannot be fooled by cached metadata. '4b087ed' = local/dev build (shell falls back).
-const BUILD_SHA = '4b087ed';
+// cannot be fooled by cached metadata. 'fefcd61' = local/dev build (shell falls back).
+const BUILD_SHA = 'fefcd61';
 if (typeof window !== 'undefined') window.BUILD_SHA = BUILD_SHA;
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
@@ -674,6 +674,11 @@ const HERITAGES = [
     extra: 'Ten years of silence tempered something in you. Mental attacks strike 20% softer.',
     flavor: 'You spoke so little the mountain forgot you were there.' },
 
+  { name: 'Beast-Tamer Heir', rarity: 'common',
+    mods: { sense:2, body:1, luck:1 },
+    extra: "Raised among spirit-beasts; you read a creature's intent a beat early.",
+    flavor: 'Your first words were not words. The pack understood them anyway.' },
+
   // ---- Additional Rare heritages ----
   { name: 'Jade Phoenix Descendant', rarity: 'rare',
     mods: { spirit:2, body:3, sense:1 },
@@ -700,6 +705,15 @@ const HERITAGES = [
     extra: 'Once per life, enter any sect unquestioned. Rival cultivators pause before striking.',
     flavor: 'Someone mistook you for royalty once. You never forgot the weight of it.' },
 
+  { name: 'Ash-Walker', rarity: 'rare',
+    mods: { body:2, will:2, sense:1 },
+    extra: 'You walked out of a sect that burned. The fire took everything but your footing.',
+    flavor: 'The soles of your feet remember a heat the rest of you survived.' },
+  { name: 'Moon-Pacted', rarity: 'rare',
+    mods: { spirit:2, sense:2, mind:1 },
+    extra: 'A moon-spirit owes you, or you it. The tide of your qi answers the sky.',
+    flavor: 'On the nights it is full, your dantian pulls like water.' },
+
   // ---- Additional Legendary heritages ----
   { name: 'Celestial Bone Frame', rarity: 'legendary',
     mods: { body:3, spirit:2, sense:2, will:2 },
@@ -717,6 +731,11 @@ const HERITAGES = [
     mods: { spirit:2, body:2, mind:2, sense:2, will:2 },
     extra: 'Begin with one additional technique scroll drawn from a vanished lineage.',
     flavor: 'Everyone who trained you is dead. The technique lives in your hands.' },
+
+  { name: 'Hollow Vessel', rarity: 'legendary',
+    mods: { spirit:3, mind:3, sense:2 },
+    extra: 'Emptied young by a thing that ate your name; the dao rushed in to fill the hollow.',
+    flavor: 'There is a great quiet where your self should be. The dao finds it comfortable.' },
 
   // ---- Divine heritages (5) ----
   { name: 'Primordial Flame Root', rarity: 'divine',
@@ -802,12 +821,80 @@ const HERITAGE_MECHANICS = {
   'Abyss-Born':             { schoolQiDiscount: { demon_heart: 0.8 }, schoolQiPenalty: { moonlit_water: 1.1 } },
   'World-Tree Scion':       { herbGrowMult: 0.85, postCombatHeal: true },
   'Dao Reincarnate':        { extraRerolls: 1, startingBookRarity: 'rare' },
+  // ---- v1.7 additions ----
+  'Beast-Tamer Heir':       { rivalDamageMult: 1.06 },
+  'Ash-Walker':             { tribulationIncomingMult: 0.9 },
+  'Moon-Pacted':            { schoolMeditateMult: { moonlit_water: 1.12 } },
+  'Hollow Vessel':          { cultInsightMult: 1.08 },
 };
 
 function heritageMech() {
   if (!state || state.selectedHeritage == null) return {};
   const h = state.heritages[state.selectedHeritage];
   return (h && HERITAGE_MECHANICS[h.name]) || {};
+}
+
+// v1.7: LIFE ORIGINS — every heritage now carries a named, always-on PASSIVE on top of its stat
+// mods + extra-mechanic, drawing on the full combat-mod palette (crit / lifesteal / flat DR / element
+// amp / ramp / etc.) so paths feel mechanically distinct. Folded into computeMods via mergeMods;
+// descriptions auto-render through modSummary. (Childhood youth beats get the same treatment below.)
+const HERITAGE_PASSIVES = {
+  // ---- common ----
+  'Mortal Born':             { label: 'Unwritten Path',        mods: { critChance: 0.03, dodgeChance: 0.03 } },
+  'Fallen Noble':            { label: "Old Name's Weight",     mods: { hpBonus: 25, weaponBonus: 2 } },
+  'Spirit Beast Descendant': { label: 'Beast Blood',           mods: { weaponBonus: 3, lowHpBonus: 0.06 } },
+  'Village Orphan':          { label: 'Buried Everyone',       mods: { flatDR: 6 } },
+  'Wandering Apprentice':    { label: 'Stitched Dao',          mods: { techDamageMult: 1.06 } },
+  'Sect Cast-Off':           { label: 'Read Their Forms',      mods: { critChance: 0.04, flatDR: 2 } },
+  "Merchant's Child":        { label: 'Weigh the Room',        mods: { dodgeChance: 0.04, qiRegenBonus: 2 } },
+  'Stray Ascetic':           { label: "Ten Years' Silence",    mods: { incomingMult: 0.95, qiRegenBonus: 2 } },
+  'Beast-Tamer Heir':        { label: 'Kindred Snarl',         mods: { weaponBonus: 2, critChance: 0.03 } },
+  // ---- rare ----
+  'Demonic Bloodline':       { label: 'Heretic Marrow',        mods: { lifestealPct: 0.08 } },
+  'Starborn':                { label: 'Fallen Star',           mods: { critChance: 0.05 } },
+  'Ruined Root':             { label: 'Another Road',          mods: { weaponBonus: 4, hpBonus: 30 } },
+  'Karmic Debtor':           { label: 'The Ledger Opens',      mods: { firstStrikeBonus: 0.15 } },
+  'Child of Calamity':       { label: 'Survived It',           mods: { lowHpBonus: 0.12 } },
+  'Jade Phoenix Descendant': { label: 'Fire in the Marrow',    mods: { elementAmp: { fire: 0.15 } } },
+  'Twilight-Born':           { label: 'Between Two Days',      mods: { dodgeChance: 0.05 } },
+  'Thunderstruck':           { label: 'Still Cooking',         mods: { perTurnRamp: 0.025 } },
+  'Iron Oath':               { label: 'Sworn to the Dead',     mods: { flatDR: 8 } },
+  'Sea Dragon Scion':        { label: 'Salt-Wind Breath',      mods: { qiRegenBonus: 3, elementAmp: { water: 0.10 } } },
+  "Emperor's Shadow":        { label: 'Mistaken for Royalty',  mods: { critChance: 0.03, dodgeChance: 0.03 } },
+  'Ash-Walker':              { label: 'Walks Through Fire',    mods: { incomingMult: 0.95, lowHpBonus: 0.08 } },
+  'Moon-Pacted':             { label: 'Tidal Qi',              mods: { qiRegenBonus: 3, dodgeChance: 0.03 } },
+  // ---- legendary ----
+  'Hidden Dragon':           { label: 'Dormant Lineage',       mods: { critChance: 0.06, weaponBonus: 4 } },
+  'Sword Spirit Reborn':     { label: 'Remembered Blade',      mods: { strikeDamageMult: 1.12 } },
+  'Celestial Bone Frame':    { label: 'Older Geometry',        mods: { flatDR: 8, weaponBonus: 4 } },
+  'Nine-Leaf Heart Lotus':   { label: 'Numbered Petals',       mods: { techDamageMult: 1.12 } },
+  'Sword-Ink Soul':          { label: 'Written in Blade',      mods: { strikeDamageMult: 1.08, critChance: 0.04 } },
+  'Last of the Old Sect':    { label: 'The Technique Lives',   mods: { techDamageMult: 1.06, weaponBonus: 4 } },
+  'Hollow Vessel':           { label: 'Empty and Fill',        mods: { techDamageMult: 1.10, qiRegenBonus: 3 } },
+  // ---- divine ----
+  'Primordial Flame Root':   { label: 'Pre-Warmed Dantian',    mods: { elementAmp: { fire: 0.18 }, qiRegenBonus: 4 } },
+  "Heaven's Chosen":         { label: 'The Asterisk',          mods: { incomingMult: 0.92, dodgeChance: 0.04 } },
+  'Abyss-Born':              { label: 'Half a Heartbeat Late', mods: { lifestealPct: 0.10, dodgeChance: 0.05 } },
+  'World-Tree Scion':        { label: 'Roots in the Spine',    mods: { flatDR: 8, qiRegenBonus: 4, hpBonus: 80 } },
+  'Dao Reincarnate':         { label: 'Walked This Before',    mods: { critChance: 0.06, techDamageMult: 1.08 } },
+};
+function heritagePassive(char) {
+  const c = char || state;
+  if (!c || c.selectedHeritage == null || !c.heritages) return null;
+  const h = c.heritages[c.selectedHeritage];
+  return (h && HERITAGE_PASSIVES[h.name]) || null;
+}
+// v1.7: fold heritage + childhood-beat passives into the combat mods (called from computeMods).
+function applyOriginPassivesToMods(mods, char) {
+  const hp = heritagePassive(char);
+  if (hp && hp.mods) mergeMods(mods, hp.mods);
+  const picks = char && char.childhood && char.childhood.picks;
+  if (picks) {
+    Object.entries(picks).forEach(([stage, beatId]) => {
+      const beat = CHILDHOOD_BEATS[stage] && CHILDHOOD_BEATS[stage][beatId];
+      if (beat && beat.passive && beat.passive.mods) mergeMods(mods, beat.passive.mods);
+    });
+  }
 }
 
 // Humanoid-rival enemy ids for Sect Cast-Off / Emperor's Shadow damage bonus.
@@ -4208,6 +4295,7 @@ function computeMods(char) {
   applyBodyInscriptionsToMods(mods, char);   // v0.77: demonic flesh-carved inscriptions
   applyBossRefineToMods(mods, char);         // v0.79: themed boss weapon-refinement tracks
   applyPassiveTechsToMods(mods, char);       // v0.88: learned passive techniques (mods half)
+  applyOriginPassivesToMods(mods, char);      // v1.7: heritage + childhood life-origin passives
   return mods;
 }
 
@@ -11575,68 +11663,92 @@ const CHILDHOOD_BEATS = {
       name: 'The Master Who Refused You',
       prose: 'You knelt outside a cultivator\'s gate for nine days. On the tenth he came out, kicked over your rice bowl, and said "You wanted it for the wrong reasons." Then he taught you anyway, for one season.',
       statRanges: { spirit: [0, 2], mind: [1, 3], will: [0, 2] }, flag: 'refused_master',
+      passive: { label: 'Hard Lesson', mods: { techDamageMult: 1.05 } },
       items: { inscriptions: ['meridian_clearing'] },
     },
     sword_in_the_reeds: {
       name: 'A Sword Was Left in Your Hand',
       prose: 'You found a corpse in the reeds — old, peaceful, eyes closed, hand still on the hilt. The blade was older than three dynasties. You never saw who closed his fingers around it before you arrived.',
       statRanges: { sense: [1, 3], spirit: [0, 2], will: [0, 2] }, flag: 'sword_inheritor',
+      passive: { label: "Dead Man's Edge", mods: { weaponBonus: 3 } },
       items: { inscriptions: ['bloodbond'] },
     },
     heart_demon_stream: {
       name: "Heart-Demon's Whisper at the Stream",
       prose: 'You looked into a still pool at dusk and a face that was not yours looked back. It said, "Will you?" You said neither yes nor no. It is still waiting.',
       statRanges: { sense: [2, 4], mind: [0, 2], will: [-3, -1] }, flag: 'demon_courted',
+      passive: { label: 'Whisper at the Edge', mods: { lifestealPct: 0.05 } },
       heritageBias: ['Demonic Bloodline', 'Abyss-Born'],
     },
     nun_martyred: {
       name: 'The Nun Who Died for You',
       prose: 'A wandering nun took a sword for you on a road no one else was on. Her dying words were a sutra you have memorized for years. You still do not know its meaning.',
       statRanges: { will: [1, 3], mind: [1, 3], sense: [0, 2] }, flag: 'sutra_memory',
+      passive: { label: 'The Sutra Holds', mods: { incomingMult: 0.96 } },
       items: { inscriptions: ['jade_heart'] },
     },
     mountain_climbed: {
       name: 'The Peak No One Returns From',
       prose: 'You climbed a mountain that swallowed everyone who climbed it. You came back. You will not say what was at the top.',
       statRanges: { body: [1, 3], will: [1, 3], spirit: [0, 2] }, flag: 'peak_witness',
+      passive: { label: 'What the Peak Showed', mods: { critChance: 0.05 } },
       heritageBias: ['Hidden Dragon'],
     },
     forge_apprentice: {
       name: 'Hands Burned by a Spirit-Forge',
       prose: 'You worked under an old smith for a season. He paid you in scraps and silence. You burned your hands often. You have not forgotten the rhythm of the hammer.',
       statRanges: { body: [0, 2], mind: [0, 2] }, flag: 'forge_touched',
+      passive: { label: 'Hammer-Rhythm', mods: { weaponBonus: 2, flatDR: 3 } },
       items: { materials: { spirit_iron: 4, spirit_stone: 2 } },
     },
     dao_dreamer: {
       name: 'The Verse That Came in Sleep',
       prose: 'You dreamed a verse and woke speaking it. You do not know who put it there. You write it down sometimes; the ink fades within a day.',
       statRanges: { mind: [1, 3], spirit: [1, 3] }, flag: 'dao_dreamer',
+      passive: { label: 'Sleeping Verse', mods: { techDamageMult: 1.06 } },
     },
     star_witness: {
       name: 'A Star Fell, and You Were First',
       prose: 'A star fell into the millet field one night and you reached the crater before any elder. The thing within is no longer there. You think of it more often than you should.',
       statRanges: { sense: [1, 3], luck: [1, 3], spirit: [0, 2] }, flag: 'star_witness',
+      passive: { label: 'Star in the Field', mods: { dodgeChance: 0.04, critChance: 0.02 } },
       heritageBias: ['Starborn', "Heaven's Chosen"],
     },
     sect_rejected: {
       name: 'A Door That Did Not Open',
       prose: 'You took the entrance trial of a small sect on the eastern slope. You failed. They sent you home with a scar across your cheek and no further word.',
       statRanges: { will: [0, 2], body: [0, 2], mind: [-2, 0], luck: [-2, 0] }, flag: 'sect_rejected',
+      passive: { label: 'Spite the Door', mods: { lowHpBonus: 0.08 } },
     },
     waste_year: {
       name: 'A Year of Plum Wine',
       prose: 'You spent a year drunk on plum wine, nursing a heart that no one named. You learned little. Some lessons are still inside the hangover, waiting.',
       statRanges: { sense: [0, 2], will: [0, 2], body: [-2, 0] }, flag: 'misspent_youth',
+      passive: { label: 'Lessons in the Hangover', mods: { qiRegenBonus: 2, dodgeChance: 0.02 } },
     },
     caught_a_star: {
       name: 'You Caught the Star You Should Not Have',
       prose: 'A star fell. You did the impossible thing — you reached out, and your hands closed. Your palms were not the same after, and neither was the field, and neither, you suspect, were you.',
       statRanges: { spirit: [-2, 6], sense: [-2, 5], luck: [-3, 4], body: [-3, 2] }, flag: 'star_held', risky: true,
+      passive: { label: 'A Star in the Palm', mods: { critChance: 0.06, strikeDamageMult: 1.08 } },
     },
     traded_a_year: {
       name: 'A Year for a Lesson',
       prose: 'A robed stranger offered to teach you what no master would, in exchange for a year you would not get back. You said yes. You think you remember which year it was.',
       statRanges: { mind: [-1, 5], spirit: [-1, 4], will: [-3, 2], body: [-3, 1] }, flag: 'year_traded', risky: true,
+      passive: { label: "The Year's Worth", mods: { techDamageMult: 1.08 } },
+    },
+    ghost_market: {
+      name: "The Market That Wasn't There",
+      prose: 'One night you followed lantern-light down an alley that is on no map, and bought something from a stall with no seller. You still have it. You think.',
+      statRanges: { sense: [1, 3], luck: [1, 3], mind: [0, 2] }, flag: 'ghost_market',
+      passive: { label: 'Ghost-Market Eye', mods: { dodgeChance: 0.04, qiRegenBonus: 2 } },
+    },
+    lightning_seen: {
+      name: 'You Stood Beneath the Lightning',
+      prose: "You were too close when an elder drew their tribulation. The heavens' fire missed you by an arm's width, and something in you has never feared it quite the same since.",
+      statRanges: { will: [1, 3], spirit: [1, 3], body: [0, 2] }, flag: 'lightning_seen',
+      passive: { label: 'Seen the Lightning', mods: { critChance: 0.04, incomingMult: 0.97 } },
     },
     heart_demon_took: {
       name: 'You Said Yes',
@@ -14690,6 +14802,7 @@ function renderChildhood() {
       : '';
     card.innerHTML = `<div class="school-name">${beat.name}</div>
       <div class="heritage-flavor" style="margin:0.5rem 0">${beat.prose}</div>
+      ${beat.passive ? `<div class="heritage-mods" style="color:var(--gold);font-size:0.78rem;margin-top:0.2rem"><strong>Passive — ${beat.passive.label}</strong>: ${modSummary(beat.passive.mods)}</div>` : ''}
       ${extras.map(e => `<div class="heritage-mods" style="font-size:0.78rem;margin-top:0.2rem">${e}</div>`).join('')}
       ${fatalBadge}`;
     card.onclick = () => pickChildhoodBeat(stage, beatId);
@@ -14835,6 +14948,7 @@ function renderCreation() {
       <div class="heritage-name">${h.name}<span class="rarity-tag rarity-${h.rarity}">${h.rarity}</span></div>
       <div class="heritage-mods">${modStr}</div>
       <div class="heritage-mods">${h.extra}</div>
+      ${HERITAGE_PASSIVES[h.name] ? `<div class="heritage-mods" style="color:var(--gold)"><strong>Passive — ${HERITAGE_PASSIVES[h.name].label}</strong>: ${modSummary(HERITAGE_PASSIVES[h.name].mods)}</div>` : ''}
       <div class="heritage-flavor">${h.flavor}</div>`;
     card.onclick = () => {
       // Revert previous heritage's one-time reroll / stat-pool bonuses before granting new one.
