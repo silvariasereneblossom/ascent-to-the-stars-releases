@@ -541,11 +541,11 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v0.97';
+const GAME_VERSION = 'v0.98';
 // v0.78: CI injects the build's short sha here; the APK shell reads it FROM THE RUNNING
 // PAGE (window.BUILD_SHA) and compares against the repo head — staleness detection that
-// cannot be fooled by cached metadata. 'a56a59b' = local/dev build (shell falls back).
-const BUILD_SHA = 'a56a59b';
+// cannot be fooled by cached metadata. 'b901a4a' = local/dev build (shell falls back).
+const BUILD_SHA = 'b901a4a';
 if (typeof window !== 'undefined') window.BUILD_SHA = BUILD_SHA;
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
@@ -11928,11 +11928,24 @@ function computeMaxHP(char) {
   // piece compound, the intended bulwark synergy. Demonic x1.2 stacks on top.
   return Math.round(total * (mods.hpMult || 1) * (char.demonic ? 1.2 : 1));   // v0.68: demonic vitality x1.2
 }
+// v0.98: ascension alone stops being enough — cultivation compounds per layer into qi (pool + barrier)
+// and a little damage. Survival becomes a qi-tank spine (~25% of the curve); GEAR carries the rest,
+// damage most of all. cultLayers = total layers cultivated so far (monotonic — no breakthrough drop).
+function cultLayers(char) {
+  if (!char || !char.realm) return 0;
+  let n = 0;
+  for (let i = 0; i < (char.realm.tierIdx || 0); i++) n += REALMS[i].layers;
+  return n + ((char.realm.layer || 1) - 1);
+}
+function cultPowerMults(char) {
+  const L = cultLayers(char);
+  return { qiPool: Math.pow(1.08, L), qiBarrier: Math.pow(1.04, L), dmg: Math.pow(1.015, L) };
+}
 function computeMaxQi(char) {
   const mods = computeMods(char);
   // v0.82: base 25 -> 38 (x1.5); spirit weight 4 -> 8 (stats matter more); every flat qiBonus
   // source DOUBLED (building qi pays double — more than just the base boost).
-  return 38 + char.finalStats.spirit * 8 + realmBonusFor(char).qi + (mods.qiBonus || 0) * 2;
+  return Math.round((38 + char.finalStats.spirit * 8 + realmBonusFor(char).qi + (mods.qiBonus || 0) * 2) * cultPowerMults(char).qiPool);
 }
 function computeMaxSpirit(char) {
   const mods = computeMods(char);
@@ -12575,6 +12588,7 @@ function initCombat(enemyIdOrIds, areaCultMult) {
     name: state.name,
     hpMax: computeMaxHP(state), hp: computeMaxHP(state),
     qiMax: computeMaxQi(state), qi: computeMaxQi(state),
+    qiShieldMult: cultPowerMults(state).qiBarrier,   // v0.98: qi barrier — qi soaks >1:1 before HP
     spiritMax: computeMaxSpirit(state), spirit: computeMaxSpirit(state),
     // v0.64: Dao Heart (will) hardens the stance — posture max scales with it.
     postureMax: 60 + 2 * ((state.finalStats && state.finalStats.will) || 0), posture: 0, broken: 0,
@@ -12598,6 +12612,7 @@ function initCombat(enemyIdOrIds, areaCultMult) {
     // v0.64: cultivator might quietly feeds damage (+might/1000 as a fraction).
     // Cached here — cultivatorMight() runs computeMods and is too heavy per-hit.
     mightDamageBonus: cultivatorMight() / 1000,
+    cultDmgMult: cultPowerMults(state).dmg,   // v0.98: small per-layer damage growth (gear carries the bulk)
     enemyId: enemies[0].id,  // legacy single-enemy ID used by victory-reward / insight scaling
     log: [],
     player: p,
@@ -12695,8 +12710,11 @@ function dealDamage(target, amount, opts) {
     if (dr > 0) hpDmg = Math.max(0, hpDmg - dr);
   }
 
-  const absorbed = Math.min(target.qi, qiDmg);
-  target.qi -= absorbed;
+  // v0.98: qi barrier — each point of qi soaks qiShieldMult× its value before overflowing to HP
+  // (default 1 for enemies; the player's grows with cultivation).
+  const qsm = target.qiShieldMult || 1;
+  const absorbed = Math.min(target.qi * qsm, qiDmg);
+  target.qi -= absorbed / qsm;
   const overflow = qiDmg - absorbed;
   const totalHp = overflow + hpDmg;
   target.hp -= totalHp;
@@ -12878,6 +12896,7 @@ function applyPlayerOutgoingMods(p, dmg, target, ctx) {
   if (m.lateBonus > 0 && turn >= 4) dmg *= 1 + m.lateBonus;
   // v0.64: cultivator might — the whole of your accumulated power leans on every blow.
   if (combat && combat.mightDamageBonus) dmg *= 1 + combat.mightDamageBonus;
+  if (combat && combat.cultDmgMult) dmg *= combat.cultDmgMult;   // v0.98: cultivation damage growth (small)
   // v0.68: the demonic path hits 20% harder, full stop.
   if (state.demonic) dmg *= 1.2;
   // v0.64: chill now works ON the player too (enemies can inflict it).
