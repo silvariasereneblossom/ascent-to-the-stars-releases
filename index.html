@@ -541,11 +541,11 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v1.0.1';
+const GAME_VERSION = 'v1.1';
 // v0.78: CI injects the build's short sha here; the APK shell reads it FROM THE RUNNING
 // PAGE (window.BUILD_SHA) and compares against the repo head — staleness detection that
-// cannot be fooled by cached metadata. '54259b4' = local/dev build (shell falls back).
-const BUILD_SHA = '54259b4';
+// cannot be fooled by cached metadata. '8bd8309' = local/dev build (shell falls back).
+const BUILD_SHA = '8bd8309';
 if (typeof window !== 'undefined') window.BUILD_SHA = BUILD_SHA;
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
@@ -3972,7 +3972,60 @@ const INSCRIPTIONS = {
   worldtree_seal: { name: 'World-Tree Seal', zh: '世树印', rarity: 'legendary',
     desc: '+150 max HP, +3 qi regen, +5 weapon power. A root-shaped seal that grows into its bearer.',
     apply: m => { m.hpBonus += 150; m.qiRegenBonus += 3; m.weaponBonus += 5; } },
+
+  // ========== 8 Divine inscriptions (v1.1 — Nascent Soul / Spirit Severing ceiling) ==========
+  celestial_core: { name: 'Celestial Core', zh: '天核', rarity: 'divine',
+    desc: '+18 weapon power. A shard of a fallen star, still humming with its own gravity.',
+    apply: m => { m.weaponBonus += 18; } },
+  immortal_aegis: { name: 'Immortal Aegis', zh: '不朽盾', rarity: 'divine',
+    desc: '+400 max HP. A ward-script that refuses, on principle, to let you die.',
+    apply: m => { m.hpBonus += 400; } },
+  void_sovereign: { name: 'Void Sovereign', zh: '虚君', rarity: 'divine',
+    desc: '-28% incoming damage. Blows arrive a half-step into a place you have already left.',
+    apply: m => { m.incomingMult *= 0.72; } },
+  dao_heart_eternal: { name: 'Eternal Dao-Heart', zh: '永道心', rarity: 'divine',
+    desc: '+40% technique damage. Every form you know is remembered by the heavens, and answered.',
+    apply: m => { m.techDamageMult *= 1.4; } },
+  nine_heavens_breath: { name: 'Nine-Heavens Breath', zh: '九天息', rarity: 'divine',
+    desc: '+8 qi regen per turn, +6 max qi. The dantian breathes the upper airs directly.',
+    apply: m => { m.qiRegenBonus += 8; m.qiBonus += 6; } },
+  ascendant_brand: { name: 'Ascendant Brand', zh: '登仙印', rarity: 'divine',
+    desc: '+25% weapon power. A brand burned by the act of ascension itself.',
+    apply: m => { m.weaponMultFlat *= 1.25; } },
+  world_severing_edge: { name: 'World-Severing Edge', zh: '断世锋', rarity: 'divine',
+    desc: '+18% strike damage, +8% crit chance. An edge that cuts the idea of the thing, not the thing.',
+    apply: m => { m.strikeDamageMult *= 1.18; m.critChance += 0.08; } },
+  eternal_spring: { name: 'Eternal Spring', zh: '长春', rarity: 'divine',
+    desc: '+10 HP on strike, +5 qi regen per turn. A spring that was old when the mountains were young.',
+    apply: m => { m.strikeHeal += 10; m.qiRegenBonus += 5; } },
 };
+
+// v1.1: each inscription's HOME realm tier (0 Mortal .. 6 Spirit Severing). Drives realm-scaled
+// drops + craft gating. Kept as a side table so the 60+ defs above stay readable. Default 0.
+const INSCRIPTION_REALM = {
+  // mixed early set
+  thousand_tempered: 1, jade_heart: 1, bloodbond: 0, meridian_clearing: 1, pill_nurtured: 1,
+  searing_rune: 2, heaven_listening: 3,
+  // common (Mortal -> Foundation)
+  flint_temper: 0, iron_brand: 0, breath_glyph: 0, heart_seed: 0, quick_etch: 0,
+  mountain_base: 1, narrow_edge: 1, dust_tempering: 1, sun_kissed: 1, cold_channel: 0,
+  rust_filigree: 1, woven_thread: 0, meridian_seed: 0, brittle_ward: 1, stitch_glyph: 1,
+  dawnline: 1, pebble_hold: 1, featherlight: 2, red_thread: 0, bright_inlay: 0,
+  narrow_path: 1, thread_count: 1, shallow_well: 1, binding_chord: 2, scorched_line: 0,
+  brittle_jade: 0, hollow_reed: 2, steady_flame: 1, first_bell: 2, copper_lip: 1,
+  // rare (Foundation -> Golden Core)
+  silverblood_inlay: 2, cloudsteel_inlay: 3, meridian_weave: 2, pale_jade_array: 2, rattler_glyph: 2,
+  windcut_rune: 3, midnight_seal: 3, phoenix_spark: 3, thunder_inlay: 2, tomb_steel: 2,
+  sparrow_flash: 3, golden_thread: 2, iron_lock: 4, water_eye_array: 3, blooming_array: 3,
+  whisper_key_glyph: 3, ghostbind_weave: 3, tidewater_glyph: 3, forge_burn: 3, starsong_rune: 2,
+  // legendary (Core Formation -> Spirit Severing)
+  dragon_spine: 3, sunforge_array: 4, starweave_inlay: 5, nine_yang_rune: 4, dao_resonant_seal: 4,
+  void_cut_glyph: 5, emperor_mark: 5, heaven_veiled_array: 5, primordial_brand: 6, worldtree_seal: 6,
+  // divine (Nascent Soul -> Spirit Severing)
+  celestial_core: 6, immortal_aegis: 6, void_sovereign: 6, dao_heart_eternal: 6,
+  nine_heavens_breath: 5, ascendant_brand: 6, world_severing_edge: 6, eternal_spring: 5,
+};
+function inscriptionRealm(id) { return INSCRIPTION_REALM[id] || 0; }
 
 function baseInscriptionMods() {
   return {
@@ -10453,7 +10506,7 @@ function collectSellableItems(char) {
       }
     };
     out.push({
-      name: w.name, kindLabel: 'weapon', rarity: w.rarity, price,
+      name: w.name, kindLabel: 'weapon', rarity: w.rarity, price, tier: weaponTierOf(wid),
       sell: () => {
         removeWeapon();
         char.base.materials.spirit_stone = (char.base.materials.spirit_stone || 0) + price;
@@ -10468,13 +10521,20 @@ function collectSellableItems(char) {
     const ins = INSCRIPTIONS[id]; if (!ins) return;
     const price = MARKET_SELL_PRICE[ins.rarity] || 5;
     out.push({
-      name: ins.name, kindLabel: 'inscription', rarity: ins.rarity, price,
+      name: ins.name, kindLabel: 'inscription', rarity: ins.rarity, price, tier: inscriptionRealm(id),
       sell: () => {
         char.inscriptions.owned.splice(char.inscriptions.owned.indexOf(id), 1);
         char.base.materials.spirit_stone = (char.base.materials.spirit_stone || 0) + price;
         saveChar();
       },
-      // v0.77: inscription disassembly ROLLED BACK (operator: selling is simply better).
+      // v1.1: inscription disassembly RESTORED (operator) — yields ESSENCE (not materials), the
+      // craft-loop currency. Reverses the v0.77 rollback now that there is something to spend it on.
+      essenceYield: INSCR_DISASSEMBLE_ESSENCE[ins.rarity] || 10,
+      disassemble: () => {
+        char.inscriptions.owned.splice(char.inscriptions.owned.indexOf(id), 1);
+        char.inscriptions.essence = (char.inscriptions.essence || 0) + (INSCR_DISASSEMBLE_ESSENCE[ins.rarity] || 10);
+        saveChar();
+      },
     });
   });
   // Armor: owned but not equipped.
@@ -10484,7 +10544,7 @@ function collectSellableItems(char) {
     const a = ARMOR[id]; if (!a) return;
     const price = MARKET_SELL_PRICE[a.rarity] || 5;
     out.push({
-      name: a.name, kindLabel: 'armor', rarity: a.rarity, price,
+      name: a.name, kindLabel: 'armor', rarity: a.rarity, price, tier: armorTierOf(id),
       sell: () => {
         char.armor.owned.splice(char.armor.owned.indexOf(id), 1);
         char.base.materials.spirit_stone = (char.base.materials.spirit_stone || 0) + price;
@@ -10505,7 +10565,7 @@ function collectSellableItems(char) {
     const a = ARTIFACTS[id]; if (!a) return;
     const price = MARKET_SELL_PRICE[a.rarity] || 5;
     out.push({
-      name: a.name, kindLabel: 'artifact', rarity: a.rarity, price,
+      name: a.name, kindLabel: 'artifact', rarity: a.rarity, price, tier: artifactTierOf(id),
       sell: () => {
         char.artifacts.owned.splice(char.artifacts.owned.indexOf(id), 1);
         char.base.materials.spirit_stone = (char.base.materials.spirit_stone || 0) + price;
@@ -10515,7 +10575,8 @@ function collectSellableItems(char) {
       disassemble: () => disassembleArtifact(id),
     });
   });
-  return out;
+  // v1.1: sort everything by realm tier then rarity (consistent with the rest of the UI).
+  return out.sort((a, b) => ((a.tier || 0) - (b.tier || 0)) || ((RARITY_RANK[a.rarity] || 0) - (RARITY_RANK[b.rarity] || 0)));
 }
 
 // v0.67/v0.74: break gear down into materials. v0.86: yield = the ITEM'S realm basket
@@ -10524,6 +10585,11 @@ function collectSellableItems(char) {
 // INSCRIPTIONS yield pure spirit stones (operator spec).
 const DISASSEMBLE_RARITY_MULT = { common: 0.5, rare: 1, legendary: 2, divine: 3 };
 const INSCRIPTION_DISASSEMBLE_STONES = { common: 4, rare: 10, legendary: 25, divine: 50 };
+// v1.1: inscription essence economy. Disassembling an inscription yields essence; spend an
+// escalating amount of essence to craft a RANDOM inscription at a chosen rarity (gated to the
+// inscriptions that pool unlocks at your realm). Craft cost = 5x the same-rarity disassemble yield.
+const INSCR_DISASSEMBLE_ESSENCE = { common: 10, rare: 50, legendary: 250, divine: 1250 };
+const INSCR_CRAFT_COST = { common: 50, rare: 250, legendary: 1250, divine: 6250 };
 const RARITY_RANK = { common: 0, rare: 1, legendary: 2, divine: 3 };
 const RARITY_FALLBACK_TIER = { common: 0, rare: 2, legendary: 4, divine: 6 };
 // v0.86: which realm a material "belongs to" — the first realm whose recipes need it
@@ -11553,7 +11619,7 @@ function newCharacter(seed, childhood = null) {
     name: '',
     confirmed: false,
     realm: { tierIdx: 0, layer: 1, insight: 0 },
-    inscriptions: { owned: [], slotted: [] },
+    inscriptions: { owned: [], slotted: [], essence: 0 },
     weapons: { owned: [], crafted: [] },
     armor: newArmorState(),
     cultivating: null,
@@ -12020,14 +12086,55 @@ function computeMaxSpirit(char) {
 // ============================================================
 // Inscription helpers
 // ============================================================
+// v1.1: inscription drops scale by realm AND rarity (was a flat 45%/35% with legendary
+// UNOBTAINABLE). Rarity is rolled from a per-realm weight table that shifts upward as you
+// climb; the dropped inscription is then pulled from those of that rarity whose home realm
+// you have reached (preferring ones near your realm so high realms don't drown in Mortal commons).
+const INSCR_DROP_RARITY_WEIGHTS = [
+  // common, rare, legendary, divine   — indexed by player realm tier 0..6
+  [100,  0,  0,  0],   // Mortal
+  [ 70, 30,  0,  0],   // Qi Condensation
+  [ 50, 45,  5,  0],   // Foundation Establishment
+  [ 35, 45, 20,  0],   // Core Formation
+  [ 22, 43, 32,  3],   // Golden Core
+  [ 14, 38, 40,  8],   // Nascent Soul
+  [  8, 30, 46, 16],   // Spirit Severing
+];
+const INSCR_RARITIES = ['common', 'rare', 'legendary', 'divine'];
+function inscriptionPoolFor(rarity, tier) {
+  const all = Object.keys(INSCRIPTIONS).filter(id => INSCRIPTIONS[id].rarity === rarity && inscriptionRealm(id) <= tier);
+  const near = all.filter(id => inscriptionRealm(id) >= tier - 2);
+  return near.length ? near : all;
+}
 function rollInscriptionDrop() {
-  if (Math.random() >= 0.45) return null;
-  const pool = Object.keys(INSCRIPTIONS);
-  const common = pool.filter(id => INSCRIPTIONS[id].rarity === 'common');
-  const rare = pool.filter(id => INSCRIPTIONS[id].rarity === 'rare');
-  const pickRare = Math.random() < 0.35;
-  const source = pickRare && rare.length ? rare : common;
-  return source[Math.floor(Math.random() * source.length)];
+  if (Math.random() >= 0.42) return null;
+  const tier = Math.min(6, (state.realm && state.realm.tierIdx) || 0);
+  const weights = INSCR_DROP_RARITY_WEIGHTS[tier] || INSCR_DROP_RARITY_WEIGHTS[0];
+  let roll = Math.random() * weights.reduce((a, b) => a + b, 0);
+  let rIdx = 0;
+  for (let i = 0; i < INSCR_RARITIES.length; i++) { roll -= weights[i]; if (roll < 0) { rIdx = i; break; } }
+  // Pull from that rarity; if its realm-gated pool is empty, step down until something is available.
+  let pool = [];
+  for (let i = rIdx; i >= 0 && !pool.length; i--) pool = inscriptionPoolFor(INSCR_RARITIES[i], tier);
+  if (!pool.length) return null;
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+// v1.1: the inscriptions of a given rarity whose HOME realm the player has reached (craft-eligible).
+function craftableInscriptionPool(rarity) {
+  const tier = (state.realm && state.realm.tierIdx) || 0;
+  return Object.keys(INSCRIPTIONS).filter(id => INSCRIPTIONS[id].rarity === rarity && inscriptionRealm(id) <= tier);
+}
+// v1.1: spend essence to craft a RANDOM inscription at a chosen rarity (gated to your realm's pool).
+function craftInscription(rarity) {
+  const cost = INSCR_CRAFT_COST[rarity];
+  if (!cost || (state.inscriptions.essence || 0) < cost) return null;
+  const pool = craftableInscriptionPool(rarity);
+  if (!pool.length) return null;
+  state.inscriptions.essence -= cost;
+  const got = pool[Math.floor(Math.random() * pool.length)];
+  state.inscriptions.owned.push(got);
+  saveChar();
+  return got;
 }
 
 // ============================================================
@@ -13979,6 +14086,7 @@ function renderTabBar() {
     { id: 'armor',    label: 'Armor' },
     { id: 'garden',   label: 'House' },
     { id: 'forge',    label: 'Forge' },
+    { id: 'disassembly', label: 'Disassembly' },
     { id: 'market',   label: 'Market' },
     { id: 'sect',     label: 'Sect' },
     { id: 'journeys', label: 'Journeys' },
@@ -15138,8 +15246,13 @@ function renderCharSheet() {
   const ownedList = document.getElementById('owned-list');
   if (ownedList) {
     const slotFull = state.inscriptions.slotted.length >= cap;
-    state.inscriptions.owned.forEach(id => {
+    // v1.1: owned inscriptions sorted by realm tier then rarity.
+    state.inscriptions.owned.slice().sort((a, b) =>
+      (inscriptionRealm(a) - inscriptionRealm(b)) ||
+      ((RARITY_RANK[(INSCRIPTIONS[a] || {}).rarity] || 0) - (RARITY_RANK[(INSCRIPTIONS[b] || {}).rarity] || 0))
+    ).forEach(id => {
       const ins = INSCRIPTIONS[id];
+      if (!ins) return;
       const item = document.createElement('div');
       item.className = 'owned-item tip' + (slotFull ? ' no-slot' : '');
       item.setAttribute('data-tip', ins.desc);
@@ -15497,7 +15610,8 @@ function renderCharSheet() {
     const visibleRecipes = ARTIFACT_RECIPES.filter(r =>
       (r.minRealmTier || 0) === forgeTier &&
       (!mineOnly || !myKind || (WEAPONS[r.id] && WEAPONS[r.id].kind === myKind)))
-      .slice().sort((a, b) =>
+      .slice().sort((a, b) =>  // v1.1: realm (sub-tab) then rarity, then power
+        ((RARITY_RANK[(WEAPONS[a.id] || {}).rarity] || 0) - (RARITY_RANK[(WEAPONS[b.id] || {}).rarity] || 0)) ||
         (((WEAPONS[a.id] && WEAPONS[a.id].power) || 0) - ((WEAPONS[b.id] && WEAPONS[b.id].power) || 0)));
     if (!visibleRecipes.length) {
       const none = document.createElement('div');
@@ -15514,7 +15628,9 @@ function renderCharSheet() {
     fP.appendChild(realmTabChips('forgeArmorRealm', t => ARMOR_RECIPES.filter(r => (r.minRealmTier || 0) === t).length));
     const armorTier = Math.min(selectedRealmTab('forgeArmorRealm'), state.realm.tierIdx);
     ARMOR_RECIPES.filter(r => (r.minRealmTier || 0) === armorTier)
-      .slice().sort((a, b) => ((a.minLayer || 0) - (b.minLayer || 0)))
+      .slice().sort((a, b) =>  // v1.1: realm (sub-tab) then rarity, then layer
+        ((RARITY_RANK[(ARMOR[a.id] || {}).rarity] || 0) - (RARITY_RANK[(ARMOR[b.id] || {}).rarity] || 0)) ||
+        ((a.minLayer || 0) - (b.minLayer || 0)))
       .forEach(recipe => fP.appendChild(buildArmorRecipeRow(recipe)));
   } else {
     // v0.86: materials ordered by realm (matTier), then rarity within a realm, with
@@ -15556,6 +15672,89 @@ function renderCharSheet() {
   }
 
   appendPanel(fP, 'forge');
+
+  // v1.1: Disassembly tab — break gear into materials + inscriptions into essence, and craft
+  // new inscriptions from essence (the operator's inscription purchase/crafting interface).
+  const disHdrP = document.createElement('div');
+  disHdrP.className = 'panel';
+  const inscrEssence = state.inscriptions.essence || 0;
+  disHdrP.innerHTML = `<h3>Disassembly <span style="font-weight:normal;color:var(--ink-soft);font-size:0.85rem">拆解</span></h3>
+    <p style="font-size:0.85rem;color:var(--ink-soft);margin:0 0 0.2rem">Break unequipped gear down into crafting materials, and inscriptions into <strong>inscription essence</strong> — then spend essence at the workbench to forge a new inscription.</p>`;
+  appendPanel(disHdrP, 'disassembly');
+
+  // Inscription Workbench: craft a random inscription at a chosen rarity for essence.
+  const wbP = document.createElement('div');
+  wbP.className = 'panel';
+  wbP.innerHTML = `<h3>Inscription Workbench <span style="font-weight:normal;color:var(--ink-soft);font-size:0.85rem">铭纹台</span></h3>
+    <p style="font-size:0.85rem;color:var(--ink-soft);margin:0 0 0.3rem">Essence: <strong style="color:var(--gold)">${inscrEssence}</strong>. Each craft yields a <em>random</em> inscription of the chosen rarity, drawn from those your realm has unlocked. Disassemble yields ${INSCR_DISASSEMBLE_ESSENCE.common}/${INSCR_DISASSEMBLE_ESSENCE.rare}/${INSCR_DISASSEMBLE_ESSENCE.legendary}/${INSCR_DISASSEMBLE_ESSENCE.divine} by rarity.</p>
+    ${state.lastCraftResult ? `<p style="font-size:0.88rem;margin:0 0 0.3rem;color:var(--gold)">${state.lastCraftResult}</p>` : ''}`;
+  INSCR_RARITIES.forEach(rar => {
+    const cost = INSCR_CRAFT_COST[rar];
+    const pool = craftableInscriptionPool(rar);
+    const row = document.createElement('div');
+    row.className = 'consumable-row';
+    const poolNote = pool.length ? `${pool.length} possible at your realm` : 'none unlocked yet';
+    const rarCls = rar === 'divine' ? 'legendary' : rar;
+    row.innerHTML = `
+      <div class="consumable-info">
+        <div class="consumable-name">Forge a <span class="rarity-tag rarity-${rarCls}">${rar}</span> inscription</div>
+        <div class="consumable-desc">${cost} essence &rarr; one random ${rar} inscription (${poolNote}).</div>
+      </div>`;
+    const btns = document.createElement('div');
+    btns.className = 'consumable-buttons';
+    const b = document.createElement('button');
+    b.className = 'gold';
+    if (!pool.length) { b.textContent = 'Locked'; b.disabled = true; }
+    else if (inscrEssence < cost) { b.textContent = `Need ${cost}`; b.disabled = true; }
+    else {
+      b.textContent = `Craft (${cost})`;
+      b.onclick = () => { const got = craftInscription(rar); if (got) state.lastCraftResult = `Forged: ${INSCRIPTIONS[got].name} (${rar}).`; render(); };
+    }
+    btns.appendChild(b);
+    row.appendChild(btns);
+    wbP.appendChild(row);
+  });
+  appendPanel(wbP, 'disassembly');
+
+  // Break-down list: every unequipped/unslotted item that can be disassembled.
+  const dlP = document.createElement('div');
+  dlP.className = 'panel';
+  dlP.innerHTML = `<h3>Break Down Items <span style="font-weight:normal;color:var(--ink-soft);font-size:0.85rem">拆物</span></h3>
+    <p style="font-size:0.82rem;color:var(--ink-soft);margin:0 0 0.4rem">Sorted by realm, then rarity. Equipped gear and slotted inscriptions are safe.</p>`;
+  const disRows = collectSellableItems(state).filter(it => it.disassemble);
+  if (!disRows.length) {
+    const empty = document.createElement('div');
+    empty.style.cssText = 'font-size:0.85rem;color:var(--ink-soft);font-style:italic';
+    empty.textContent = 'Nothing to break down right now.';
+    dlP.appendChild(empty);
+  } else {
+    disRows.forEach(item => {
+      let yStr;
+      if (item.essenceYield) {
+        yStr = `+${item.essenceYield} essence`;
+      } else {
+        const yld = item.dyield || disassembleYield(item.rarity);
+        yStr = Object.entries(yld).map(([m, n]) => `${n}x ${(MATERIALS[m] && MATERIALS[m].name) || m}`).join(', ');
+      }
+      const row = document.createElement('div');
+      row.className = 'consumable-row';
+      row.innerHTML = `
+        <div class="consumable-info">
+          <div class="consumable-name">${item.name} <span style="color:var(--ink-soft);font-size:0.75rem">${item.kindLabel} · ${item.rarity}</span></div>
+          <div class="consumable-desc">Yields: ${yStr}.</div>
+        </div>`;
+      const btns = document.createElement('div');
+      btns.className = 'consumable-buttons';
+      const db = document.createElement('button');
+      db.className = 'small';
+      db.textContent = 'Disassemble';
+      db.onclick = () => { item.disassemble(); render(); };
+      btns.appendChild(db);
+      row.appendChild(btns);
+      dlP.appendChild(row);
+    });
+  }
+  appendPanel(dlP, 'disassembly');
 
   // Loadout panel — Active Ability slots (Wave 1d: cap grows +1 at Golden Core, +1 at Nascent Soul)
   const lP = document.createElement('div');
@@ -15607,7 +15806,7 @@ function renderCharSheet() {
   lP.querySelectorAll('[data-skill]').forEach(el => {
     el.onclick = () => { toggleActiveSkill(el.getAttribute('data-skill')); render(); };
   });
-  appendPanel(lP, 'self');
+  appendPanel(lP, 'skills');  // v1.1: active-ability loadout consolidated into the Skills tab
 
   // --- Armor panel ---
   const aP = document.createElement('div');
@@ -15971,7 +16170,7 @@ function renderCharSheet() {
     row.appendChild(btns);
     masterP.appendChild(row);
   });
-  appendPanel(masterP, 'market');
+  appendPanel(masterP, 'skills');  // v1.1: Wandering Master consolidated into the Skills tab
 
   // --- Trader Caravan: sell items + buy daily-capped materials. ---
   const traderP = document.createElement('div');
@@ -16061,16 +16260,7 @@ function renderCharSheet() {
       b.textContent = `Sell (+${item.price})`;
       b.onclick = () => { item.sell(); render(); };
       btns.appendChild(b);
-      if (item.disassemble) {
-        const yld = item.dyield || disassembleYield(item.rarity);
-        const dStr = Object.entries(yld).map(([m, n]) => `${n}x ${(MATERIALS[m] && MATERIALS[m].name) || m}`).join(', ');
-        const db = document.createElement('button');
-        db.className = 'small tip';
-        db.setAttribute('data-tip', `Break down into materials: ${dStr}`);
-        db.textContent = 'Disassemble';
-        db.onclick = () => { item.disassemble(); render(); };
-        btns.appendChild(db);
-      }
+      // v1.1: Disassemble moved to its own Disassembly tab — the caravan is sell-for-stones only.
       row.appendChild(btns);
       traderP.appendChild(row);
     });
