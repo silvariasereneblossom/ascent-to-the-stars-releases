@@ -541,11 +541,11 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v1.3';
+const GAME_VERSION = 'v1.4';
 // v0.78: CI injects the build's short sha here; the APK shell reads it FROM THE RUNNING
 // PAGE (window.BUILD_SHA) and compares against the repo head — staleness detection that
-// cannot be fooled by cached metadata. 'd890883' = local/dev build (shell falls back).
-const BUILD_SHA = 'd890883';
+// cannot be fooled by cached metadata. '8b0e15a' = local/dev build (shell falls back).
+const BUILD_SHA = '8b0e15a';
 if (typeof window !== 'undefined') window.BUILD_SHA = BUILD_SHA;
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
@@ -11736,10 +11736,10 @@ function newPreCharacter(seed) {
 function newCharacter(seed, childhood = null) {
   const rng = makeRng(seed);
   const baseStats = {};
-  STAT_KEYS.forEach(k => { baseStats[k] = roll3d6(rng); });
+  STAT_KEYS.forEach(k => { baseStats[k] = Math.max(10, roll3d6(rng)); });   // v1.4: no initial stat below 10
   if (childhood && childhood.statMods) {
     Object.entries(childhood.statMods).forEach(([k, v]) => {
-      if (STAT_KEYS.includes(k)) baseStats[k] = Math.max(3, baseStats[k] + v);
+      if (STAT_KEYS.includes(k)) baseStats[k] = Math.max(10, baseStats[k] + v);   // v1.4: floor 10 after childhood mods
     });
   }
 
@@ -11881,7 +11881,7 @@ function finalStats(st) {
   const demonBonus = st.demonic ? 4 : 0;  // v0.68: +4 all (was +2) — the path must FEEL worth the heavens
   STAT_KEYS.forEach(k => {
     const v = st.baseStats[k] + st.allocation[k] + (h[k] || 0) + latent + demonBonus + ((st.freeAlloc && st.freeAlloc[k]) || 0);
-    out[k] = Math.max(6, v);
+    out[k] = Math.max(10, v);   // v1.4: effective stats never below 10
   });
   return out;
 }
@@ -14219,9 +14219,16 @@ function armDestructiveButton(btn, armedText, action) {
 function selectedRealmTab(uiKey) {
   if (!state.ui) state.ui = {};
   const v = state.ui[uiKey];
+  if (v === 'all') return 'all';   // v1.4: view-all mode
   const maxT = state.realm.tierIdx || 0;
   if (typeof v === 'number' && v >= 0 && v <= 6) return v;
   return Math.min(maxT, 6);
+}
+// v1.4: true if a given realm tier should be shown under the current chip selection
+// (always true in view-all mode). Callers: `list.filter(x => realmTabShows(key, x.tier))`.
+function realmTabShows(uiKey, tier) {
+  const sel = selectedRealmTab(uiKey);
+  return sel === 'all' || sel === tier;
 }
 function realmTabChips(uiKey, countFn) {
   const wrap = document.createElement('div');
@@ -14229,6 +14236,14 @@ function realmTabChips(uiKey, countFn) {
   wrap.style.cssText = 'flex-wrap:wrap;gap:0.25rem;margin:0 0 0.55rem;justify-content:flex-start';
   const sel = selectedRealmTab(uiKey);
   const maxT = state.realm.tierIdx || 0;
+  // v1.4: a leading "View All" chip (sort-by-realm vs view-all, like Forge/Bosses now share).
+  let total = 0;
+  for (let t = 0; t <= 6; t++) total += (countFn ? countFn(t) : 0);
+  const allBtn = document.createElement('button');
+  allBtn.className = 'small ' + (sel === 'all' ? 'gold' : 'ghost');
+  allBtn.textContent = `View All (${total})`;
+  allBtn.onclick = () => { if (!state.ui) state.ui = {}; state.ui[uiKey] = 'all'; saveChar(); render(); };
+  wrap.appendChild(allBtn);
   for (let t = 0; t <= 6; t++) {
     const n = countFn ? countFn(t) : 0;
     if (!n) continue;
@@ -14767,26 +14782,35 @@ function renderCreation() {
   sP.className = 'panel';
   sP.innerHTML = `<strong>School</strong>
     <p style="font-size:0.85rem;color:var(--ink-soft);margin:0.3rem 0 0.6rem">Where will you take your first steps? Each school teaches a different rhythm of combat — and its own cultivation method.</p>`;
+  // v1.4: when the Demonic Path is toggled on, the school cards SWAP to their demonic mirrors for
+  // viewing — demonic name/flavor (schoolDisplay), heretical signature technique, sharpened passive.
+  const demonView = !!state.demonic;
   Object.entries(SCHOOLS).forEach(([id, school]) => {
     const card = document.createElement('div');
     card.className = 'school-card' + (state.selectedSchool === id ? ' selected' : '');
+    const disp = schoolDisplay(id, state);
     const weapon = WEAPONS[school.weapon];
     const method = Object.values(CULTIVATION_METHODS).find(m => m.schools && m.schools.includes(id));
     const statNames = school.bestStats.map(k => STATS.find(s=>s.key===k).name).join(' & ');
-    const techList = school.techniques.map(tid => {
+    const demSig = demonView && typeof DEMONIC_SIGNATURE_TECHS !== 'undefined' && DEMONIC_SIGNATURE_TECHS[id] ? DEMONIC_SIGNATURE_TECHS[id][0] : null;
+    const techIds = school.techniques.slice();
+    if (demSig && TECHNIQUES[demSig]) techIds[4] = demSig;   // show the swapped 5th (signature) tech
+    const techList = techIds.map(tid => {
       const t = TECHNIQUES[tid];
+      if (!t) return '';
       return `<div style="font-size:0.78rem;color:var(--ink-soft);margin:0.15rem 0 0 0.5rem">• <span style="color:var(--ink);font-weight:bold">${t.name}</span> <span style="opacity:0.7">${t.zh}</span> — ${t.desc}</div>`;
     }).join('');
     const roleLabel = { single: 'Pure Single-Target', aoe: 'Pure AOE', mixed: 'Mixed' }[school.role] || '';
     const roleColor = { single: '#9ec5e8', aoe: '#e89e9e', mixed: '#c9b97a' }[school.role] || 'var(--gold)';
     const kitCard = SCHOOL_KITS[id];
+    const tw = demonView && typeof DEMONIC_TWISTS !== 'undefined' ? DEMONIC_TWISTS[id] : null;
     card.innerHTML = `
-      <div class="school-name">${school.name} <span style="color:var(--ink-soft);font-weight:normal;font-size:0.85rem">${school.zh}</span>${roleLabel ? `<span style="float:right;font-size:0.72rem;font-weight:normal;color:${roleColor};border:1px solid ${roleColor};padding:0.1rem 0.4rem;border-radius:0.3rem">${roleLabel}</span>` : ''}</div>
+      <div class="school-name">${disp.name} <span style="color:var(--ink-soft);font-weight:normal;font-size:0.85rem">${disp.zh}</span>${demonView ? ` <span style="color:var(--crimson);font-size:0.72rem">魔道</span>` : ''}${roleLabel ? `<span style="float:right;font-size:0.72rem;font-weight:normal;color:${roleColor};border:1px solid ${roleColor};padding:0.1rem 0.4rem;border-radius:0.3rem">${roleLabel}</span>` : ''}</div>
       <div class="school-mods">Starter weapon: <strong>${weapon.name}</strong> (${weapon.zh}) — power ${weapon.power}. Best with: ${statNames}.</div>
       ${method ? `<div class="school-mods">Cultivation method: <strong>${method.name}</strong> (${method.zh}) — ${method.desc}</div>` : ''}
-      <div class="school-flavor">${school.flavor}</div>
+      <div class="school-flavor">${disp.flavor}</div>
       <div style="margin-top:0.4rem;font-size:0.82rem"><strong>Gameplan.</strong> ${school.specialty}</div>
-      ${kitCard ? `<div style="margin-top:0.3rem;font-size:0.82rem"><strong style="color:var(--gold)">Passive — ${kitCard.passiveName}</strong> <span style="color:var(--ink-soft);font-size:0.75rem">${kitCard.passiveZh}</span>: ${kitCard.passiveDesc}</div>` : ''}
+      ${kitCard ? `<div style="margin-top:0.3rem;font-size:0.82rem"><strong style="color:var(--gold)">Passive — ${kitCard.passiveName}</strong> <span style="color:var(--ink-soft);font-size:0.75rem">${kitCard.passiveZh}</span>: ${kitCard.passiveDesc}${tw ? ` <span style="color:var(--crimson)">DEMONIC: ${tw.twistDesc}</span>` : ''}</div>` : ''}
       <div style="margin-top:0.3rem">${techList}</div>`;
     card.onclick = () => { state.selectedSchool = id; render(); };
     sP.appendChild(card);
@@ -15590,8 +15614,10 @@ function renderCharSheet() {
         ((a[1].minRealmTier || 0) - (b[1].minRealmTier || 0)) ||
         ((a[1].minLayer || 0) - (b[1].minLayer || 0)) ||
         ((rarityOrder[a[1].rarity] || 0) - (rarityOrder[b[1].rarity] || 0)));
+    const cKey = 'consumable_' + kind;   // v1.4: per-kind realm filter
+    gP.appendChild(realmTabChips(cKey, t => visible.filter(([, c]) => (c.minRealmTier || 0) === t).length));
     let lastTier = -1;
-    visible.forEach(([id, c]) => {
+    visible.filter(([, c]) => realmTabShows(cKey, c.minRealmTier || 0)).forEach(([id, c]) => {
       const tier = c.minRealmTier || 0;
       if (tier !== lastTier) {
         lastTier = tier;
@@ -15774,9 +15800,8 @@ function renderCharSheet() {
     fP.appendChild(realmTabChips('forgeWeaponRealm', t =>
       ARTIFACT_RECIPES.filter(r => (r.minRealmTier || 0) === t &&
         (!mineOnly || !myKind || (WEAPONS[r.id] && WEAPONS[r.id].kind === myKind))).length));
-    const forgeTier = Math.min(selectedRealmTab('forgeWeaponRealm'), state.realm.tierIdx);
     const visibleRecipes = ARTIFACT_RECIPES.filter(r =>
-      (r.minRealmTier || 0) === forgeTier &&
+      realmTabShows('forgeWeaponRealm', r.minRealmTier || 0) &&
       (!mineOnly || !myKind || (WEAPONS[r.id] && WEAPONS[r.id].kind === myKind)))
       .slice().sort((a, b) =>  // v1.1: realm (sub-tab) then rarity, then power
         ((RARITY_RANK[(WEAPONS[a.id] || {}).rarity] || 0) - (RARITY_RANK[(WEAPONS[b.id] || {}).rarity] || 0)) ||
@@ -15794,8 +15819,7 @@ function renderCharSheet() {
   } else if (state.ui.forgeTab === 'armor') {
     // v0.59: per-realm sub-tabs (chips), layer-sorted within the realm.
     fP.appendChild(realmTabChips('forgeArmorRealm', t => ARMOR_RECIPES.filter(r => (r.minRealmTier || 0) === t).length));
-    const armorTier = Math.min(selectedRealmTab('forgeArmorRealm'), state.realm.tierIdx);
-    ARMOR_RECIPES.filter(r => (r.minRealmTier || 0) === armorTier)
+    ARMOR_RECIPES.filter(r => realmTabShows('forgeArmorRealm', r.minRealmTier || 0))
       .slice().sort((a, b) =>  // v1.1: realm (sub-tab) then rarity, then layer
         ((RARITY_RANK[(ARMOR[a.id] || {}).rarity] || 0) - (RARITY_RANK[(ARMOR[b.id] || {}).rarity] || 0)) ||
         ((a.minLayer || 0) - (b.minLayer || 0)))
@@ -15816,8 +15840,9 @@ function renderCharSheet() {
       <div class="consumable-desc"><strong>${stones}</strong> in purse. Used to buy techniques from the Wandering Master and to anchor greater forge work.</div>
     </div>`;
     fP.appendChild(stoneRow);
+    fP.appendChild(realmTabChips('forgeMatRealm', t => matsList.filter(([mid]) => matTier(mid) === t).length));   // v1.4
     let lastMatTier = -1;
-    matsList.forEach(([mid, mat]) => {
+    matsList.filter(([mid]) => realmTabShows('forgeMatRealm', matTier(mid))).forEach(([mid, mat]) => {
       const mt = matTier(mid);
       if (mt !== lastMatTier) {
         lastMatTier = mt;
@@ -15889,11 +15914,13 @@ function renderCharSheet() {
   dlP.className = 'panel';
   dlP.innerHTML = `<h3>Break Down Items <span style="font-weight:normal;color:var(--ink-soft);font-size:0.85rem">拆物</span></h3>
     <p style="font-size:0.82rem;color:var(--ink-soft);margin:0 0 0.4rem">Sorted by realm, then rarity. Equipped gear and slotted inscriptions are safe.</p>`;
-  const disRows = collectSellableItems(state).filter(it => it.disassemble);
+  const disAll = collectSellableItems(state).filter(it => it.disassemble);
+  dlP.appendChild(realmTabChips('disassemblyRealm', t => disAll.filter(it => (it.tier || 0) === t).length));   // v1.4
+  const disRows = disAll.filter(it => realmTabShows('disassemblyRealm', it.tier || 0));
   if (!disRows.length) {
     const empty = document.createElement('div');
     empty.style.cssText = 'font-size:0.85rem;color:var(--ink-soft);font-style:italic';
-    empty.textContent = 'Nothing to break down right now.';
+    empty.textContent = 'Nothing to break down at this realm filter.';
     dlP.appendChild(empty);
   } else {
     disRows.forEach(item => {
@@ -16109,7 +16136,7 @@ function renderCharSheet() {
   locP.appendChild(realmTabChips('journeysRealm', t => LOCATIONS.filter(l => l.minTier === t).length));
   const jRealm = selectedRealmTab('journeysRealm');
   // v0.61: demon-only grounds are invisible to the righteous; badged for the demonic.
-  LOCATIONS.filter(l => l.minTier === jRealm && (!l.demonOnly || state.demonic)).forEach(loc => {
+  LOCATIONS.filter(l => realmTabShows('journeysRealm', l.minTier) && (!l.demonOnly || state.demonic)).forEach(loc => {
     const unlocked = locationUnlocked(loc);
     const isCult = state.cultivating && state.cultivating.locationId === loc.id;
     const card = document.createElement('div');
@@ -16158,7 +16185,7 @@ function renderCharSheet() {
     <p style="font-size:0.85rem;color:var(--ink-soft);margin:0 0 0.6rem">Named terrors of each realm. They hit harder than anything else at their tier, and <strong style="color:var(--crimson)">losing to a boss costs DOUBLE lifespan</strong>. First kill grants a bonus material cache; they can be re-fought for their drops.</p>`;
   bossP.appendChild(realmTabChips('bossesRealm', t => Object.values(BOSSES).filter(b => b.tier === t).length));
   const bRealm = selectedRealmTab('bossesRealm');
-  Object.entries(BOSSES).filter(([, b]) => b.tier === bRealm).forEach(([bid, meta]) => {
+  Object.entries(BOSSES).filter(([, b]) => realmTabShows('bossesRealm', b.tier)).forEach(([bid, meta]) => {
     const en = ENEMIES[bid];
     if (!en) return;
     const kills = bossKillCount(bid);
@@ -16308,7 +16335,8 @@ function renderCharSheet() {
   if (!gatedTechs.length) {
     masterP.innerHTML += `<div style="font-size:0.85rem;color:var(--ink-soft);font-style:italic">The master has nothing to teach a sect that does not branch beyond its starting form.</div>`;
   }
-  gatedTechs.forEach(([tid, tech]) => {
+  masterP.appendChild(realmTabChips('masterRealm', t => gatedTechs.filter(([, tt]) => tt.minRealmTier === t).length));   // v1.4
+  gatedTechs.filter(([, tech]) => realmTabShows('masterRealm', tech.minRealmTier)).forEach(([tid, tech]) => {
     const owned = state.loadout.includes(tid);
     const tierMet = state.realm.tierIdx >= tech.minRealmTier;
     const canAfford = stones >= (tech.cost || 0);
@@ -16385,7 +16413,9 @@ function renderCharSheet() {
   sellHeader.style.cssText = 'font-size:0.85rem;margin-top:0.6rem';
   sellHeader.innerHTML = `<strong>Sell items</strong> <span style="color:var(--ink-soft);font-weight:normal;font-size:0.75rem">— unequipped weapons / inscriptions / armor / artifacts. Stones based on rarity.</span>`;
   traderP.appendChild(sellHeader);
-  const sellRows = collectSellableItems(state);
+  const sellAll = collectSellableItems(state);
+  traderP.appendChild(realmTabChips('sellRealm', t => sellAll.filter(it => (it.tier || 0) === t).length));   // v1.4
+  const sellRows = sellAll.filter(it => realmTabShows('sellRealm', it.tier || 0));
   // v0.67: paid caravan reset (fresh stock caps, hourly).
   {
     const resetRow = document.createElement('div');
