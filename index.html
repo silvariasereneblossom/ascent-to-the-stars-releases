@@ -541,11 +541,11 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v1.1';
+const GAME_VERSION = 'v1.2';
 // v0.78: CI injects the build's short sha here; the APK shell reads it FROM THE RUNNING
 // PAGE (window.BUILD_SHA) and compares against the repo head — staleness detection that
-// cannot be fooled by cached metadata. '8bd8309' = local/dev build (shell falls back).
-const BUILD_SHA = '8bd8309';
+// cannot be fooled by cached metadata. '7aabb11' = local/dev build (shell falls back).
+const BUILD_SHA = '7aabb11';
 if (typeof window !== 'undefined') window.BUILD_SHA = BUILD_SHA;
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
@@ -4027,6 +4027,115 @@ const INSCRIPTION_REALM = {
 };
 function inscriptionRealm(id) { return INSCRIPTION_REALM[id] || 0; }
 
+// v1.2: every inscription = FLAT value + % value of its theme, plus additional combat effects by
+// rarity (common = base only, rare +1 rider, legendary +2, divine +3). Magnitudes scale by rarity
+// (primary driver) and mildly by the inscription's home realm. Driven by a side-table so the 75
+// defs above stay readable; the 6 school-qi-discount inscriptions have NO theme and keep their
+// bespoke apply/desc via the fallback in applyInscriptionMods / inscriptionDesc.
+const INSCR_RARITY_SCALE = { common: 1, rare: 1.75, legendary: 2.75, divine: 4 };
+const INSCR_RIDER_COUNT  = { common: 0, rare: 1, legendary: 2, divine: 3 };
+function inscrRealmScale(realm) { return 1 + (realm || 0) * 0.06; }   // Mortal 1.0 -> SS 1.36
+const CHANNEL_LABEL = {
+  weaponBonus: 'weapon power', hpBonus: 'max HP', qiRegenBonus: 'qi regen/turn',
+  strikeHeal: 'HP on hit', spiritBonus: 'max spirit', qiBonus: 'max qi',
+};
+// theme -> { flat channel + base, % channel + base, % mode (mul / reduce / add), display stat, rider ladder }
+const INSCRIPTION_THEMES = {
+  weapon:    { flatCh: 'weaponBonus', flatBase: 4,  pctCh: 'weaponMultFlat',   pctBase: 0.04, pctMode: 'mul',    stat: 'weapon power',      riders: ['crit', 'lifesteal', 'firstStrike'] },
+  guard:     { flatCh: 'hpBonus',     flatBase: 40, pctCh: 'hpMult',           pctBase: 0.04, pctMode: 'mul',    stat: 'max HP',            riders: ['flatDR', 'dodge', 'ward'] },
+  bulwark:   { flatCh: 'hpBonus',     flatBase: 22, pctCh: 'incomingMult',     pctBase: 0.05, pctMode: 'reduce', stat: 'damage taken',      riders: ['flatDR', 'dodge', 'lowHp'] },
+  qi:        { flatCh: 'qiRegenBonus',flatBase: 2,  pctCh: 'meditateMult',     pctBase: 0.12, pctMode: 'mul',    stat: 'qi recovered',      riders: ['qiPool', 'qiOnKill', 'ramp'] },
+  sustain:   { flatCh: 'strikeHeal',  flatBase: 4,  pctCh: 'lifestealPct',     pctBase: 0.03, pctMode: 'add',    stat: 'lifesteal',         riders: ['qiOnKill', 'dodge', 'ward'] },
+  posture:   { flatCh: 'weaponBonus', flatBase: 2,  pctCh: 'postureMult',      pctBase: 0.09, pctMode: 'mul',    stat: 'posture damage',    riders: ['crit', 'ramp', 'late'] },
+  technique: { flatCh: 'weaponBonus', flatBase: 2,  pctCh: 'techDamageMult',   pctBase: 0.06, pctMode: 'mul',    stat: 'technique damage',  riders: ['crit', 'ramp', 'late'] },
+  strike:    { flatCh: 'weaponBonus', flatBase: 2,  pctCh: 'strikeDamageMult', pctBase: 0.06, pctMode: 'mul',    stat: 'strike damage',     riders: ['crit', 'lifesteal', 'firstStrike'] },
+  insight:   { flatCh: 'weaponBonus', flatBase: 2,  pctCh: 'insightMult',      pctBase: 0.10, pctMode: 'mul',    stat: 'combat insight',    riders: ['qiOnKill', 'crit', 'lifesteal'] },
+  spirit:    { flatCh: 'spiritBonus', flatBase: 1,  pctCh: 'spiritDamageMult', pctBase: 0.07, pctMode: 'mul',    stat: 'spirit damage',     riders: ['crit', 'ward', 'dodge'] },
+};
+// rider riders (additional effects by rarity). r = inscription home realm (mild scaling).
+const INSCR_RIDERS = {
+  crit:        { apply: (m, r) => { m.critChance += 0.04 + r * 0.004; }, label: '+crit chance' },
+  lifesteal:   { apply: (m) => { m.lifestealPct += 0.04; }, label: '+lifesteal' },
+  firstStrike: { apply: (m) => { m.firstStrikeBonus += 0.12; }, label: '+first-strike damage' },
+  flatDR:      { apply: (m, r) => { m.flatDR += 2 + r; }, label: '+flat damage reduction' },
+  dodge:       { apply: (m) => { m.dodgeChance += 0.03; }, label: '+dodge chance' },
+  ward:        { apply: (m) => { m.incomingMult *= 0.96; }, label: '-incoming damage' },
+  lowHp:       { apply: (m) => { m.lowHpBonus += 0.10; }, label: '+damage while low' },
+  qiPool:      { apply: (m, r) => { m.qiBonus += 2 + r; }, label: '+max qi' },
+  qiOnKill:    { apply: (m, r) => { m.qiOnKill += 2 + r; }, label: '+qi on kill' },
+  ramp:        { apply: (m) => { m.perTurnRamp += 0.02; }, label: '+ramping damage' },
+  late:        { apply: (m) => { m.lateBonus += 0.06; }, label: '+late-fight damage' },
+};
+const INSCRIPTION_THEME = {
+  // weapon (16)
+  thousand_tempered: 'weapon', flint_temper: 'weapon', narrow_edge: 'weapon', sun_kissed: 'weapon',
+  dawnline: 'weapon', bright_inlay: 'weapon', scorched_line: 'weapon', steady_flame: 'weapon',
+  silverblood_inlay: 'weapon', phoenix_spark: 'weapon', thunder_inlay: 'weapon', dragon_spine: 'weapon',
+  emperor_mark: 'weapon', primordial_brand: 'weapon', celestial_core: 'weapon', ascendant_brand: 'weapon',
+  // guard (9)
+  iron_brand: 'guard', mountain_base: 'guard', woven_thread: 'guard', pebble_hold: 'guard',
+  cloudsteel_inlay: 'guard', tomb_steel: 'guard', sunforge_array: 'guard', worldtree_seal: 'guard',
+  immortal_aegis: 'guard',
+  // bulwark (7)
+  dust_tempering: 'bulwark', brittle_ward: 'bulwark', narrow_path: 'bulwark', midnight_seal: 'bulwark',
+  iron_lock: 'bulwark', void_cut_glyph: 'bulwark', void_sovereign: 'bulwark',
+  // qi (11)
+  meridian_clearing: 'qi', pill_nurtured: 'qi', breath_glyph: 'qi', cold_channel: 'qi',
+  meridian_seed: 'qi', thread_count: 'qi', shallow_well: 'qi', meridian_weave: 'qi',
+  water_eye_array: 'qi', nine_yang_rune: 'qi', nine_heavens_breath: 'qi',
+  // sustain (8)
+  bloodbond: 'sustain', heart_seed: 'sustain', rust_filigree: 'sustain', stitch_glyph: 'sustain',
+  red_thread: 'sustain', copper_lip: 'sustain', rattler_glyph: 'sustain', eternal_spring: 'sustain',
+  // posture (6)
+  jade_heart: 'posture', heaven_listening: 'posture', quick_etch: 'posture', binding_chord: 'posture',
+  brittle_jade: 'posture', pale_jade_array: 'posture',
+  // technique (5)
+  featherlight: 'technique', first_bell: 'technique', windcut_rune: 'technique',
+  starweave_inlay: 'technique', dao_heart_eternal: 'technique',
+  // strike (2)
+  sparrow_flash: 'strike', world_severing_edge: 'strike',
+  // insight (3)
+  golden_thread: 'insight', starsong_rune: 'insight', dao_resonant_seal: 'insight',
+  // spirit (2)
+  hollow_reed: 'spirit', heaven_veiled_array: 'spirit',
+  // (searing_rune / blooming_array / whisper_key_glyph / ghostbind_weave / tidewater_glyph /
+  //  forge_burn keep their school-qi-discount apply via the fallback — no theme.)
+};
+// Apply an inscription's flat + % + rarity riders into a mods object. Themed inscriptions use the
+// generic builder; the school-discount specials fall back to their bespoke apply().
+function applyInscriptionMods(mods, id) {
+  const ins = INSCRIPTIONS[id];
+  if (!ins) return;
+  const th = INSCRIPTION_THEMES[INSCRIPTION_THEME[id]];
+  if (!th) { if (ins.apply) ins.apply(mods); return; }
+  const scale = (INSCR_RARITY_SCALE[ins.rarity] || 1) * inscrRealmScale(inscriptionRealm(id));
+  if (th.flatCh) mods[th.flatCh] = (mods[th.flatCh] || 0) + Math.round(th.flatBase * scale);
+  const pct = th.pctBase * scale;
+  if (th.pctMode === 'mul') mods[th.pctCh] *= (1 + pct);
+  else if (th.pctMode === 'reduce') mods[th.pctCh] *= (1 - pct);
+  else mods[th.pctCh] = (mods[th.pctCh] || 0) + pct;   // 'add'
+  const n = INSCR_RIDER_COUNT[ins.rarity] || 0;
+  for (let i = 0; i < n; i++) {
+    const rk = th.riders[i];
+    if (rk && INSCR_RIDERS[rk]) INSCR_RIDERS[rk].apply(mods, inscriptionRealm(id));
+  }
+}
+// Human-readable effect string for an inscription (generated for themed; bespoke desc otherwise).
+function inscriptionDesc(id) {
+  const ins = INSCRIPTIONS[id];
+  if (!ins) return '';
+  const th = INSCRIPTION_THEMES[INSCRIPTION_THEME[id]];
+  if (!th) return ins.desc || '';
+  const scale = (INSCR_RARITY_SCALE[ins.rarity] || 1) * inscrRealmScale(inscriptionRealm(id));
+  const flat = Math.round(th.flatBase * scale);
+  const pct = Math.round(th.pctBase * scale * 100);
+  const parts = [`+${flat} ${CHANNEL_LABEL[th.flatCh] || th.flatCh}`];
+  parts.push(`${th.pctMode === 'reduce' ? '-' : '+'}${pct}% ${th.stat}`);
+  const n = INSCR_RIDER_COUNT[ins.rarity] || 0;
+  for (let i = 0; i < n; i++) { const rk = th.riders[i]; if (rk && INSCR_RIDERS[rk]) parts.push(INSCR_RIDERS[rk].label); }
+  return parts.join(', ') + '.';
+}
+
 function baseInscriptionMods() {
   return {
     weaponBonus: 0,
@@ -4075,8 +4184,7 @@ function baseInscriptionMods() {
 function computeMods(char) {
   const mods = baseInscriptionMods();
   (char.inscriptions.slotted || []).forEach(id => {
-    const ins = INSCRIPTIONS[id];
-    if (ins) ins.apply(mods);
+    applyInscriptionMods(mods, id);  // v1.2: flat + % + rarity riders (school specials fall back to bespoke apply)
   });
   applyArmorToMods(mods, char);
   applyArtifactsToMods(mods, char);
@@ -12170,8 +12278,7 @@ function unslotBodyInscription(idx) {
 }
 function applyBodyInscriptionsToMods(mods, char) {
   ((char && char.bodyInscriptions) || []).forEach(id => {
-    const ins = INSCRIPTIONS[id];
-    if (ins) ins.apply(mods);
+    applyInscriptionMods(mods, id);  // v1.2: flat + % + rarity riders (school specials fall back to bespoke apply)
   });
 }
 
@@ -13596,7 +13703,7 @@ function grantEnemyDefeatRewards(e) {
   pushLog('victory', `${e.name} falls.`);
   pushLog('flavor', enemyData.victoryText);
   pushLog('reward', `+${insight} insight gained.`);
-  if (drop) { const ins = INSCRIPTIONS[drop]; pushLog('reward', `Inscription found: ${ins.name} — ${ins.desc}`); }
+  if (drop) { const ins = INSCRIPTIONS[drop]; pushLog('reward', `Inscription found: ${ins.name} — ${inscriptionDesc(drop)}`); }
   if (weaponDrop) { const w = WEAPONS[weaponDrop]; pushLog('reward', `Weapon claimed: ${w.name} (power ${w.power}, ${w.slots} slots).`); }
   if (armorDrop) { const ar = ARMOR[armorDrop]; pushLog('reward', `Armor found: ${ar.name} (${ar.rarity}, ${ARMOR_SLOT_LABELS[ar.slot] || ar.slot}).`); }
   if (artifactDrop) { const af = ARTIFACTS[artifactDrop]; pushLog('reward', `Artifact recovered: ${af.name} — ${af.desc}`); }
@@ -14083,6 +14190,7 @@ function renderTabBar() {
   const tabs = [
     { id: 'self',     label: 'Loadout' },
     { id: 'skills',   label: 'Skills' },
+    { id: 'library',  label: 'Library' },
     { id: 'armor',    label: 'Armor' },
     { id: 'garden',   label: 'House' },
     { id: 'forge',    label: 'Forge' },
@@ -15098,21 +15206,23 @@ function renderCharSheet() {
     });
   });
 
-  // Library: discovered skill books
+  appendPanel(skP, 'skills');  // v1.1.1: Skills = tree + loadout + master; books live in Library now
+
+  // v1.1.1: Library tab — discovered skill books, split out of the Skills tab to declutter.
   const foundBooks = state.foundBooks || [];
-  const libraryHdr = document.createElement('div');
-  libraryHdr.className = 'skill-category-header';
-  libraryHdr.textContent = `Library (${foundBooks.length} discovered)`;
-  skP.appendChild(libraryHdr);
+  const libP = document.createElement('div');
+  libP.className = 'panel';
+  libP.innerHTML = `<h3>Library <span style="font-weight:normal;color:var(--ink-soft);font-size:0.85rem">书库</span></h3>
+    <p style="font-size:0.85rem;color:var(--ink-soft);margin:0 0 0.5rem">Skill books you have discovered (${foundBooks.length}). Learn one to make its effect permanent. The rarer the foe, the rarer the book it carries.</p>`;
   if (!foundBooks.length) {
     const empty = document.createElement('div');
-    empty.style.fontSize = '0.78rem';
-    empty.style.color = 'var(--ink-soft)';
-    empty.style.fontStyle = 'italic';
+    empty.style.cssText = 'font-size:0.85rem;color:var(--ink-soft);font-style:italic';
     empty.textContent = 'No skill books yet. Enemies sometimes carry them — the rarer the foe, the rarer the book.';
-    skP.appendChild(empty);
+    libP.appendChild(empty);
   } else {
-    foundBooks.forEach(bookId => {
+    foundBooks.slice().sort((a, b) =>  // v1.1.1: books sorted by rarity (common -> divine)
+      (RARITY_RANK[(SKILL_BOOKS[a] || {}).rarity] || 0) - (RARITY_RANK[(SKILL_BOOKS[b] || {}).rarity] || 0)
+    ).forEach(bookId => {
       const bk = SKILL_BOOKS[bookId];
       if (!bk) return;
       const canBuy = state.realm.insight >= bk.cost;
@@ -15143,11 +15253,10 @@ function renderCharSheet() {
       };
       right.appendChild(btn);
       node.appendChild(right);
-      skP.appendChild(node);
+      libP.appendChild(node);
     });
   }
-
-  appendPanel(skP, 'skills');
+  appendPanel(libP, 'library');
 
   // Artifact
   const artP = document.createElement('div');
@@ -15164,7 +15273,7 @@ function renderCharSheet() {
       const ins = INSCRIPTIONS[id];
       if (!ins) return;
       const row = document.createElement('div'); row.className = 'consumable-row';
-      row.innerHTML = `<div class="consumable-info"><div class="consumable-name">${ins.name} <span class="rarity-tag rarity-${ins.rarity}">${ins.rarity}</span> <span style="color:var(--crimson);font-size:0.72rem">carved</span></div><div class="consumable-desc">${ins.desc}</div></div>`;
+      row.innerHTML = `<div class="consumable-info"><div class="consumable-name">${ins.name} <span class="rarity-tag rarity-${ins.rarity}">${ins.rarity}</span> <span style="color:var(--crimson);font-size:0.72rem">carved</span></div><div class="consumable-desc">${inscriptionDesc(id)}</div></div>`;
       const btns = document.createElement('div'); btns.className = 'consumable-buttons';
       const ub = document.createElement('button'); ub.className = 'ghost'; ub.textContent = 'Cut Out';
       ub.onclick = () => { unslotBodyInscription(idx); render(); };
@@ -15187,7 +15296,7 @@ function renderCharSheet() {
         available.forEach(id => {
           const ins = INSCRIPTIONS[id];
           const row = document.createElement('div'); row.className = 'consumable-row';
-          row.innerHTML = `<div class="consumable-info"><div class="consumable-name">${ins.name} <span class="rarity-tag rarity-${ins.rarity}">${ins.rarity}</span></div><div class="consumable-desc">${ins.desc}</div></div>`;
+          row.innerHTML = `<div class="consumable-info"><div class="consumable-name">${ins.name} <span class="rarity-tag rarity-${ins.rarity}">${ins.rarity}</span></div><div class="consumable-desc">${inscriptionDesc(id)}</div></div>`;
           const btns = document.createElement('div'); btns.className = 'consumable-buttons';
           const cb = document.createElement('button'); cb.className = 'gold small'; cb.textContent = 'Carve (+10% lifespan use)';
           cb.onclick = () => { slotBodyInscription(id); render(); };
@@ -15231,9 +15340,9 @@ function renderCharSheet() {
       if (id) {
         const ins = INSCRIPTIONS[id];
         slot.className = 'slot filled tip';
-        slot.setAttribute('data-tip', ins.desc);
+        slot.setAttribute('data-tip', inscriptionDesc(id));
         slot.innerHTML = `<div class="inscription-name">${ins.name} <span class="rarity-tag rarity-${ins.rarity}">${ins.rarity}</span></div>
-          <div class="inscription-desc">${ins.desc}</div>
+          <div class="inscription-desc">${inscriptionDesc(id)}</div>
           <div style="font-size:0.7rem;color:var(--ink-soft);margin-top:0.1rem">click to unslot</div>`;
         slot.onclick = () => { unslotInscription(i); render(); };
       } else {
@@ -15255,9 +15364,9 @@ function renderCharSheet() {
       if (!ins) return;
       const item = document.createElement('div');
       item.className = 'owned-item tip' + (slotFull ? ' no-slot' : '');
-      item.setAttribute('data-tip', ins.desc);
+      item.setAttribute('data-tip', inscriptionDesc(id));
       item.innerHTML = `<div class="inscription-name">${ins.name} <span class="rarity-tag rarity-${ins.rarity}">${ins.rarity}</span></div>
-        <div class="inscription-desc">${ins.desc}</div>`;
+        <div class="inscription-desc">${inscriptionDesc(id)}</div>`;
       if (!slotFull) item.onclick = () => { slotInscription(id); render(); };
       ownedList.appendChild(item);
     });
