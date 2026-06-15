@@ -541,11 +541,11 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v1.7';
+const GAME_VERSION = 'v1.7.1';
 // v0.78: CI injects the build's short sha here; the APK shell reads it FROM THE RUNNING
 // PAGE (window.BUILD_SHA) and compares against the repo head — staleness detection that
-// cannot be fooled by cached metadata. 'fefcd61' = local/dev build (shell falls back).
-const BUILD_SHA = 'fefcd61';
+// cannot be fooled by cached metadata. 'c148f57' = local/dev build (shell falls back).
+const BUILD_SHA = 'c148f57';
 if (typeof window !== 'undefined') window.BUILD_SHA = BUILD_SHA;
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
@@ -14802,7 +14802,6 @@ function renderChildhood() {
       : '';
     card.innerHTML = `<div class="school-name">${beat.name}</div>
       <div class="heritage-flavor" style="margin:0.5rem 0">${beat.prose}</div>
-      ${beat.passive ? `<div class="heritage-mods" style="color:var(--gold);font-size:0.78rem;margin-top:0.2rem"><strong>Passive — ${beat.passive.label}</strong>: ${modSummary(beat.passive.mods)}</div>` : ''}
       ${extras.map(e => `<div class="heritage-mods" style="font-size:0.78rem;margin-top:0.2rem">${e}</div>`).join('')}
       ${fatalBadge}`;
     card.onclick = () => pickChildhoodBeat(stage, beatId);
@@ -15016,8 +15015,6 @@ function renderCreation() {
   // ---- v0.61: the Demonic Path choice ----
   const dP = document.createElement('div');
   dP.className = 'panel';
-  const demonForced = !!(SCHOOLS[state.selectedSchool] && SCHOOLS[state.selectedSchool].isDemon);
-  if (demonForced) state.demonic = true;
   const demonOn = !!state.demonic;
   const demonLore = state.selectedSchool && DEMONIC_SCHOOL_LORE[state.selectedSchool];
   const twistLine = (state.selectedSchool && DEMONIC_TWISTS[state.selectedSchool])
@@ -15032,9 +15029,10 @@ function renderCreation() {
   dBtnRow.style.marginTop = '0.5rem';
   const dBtn = document.createElement('button');
   dBtn.className = demonOn ? 'gold' : 'ghost';
-  dBtn.textContent = demonForced ? 'Demon Heart Palace IS the demonic path' : (demonOn ? 'Walking the Demonic Path' : 'Walk the Demonic Path');
-  dBtn.disabled = demonForced;
-  dBtn.onclick = () => { state.demonic = !state.demonic; render(); };
+  dBtn.textContent = demonOn ? 'Walking the Demonic Path' : 'Walk the Demonic Path';
+  // v1.7.1: no longer force-locked for Demon Heart (it only appears while demonic anyway). Toggling the
+  // path OFF while Demon Heart is selected de-selects it, since the school hides.
+  dBtn.onclick = () => { state.demonic = !state.demonic; if (!state.demonic && state.selectedSchool === 'demon_heart') state.selectedSchool = null; render(); };
   dBtnRow.appendChild(dBtn);
   dP.appendChild(dBtnRow);
   app.appendChild(dP);
