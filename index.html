@@ -541,11 +541,11 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v0.98';
+const GAME_VERSION = 'v0.99';
 // v0.78: CI injects the build's short sha here; the APK shell reads it FROM THE RUNNING
 // PAGE (window.BUILD_SHA) and compares against the repo head — staleness detection that
-// cannot be fooled by cached metadata. 'b901a4a' = local/dev build (shell falls back).
-const BUILD_SHA = 'b901a4a';
+// cannot be fooled by cached metadata. '7f3798f' = local/dev build (shell falls back).
+const BUILD_SHA = '7f3798f';
 if (typeof window !== 'undefined') window.BUILD_SHA = BUILD_SHA;
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
@@ -5839,16 +5839,69 @@ const BOSS_SIGNATURE_TECHS = {
     effect: 'burn', effectValue: 75, effectTurns: 3,
     logHit: (a,t) => `${a} shows ${t} the rehearsal of the first morning. It is too much light to survive politely.` }],
 };
+// v0.99: per-boss FINISHER — a dangerous payoff move (operator: bosses ran 2 fewer moves than the
+// player). The AI HOLDS it out of normal rotation and unleashes it when you're low (<=40% HP) or it
+// is enraged (<=33% HP) — so every boss fight has a threatening final phase. Values scale up the roster.
+const BOSS_FINISHER_TECHS = {
+  boar_king: ['withered_gore', { name: 'Withering Gore', qi: 16, cd: 4, damage: 3.6, postureBuild: 30, pierceQi: 0.2, finisher: true,
+    effect: 'bleed', effectValue: 12, effectTurns: 3,
+    logHit: (a,t) => `The whole withered wood leans into the tusk. ${t} is opened to the spine.` }],
+  kiln_mother: ['final_firing', { name: 'Final Firing', qi: 18, cd: 4, damage: 3.0, directHP: 18, finisher: true,
+    effect: 'burn', effectValue: 14, effectTurns: 3,
+    logHit: (a,t) => `${a} closes the kiln door — with ${t} inside. The glaze sets for good.` }],
+  fox_saint: ['ninth_mask', { name: 'The Ninth Mask', qi: 20, cd: 4, damage: 1.2, directSpirit: 28, finisher: true,
+    effect: 'chill', effectValue: 0.35, effectTurns: 2,
+    logHit: (a,t) => `She presses the mask to ${t}'s face. For one long breath, ${t} is her.` }],
+  mine_golem: ['gallery_collapse', { name: 'Gallery Collapse', qi: 20, cd: 4, damage: 3.8, postureBuild: 36, pierceQi: 0.45, finisher: true,
+    effect: 'sunder', effectValue: 0.15, effectTurns: 3,
+    logHit: (a,t) => `The whole gallery comes down where ${t} is standing. The mountain reclaims it.` }],
+  bell_abbot: ['tenth_toll', { name: 'The Tenth Toll', qi: 24, cd: 4, damage: 1.0, directSpirit: 32, finisher: true,
+    effect: 'resonance', effectValue: 28, effectTurns: 3,
+    logHit: (a,t) => `There is no tenth toll. ${a} rings it anyway — ${t}'s soul answers a bell that should not exist.` }],
+  tide_queen: ['high_water', { name: 'High Water', qi: 22, cd: 4, damage: 2.6, postureBuild: 18, finisher: true,
+    effect: 'entangle', effectValue: 28, effectTurns: 2,
+    logHit: (a,t) => `The cove inhales and the tide comes ALL the way in. ${t} is somewhere under it.` }],
+  cinder_abbot: ['sixty_year_pyre', { name: 'Sixty-Year Pyre', qi: 26, cd: 4, damage: 2.8, finisher: true,
+    effect: 'burn', effectValue: 40, effectTurns: 3,
+    logHit: (a,t) => `Sixty years of banked coals exhale at once. ${t} stands in the center of the garden.` }],
+  prison_warden: ['life_sentence', { name: 'Sentence: Life', qi: 26, cd: 4, damage: 2.4, postureBuild: 20, finisher: true,
+    effect: 'qi_cost_up', effectValue: 2.0, effectTurns: 3,
+    logHit: (a,t) => `${a} pronounces the long sentence. The jade closes over ${t}'s every meridian.` }],
+  vein_matriarch: ['river_overturns', { name: 'The River Turns Over', qi: 30, cd: 4, damage: 3.6, postureBuild: 36, finisher: true,
+    effect: 'bleed', effectValue: 50, effectTurns: 3,
+    logHit: (a,t) => `${a} turns the buried river fully over. The ground that was under ${t} is now above it.` }],
+  mirage_emperor: ['city_devours', { name: 'The City Devours', qi: 32, cd: 4, damage: 2.6, directSpirit: 30, finisher: true,
+    effect: 'chill', effectValue: 0.40, effectTurns: 2,
+    logHit: (a,t) => `Every mirrored street folds inward at once. The city eats ${t}, who watches from every window.` }],
+  war_court_lord: ['final_verdict', { name: 'Final Verdict', qi: 34, cd: 4, damage: 2.4, directSpirit: 36, finisher: true,
+    effect: 'resonance', effectValue: 45, effectTurns: 2,
+    logHit: (a,t) => `The bench rules. ${t}'s soul is found present on every count — and sentenced to keep appearing.` }],
+  moon_eater: ['devour_moon', { name: 'Devour the Moon', qi: 32, cd: 4, damage: 3.0, postureBuild: 20, finisher: true,
+    effect: 'qi_drain', effectValue: 70, effectTurns: 3,
+    logHit: (a,t) => `${a} swallows the moon whole, and ${t}'s qi goes with it — a silver thread pulled all the way out.` }],
+  heavenly_executioner: ['sentence_carried', { name: 'The Sentence, Carried Out', qi: 36, cd: 4, damage: 4.0, pierceQi: 0.4, finisher: true,
+    effect: 'sunder', effectValue: 0.15, effectTurns: 3,
+    logHit: (a,t) => `${a} reads the final clause and acts in the same breath. ${t}'s defense is ruled to have never existed.` }],
+  dawn_sovereign: ['first_morning', { name: 'The First Morning', qi: 40, cd: 4, damage: 3.4, directSpirit: 30, finisher: true,
+    effect: 'burn', effectValue: 100, effectTurns: 3,
+    logHit: (a,t) => `${a} shows ${t} the entire first dawn at once. There is no surviving that much beginning politely.` }],
+};
 Object.entries(BOSS_SIGNATURE_TECHS).forEach(([bid, [tid, def]]) => {
   ENEMY_TECHS[tid] = def;
   const E = ENEMIES[bid];
   if (!E) return;
-  E.techIds = [tid].concat(E.techIds);
-  // Re-point the AI at the LIVE techIds list (the factory closure captured the old array),
-  // signature first so the boss leads with its identity whenever it is off cooldown.
+  E.techIds = [tid].concat(E.techIds);   // signature first — the boss leads with its identity
+  // v0.99: append the finisher (registered for cooldown tracking, but HELD out of normal rotation).
+  const finPair = BOSS_FINISHER_TECHS[bid];
+  let fin = null;
+  if (finPair) { fin = finPair[0]; ENEMY_TECHS[fin] = finPair[1]; E.techIds = E.techIds.concat(fin); }
+  E._finisher = fin;
+  // Re-point the AI at the LIVE techIds list (the factory closure captured the old array).
   E.ai = (e, p) => {
     enemyTickCDs(e);
-    for (const t of E.techIds) if (enemyCanUse(e, t)) return enemyUseTech(e, p, t);
+    const desperate = (p.hp <= p.hpMax * 0.40) || (e.hp <= e.hpMax * 0.33);
+    if (fin && desperate && enemyCanUse(e, fin)) return enemyUseTech(e, p, fin);   // the dangerous payoff
+    for (const t of E.techIds) if (t !== fin && enemyCanUse(e, t)) return enemyUseTech(e, p, t);
     if (e.qi < 14) return enemyMeditate(e);
     return enemyBasicStrike(e, p);
   };
@@ -12538,6 +12591,8 @@ function buildEnemyCombat(enemyId) {
     effects: [],
     scale,
     flatDR: eliteFlatDR,
+    // v0.99: bosses get a qi barrier too (their qi soaks >1:1 before HP), scaling a little by tier.
+    qiShieldMult: enemyData.isBoss ? (1.3 + 0.05 * ((BOSSES[enemyId] && BOSSES[enemyId].tier) || 0)) : 1,
   };
 }
 
