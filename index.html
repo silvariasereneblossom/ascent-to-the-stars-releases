@@ -541,11 +541,11 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v1.0';
+const GAME_VERSION = 'v1.0.1';
 // v0.78: CI injects the build's short sha here; the APK shell reads it FROM THE RUNNING
 // PAGE (window.BUILD_SHA) and compares against the repo head — staleness detection that
-// cannot be fooled by cached metadata. 'ddd61ed' = local/dev build (shell falls back).
-const BUILD_SHA = 'ddd61ed';
+// cannot be fooled by cached metadata. '54259b4' = local/dev build (shell falls back).
+const BUILD_SHA = '54259b4';
 if (typeof window !== 'undefined') window.BUILD_SHA = BUILD_SHA;
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
@@ -5800,7 +5800,7 @@ const BOSS_SIGNATURE_TECHS = {
     effect: 'bleed', effectValue: 5, effectTurns: 3,
     logHit: (a,t) => `${a} charges — the tusk opens ${t} hip to rib, and the wound keeps arguing.` }],
   kiln_mother: ['glaze_fire', { name: 'Glaze-Fire Embrace', qi: 12, cd: 3, damage: 1.4, postureBuild: 10,
-    effect: 'burn', effectValue: 5, effectTurns: 3,
+    effect: 'burn', effectValue: 3, effectPctHp: 0.025, effectTurns: 3,
     logHit: (a,t) => `${a} embraces ${t} at firing temperature. The glaze takes.` }],
   fox_saint: ['nine_tail_beguile', { name: 'Nine-Tail Beguilement', qi: 14, cd: 3, damage: 0.8, directSpirit: 10, postureBuild: 8,
     effect: 'chill', effectValue: 0.25, effectTurns: 2,
@@ -5815,7 +5815,7 @@ const BOSS_SIGNATURE_TECHS = {
     effect: 'entangle', effectValue: 14, effectTurns: 2,
     logHit: (a,t) => `${a} crowns ${t} with standing brine — qi drains, and no breath can be gathered.` }],
   cinder_abbot: ['ember_garden', { name: 'Ember Garden', qi: 20, cd: 3, damage: 1.6, postureBuild: 10,
-    effect: 'burn', effectValue: 18, effectTurns: 3,
+    effect: 'burn', effectValue: 8, effectPctHp: 0.035, effectTurns: 3,
     logHit: (a,t) => `${a} scatters his garden of sixty-year coals over ${t}. They take root.` }],
   prison_warden: ['jade_cell', { name: 'Jade Cell', qi: 20, cd: 3, damage: 1.2, postureBuild: 12,
     effect: 'qi_cost_up', effectValue: 1.6, effectTurns: 3,
@@ -5836,7 +5836,7 @@ const BOSS_SIGNATURE_TECHS = {
     effect: 'sunder', effectValue: 0.10, effectTurns: 3,
     logHit: (a,t) => `${a} reads the first clause; ${t}'s defenses are ruled inadmissible.` }],
   dawn_sovereign: ['first_light_judgment', { name: "First Light's Judgment", qi: 34, cd: 3, damage: 1.8, directSpirit: 30, postureBuild: 14,
-    effect: 'burn', effectValue: 75, effectTurns: 3,
+    effect: 'burn', effectValue: 20, effectPctHp: 0.045, effectTurns: 3,
     logHit: (a,t) => `${a} shows ${t} the rehearsal of the first morning. It is too much light to survive politely.` }],
 };
 // v0.99: per-boss FINISHER — a dangerous payoff move (operator: bosses ran 2 fewer moves than the
@@ -5847,12 +5847,12 @@ const BOSS_FINISHER_TECHS = {
     effect: 'bleed', effectValue: 12, effectTurns: 3,
     logHit: (a,t) => `The whole withered wood leans into the tusk. ${t} is opened to the spine.` }],
   kiln_mother: ['final_firing', { name: 'Final Firing', qi: 18, cd: 4, damage: 3.0, directHP: 18, finisher: true,
-    effect: 'burn', effectValue: 14, effectTurns: 3,
+    effect: 'burn', effectValue: 6, effectPctHp: 0.04, effectPctQi: 0.10, effectTurns: 3,
     logHit: (a,t) => `${a} closes the kiln door — with ${t} inside. The glaze sets for good.` }],
   fox_saint: ['ninth_mask', { name: 'The Ninth Mask', qi: 20, cd: 4, damage: 1.2, directSpirit: 28, finisher: true,
     effect: 'chill', effectValue: 0.35, effectTurns: 2,
     logHit: (a,t) => `She presses the mask to ${t}'s face. For one long breath, ${t} is her.` }],
-  mine_golem: ['gallery_collapse', { name: 'Gallery Collapse', qi: 20, cd: 4, damage: 3.8, postureBuild: 36, pierceQi: 0.45, finisher: true,
+  mine_golem: ['gallery_collapse', { name: 'Gallery Collapse', qi: 20, cd: 4, damage: 3.6, postureBuild: 36, pierceQi: 0.30, finisher: true,
     effect: 'sunder', effectValue: 0.15, effectTurns: 3,
     logHit: (a,t) => `The whole gallery comes down where ${t} is standing. The mountain reclaims it.` }],
   bell_abbot: ['tenth_toll', { name: 'The Tenth Toll', qi: 24, cd: 4, damage: 1.0, directSpirit: 32, finisher: true,
@@ -5862,7 +5862,7 @@ const BOSS_FINISHER_TECHS = {
     effect: 'entangle', effectValue: 28, effectTurns: 2,
     logHit: (a,t) => `The cove inhales and the tide comes ALL the way in. ${t} is somewhere under it.` }],
   cinder_abbot: ['sixty_year_pyre', { name: 'Sixty-Year Pyre', qi: 26, cd: 4, damage: 2.8, finisher: true,
-    effect: 'burn', effectValue: 40, effectTurns: 3,
+    effect: 'burn', effectValue: 12, effectPctHp: 0.055, effectTurns: 3,
     logHit: (a,t) => `Sixty years of banked coals exhale at once. ${t} stands in the center of the garden.` }],
   prison_warden: ['life_sentence', { name: 'Sentence: Life', qi: 26, cd: 4, damage: 2.4, postureBuild: 20, finisher: true,
     effect: 'qi_cost_up', effectValue: 2.0, effectTurns: 3,
@@ -5879,22 +5879,22 @@ const BOSS_FINISHER_TECHS = {
   moon_eater: ['devour_moon', { name: 'Devour the Moon', qi: 32, cd: 4, damage: 3.0, postureBuild: 20, finisher: true,
     effect: 'qi_drain', effectValue: 70, effectTurns: 3,
     logHit: (a,t) => `${a} swallows the moon whole, and ${t}'s qi goes with it — a silver thread pulled all the way out.` }],
-  heavenly_executioner: ['sentence_carried', { name: 'The Sentence, Carried Out', qi: 36, cd: 4, damage: 4.0, pierceQi: 0.4, finisher: true,
+  heavenly_executioner: ['sentence_carried', { name: 'The Sentence, Carried Out', qi: 36, cd: 4, damage: 3.8, pierceQi: 0.26, finisher: true,
     effect: 'sunder', effectValue: 0.15, effectTurns: 3,
     logHit: (a,t) => `${a} reads the final clause and acts in the same breath. ${t}'s defense is ruled to have never existed.` }],
   dawn_sovereign: ['first_morning', { name: 'The First Morning', qi: 40, cd: 4, damage: 3.4, directSpirit: 30, finisher: true,
-    effect: 'burn', effectValue: 100, effectTurns: 3,
+    effect: 'burn', effectValue: 25, effectPctHp: 0.055, effectPctQi: 0.08, effectTurns: 3,
     logHit: (a,t) => `${a} shows ${t} the entire first dawn at once. There is no surviving that much beginning politely.` }],
   // v1.0: the demonic Conquest-of-Heaven gauntlet (these bosses have no signature — the finisher IS their
   // identity). The three largest payoffs in the game, escalating with the gate's three guardians.
-  ascended_vanguard: ['risen_edict', { name: 'Edict of the Risen', qi: 42, cd: 4, damage: 4.0, postureBuild: 32, pierceQi: 0.35, finisher: true,
+  ascended_vanguard: ['risen_edict', { name: 'Edict of the Risen', qi: 42, cd: 4, damage: 3.8, postureBuild: 32, pierceQi: 0.20, finisher: true,
     effect: 'sunder', effectValue: 0.15, effectTurns: 3,
     logHit: (a,t) => `Ten thousand risen blades fall in one formation. ${t} is struck from the rolls of the living, pending review.` }],
   ascended_arbiter: ['unfiled_verdict', { name: 'Verdict on the Unfiled', qi: 46, cd: 4, damage: 2.6, directSpirit: 40, finisher: true,
     effect: 'silence', effectValue: 0, effectTurns: 2,
     logHit: (a,t) => `${a} seals the court around ${t}. Appeals are noted, filed, and burned — the tongue struck from the record first.` }],
   ascended_sovereign: ['gate_answers', { name: 'The Gate Answers', qi: 50, cd: 4, damage: 4.5, directSpirit: 35, finisher: true,
-    effect: 'burn', effectValue: 150, effectTurns: 3,
+    effect: 'burn', effectValue: 30, effectPctHp: 0.07, effectPctQi: 0.15, effectTurns: 3,
     logHit: (a,t) => `${a} steps aside, and for one instant the gate of heaven answers in its own voice. ${t} hears the first word and the last.` }],
 };
 // v1.0: unified wiring over ALL bosses with a finisher (the 14 roster + the 3 ascended). Each gets its
@@ -13662,12 +13662,18 @@ function tickCombatantEffects(c, opts) {
   c.effects = c.effects.filter(ef => {
     if (ef.kind === 'qi_drain' || ef.kind === 'entangle') {
       const before = c.qi;
-      c.qi = Math.max(0, c.qi - ef.value);
+      // v1.0.1: drains can carry a % of MAX qi (flat value stays the floor for the common roster).
+      const drain = (ef.value || 0) + Math.round((ef.pctQi || 0) * (c.qiMax || 0));
+      c.qi = Math.max(0, c.qi - drain);
       if (before > c.qi) pushLog('hurt', `  → ${c.name} bleeds ${before - c.qi} qi to ${ef.name}.`);
     }
     if (ef.kind === 'burn' || ef.kind === 'poison' || ef.kind === 'bleed' || ef.kind === 'leech') {
       const before = c.hp;
-      c.hp = Math.max(0, c.hp - ef.value);
+      // v1.0.1: boss DOTs lean on % of MAX HP (flesh-burn that ignores the qi shield) so they
+      // stay threatening at high realms where a flat value rounds to nothing. Flat value is the
+      // floor for the common roster / player-applied burns (which carry no pct fields = pure flat).
+      const dmg = (ef.value || 0) + Math.round((ef.pctHp || 0) * (c.hpMax || 0));
+      c.hp = Math.max(0, c.hp - dmg);
       const lost = before - c.hp;
       if (lost > 0) {
         const label = (STATUS_INFO[ef.kind] && STATUS_INFO[ef.kind].label) || ef.kind;
@@ -13679,6 +13685,13 @@ function tickCombatantEffects(c, opts) {
           ht.hp = Math.min(ht.hpMax, ht.hp + lost);
           if (ht.hp > beforeHeal) pushLog('heal', `  → +${ht.hp - beforeHeal} hp drained through ${ef.name}.`);
         }
+      }
+      // v1.0.1: a burn carrying pctQi ALSO melts the qi shield itself — the dedicated anti-qi-tank
+      // counter. A tank can soak strikes, but the fire eats the shield it hides behind.
+      if (ef.pctQi) {
+        const qb = c.qi;
+        c.qi = Math.max(0, c.qi - Math.round(ef.pctQi * (c.qiMax || 0)));
+        if (qb > c.qi) pushLog('hurt', `  → ${c.name}'s qi shield burns down by ${qb - c.qi}.`);
       }
     }
     // v0.68 demonic hellfire: per-turn damage = stacks x 1% of MISSING health — an
@@ -13694,7 +13707,9 @@ function tickCombatantEffects(c, opts) {
     }
     if (ef.kind === 'resonance') {
       const before = c.spirit;
-      c.spirit = Math.max(0, c.spirit - ef.value);
+      // v1.0.1: resonance can carry a % of MAX spirit (flat value stays the floor).
+      const drain = (ef.value || 0) + Math.round((ef.pctSpirit || 0) * (c.spiritMax || 0));
+      c.spirit = Math.max(0, c.spirit - drain);
       if (before > c.spirit) {
         pushLog('hurt', `  → ${c.name}'s spirit frays by ${before - c.spirit} (${ef.name}).`);
         if (c.spirit <= 0 && before > 0) pushLog('posture', `  → ${c.name} is soul-broken! +30% damage taken.`);
@@ -13802,6 +13817,8 @@ function enemyUseTech(e, p, techId) {
     }
     p.effects.push({
       kind: tech.effect, value: tech.effectValue, turns, name: tech.name,
+      // v1.0.1: boss DOTs may carry %-of-max riders (HP / qi / spirit) so they scale with the realm.
+      pctHp: tech.effectPctHp || 0, pctQi: tech.effectPctQi || 0, pctSpirit: tech.effectPctSpirit || 0,
     });
     if (tech.effect === 'qi_drain') pushLog('flavor', `A glyph sticks to you, drinking your qi.`);
     if (tech.effect === 'bleed') pushLog('flavor', `The wound will not close on its own.`);
