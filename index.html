@@ -541,11 +541,11 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v0.96';
+const GAME_VERSION = 'v0.97';
 // v0.78: CI injects the build's short sha here; the APK shell reads it FROM THE RUNNING
 // PAGE (window.BUILD_SHA) and compares against the repo head — staleness detection that
-// cannot be fooled by cached metadata. '6d7ba8b' = local/dev build (shell falls back).
-const BUILD_SHA = '6d7ba8b';
+// cannot be fooled by cached metadata. 'a56a59b' = local/dev build (shell falls back).
+const BUILD_SHA = 'a56a59b';
 if (typeof window !== 'undefined') window.BUILD_SHA = BUILD_SHA;
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
@@ -9962,6 +9962,8 @@ function realmRunDifficulty(floor) {
 function enterRealmRun(slotKey) {
   const s = RUN_SLOTS[slotKey || 'realm'];
   if (s.demonicOnly && !state.demonic) return;
+  // v0.97: the righteous can't force a rift until Qi Condensation; the demonic get early access via the Warped gate.
+  if (!s.demonicOnly && !state.demonic && (state.realm.tierIdx || 0) < 1) return;
   if (!realmRunReady(slotKey) || state[s.field]) return;
   state[s.field] = { floor: 0, insight: 0, stones: 0, relics: [], wounds: 0, log: s.enterLog };
   saveChar(); render();
@@ -9975,7 +9977,7 @@ function realmRunDescend(slotKey) {
   const t = state.realm.tierIdx || 0;
   if (floor % 3 === 0) {
     // Safe treasure cache.
-    const ins = Math.round((30 + floor * 12) * (1 + t * 0.5));
+    const ins = Math.round((30 + floor * 12) * (1 + t * 0.5) * 0.5);   // v0.97: rift insight halved
     const st = 3 + floor + t * 2;
     run.insight += ins; run.stones += st;
     run.log = `Floor ${floor}: a quiet treasure vault — banked +${ins} insight, +${st} stones.`;
@@ -9986,7 +9988,7 @@ function realmRunDescend(slotKey) {
     const luck = (state.finalStats && state.finalStats.luck) || 0;
     const winChance = Math.max(0.1, Math.min(0.95, might / (might + diff) + luck * 0.01));
     if (Math.random() < winChance) {
-      const ins = Math.round((40 + floor * 16) * (1 + t * 0.5));
+      const ins = Math.round((40 + floor * 16) * (1 + t * 0.5) * 0.5);   // v0.97: rift insight halved
       const st = 4 + floor + t * 2;
       run.insight += ins; run.stones += st;
       run.log = `Floor ${floor}: you overcome the guardian — banked +${ins} insight, +${st} stones.`;
@@ -10005,7 +10007,7 @@ function realmRunDescend(slotKey) {
     const ids = Object.keys(ARTIFACTS);
     const relicId = ids[Math.floor(Math.random() * ids.length)];
     run.relics.push(relicId);
-    const bonus = Math.round((100 + floor * 40) * (1 + t * 0.5));
+    const bonus = Math.round((100 + floor * 40) * (1 + t * 0.5) * 0.5);   // v0.97: rift insight halved
     run.insight += bonus;
     run.log += ` An inheritance opens at the heart of floor ${floor}: <strong>${ARTIFACTS[relicId].name}</strong> + ${bonus} insight.`;
   }
@@ -11778,11 +11780,16 @@ function advanceInfo(char) {
     // up (~3.6x the old linear cost at QC L8). Rift REWARDS deliberately untouched.
     const linear = tier.insightPerLayer + char.realm.layer * (tier.insightPerLayerStep || 0);
     const compounding = tier.layers >= 9 ? 1.2 : tier.layers >= 5 ? 1.3 : 1.4;
-    const cost = Math.round(linear * Math.pow(compounding, char.realm.layer - 1));
+    // v0.97: insight costs were too low early — 4x at Mortal, tapering to 1.5x by Spirit Severing.
+    const icm = Math.max(1.5, 4 - (2.5 / 6) * (char.realm.tierIdx || 0));
+    const cost = Math.round(linear * Math.pow(compounding, char.realm.layer - 1) * icm);
     return { kind: 'within', cost, label: `${tier.name} Layer ${nextLayer}` };
   }
   const next = REALMS[char.realm.tierIdx + 1];
-  if (next) return { kind: 'breakthrough', cost: next.insightPerLayer, label: `Break into ${next.name}` };
+  if (next) {
+    const icm = Math.max(1.5, 4 - (2.5 / 6) * (char.realm.tierIdx || 0));
+    return { kind: 'breakthrough', cost: Math.round(next.insightPerLayer * icm), label: `Break into ${next.name}` };
+  }
   return null;
 }
 
@@ -13275,7 +13282,7 @@ function grantEnemyDefeatRewards(e) {
   const enemyData = ENEMIES[e.id];
   const hmVictory = heritageMech();
   const rewardScale = (e.scale && e.scale.reward) || 1;
-  const insight = Math.round(enemyData.insightReward * rewardScale * boonInsightMult() * skillCombatInsightMult() * (combat.player.mods.insightMult || 1) * ((SCHOOLS[state.selectedSchool] && SCHOOLS[state.selectedSchool].insightFromKillsMult) || 1) * (hmVictory.combatInsightMult || 1) * combatInsightMult(combat) * metaInsightMult() * (state.demonic ? 1.5 : 1));
+  const insight = Math.round(enemyData.insightReward * rewardScale * boonInsightMult() * skillCombatInsightMult() * (combat.player.mods.insightMult || 1) * ((SCHOOLS[state.selectedSchool] && SCHOOLS[state.selectedSchool].insightFromKillsMult) || 1) * (hmVictory.combatInsightMult || 1) * combatInsightMult(combat) * metaInsightMult() * (state.demonic ? 1.5 : 1) * 1.5);   // v0.97: +50% base combat insight (compounds through every multiplier above)
   addInsight(insight);
   state.sectKills = (state.sectKills || 0) + 1;  // Wave 2b: progress toward the sect hunt bounty
   // v0.92: slaying a cultivator of the OPPOSING path earns sect contribution (operator) — a demonic
@@ -16181,7 +16188,9 @@ function renderCharSheet() {
       srP.innerHTML = srHTML;
       const row = document.createElement('div'); row.className = 'button-row';
       const enter = document.createElement('button'); enter.className = 'gold';
-      if (srReady) { enter.textContent = `Enter the ${s.name}`; enter.onclick = () => enterRealmRun(slotKey); }
+      const rrLocked = !s.demonicOnly && !state.demonic && (state.realm.tierIdx || 0) < 1;  // v0.97: righteous gate until QC
+      if (rrLocked) { enter.textContent = 'Unlocks at Qi Condensation'; enter.disabled = true; }
+      else if (srReady) { enter.textContent = `Enter the ${s.name}`; enter.onclick = () => enterRealmRun(slotKey); }
       else { const mins = Math.max(1, Math.ceil((realmRunReadyAt(slotKey) - Date.now()) / 60000)); enter.textContent = `${slotKey === 'rift' ? 'Gate knitting shut' : 'Rift sealed'} (${mins}m)`; enter.disabled = true; }
       row.appendChild(enter); srP.appendChild(row);
     }
