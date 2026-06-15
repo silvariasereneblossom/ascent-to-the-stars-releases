@@ -541,11 +541,11 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v1.4';
+const GAME_VERSION = 'v1.5';
 // v0.78: CI injects the build's short sha here; the APK shell reads it FROM THE RUNNING
 // PAGE (window.BUILD_SHA) and compares against the repo head — staleness detection that
-// cannot be fooled by cached metadata. '8b0e15a' = local/dev build (shell falls back).
-const BUILD_SHA = '8b0e15a';
+// cannot be fooled by cached metadata. 'c84fdeb' = local/dev build (shell falls back).
+const BUILD_SHA = 'c84fdeb';
 if (typeof window !== 'undefined') window.BUILD_SHA = BUILD_SHA;
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
@@ -2136,7 +2136,7 @@ const SCHOOLS = {
     name: 'Demon Heart Palace', zh: '魔心殿',
     weapon: 'dark_saber',
     techniques: ['demon_reap','demon_devour','demon_seal','demon_ascendant','demon_parasite'],
-    specialty: 'PURE SINGLE-TARGET sustain. Hungry Dao returns 15% of all damage as your own HP (25% in its demonic form); Parasite Brand makes the wound itself feed you. This school IS the demonic path: faster cultivation, feast on the slain — and the heavens bar every single breakthrough.',
+    specialty: 'You do not merely walk the demonic path — you BECOME a demon. No cultivation at all (insight comes only from battle and the rift-gate) and no lifespan to spend, but 1.5x the demonic bonuses, a Hungry-Dao lifesteal on every hit, and hellfire that burns 1% of MAX health per stack. The price: tribulations twice as cruel, sect hunters always a realm above you (rarely two), and a mounting hunt that ends you if their defeats stack to the realm cap. Purge the hunt at your sect — at the cost of falling to the bottom of your realm.',
     bestStats: ['spirit','will'],
     flavor: 'High on a black stone plateau where no birds fly. The palace has no doors. Students arrive by conviction.',
     isDemon: true,
@@ -3542,6 +3542,14 @@ function schoolDisplay(sid, char) {
   return d ? { name: d.name, zh: d.zh, flavor: d.flavor } : { name: s.name, zh: s.zh, flavor: s.flavor };
 }
 function isDemonic(char) { return !!((char || state) && (char || state).demonic); }
+// v1.5: Demon Heart Palace LITERALLY becomes a demon — a transformation layered on top of the
+// demonic path (which is merely "cultivate with demonic qi"). isDemonHeart gates the demon-body
+// rules: no aging/lifespan cost, no passive cultivation, 1.5x demonic bonuses, hellfire off MAX hp,
+// 2x tribulations, +1-realm sect hunters with a lethal defeat counter, venture tribulation ambushes.
+function isDemonHeart(char) { const c = char || state; return !!(c && c.selectedSchool === 'demon_heart'); }
+// v1.5: per-realm cap on sect-hunter defeats before the hunt ends you (Demon Heart only).
+const DEMON_HEART_HUNTER_CAP = [40, 35, 30, 25, 20, 15, 10];
+function demonHeartHunterCap() { return DEMON_HEART_HUNTER_CAP[Math.min(6, (state.realm && state.realm.tierIdx) || 0)] || 10; }
 // v0.71: EVERY school's passive deepens with realm — the Starfall pattern (v0.51)
 // generalized. Steps: +1 at Golden Core, +1 at Nascent Soul. Demonic twists scale too
 // (they merge first, then the realm scaling applies on top).
@@ -10191,6 +10199,22 @@ function walkAStretch() {
   if (walkCooldownLeft() > 0) return;
   state.lastWalk = Date.now();
   const luck = (state.finalStats && state.finalStats.luck) || 0;
+  // v1.5: demon-heart — the heavens hunt you on the open road. 5% chance of a weakened (~75%) version
+  // of your realm's tribulation; a loss counts as a tribulation-streak loss (3 in a row kills).
+  if (isDemonHeart(state) && DEMON_TRIBS[state.realm.tierIdx] && Math.random() < 0.05) {
+    state.lastWalkResult = null;
+    initCombat(DEMON_TRIBS[state.realm.tierIdx]);
+    if (combat.enemies && combat.enemies[0]) {
+      const te = combat.enemies[0];
+      te.hpMax = Math.max(1, Math.round(te.hpMax * 0.75)); te.hp = te.hpMax;
+      te.weaponPower = Math.round((te.weaponPower || 0) * 0.75);
+    }
+    combat.tribulation = { kind: 'combat' };
+    combat.ventureTrib = true;
+    pushLog('posture', 'The heavens do not wait for your breakthrough — a tribulation falls upon you on the open road. Survive it.');
+    render();
+    return;
+  }
   if (Math.random() < walkAStretchCombatChance(luck)) {
     const enc = rollMarketEncounter();
     if (enc.length) { state.lastWalkResult = null; initCombat(enc); render(); return; }
@@ -11878,7 +11902,7 @@ function finalStats(st) {
       latent = mech.latentStatsTier.value;
     }
   }
-  const demonBonus = st.demonic ? 4 : 0;  // v0.68: +4 all (was +2) — the path must FEEL worth the heavens
+  const demonBonus = isDemonHeart(st) ? 6 : (st.demonic ? 4 : 0);  // v1.5: demon-heart = 1.5x the demonic +4
   STAT_KEYS.forEach(k => {
     const v = st.baseStats[k] + st.allocation[k] + (h[k] || 0) + latent + demonBonus + ((st.freeAlloc && st.freeAlloc[k]) || 0);
     out[k] = Math.max(10, v);   // v1.4: effective stats never below 10
@@ -12115,6 +12139,11 @@ function tryAdvanceRealm() {
     if (trib) {
       pendingTribulation = { targetTier: toTier, cost: info.cost };
       initCombat(trib.enemyId);
+      if (isDemonHeart(state) && combat.enemies && combat.enemies[0]) {   // v1.5: demon-heart breakthroughs are judged ~2x as hard
+        const te = combat.enemies[0];
+        te.hpMax = Math.round(te.hpMax * 2); te.hp = te.hpMax;
+        te.weaponPower = Math.round((te.weaponPower || 0) * 2);
+      }
       combat.tribulation = { kind: trib.kind, turns: trib.turns || 0 };
       if (trib.kind === 'survival') {
         pushLog('posture', `Survive ${trib.turns} turns. You cannot strike this trial.`);
@@ -12224,7 +12253,7 @@ function computeMaxHP(char) {
   const total = base + activeBuffValue('hp_max_add', 0) + boonHPAdd() + skillHPAdd() + (mods.hpBonus || 0) + metaHPAdd() + bodyQuenchHPAdd();
   // v0.89: hpMult (HP%) scales the whole pool — flat +HP and HP% on the same defensive
   // piece compound, the intended bulwark synergy. Demonic x1.2 stacks on top.
-  return Math.round(total * (mods.hpMult || 1) * (char.demonic ? 1.2 : 1));   // v0.68: demonic vitality x1.2
+  return Math.round(total * (mods.hpMult || 1) * (isDemonHeart(char) ? 1.3 : (char.demonic ? 1.2 : 1)));   // v1.5: demon-heart x1.3
 }
 // v0.98: ascension alone stops being enough — cultivation compounds per layer into qi (pool + barrier)
 // and a little damage. Survival becomes a qi-tank spine (~25% of the curve); GEAR carries the rest,
@@ -12316,6 +12345,7 @@ function bodyInscriptionSlots() {
 }
 function bodyInscriptions() { return (state && state.bodyInscriptions) || []; }
 function lifespanConsumptionMult() {
+  if (isDemonHeart(state)) return 0;   // v1.5: a demon neither ages nor spends lifespan (zeroes aging, defeat tolls, lifespan-cost pills)
   return 1 + 0.10 * bodyInscriptions().length;
 }
 function slotBodyInscription(id) {
@@ -12649,7 +12679,7 @@ function cultivationRate() {
   const foundation = state.foundationQuality || 1;
   // v0.68 IDENTITY FLIP (operator): the demonic dao feeds on SLAUGHTER, not stillness.
   // Raw cultivation runs at HALF pace; the killing economy (below) more than repays it.
-  const demonCult = state.demonic ? 0.5 : 1;
+  const demonCult = isDemonHeart(state) ? 0 : (state.demonic ? 0.5 : 1);   // v1.5: a demon does not sit and cultivate — insight from battle + rift only
   return (base + statBonus) * method.mult * locMult * realmMult * cultBuff * boonCultivationMult() * skillCultivationMult() * heritageCult * gearCult * rootGrade * foundation * sectRankMult() * metaCultMult() * demonCult;
 }
 
@@ -12776,7 +12806,9 @@ function rollEncounter(loc) {
   // enforcer of the player's realm instead (worth 3x insight). Demon grounds are safe;
   // the righteous do not venture there.
   if (state.demonic && !loc.demonOnly && Math.random() < HUNTER_AMBUSH_CHANCE) {
-    return ['righteous_hunter_t' + Math.min(6, state.realm.tierIdx || 0)];
+    let ht = state.realm.tierIdx || 0;
+    if (isDemonHeart(state)) { ht += 1; if (Math.random() < 0.02) ht += 1; }   // v1.5: demon-heart hunters are always +1 realm (2% chance +2)
+    return ['righteous_hunter_t' + Math.min(6, ht)];
   }
   const pool = loc.enemyPool || [];
   if (!pool.length) return [];
@@ -13238,7 +13270,7 @@ function applyPlayerOutgoingMods(p, dmg, target, ctx) {
   if (combat && combat.mightDamageBonus) dmg *= 1 + combat.mightDamageBonus;
   if (combat && combat.cultDmgMult) dmg *= combat.cultDmgMult;   // v0.98: cultivation damage growth (small)
   // v0.68: the demonic path hits 20% harder, full stop.
-  if (state.demonic) dmg *= 1.2;
+  if (isDemonHeart(state)) dmg *= 1.3; else if (state.demonic) dmg *= 1.2;   // v1.5: demon-heart x1.3
   // v0.64: chill now works ON the player too (enemies can inflict it).
   const pChill = (p.effects || []).find(ef => ef.kind === 'chill');
   if (pChill) dmg *= Math.max(0, 1 - pChill.value);
@@ -13789,6 +13821,11 @@ function checkDeath() {
     if (e.hp <= 0 && !e.defeated) {
       e.defeated = true;
       grantEnemyDefeatRewards(e);
+      // v1.5: a demon that kills its hunter pushes the hunt back (-2 on the lethal defeat counter).
+      if (isDemonHeart(state) && String(e.id || '').startsWith('righteous_hunter_t') && (state.demonHeartHunterDefeats || 0) > 0) {
+        state.demonHeartHunterDefeats = Math.max(0, state.demonHeartHunterDefeats - 2);
+        pushLog('reward', `  → The hunt recedes — hunter-defeats now ${state.demonHeartHunterDefeats}/${demonHeartHunterCap()}.`);
+      }
     }
   });
   // If primary target fell, advance to next alive enemy.
@@ -13813,6 +13850,8 @@ function checkDeath() {
       pendingTribulation = null;
       if (state.confirmed) state.finalStats = finalStats(state);
     }
+    // v1.5: surviving a roadside (venture) tribulation grants no breakthrough but clears the streak.
+    if (combat.ventureTrib && state.tribulationFails) { state.tribulationFails[combat.enemyId] = 0; pushLog('reward', 'You weather the roadside tribulation — the streak resets.'); }
 
     // v0.71: a stage of the Conquest of Heaven falls.
     if (combat.heavenConquest) {
@@ -13848,8 +13887,24 @@ function checkDeath() {
     const enemyData = ENEMIES[combat.enemyId];
     pushLog('defeat', `${p.name} collapses.`);
     pushLog('flavor', enemyData.defeatText);
-    if (combat.tribulation && pendingTribulation) {
+    if (combat.tribulation && (pendingTribulation || combat.ventureTrib)) {   // v1.5: roadside tribs count toward the 3-strike streak too
       handleTribulationFailure(combat.enemyId, p.name, enemyData);
+      return true;
+    }
+    // v1.5: demon-heart sect-hunter defeats are lethal by ACCUMULATION (per-realm cap), not the normal death roll.
+    if (isDemonHeart(state) && String(combat.enemyId || '').startsWith('righteous_hunter_t')) {
+      state.demonHeartHunterDefeats = (state.demonHeartHunterDefeats || 0) + 1;
+      const cap = demonHeartHunterCap();
+      if (state.demonHeartHunterDefeats >= cap) {
+        pushLog('defeat', `The hunt ends. Too many defeats this realm — the sects' blades finally find the heart.`);
+        saveChar();
+        setTimeout(() => dieRun('Run down by the righteous', `A demon is hunted until it is dead. ${p.name}'s defeats stacked past ${cap}, and the hunt closed for good.`, p.name), 0);
+        render();
+        return true;
+      }
+      pushLog('defeat', `You escape the hunter, branded. Hunter-defeats this realm: ${state.demonHeartHunterDefeats}/${cap} — slay them to push it back, or purify at your sect.`);
+      saveChar();
+      render();
       return true;
     }
     // v0.50: a (non-tribulation) defeat exacts a lifespan toll.
@@ -13970,9 +14025,10 @@ function tickCombatantEffects(c, opts) {
     // v0.68 demonic hellfire: per-turn damage = stacks x 1% of MISSING health — an
     // execute that accelerates as the wound deepens. Computed at tick time (dynamic).
     if (ef.kind === 'hellfire') {
-      const missing = Math.max(0, (c.hpMax || 0) - c.hp);
-      const burn = Math.max(1, Math.round(missing * 0.01 * (ef.stacks || 1)));
-      if (c.hp > 0 && missing > 0) {
+      // v1.5: Demon Heart's hellfire burns 1% of MAX hp/stack; others 1% of MISSING hp/stack.
+      const hfBase = isDemonHeart(state) ? (c.hpMax || 0) : Math.max(0, (c.hpMax || 0) - c.hp);
+      const burn = Math.max(1, Math.round(hfBase * 0.01 * (ef.stacks || 1)));
+      if (c.hp > 0 && hfBase > 0) {
         c.hp = Math.max(0, c.hp - burn);
         pushLog('hurt', `  → ${c.name} loses ${burn} hp to hellfire (x${ef.stacks || 1}).`);
         if (combat && c === combat.player) c.lastHpHit = Math.max(c.lastHpHit || 0, burn);
@@ -16627,6 +16683,31 @@ function renderCharSheet() {
     else { b.textContent = `Claim (${sw.contribCost.toLocaleString()})`; b.onclick = () => { buySectWeapon(wid); render(); }; }
     btns.appendChild(b); row.appendChild(btns); sectP.appendChild(row);
   });
+  // v1.5: Demon Heart — surface the lethal hunt + tribulation streak, and let the player PURGE both
+  // at the cost of falling to the bottom of the current realm (layer 1, this realm's insight reset).
+  if (isDemonHeart(state)) {
+    const dh = document.createElement('div');
+    dh.style.cssText = 'margin-top:0.6rem;border-top:1px solid rgba(192,96,96,0.3);padding-top:0.4rem';
+    const hunters = state.demonHeartHunterDefeats || 0;
+    const cap = demonHeartHunterCap();
+    const tribStreak = Math.max(0, ...Object.values(state.tribulationFails || {}));
+    dh.innerHTML = `<div style="font-size:0.85rem"><strong style="color:var(--crimson)">The Hunt</strong> <span style="color:var(--ink-soft);font-size:0.8rem">魔劫</span></div>
+      <div style="font-size:0.8rem;color:var(--ink-soft);margin:0.15rem 0">Sect-hunter defeats this realm: <strong style="color:${hunters >= cap - 3 ? 'var(--crimson)' : 'var(--gold)'}">${hunters}/${cap}</strong> — death at the cap; slay a hunter to drop it by 2. Tribulation streak: <strong>${tribStreak}/3</strong>.</div>`;
+    const pBtns = document.createElement('div'); pBtns.className = 'consumable-buttons';
+    const pb = document.createElement('button'); pb.className = 'ghost small';
+    pb.textContent = 'Purify the Heart — reset the hunt + streak (fall to layer 1)';
+    pb.onclick = () => {
+      if (!confirm("Purge the hunt and the tribulation streak — but you fall to the BOTTOM of your current realm (layer 1, this realm's insight lost). Proceed?")) return;
+      state.demonHeartHunterDefeats = 0;
+      state.tribulationFails = {};
+      state.realm.layer = 1;
+      state.realm.insight = 0;
+      if (state.confirmed) state.finalStats = finalStats(state);
+      saveChar();
+      render();
+    };
+    pBtns.appendChild(pb); dh.appendChild(pBtns); sectP.appendChild(dh);
+  }
   appendPanel(sectP, 'sect');
 
   // --- Wandering / Seek Opportunity (Wave 3a: the Fortune-stat payoff) ---
