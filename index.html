@@ -541,11 +541,11 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v1.2';
+const GAME_VERSION = 'v1.3';
 // v0.78: CI injects the build's short sha here; the APK shell reads it FROM THE RUNNING
 // PAGE (window.BUILD_SHA) and compares against the repo head — staleness detection that
-// cannot be fooled by cached metadata. '7aabb11' = local/dev build (shell falls back).
-const BUILD_SHA = '7aabb11';
+// cannot be fooled by cached metadata. 'd890883' = local/dev build (shell falls back).
+const BUILD_SHA = 'd890883';
 if (typeof window !== 'undefined') window.BUILD_SHA = BUILD_SHA;
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
@@ -4053,18 +4053,20 @@ const INSCRIPTION_THEMES = {
   spirit:    { flatCh: 'spiritBonus', flatBase: 1,  pctCh: 'spiritDamageMult', pctBase: 0.07, pctMode: 'mul',    stat: 'spirit damage',     riders: ['crit', 'ward', 'dodge'] },
 };
 // rider riders (additional effects by rarity). r = inscription home realm (mild scaling).
+// v1.3: riders take an optional scale s (default 1) so armor pieces can apply them dampened
+// (6 armor slots vs few inscription slots). Inscriptions pass (mods, realm) -> s defaults to 1.
 const INSCR_RIDERS = {
-  crit:        { apply: (m, r) => { m.critChance += 0.04 + r * 0.004; }, label: '+crit chance' },
-  lifesteal:   { apply: (m) => { m.lifestealPct += 0.04; }, label: '+lifesteal' },
-  firstStrike: { apply: (m) => { m.firstStrikeBonus += 0.12; }, label: '+first-strike damage' },
-  flatDR:      { apply: (m, r) => { m.flatDR += 2 + r; }, label: '+flat damage reduction' },
-  dodge:       { apply: (m) => { m.dodgeChance += 0.03; }, label: '+dodge chance' },
-  ward:        { apply: (m) => { m.incomingMult *= 0.96; }, label: '-incoming damage' },
-  lowHp:       { apply: (m) => { m.lowHpBonus += 0.10; }, label: '+damage while low' },
-  qiPool:      { apply: (m, r) => { m.qiBonus += 2 + r; }, label: '+max qi' },
-  qiOnKill:    { apply: (m, r) => { m.qiOnKill += 2 + r; }, label: '+qi on kill' },
-  ramp:        { apply: (m) => { m.perTurnRamp += 0.02; }, label: '+ramping damage' },
-  late:        { apply: (m) => { m.lateBonus += 0.06; }, label: '+late-fight damage' },
+  crit:        { apply: (m, r, s = 1) => { m.critChance += (0.04 + r * 0.004) * s; }, label: '+crit chance' },
+  lifesteal:   { apply: (m, r, s = 1) => { m.lifestealPct += 0.04 * s; }, label: '+lifesteal' },
+  firstStrike: { apply: (m, r, s = 1) => { m.firstStrikeBonus += 0.12 * s; }, label: '+first-strike damage' },
+  flatDR:      { apply: (m, r, s = 1) => { m.flatDR += Math.round((2 + r) * s); }, label: '+flat damage reduction' },
+  dodge:       { apply: (m, r, s = 1) => { m.dodgeChance += 0.03 * s; }, label: '+dodge chance' },
+  ward:        { apply: (m, r, s = 1) => { m.incomingMult *= (1 - 0.04 * s); }, label: '-incoming damage' },
+  lowHp:       { apply: (m, r, s = 1) => { m.lowHpBonus += 0.10 * s; }, label: '+damage while low' },
+  qiPool:      { apply: (m, r, s = 1) => { m.qiBonus += Math.round((2 + r) * s); }, label: '+max qi' },
+  qiOnKill:    { apply: (m, r, s = 1) => { m.qiOnKill += Math.round((2 + r) * s); }, label: '+qi on kill' },
+  ramp:        { apply: (m, r, s = 1) => { m.perTurnRamp += 0.02 * s; }, label: '+ramping damage' },
+  late:        { apply: (m, r, s = 1) => { m.lateBonus += 0.06 * s; }, label: '+late-fight damage' },
 };
 const INSCRIPTION_THEME = {
   // weapon (16)
@@ -8874,21 +8876,29 @@ function craftBossGear(bossId) {
 
 // Armor set bonuses: applied when the wearer has at least `pieces` from the set.
 const ARMOR_SETS = {
+  // v1.3: every 4-piece bonus now carries a UNIQUE effect on top of its flat stats. The two
+  // school-locked sets are DUAL — matched class gets the school bonus, any other class gets a
+  // strong universal effect instead (so the set is never dead weight on the "wrong" class).
   iron_disciple: {
     name: 'Iron Disciple', zh: '铁徒',
     bonuses: [
       { pieces: 2, desc: '+30 max HP', apply: m => { m.hpBonus += 30; } },
-      { pieces: 4, desc: '+80 max HP, −8% incoming damage', apply: m => { m.hpBonus += 80; m.incomingMult *= 0.92; } },
+      { pieces: 4, desc: '+80 max HP, -8% incoming; +8 flat DR, +10% damage while bloodied',
+        apply: m => { m.hpBonus += 80; m.incomingMult *= 0.92; m.flatDR += 8; m.lowHpBonus += 0.10; } },
     ],
   },
   azure_sage: {
     name: 'Azure Sage', zh: '青贤',
     bonuses: [
       { pieces: 2, desc: '+3 qi regen per turn', apply: m => { m.qiRegenBonus += 3; } },
-      { pieces: 4, desc: 'Sword-school techniques cost 15% less qi; +10% cultivation',
-        apply: m => {
-          m.schoolQiMult.azure_sword = (m.schoolQiMult.azure_sword || 1) * 0.85;
-          m.cultMult *= 1.1;
+      { pieces: 4, desc: 'Azure Sword: -15% sword-technique qi cost, +10% cultivation. Other schools: +10% cultivation, +4 qi regen, +5% crit',
+        apply: (m, char) => {
+          if (char && char.selectedSchool === 'azure_sword') {
+            m.schoolQiMult.azure_sword = (m.schoolQiMult.azure_sword || 1) * 0.85;
+            m.cultMult *= 1.1;
+          } else {
+            m.cultMult *= 1.1; m.qiRegenBonus += 4; m.critChance += 0.05;
+          }
         } },
     ],
   },
@@ -8896,11 +8906,15 @@ const ARMOR_SETS = {
     name: 'Crimson Flame', zh: '赤焰',
     bonuses: [
       { pieces: 2, desc: '+5% technique damage', apply: m => { m.techDamageMult *= 1.05; } },
-      { pieces: 4, desc: 'Crimson Flame techniques +20% damage; +5 weapon power',
-        apply: m => {
+      { pieces: 4, desc: 'Crimson Flame: +20% Crimson technique damage, +5 weapon power. Other schools: +5 weapon power, +12% strike damage, +6% lifesteal',
+        apply: (m, char) => {
           m.weaponBonus += 5;
-          m.schoolDamageMult = m.schoolDamageMult || {};
-          m.schoolDamageMult.crimson_flame = (m.schoolDamageMult.crimson_flame || 1) * 1.2;
+          if (char && char.selectedSchool === 'crimson_flame') {
+            m.schoolDamageMult = m.schoolDamageMult || {};
+            m.schoolDamageMult.crimson_flame = (m.schoolDamageMult.crimson_flame || 1) * 1.2;
+          } else {
+            m.strikeDamageMult *= 1.12; m.lifestealPct += 0.06;
+          }
         } },
     ],
   },
@@ -8908,30 +8922,32 @@ const ARMOR_SETS = {
     name: 'Ghost Silk', zh: '魂绡',
     bonuses: [
       { pieces: 2, desc: '+5 max spirit', apply: m => { m.spiritBonus += 5; } },
-      { pieces: 4, desc: 'Direct-spirit damage dealt +40%; +10% posture damage',
-        apply: m => { m.spiritDamageMult = (m.spiritDamageMult || 1) * 1.4; m.postureMult *= 1.1; } },
+      { pieces: 4, desc: 'Direct-spirit damage +40%, +10% posture; +5% dodge, +15% damage vs spirit foes',
+        apply: m => { m.spiritDamageMult = (m.spiritDamageMult || 1) * 1.4; m.postureMult *= 1.1; m.dodgeChance += 0.05; m.vsKindMult = m.vsKindMult || {}; m.vsKindMult.spirit = (m.vsKindMult.spirit || 0) + 0.15; } },
     ],
   },
   dragon_scale: {
     name: 'Dragon Scale', zh: '龙鳞',
     bonuses: [
       { pieces: 2, desc: '+100 max HP', apply: m => { m.hpBonus += 100; } },
-      { pieces: 4, desc: '+400 max HP, −15% incoming damage', apply: m => { m.hpBonus += 400; m.incomingMult *= 0.85; } },
+      { pieces: 4, desc: '+400 max HP, -15% incoming; +8% lifesteal, +10% damage vs beasts',
+        apply: m => { m.hpBonus += 400; m.incomingMult *= 0.85; m.lifestealPct += 0.08; m.vsKindMult = m.vsKindMult || {}; m.vsKindMult.beast = (m.vsKindMult.beast || 0) + 0.10; } },
     ],
   },
   nine_yang: {
     name: 'Nine Yang', zh: '九阳',
     bonuses: [
       { pieces: 2, desc: '+8 weapon power', apply: m => { m.weaponBonus += 8; } },
-      { pieces: 4, desc: '+20 weapon power, +10 qi regen per turn', apply: m => { m.weaponBonus += 20; m.qiRegenBonus += 10; } },
+      { pieces: 4, desc: '+20 weapon power, +10 qi regen; +4% crit, +2% damage per turn',
+        apply: m => { m.weaponBonus += 20; m.qiRegenBonus += 10; m.critChance += 0.04; m.perTurnRamp += 0.02; } },
     ],
   },
   starforged: {
     name: 'Starforged', zh: '星铸',
     bonuses: [
       { pieces: 2, desc: '+10 weapon power', apply: m => { m.weaponBonus += 10; } },
-      { pieces: 4, desc: '+50 weapon power, +300 max HP, +20% cultivation',
-        apply: m => { m.weaponBonus += 50; m.hpBonus += 300; m.cultMult *= 1.2; } },
+      { pieces: 4, desc: '+50 weapon power, +300 max HP, +20% cultivation; +6% crit, +10% opener damage',
+        apply: m => { m.weaponBonus += 50; m.hpBonus += 300; m.cultMult *= 1.2; m.critChance += 0.06; m.firstStrikeBonus += 0.10; } },
     ],
   },
 };
@@ -9448,20 +9464,63 @@ function equippedArmorIds(char) {
   return ARMOR_SLOTS.map(s => char.armor.equipped[s]).filter(Boolean);
 }
 
+// v1.3: armor mirrors the inscription FLAT + % + rarity-rider framework. Each piece keeps its
+// flat `mods`; on top we add a %-scaled bonus to its dominant stat + (for legendary/divine) a
+// rider, scaled by rarity x the piece's realm tier and DAMPENED (6 slots stack). Riders reuse
+// the inscription pool at ARMOR_RIDER_SCALE.
+const ARMOR_PCT_DAMPEN = 0.5;
+const ARMOR_PIECE_RIDERS = { common: 0, rare: 0, legendary: 1, divine: 2 };
+const ARMOR_RIDER_SCALE = 0.4;
+// Pick a theme (from the inscription theme table) by the piece's dominant stat.
+function armorThemeFor(p) {
+  const m = (p && p.mods) || {};
+  if ((m.weaponBonus || 0) >= 4 || (m.weaponMultFlat || 1) > 1) return 'weapon';
+  if ((m.techDamageMult || 1) > 1) return 'technique';
+  if ((m.strikeDamageMult || 1) > 1) return 'strike';
+  if ((m.spiritDamageMult || 1) > 1 || (m.spiritBonus || 0) >= 4) return 'spirit';
+  if ((m.incomingMult || 1) < 1 || (m.flatDR || 0) > 0) return 'bulwark';
+  if ((m.qiBonus || 0) >= 6 || (m.qiRegenBonus || 0) >= 2 || (m.meditateMult || 1) > 1) return 'qi';
+  return 'guard';
+}
+function applyArmorPieceScaling(mods, p, tier) {
+  const th = INSCRIPTION_THEMES[armorThemeFor(p)];
+  if (!th) return;
+  const scale = (INSCR_RARITY_SCALE[p.rarity] || 1) * inscrRealmScale(tier || 0);
+  const pct = th.pctBase * scale * ARMOR_PCT_DAMPEN;
+  if (th.pctMode === 'mul') mods[th.pctCh] *= (1 + pct);
+  else if (th.pctMode === 'reduce') mods[th.pctCh] *= (1 - pct);
+  else mods[th.pctCh] = (mods[th.pctCh] || 0) + pct;
+  const n = ARMOR_PIECE_RIDERS[p.rarity] || 0;
+  for (let i = 0; i < n; i++) { const rk = th.riders[i]; if (rk && INSCR_RIDERS[rk]) INSCR_RIDERS[rk].apply(mods, tier || 0, ARMOR_RIDER_SCALE); }
+}
+// Short UI string for a piece's % + rider scaling (the part NOT in modSummary(p.mods)).
+function armorScalingSummary(p, tier) {
+  const th = INSCRIPTION_THEMES[armorThemeFor(p)];
+  if (!th) return '';
+  const scale = (INSCR_RARITY_SCALE[p.rarity] || 1) * inscrRealmScale(tier || 0);
+  const pct = Math.round(th.pctBase * scale * ARMOR_PCT_DAMPEN * 100);
+  const parts = pct > 0 ? [`${th.pctMode === 'reduce' ? '-' : '+'}${pct}% ${th.stat}`] : [];
+  const n = ARMOR_PIECE_RIDERS[p.rarity] || 0;
+  for (let i = 0; i < n; i++) { const rk = th.riders[i]; if (rk && INSCR_RIDERS[rk]) parts.push(INSCR_RIDERS[rk].label); }
+  return parts.join(', ');
+}
 function applyArmorToMods(mods, char) {
-  // Apply each equipped piece's base mods, then set bonuses at thresholds.
+  // Apply each equipped piece's base flat mods + the v1.3 %/rider scaling, then set bonuses.
   const equipped = equippedArmorIds(char);
-  const pieces = equipped.map(id => ARMOR[id]).filter(Boolean);
-  pieces.forEach(p => {
+  equipped.forEach(id => {
+    const p = ARMOR[id];
+    if (!p) return;
     if (p.mods) mergeMods(mods, p.mods);
+    applyArmorPieceScaling(mods, p, armorTierOf(id));
   });
-  // Count pieces per set and apply set bonuses.
+  const pieces = equipped.map(id => ARMOR[id]).filter(Boolean);
+  // Count pieces per set and apply set bonuses (char passed for dual matched/off-class effects).
   const setCount = {};
   pieces.forEach(p => { if (p.set) setCount[p.set] = (setCount[p.set] || 0) + 1; });
   Object.entries(setCount).forEach(([setId, count]) => {
     const def = ARMOR_SETS[setId];
     if (!def) return;
-    def.bonuses.forEach(b => { if (count >= b.pieces) b.apply(mods); });
+    def.bonuses.forEach(b => { if (count >= b.pieces) b.apply(mods, char); });
   });
 }
 
@@ -15942,9 +16001,10 @@ function renderCharSheet() {
     } else if (equipped) {
       const p = ARMOR[equipped];
       const statsStr = modSummary(p.mods);
+      const scaleStr = armorScalingSummary(p, armorTierOf(equipped));
       const setStr = p.set ? ` · <em>${ARMOR_SETS[p.set].name} set</em>` : '';
       body += `<div style="margin-top:0.2rem;font-size:0.85rem"><strong>${p.name}</strong> <span class="rarity-tag rarity-${p.rarity}">${p.rarity}</span>${setStr}</div>`;
-      body += `<div style="font-size:0.78rem;color:var(--ink-soft);margin-top:0.15rem">${statsStr}</div>`;
+      body += `<div style="font-size:0.78rem;color:var(--ink-soft);margin-top:0.15rem">${statsStr}${scaleStr ? ` · <span style="color:var(--jade)">${scaleStr}</span>` : ''}</div>`;
     } else {
       body += `<div style="font-size:0.78rem;color:var(--ink-soft);margin-top:0.3rem"><em>Empty.</em></div>`;
     }
@@ -16008,11 +16068,12 @@ function renderCharSheet() {
       row.className = 'consumable-row tip';
       row.setAttribute('data-tip', p.desc);
       const statsStr = modSummary(p.mods);
+      const scaleStr = armorScalingSummary(p, armorTierOf(id));
       const setStr = p.set ? ` · ${ARMOR_SETS[p.set].name} set` : '';
       const info = document.createElement('div');
       info.style.flex = '1 1 55%';
       info.innerHTML = `<div class="consumable-name">${p.name} <span style="color:var(--ink-soft);font-weight:normal;font-size:0.8rem">${p.zh}</span> <span class="rarity-tag rarity-${p.rarity}">${p.rarity}</span></div>
-        <div class="consumable-desc">${ARMOR_SLOT_LABELS[p.slot] || p.slot}${setStr}<br>${statsStr}</div>`;
+        <div class="consumable-desc">${ARMOR_SLOT_LABELS[p.slot] || p.slot}${setStr}<br>${statsStr}${scaleStr ? ` · ${scaleStr}` : ''}</div>`;
       row.appendChild(info);
       const btns = document.createElement('div');
       btns.className = 'plot-buttons';
