@@ -541,11 +541,11 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v0.99';
+const GAME_VERSION = 'v1.0';
 // v0.78: CI injects the build's short sha here; the APK shell reads it FROM THE RUNNING
 // PAGE (window.BUILD_SHA) and compares against the repo head — staleness detection that
-// cannot be fooled by cached metadata. '7f3798f' = local/dev build (shell falls back).
-const BUILD_SHA = '7f3798f';
+// cannot be fooled by cached metadata. 'ddd61ed' = local/dev build (shell falls back).
+const BUILD_SHA = 'ddd61ed';
 if (typeof window !== 'undefined') window.BUILD_SHA = BUILD_SHA;
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
@@ -5318,7 +5318,7 @@ const ENEMY_ARCH_MULT = {
 // already lazy-tries techs, the loop just preserves the listed priority).
 function mkEnemy(id, d) {
   ENEMIES[id] = {
-    id, name: d.name, zh: d.zh,
+    id, name: d.name, zh: d.zh, tier: d.tier,
     hpMax: 0, qiMax: 0, spiritMax: 0, postureMax: 0, weaponPower: 0, insightReward: 0,
     techIds: d.techIds.slice(),
     drops: d.drops || [],
@@ -5885,22 +5885,34 @@ const BOSS_FINISHER_TECHS = {
   dawn_sovereign: ['first_morning', { name: 'The First Morning', qi: 40, cd: 4, damage: 3.4, directSpirit: 30, finisher: true,
     effect: 'burn', effectValue: 100, effectTurns: 3,
     logHit: (a,t) => `${a} shows ${t} the entire first dawn at once. There is no surviving that much beginning politely.` }],
+  // v1.0: the demonic Conquest-of-Heaven gauntlet (these bosses have no signature — the finisher IS their
+  // identity). The three largest payoffs in the game, escalating with the gate's three guardians.
+  ascended_vanguard: ['risen_edict', { name: 'Edict of the Risen', qi: 42, cd: 4, damage: 4.0, postureBuild: 32, pierceQi: 0.35, finisher: true,
+    effect: 'sunder', effectValue: 0.15, effectTurns: 3,
+    logHit: (a,t) => `Ten thousand risen blades fall in one formation. ${t} is struck from the rolls of the living, pending review.` }],
+  ascended_arbiter: ['unfiled_verdict', { name: 'Verdict on the Unfiled', qi: 46, cd: 4, damage: 2.6, directSpirit: 40, finisher: true,
+    effect: 'silence', effectValue: 0, effectTurns: 2,
+    logHit: (a,t) => `${a} seals the court around ${t}. Appeals are noted, filed, and burned — the tongue struck from the record first.` }],
+  ascended_sovereign: ['gate_answers', { name: 'The Gate Answers', qi: 50, cd: 4, damage: 4.5, directSpirit: 35, finisher: true,
+    effect: 'burn', effectValue: 150, effectTurns: 3,
+    logHit: (a,t) => `${a} steps aside, and for one instant the gate of heaven answers in its own voice. ${t} hears the first word and the last.` }],
 };
-Object.entries(BOSS_SIGNATURE_TECHS).forEach(([bid, [tid, def]]) => {
-  ENEMY_TECHS[tid] = def;
+// v1.0: unified wiring over ALL bosses with a finisher (the 14 roster + the 3 ascended). Each gets its
+// optional signature prepended (the ascended have none) and its finisher appended — registered for
+// cooldown tracking but HELD out of normal rotation, fired only when the fight turns desperate.
+Object.keys(BOSS_FINISHER_TECHS).forEach((bid) => {
   const E = ENEMIES[bid];
   if (!E) return;
-  E.techIds = [tid].concat(E.techIds);   // signature first — the boss leads with its identity
-  // v0.99: append the finisher (registered for cooldown tracking, but HELD out of normal rotation).
-  const finPair = BOSS_FINISHER_TECHS[bid];
-  let fin = null;
-  if (finPair) { fin = finPair[0]; ENEMY_TECHS[fin] = finPair[1]; E.techIds = E.techIds.concat(fin); }
+  const sig = BOSS_SIGNATURE_TECHS[bid];
+  if (sig) { ENEMY_TECHS[sig[0]] = sig[1]; E.techIds = [sig[0]].concat(E.techIds); }   // signature leads
+  const fin = BOSS_FINISHER_TECHS[bid][0];
+  ENEMY_TECHS[fin] = BOSS_FINISHER_TECHS[bid][1];
+  E.techIds = E.techIds.concat(fin);
   E._finisher = fin;
-  // Re-point the AI at the LIVE techIds list (the factory closure captured the old array).
   E.ai = (e, p) => {
     enemyTickCDs(e);
     const desperate = (p.hp <= p.hpMax * 0.40) || (e.hp <= e.hpMax * 0.33);
-    if (fin && desperate && enemyCanUse(e, fin)) return enemyUseTech(e, p, fin);   // the dangerous payoff
+    if (desperate && enemyCanUse(e, fin)) return enemyUseTech(e, p, fin);   // the dangerous payoff
     for (const t of E.techIds) if (t !== fin && enemyCanUse(e, t)) return enemyUseTech(e, p, t);
     if (e.qi < 14) return enemyMeditate(e);
     return enemyBasicStrike(e, p);
@@ -12592,7 +12604,7 @@ function buildEnemyCombat(enemyId) {
     scale,
     flatDR: eliteFlatDR,
     // v0.99: bosses get a qi barrier too (their qi soaks >1:1 before HP), scaling a little by tier.
-    qiShieldMult: enemyData.isBoss ? (1.3 + 0.05 * ((BOSSES[enemyId] && BOSSES[enemyId].tier) || 0)) : 1,
+    qiShieldMult: enemyData.isBoss ? (1.3 + 0.05 * (enemyData.tier || 0)) : 1,
   };
 }
 
