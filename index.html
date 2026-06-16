@@ -541,11 +541,11 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v1.11';
+const GAME_VERSION = 'v1.12';
 // v0.78: CI injects the build's short sha here; the APK shell reads it FROM THE RUNNING
 // PAGE (window.BUILD_SHA) and compares against the repo head — staleness detection that
-// cannot be fooled by cached metadata. '7cd0ee8' = local/dev build (shell falls back).
-const BUILD_SHA = '7cd0ee8';
+// cannot be fooled by cached metadata. '479f90f' = local/dev build (shell falls back).
+const BUILD_SHA = '479f90f';
 if (typeof window !== 'undefined') window.BUILD_SHA = BUILD_SHA;
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
@@ -10607,11 +10607,75 @@ const ARRAYS = {
     cost: { spirit_stone: 80, dragon_scale: 20, dao_crystal: 5, ascension_feather: 1 },
     mods: { cultMult: 1.50, insightMult: 1.20 }, minTier: 5,
   },
+  // ---- v1.12: array expansion — fill the build-direction gaps (defense, evasion, opener,
+  // spirit, technique, crit-damage, glass-cannon) across the realm tiers, plus a divine capstone. ----
+  qi_reservoir: {
+    name: 'Qi-Reservoir Array', zh: '蓄气阵',
+    desc: 'Concentric channels that hold a deeper breath of qi. +25 max qi — a bigger barrier to spend.',
+    cost: { spirit_iron: 6, spirit_stone: 4 },
+    mods: { qiBonus: 25 }, minTier: 0,
+  },
+  ward_stone_circle: {
+    name: 'Ward-Stone Circle', zh: '护石圈',
+    desc: 'A ring of squat warding stones that drink the edge off every blow. -6 flat damage taken.',
+    cost: { spirit_iron: 8, spirit_stone: 6 },
+    mods: { flatDR: 6 }, minTier: 1,
+  },
+  vanguard_glyph: {
+    name: 'Vanguard Glyph', zh: '先锋阵',
+    desc: 'A forward-pointed glyph that rewards the opening move. +15% first-strike damage.',
+    cost: { star_iron: 2, beast_sinew: 4, spirit_stone: 8 },
+    mods: { firstStrikeBonus: 0.15 }, minTier: 2,
+  },
+  mist_step_array: {
+    name: 'Mist-Step Array', zh: '雾步阵',
+    desc: 'Glyph-fog that blurs your footing to the enemy eye. +4% dodge chance.',
+    cost: { cloud_silk: 4, moonshadow_silk: 2, spirit_stone: 10 },
+    mods: { dodgeChance: 0.04 }, minTier: 2,
+  },
+  soul_resonance_array: {
+    name: 'Soul-Resonance Array', zh: '共魂阵',
+    desc: 'Tuned bone-chimes that make the soul ring under your strikes. +12% spirit damage and +4 spirit.',
+    cost: { ghost_bone: 4, soul_ember: 2, spirit_stone: 12 },
+    mods: { spiritDamageMult: 1.12, spiritBonus: 4 }, minTier: 3,
+  },
+  scholars_lattice: {
+    name: "Scholar's Lattice", zh: '文心阵',
+    desc: 'An inked lattice that sharpens intent into technique. +10% technique damage.',
+    cost: { spirit_pearl: 2, moonshadow_silk: 2, spirit_stone: 12 },
+    mods: { techDamageMult: 1.10 }, minTier: 3,
+  },
+  keen_edge_array: {
+    name: 'Keen-Edge Array', zh: '锋锐阵',
+    desc: 'A whetting-circle that hones the killing angle. +3% crit chance and +15% crit damage.',
+    cost: { star_iron: 3, thunder_shard: 1, spirit_stone: 12 },
+    mods: { critChance: 0.03, critMult: 0.15 }, minTier: 3,
+  },
+  bulwark_mandala: {
+    name: 'Bulwark Mandala', zh: '壁垒阵',
+    desc: 'A layered mandala of standing wards. All incoming damage reduced 8%.',
+    cost: { primordial_stone: 1, star_iron: 4, spirit_stone: 20 },
+    mods: { incomingMult: 0.92 }, minTier: 4,
+  },
+  cornered_beast_array: {
+    name: 'Cornered-Beast Array', zh: '困兽阵',
+    desc: 'A glyph that feeds on desperation — the lower your blood, the harder you bite. +12% damage while bloodied.',
+    cost: { demon_core_shard: 1, abyssal_ash: 4, spirit_stone: 18 },
+    mods: { lowHpBonus: 0.12 }, minTier: 4,
+  },
+  heaven_aligned_array: {
+    name: 'Heaven-Aligned Grand Array', zh: '合天大阵',
+    desc: 'A grand array drawn to the turning of the sky itself. +8% strike and technique damage, and -10 flat damage taken.',
+    cost: { dao_crystal: 2, heaven_silver: 2, spirit_stone: 60 },
+    mods: { strikeDamageMult: 1.08, techDamageMult: 1.08, flatDR: 10 }, minTier: 6,
+  },
 };
 
 function arrayCapacity(char) {
   if (!char || !char.realm) return 2;
-  return 2 + (char.realm.tierIdx || 0);
+  // v1.12: +1 slot every SECOND realm (Mortal/Qi-Cond 2, Foundation/Core-Formation 3,
+  // Golden-Core/Nascent-Soul 4, Spirit Severing 5). Was +1 every realm (capped 8).
+  return 2 + Math.floor((char.realm.tierIdx || 0) / 2);
 }
 
 function activeArrays(char) {
