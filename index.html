@@ -541,11 +541,11 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v1.8';
+const GAME_VERSION = 'v1.9';
 // v0.78: CI injects the build's short sha here; the APK shell reads it FROM THE RUNNING
 // PAGE (window.BUILD_SHA) and compares against the repo head — staleness detection that
-// cannot be fooled by cached metadata. '1e8e857' = local/dev build (shell falls back).
-const BUILD_SHA = '1e8e857';
+// cannot be fooled by cached metadata. 'c87bcde' = local/dev build (shell falls back).
+const BUILD_SHA = 'c87bcde';
 if (typeof window !== 'undefined') window.BUILD_SHA = BUILD_SHA;
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
@@ -2834,6 +2834,17 @@ const EXPANSION_TECHS = {
     effect: 'leech', effectPower: 0.50, effectTurns: 3,
     desc: 'The appetite that outlives realms: tears through qi shields, devours any Hellfire for bonus damage, and sinks a deep half-power Leech. SS capstone.',
     logHit: (a,t) => `${a} opens a hunger the size of a missing world. ${t} tilts toward it.` },
+  // v1.9: the SOUL-BREAK path — drive the enemy's spirit to 0 (soul-break = +30% damage taken) and drink it.
+  demon_soul_rend: {
+    name: 'Soul-Rending Claw', zh: '裂魂爪', school: 'demon_heart', minRealmTier: 3,
+    qi: 16, cd: 2, damage: 1.2, directSpirit: 26, postureBuild: 12,
+    effect: 'leech', effectPower: 0.25, effectTurns: 2,
+    desc: "A claw that rakes the SOUL, not the flesh: heavy Spirit damage to break the enemy's spirit (soul-break = +30% damage taken), plus a Leech.",
+    logHit: (a,t) => `${a}'s talons pass through ${t}'s guard and close on something that was never flesh.` },
+  demon_p_soul_eater: {
+    name: "Soul-Eater's Marrow", zh: '食魂髓', school: 'demon_heart', minRealmTier: 5, passive: true,
+    applyMods: m => { m.spiritDamageMult *= 1.4; m.lifestealPct += 0.05; },
+    desc: 'PASSIVE. The soul is the sweeter meat: +40% Spirit damage (break souls faster) and +5% lifesteal.' },
 
   // ============ Starfall Archers — the sky keeps appointments ============
   star_arrow_named: {
@@ -3433,7 +3444,7 @@ const SCHOOL_KITS = {
   },
   demon_heart: {
     passiveName: 'Hungry Dao', passiveZh: '饥道',
-    passiveDesc: '15% of all damage you deal returns to you as HP.',
+    passiveDesc: 'A share of all damage you deal returns as HP. You take +10% damage and burn 5% of your HP each turn — but you strike 15% harder while bloodied. Live on the edge; drink your way back to full.',
     lifestealBonus: 0.15,
   },
   starfall: {
@@ -4316,7 +4327,8 @@ function computeMods(char) {
   applyPassiveTechsToMods(mods, char);       // v0.88: learned passive techniques (mods half)
   applyOriginPassivesToMods(mods, char);      // v1.7: heritage + childhood life-origin passives
   // v1.8: the demon body trades defense for hunger — takes 10% more damage, deals 10% less posture.
-  if (isDemonHeart(char)) { mods.incomingMult *= 1.10; mods.postureMult *= 0.90; }
+  // v1.8: trades defense for hunger (-10% DR, -10% posture); v1.9: living on the edge = +15% damage while bloodied (glass-cannon payoff).
+  if (isDemonHeart(char)) { mods.incomingMult *= 1.10; mods.postureMult *= 0.90; mods.lowHpBonus += 0.15; }
   return mods;
 }
 
