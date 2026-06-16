@@ -541,11 +541,11 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v1.7.1';
+const GAME_VERSION = 'v1.7.2';
 // v0.78: CI injects the build's short sha here; the APK shell reads it FROM THE RUNNING
 // PAGE (window.BUILD_SHA) and compares against the repo head — staleness detection that
-// cannot be fooled by cached metadata. 'c148f57' = local/dev build (shell falls back).
-const BUILD_SHA = 'c148f57';
+// cannot be fooled by cached metadata. '13e8cc6' = local/dev build (shell falls back).
+const BUILD_SHA = '13e8cc6';
 if (typeof window !== 'undefined') window.BUILD_SHA = BUILD_SHA;
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
@@ -10285,23 +10285,8 @@ const WALK_EVENT_IDS = new Set(['stones', 'materials', 'insight', 'herbs', 'spri
 function walkAStretchCombatChance(luck) { return Math.max(0, (16 - luck) / 16) * 0.5; }  // 50% @ Fortune 0, 0% @ 16+
 const WALK_CD_MS = 5 * 60 * 1000;   // v0.65: operator-set 5-minute cooldown
 function walkCooldownLeft() { return Math.max(0, ((state.lastWalk || 0) + WALK_CD_MS) - Date.now()); }
-// v1.6: "Venture with Demonic Qi" (demonic cultivators only) — spend qi on a harder, richer road: foes are
-// 50% tougher and insight runs +50%, and NO tribulation/sect-hunter ambushes appear (a safer option) — but
-// a DEFEAT tears insight back out of you.
-function walkAStretchDemonicQi() {
-  if (!state.demonic || walkCooldownLeft() > 0) return;
-  state.lastWalk = Date.now();
-  const enc = rollMarketEncounter();
-  if (!enc.length) { state.lastWalkResult = 'The road is empty — no qi to spill.'; saveChar(); render(); return; }
-  state.lastWalkResult = null;
-  initCombat(enc);
-  if (combat && combat.enemies) {
-    combat.enemies.forEach(e => { e.hpMax = Math.round((e.hpMax || 1) * 1.5); e.hp = e.hpMax; e.weaponPower = Math.round((e.weaponPower || 0) * 1.5); });
-  }
-  if (combat) combat.demonicQiVenture = true;
-  pushLog('flavor', 'You walk the road wrapped in demonic qi — the foes hit harder and the spoils run richer, and the heavens look elsewhere. But fall here, and the qi tears insight back out of you.');
-  render();
-}
+// v1.7.2: the demonic-qi venture moved off the Open Road and onto the existing DEMONIC GROUNDS (demonOnly
+// locations) in Journeys — venturing there sets combat.demonicQiVenture (see the Venture button).
 function walkAStretch() {
   if (walkCooldownLeft() > 0) return;
   state.lastWalk = Date.now();
@@ -16348,6 +16333,7 @@ function renderCharSheet() {
       <div class="location-desc">${loc.desc}</div>
       <div style="font-size:0.8rem;color:var(--ink-soft);margin-top:0.3rem">You may meet: ${enemies}</div>
       <div style="font-size:0.78rem;color:var(--ink-soft);margin-top:0.15rem">Cultivation multiplier: ×${cultMult.toFixed(1)}</div>
+      ${loc.demonOnly ? `<div style="font-size:0.78rem;color:#c06;margin-top:0.15rem"><strong>Demonic Qi venture:</strong> foes +50%, insight +50%, no tribulation/hunter ambush — but a defeat costs 10% of this realm's insight.</div>` : ''}
       ${reqHTML}
       <div class="location-actions" id="actions-${loc.id}"></div>`;
     locP.appendChild(card);
@@ -16357,7 +16343,16 @@ function renderCharSheet() {
       venture.textContent = 'Venture';
       venture.onclick = () => {
         initCombat(rollEncounter(loc), loc.cultivationMult || 1);
-        if (combat) combat.ventureLocId = loc.id;  // v0.55: lets auto-combat loop back into this same Venture
+        if (combat) {
+          combat.ventureLocId = loc.id;  // v0.55: lets auto-combat loop back into this same Venture
+          // v1.7.2: a DEMONIC GROUND is the demonic-qi venture — +50% foes, +50% insight, no
+          // tribulation/hunter ambush (already hunter-safe), but a defeat tears 10% of this realm's insight back out.
+          if (loc.demonOnly) {
+            combat.demonicQiVenture = true;
+            combat.enemies.forEach(e => { e.hpMax = Math.round((e.hpMax || 1) * 1.5); e.hp = e.hpMax; e.weaponPower = Math.round((e.weaponPower || 0) * 1.5); });
+            pushLog('flavor', 'You step onto demonic ground, qi running hot — the foes are fiercer and the spoils richer, and no righteous hunter dares follow. But fall here, and the qi tears insight back out of you.');
+          }
+        }
         render();
       };
       actions.appendChild(venture);
@@ -16669,8 +16664,7 @@ function renderCharSheet() {
   roadP.innerHTML = `<h3>Open Road <span style="font-weight:normal;color:var(--ink-soft);font-size:0.85rem">远路</span></h3>
     <p style="font-size:0.85rem;color:var(--ink-soft);margin:0 0 0.4rem">Wander the road for whatever fate brings — spirit stones, materials, a spring's blessing, a rare wandering stall, or a fight. Your <strong>Fortune (${walkLuck})</strong> makes hostile encounters rarer (~<strong>${walkCombatPct}%</strong> now, 0% at 16+) and good finds more likely.</p>
     ${state.lastWalkResult ? `<p style="font-size:0.88rem;margin:0 0 0.4rem;color:var(--gold)">${state.lastWalkResult}</p>` : ''}
-    <div class="button-row"><button id="random-encounter">Walk a Stretch</button>${state.demonic ? '<button id="demonic-qi-venture" class="ghost">Venture with Demonic Qi</button>' : ''}</div>
-    ${state.demonic ? `<p style="font-size:0.78rem;color:var(--ink-soft);margin:0.3rem 0 0">Demonic Qi: foes +50%, insight +50%, no tribulation/hunter ambush — but a defeat costs you 10% of this realm's insight.</p>` : ''}`;
+    <div class="button-row"><button id="random-encounter">Walk a Stretch</button></div>`;
   // v0.65: cooldown label handled after mount (see the random-encounter hookup).
   appendPanel(roadP, 'market');
 
@@ -16947,14 +16941,6 @@ function renderCharSheet() {
       reBtn.onclick = () => walkAStretch();
     }
   }
-  // v1.6: demonic-qi venture button (shares the Walk cooldown).
-  const dqBtn = document.getElementById('demonic-qi-venture');
-  if (dqBtn) {
-    const wcd2 = walkCooldownLeft();
-    if (wcd2 > 0) { dqBtn.textContent = `Demonic Qi (${Math.ceil(wcd2 / 60000)}m)`; dqBtn.disabled = true; }
-    else dqBtn.onclick = () => walkAStretchDemonicQi();
-  }
-
   const dz = document.createElement('div');
   dz.className = 'panel';
   dz.innerHTML = `<div class="button-row">
