@@ -541,11 +541,11 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v1.7.2';
+const GAME_VERSION = 'v1.8';
 // v0.78: CI injects the build's short sha here; the APK shell reads it FROM THE RUNNING
 // PAGE (window.BUILD_SHA) and compares against the repo head — staleness detection that
-// cannot be fooled by cached metadata. '13e8cc6' = local/dev build (shell falls back).
-const BUILD_SHA = '13e8cc6';
+// cannot be fooled by cached metadata. '1e8e857' = local/dev build (shell falls back).
+const BUILD_SHA = '1e8e857';
 if (typeof window !== 'undefined') window.BUILD_SHA = BUILD_SHA;
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
@@ -2815,6 +2815,25 @@ const EXPANSION_TECHS = {
     name: 'Sutra of the First Heresy', zh: '初魔经', school: 'demon_heart', minRealmTier: 6, passive: true,
     applyMods: m => { m.lifestealPct += 0.05; m.techDamageMult *= 1.08; },
     desc: 'PASSIVE. The original commentary, memorized: +5% lifesteal, +8% technique damage.' },
+  // v1.8: techs that feed the new lifesteal / hellfire-stack / qi-drain identity.
+  demon_hellfeast: {
+    name: 'Hellfeast', zh: '业火宴', school: 'demon_heart', minRealmTier: 4,
+    qi: 18, cd: 3, damage: 4.4, postureBuild: 14,
+    consumeBonus: { kind: 'hellfire', perStack: 0.18 },
+    effect: 'leech', effectPower: 0.30, effectTurns: 2,
+    desc: "Eat the fire you set: devours the target's Hellfire for +18% damage per stack, then plants a Leech.",
+    logHit: (a,t) => `${a} inhales the hellfire off ${t}'s skin and swallows.` },
+  demon_p_blood_furnace: {
+    name: 'Blood Furnace', zh: '血炉', school: 'demon_heart', minRealmTier: 5, passive: true,
+    applyMods: m => { m.lifestealPct += 0.06; m.dotMult *= 1.20; },
+    desc: 'PASSIVE. The body burns hotter: +6% lifesteal, and +20% to all your damage-over-time (hellfire included).' },
+  demon_world_hunger: {
+    name: 'Hunger of the World', zh: '世饥', school: 'demon_heart', minRealmTier: 6,
+    qi: 42, cd: 4, damage: 8.4, pierceQi: 0.5, postureBuild: 20,
+    consumeBonus: { kind: 'hellfire', perStack: 0.12 },
+    effect: 'leech', effectPower: 0.50, effectTurns: 3,
+    desc: 'The appetite that outlives realms: tears through qi shields, devours any Hellfire for bonus damage, and sinks a deep half-power Leech. SS capstone.',
+    logHit: (a,t) => `${a} opens a hunger the size of a missing world. ${t} tilts toward it.` },
 
   // ============ Starfall Archers — the sky keeps appointments ============
   star_arrow_named: {
@@ -4296,6 +4315,8 @@ function computeMods(char) {
   applyBossRefineToMods(mods, char);         // v0.79: themed boss weapon-refinement tracks
   applyPassiveTechsToMods(mods, char);       // v0.88: learned passive techniques (mods half)
   applyOriginPassivesToMods(mods, char);      // v1.7: heritage + childhood life-origin passives
+  // v1.8: the demon body trades defense for hunger — takes 10% more damage, deals 10% less posture.
+  if (isDemonHeart(char)) { mods.incomingMult *= 1.10; mods.postureMult *= 0.90; }
   return mods;
 }
 
@@ -13467,36 +13488,45 @@ function playerStrike(opts) {
   // fight's insight reward (combat.autoUsed sticks for the rest of the encounter).
   const isAuto = !!opts.auto;
   if (isAuto) combat.autoUsed = true;
-  let dmg = p.weaponPower * 1.5 * (p.mods.strikeDamageMult || 1) * boonStrikeMult();
-  if (isAuto) dmg *= (1 - autoDamagePenalty(state.realm.tierIdx || 0));
+  let baseDmg = p.weaponPower * 1.5 * (p.mods.strikeDamageMult || 1) * boonStrikeMult();
+  if (isAuto) baseDmg *= (1 - autoDamagePenalty(state.realm.tierIdx || 0));
   if (p.buffs.nextDamageTurns > 0) {
-    dmg *= p.buffs.nextDamageMult;
+    baseDmg *= p.buffs.nextDamageMult;
     p.buffs.nextDamageTurns = 0;
     p.buffs.nextDamageMult = 1;
     pushLog('posture', `The waiting edge falls.`);
   }
-  const ctx = {};
-  dmg = applyPlayerOutgoingMods(p, dmg, e, ctx);
-  const res = dealDamage(e, dmg, {});
-  pushLog('line', ctx.crit
-    ? `${p.name} strikes — the blade finds the seam, and the air opens.`
-    : (isAuto ? `${p.name} strikes — a measured, half-mindful blow.`
-              : `${p.name} strikes — a clean, disciplined blow.`));
-  pushLog('hurt', damageLogLine(res, e));
-  applyPostHitTriggers(p, res);
-  if (!res.dodged) {
-    applyDemonicHellfire(e);   // v0.68: demonic hellfire brands every landed blow
-    // v0.68: schools with strikeAppliesOnHit (Dragonforge's Moltenwake) sunder on STRIKES too.
-    if (schoolKit().strikeAppliesOnHit) applySchoolOnHit(p, e);
-  }
-  const hmStrike = heritageMech();
-  const postureAmt = Math.round(10 * PLAYER_POSTURE_MULT * p.mods.postureMult * (hmStrike.postureDamageMult || 1) * ((p.buffs.postureBoostTurns > 0) ? (p.buffs.postureBoost || 1) : 1));
-  const broke = applyPosture(e, postureAmt, false, 3 + p.mods.postureBreakBonus);
-  if (broke) pushLog('posture', `${e.name}'s stance shatters! Qi damage doubled for ${e.broken} turns.`);
-  if (p.mods.strikeHeal > 0 && res.qiAbsorbed + res.hpDamage > 0) {
-    const before = p.hp;
-    p.hp = Math.min(p.hpMax, p.hp + p.mods.strikeHeal);
-    if (p.hp > before) pushLog('heal', `  → +${p.hp - before} hp (Bloodbond)`);
+  // v1.8: demon-heart strikes TWICE per turn, each hit draining 15% of the target's current qi.
+  const strikes = isDemonHeart(state) ? 2 : 1;
+  for (let si = 0; si < strikes; si++) {
+    if (combat.over || e.hp <= 0) break;
+    const ctx = {};
+    const dmg = applyPlayerOutgoingMods(p, baseDmg, e, ctx);
+    const res = dealDamage(e, dmg, {});
+    pushLog('line', ctx.crit
+      ? `${p.name} strikes — the blade finds the seam, and the air opens.`
+      : (isAuto ? `${p.name} strikes — a measured, half-mindful blow.`
+                : `${p.name} strikes — a clean, disciplined blow.`));
+    pushLog('hurt', damageLogLine(res, e));
+    applyPostHitTriggers(p, res);
+    if (!res.dodged) {
+      applyDemonicHellfire(e);   // v0.68: demonic hellfire brands every landed blow
+      // v0.68: schools with strikeAppliesOnHit (Dragonforge's Moltenwake) sunder on STRIKES too.
+      if (schoolKit().strikeAppliesOnHit) applySchoolOnHit(p, e);
+      if (isDemonHeart(state)) {
+        const qd = Math.round(e.qi * 0.15);
+        if (qd > 0) { e.qi = Math.max(0, e.qi - qd); pushLog('hurt', `  → ${e.name} loses ${qd} qi to the devouring claw.`); }
+      }
+    }
+    const hmStrike = heritageMech();
+    const postureAmt = Math.round(10 * PLAYER_POSTURE_MULT * p.mods.postureMult * (hmStrike.postureDamageMult || 1) * ((p.buffs.postureBoostTurns > 0) ? (p.buffs.postureBoost || 1) : 1));
+    const broke = applyPosture(e, postureAmt, false, 3 + p.mods.postureBreakBonus);
+    if (broke) pushLog('posture', `${e.name}'s stance shatters! Qi damage doubled for ${e.broken} turns.`);
+    if (p.mods.strikeHeal > 0 && res.qiAbsorbed + res.hpDamage > 0) {
+      const before = p.hp;
+      p.hp = Math.min(p.hpMax, p.hp + p.mods.strikeHeal);
+      if (p.hp > before) pushLog('heal', `  → +${p.hp - before} hp (Bloodbond)`);
+    }
   }
   endPlayerAction();
 }
@@ -13528,7 +13558,8 @@ function playerTechnique(techId) {
   const tech = TECHNIQUES[techId];
   if (p.cooldowns[techId] > 0) return;
   const qiCost = effectiveQiCost(p, tech);
-  const hpCost = effectiveHpCost(p, tech);
+  let hpCost = effectiveHpCost(p, tech);
+  if (isDemonHeart(state) && techId === 'demon_ascendant') hpCost = Math.round(p.hp * 0.20);   // v1.8: Devourer's Crown costs 20% of current HP
   if (p.qi < qiCost) return;
   if (hpCost && p.hp <= hpCost) return;
 
@@ -13570,7 +13601,17 @@ function playerTechnique(techId) {
 
   let pierce = tech.pierceQi || 0;
   if (hm0.schoolPierceBonus && hm0.schoolPierceBonus[sDmg]) pierce = Math.min(1, pierce + hm0.schoolPierceBonus[sDmg]);
-  const directSpiritAmt = (tech.directSpirit || 0) * (p.mods.spiritDamageMult || 1);
+  let directSpiritAmt = (tech.directSpirit || 0) * (p.mods.spiritDamageMult || 1);
+  // v1.8: demon_heart per-technique synergy with the TARGET's Hellfire stacks (single-target only).
+  let dhHellStacks = 0;
+  if (isDemonHeart(state) && !isAoe) {
+    const dhHf = (e.effects || []).find(ef => ef.kind === 'hellfire');
+    dhHellStacks = dhHf ? (dhHf.stacks || 1) : 0;
+    // Devourer's Crown also deals Spirit damage once the target is at MAX hellfire stacks.
+    if (techId === 'demon_ascendant' && dhHellStacks >= playerStackCap('hellfire')) {
+      directSpiritAmt += Math.round(p.weaponPower * 2.0 * (p.mods.spiritDamageMult || 1));
+    }
+  }
   const postureBoostMult = (p.buffs && p.buffs.postureBoostTurns > 0) ? (p.buffs.postureBoost || 1) : 1;  // v0.57 Stormcall
   const postureAmtBase = Math.round((tech.postureBuild || 0) * PLAYER_POSTURE_MULT * p.mods.postureMult * (hm0.postureDamageMult || 1) * postureBoostMult);
 
@@ -13598,12 +13639,13 @@ function playerTechnique(techId) {
         pushLog('posture', `  → ${tgt.name}'s ${STATUS_INFO[tech.consumeBonus.kind] ? STATUS_INFO[tech.consumeBonus.kind].label : tech.consumeBonus.kind} ×${stacks} is consumed — +${Math.round((consumeMult - 1) * 100)}% damage!`);
       }
     }
+    let dhHpDealt = 0, dhQiDrained = 0;   // v1.8: track damage for demon_heart technique payoffs
     for (let h = 0; h < instances; h++) {
       if (tgt.hp <= 0) break;
       let tdmg = dmg * targetDmgMult * perInstanceMult * consumeMult;
       const ctx = { instant: tech.instant };
       tdmg = applyPlayerOutgoingMods(p, tdmg, tgt, ctx);
-      if (tdmg > 0 || (h === 0 && (tech.directHP || tech.directSpirit))) {
+      if (tdmg > 0 || (h === 0 && (tech.directHP || tech.directSpirit || directSpiritAmt))) {
         const res = dealDamage(tgt, tdmg, {
           directHP: h === 0 ? (tech.directHP || 0) : 0,
           directSpirit: h === 0 ? directSpiritAmt : 0,
@@ -13612,8 +13654,18 @@ function playerTechnique(techId) {
         if (ctx.crit) pushLog('posture', `  → critical strike!`);
         pushLog('hurt', damageLogLine(res, tgt));
         applyPostHitTriggers(p, res);
+        dhHpDealt += res.hpDamage; dhQiDrained += res.qiAbsorbed;
         // v0.45: school passive on-hit statuses ride along on every damaging hit.
         if (!res.dodged) { applySchoolOnHit(p, tgt); applyDemonicHellfire(tgt); }
+      }
+    }
+    // v1.8: demon_heart technique payoffs — Devourer's Crown drinks +10% per hellfire stack; Soul-Devouring Palm siphons the barrier.
+    if (isDemonHeart(state) && !isAoe) {
+      if (techId === 'demon_ascendant' && dhHellStacks > 0) {
+        const extra = Math.round((dhHpDealt + dhQiDrained) * 0.10 * dhHellStacks);
+        if (extra > 0) { const b = p.hp; p.hp = Math.min(p.hpMax, p.hp + extra); if (p.hp > b) pushLog('heal', `  → +${p.hp - b} hp — the Crown feeds on ${dhHellStacks} hellfire.`); }
+      } else if (techId === 'demon_devour' && dhQiDrained > 0) {
+        const b = p.qi; p.qi = Math.min(p.qiMax, p.qi + dhQiDrained); if (p.qi > b) pushLog('heal', `  → +${p.qi - b} qi siphoned from the barrier.`);
       }
     }
     // v0.57 Ashfall Detonation: blow up an existing DOT on the target for its remaining
@@ -13651,6 +13703,14 @@ function playerTechnique(techId) {
         if (applied && STATUS_INFO[tech.effect]) {
           pushLog('flavor', `  → ${tgt.name}: ${STATUS_INFO[tech.effect].label}${n > 1 ? ` ×${n}` : ''}.`);
         }
+      }
+    }
+    // v1.8: Sovereign Parasite becomes PERMANENT after its 3rd cast (the leech never expires).
+    if (isDemonHeart(state) && techId === 'dem_sig_demon') {
+      combat.demSigCasts = (combat.demSigCasts || 0) + 1;
+      if (combat.demSigCasts >= 3) {
+        const leech = (tgt.effects || []).find(ef => ef.kind === 'leech' && ef.name === tech.name);
+        if (leech) { leech.turns = 9999; leech.permanent = true; pushLog('flavor', `  → The Sovereign Parasite takes permanent root — it feeds until the end.`); }
       }
     }
     // v0.51: multi-status techniques (e.g. Stellar Pressure applies pressured + qi_cost_up).
@@ -13754,15 +13814,17 @@ function playerMeditate() {
   }
   const hm = heritageMech();
   const schoolMed = (hm.schoolMeditateMult && hm.schoolMeditateMult[state.selectedSchool]) || 1;
-  const regen = Math.ceil(p.qiMax * 0.5 * p.mods.meditateMult * schoolMed);
+  // v1.8: a demon's flesh resists stillness — demon-heart meditate recovers 50 less qi and guards only −15%.
+  let regen = Math.ceil(p.qiMax * 0.5 * p.mods.meditateMult * schoolMed);
+  if (isDemonHeart(state)) regen = Math.max(0, regen - 50);
   const before = p.qi;
   p.qi = Math.min(p.qiMax, p.qi + regen);
-  // v0.82: meditating no longer leaves you vulnerable — losing the turn is tradeoff enough.
-  // Instead you guard inward: -30% incoming damage this round.
-  p.buffs.incomingMult = 0.7;
+  // v0.82: meditating guards inward (−30% incoming this round); v1.8: demon-heart only −15%.
+  const medReduce = isDemonHeart(state) ? 0.85 : 0.7;
+  p.buffs.incomingMult = medReduce;
   p.buffs.incomingTurns = 1;
   pushLog('line', `${p.name} folds inward, drawing heaven-qi through open meridians.`);
-  pushLog('heal', `  → +${p.qi - before} qi (guarded: −30% incoming this round)`);
+  pushLog('heal', `  → +${p.qi - before} qi (guarded: −${Math.round((1 - medReduce) * 100)}% incoming this round)`);
   // v0.45 Sword Intent: meditating sheathes the blade — the edge is lost.
   if (p.swordIntent > 0) {
     pushLog('flavor', `  → The gathered Sword Intent disperses with the breath.`);
@@ -14121,7 +14183,12 @@ function tickCombatantEffects(c, opts) {
       // v1.0.1: boss DOTs lean on % of MAX HP (flesh-burn that ignores the qi shield) so they
       // stay threatening at high realms where a flat value rounds to nothing. Flat value is the
       // floor for the common roster / player-applied burns (which carry no pct fields = pure flat).
-      const dmg = (ef.value || 0) + Math.round((ef.pctHp || 0) * (c.hpMax || 0));
+      let dmg = (ef.value || 0) + Math.round((ef.pctHp || 0) * (c.hpMax || 0));
+      // v1.8: Sovereign Parasite drinks an extra 1% of the target's MAX HP per hellfire stack.
+      if (ef.kind === 'leech' && ef.name === 'Sovereign Parasite') {
+        const hf = (c.effects || []).find(x => x.kind === 'hellfire');
+        if (hf) dmg += Math.round((c.hpMax || 0) * 0.01 * (hf.stacks || 1));
+      }
       c.hp = Math.max(0, c.hp - dmg);
       const lost = before - c.hp;
       if (lost > 0) {
@@ -14311,6 +14378,13 @@ function endOfRound() {
   // v0.45: player-side statuses tick through the same engine as enemies (bleed, drains,
   // and any future enemy-applied DOT kinds all handled in one place).
   tickCombatantEffects(p);
+  // v1.8: the demon body consumes itself — 5% of CURRENT HP per turn (its lifesteal engine repays it;
+  // asymptotes toward 1 HP and never self-kills — the kill must come from the enemy).
+  if (isDemonHeart(state) && p.hp > 1) {
+    const selfBurn = Math.max(1, Math.round(p.hp * 0.05));
+    p.hp = Math.max(1, p.hp - selfBurn);
+    pushLog('hurt', `  → ${selfBurn} hp consumed by the demon within.`);
+  }
 
   // v0.45 Sap of the Grove (Verdant) + Regrowth: heal-over-time at end of round.
   const kitEOR = schoolKit();
