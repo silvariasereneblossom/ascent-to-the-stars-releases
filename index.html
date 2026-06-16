@@ -541,11 +541,11 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v1.9';
+const GAME_VERSION = 'v1.10';
 // v0.78: CI injects the build's short sha here; the APK shell reads it FROM THE RUNNING
 // PAGE (window.BUILD_SHA) and compares against the repo head — staleness detection that
-// cannot be fooled by cached metadata. 'c87bcde' = local/dev build (shell falls back).
-const BUILD_SHA = 'c87bcde';
+// cannot be fooled by cached metadata. 'cf0017f' = local/dev build (shell falls back).
+const BUILD_SHA = 'cf0017f';
 if (typeof window !== 'undefined') window.BUILD_SHA = BUILD_SHA;
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
@@ -2226,7 +2226,7 @@ const SCHOOLS = {
     name: 'Demon Heart Palace', zh: '魔心殿',
     weapon: 'demon_claws',   // v1.6: unarmed demon-claw moveset
     techniques: ['demon_reap','demon_devour','demon_seal','demon_ascendant','demon_parasite'],
-    specialty: 'You do not merely walk the demonic path — you BECOME a demon. No cultivation at all (insight comes only from battle and the rift-gate) and no lifespan to spend, but 1.5x the demonic bonuses, a Hungry-Dao lifesteal on every hit, and hellfire that burns 1% of MAX health per stack. The price: tribulations twice as cruel, sect hunters always a realm above you (rarely two), and a mounting hunt that ends you if their defeats stack to the realm cap. Purge the hunt at your sect — at the cost of falling to the bottom of your realm.',
+    specialty: 'You do not merely walk the demonic path — you BECOME a demon. No cultivation at all (insight comes only from battle and the rift-gate) and no lifespan to spend, but 1.5x the demonic bonuses, a Hungry-Dao lifesteal on every hit (40%, rising to 50% at Golden Core), and hellfire that burns 1% of MAX health per stack. At FULL hellfire every hit also rends a share of its damage straight into the foe\'s spirit (15%, 20% at Golden Core) — soul-break them for +30% damage taken. Hellfire burns twice per turn at Nascent Soul. The price: tribulations that hit 25% softer but mend themselves and drag on, sect hunters always a realm above you (rarely two), and a mounting hunt that ends you if their defeats stack to the realm cap. Purge the hunt at your sect — at the cost of falling to the bottom of your realm.',
     bestStats: ['spirit','will'],
     flavor: 'High on a black stone plateau where no birds fly. The palace has no doors. Students arrive by conviction.',
     isDemon: true,
@@ -3498,7 +3498,7 @@ const DEMONIC_TWISTS = {
   crimson_flame:     { onTechHit: { kind: 'burn', power: 0.18, turns: 3 }, twistDesc: 'Burns tick half again harder.' },
   moonlit_water:     { onTechHit: { kind: 'chill', value: 0.30, turns: 2 }, twistDesc: 'Chill saps -30% damage.' },
   silent_daggers:    { critBonus: 0.15, onTechHit: { kind: 'poison', power: 0.12, turns: 4 }, twistDesc: '+15% crit; deadlier venom.' },
-  demon_heart:       { lifestealBonus: 0.25,                      twistDesc: 'Hungry Dao drinks 25%.' },
+  demon_heart:       { lifestealBonus: 0.40,                      twistDesc: 'Hungry Dao drinks 40% (50% at Golden Core).' },
   starfall:          { critBonus: 0.05,                           twistDesc: '+5% crit on top of Celestial Sight.' },
   verdant_monastery: { regenPct: 0.05,                            twistDesc: 'Regrow 5% max HP per round.' },
   thunder_hammer:    { postureBonus: 0.40,                        twistDesc: '+40% posture damage.' },
@@ -3667,7 +3667,7 @@ function isDemonic(char) { return !!((char || state) && (char || state).demonic)
 // 2x tribulations, +1-realm sect hunters with a lethal defeat counter, venture tribulation ambushes.
 function isDemonHeart(char) { const c = char || state; return !!(c && c.selectedSchool === 'demon_heart'); }
 // v1.5: per-realm cap on sect-hunter defeats before the hunt ends you (Demon Heart only).
-const DEMON_HEART_HUNTER_CAP = [40, 35, 30, 25, 20, 15, 10];
+const DEMON_HEART_HUNTER_CAP = [30, 25, 20, 15, 10, 5, 1];   // v1.10: -10 across the board (Spirit Severing floored 0->1 = die on first hunter loss)
 function demonHeartHunterCap() { return DEMON_HEART_HUNTER_CAP[Math.min(6, (state.realm && state.realm.tierIdx) || 0)] || 10; }
 // v0.71: EVERY school's passive deepens with realm — the Starfall pattern (v0.51)
 // generalized. Steps: +1 at Golden Core, +1 at Nascent Soul. Demonic twists scale too
@@ -3685,7 +3685,7 @@ const SCHOOL_KIT_REALM_SCALE = {
   moonlit_water:     (k, s) => { if (k.onTechHit) k.onTechHit = Object.assign({}, k.onTechHit, { value: k.onTechHit.value + 0.05 * s }); },
   silent_daggers:    (k, s) => { k.critBonus = (k.critBonus || 0) + 0.02 * s;
                                  k.stackCapBonus = Object.assign({}, k.stackCapBonus, { poison: ((k.stackCapBonus || {}).poison || 0) + s }); },
-  demon_heart:       (k, s) => { k.lifestealBonus = (k.lifestealBonus || 0) + 0.05 * s; },
+  demon_heart:       (k, s) => { k.lifestealBonus = (k.lifestealBonus || 0) + (s >= 1 ? 0.10 : 0); },   // v1.10: +10% at Golden Core+ -> 50% (the spirit-conv 15%->20% is in applyPostHitTriggers)
   starfall:          (k, s) => {},   // ALREADY realm-scaled in the crit pipeline — v0.51 operator canon
   verdant_monastery: (k, s) => { k.regenPct = (k.regenPct || 0) + 0.01 * s; },
   thunder_hammer:    (k, s) => { k.postureBonus = (k.postureBonus || 0) + 0.05 * s; },
@@ -13198,6 +13198,8 @@ function dealDamage(target, amount, opts) {
     const hm = heritageMech();
     if (combat.tribulation && hm.tribulationIncomingMult) incoming *= hm.tribulationIncomingMult;
     if (combat.tribulation) incoming *= boonTribulationIncomingMult();
+    // v1.10: a Demon Heart's tribulations hit 25% softer but last longer (the trib enemy self-heals each round, see endOfRound).
+    if (combat.tribulation && isDemonHeart(state)) incoming *= 0.75;
     // v0.64: Dao Heart (will) steadies the soul under heaven's pressure — -0.5%/point, cap 40%.
     if (combat.tribulation) incoming *= 1 - Math.min(0.40, ((state.finalStats && state.finalStats.will) || 0) * 0.005);
     if (spiritDmg && hm.spiritIncomingMult) spiritDmg *= hm.spiritIncomingMult;
@@ -13481,13 +13483,28 @@ function playerStatusValue(p, tech) {
 const DOT_KINDS = new Set(['burn', 'poison', 'bleed', 'leech']);
 
 // v0.23: lifesteal + qi-on-hit-style triggers fired after a successful hit.
-function applyPostHitTriggers(p, res) {
+function applyPostHitTriggers(p, res, tgt) {
   if ((p.mods.lifestealPct || 0) > 0 && (res.hpDamage + res.qiAbsorbed) > 0) {
     const heal = Math.round((res.hpDamage + res.qiAbsorbed) * p.mods.lifestealPct);
     if (heal > 0) {
       const before = p.hp;
       p.hp = Math.min(p.hpMax, p.hp + heal);
       if (p.hp > before) pushLog('heal', `  → +${p.hp - before} hp (lifesteal)`);
+    }
+  }
+  // v1.10: demon_heart — at MAX hellfire, every hit rends a share of its damage into the target's SPIRIT
+  // (15%, or 20% at Golden Core+) — the soul-break engine. Stacks with Devourer's Crown's own spirit damage.
+  if (tgt && isDemonHeart(state) && !res.dodged && (res.hpDamage + res.qiAbsorbed) > 0 && (tgt.spiritMax || 0) > 0) {
+    const hf = (tgt.effects || []).find(ef => ef.kind === 'hellfire');
+    if (hf && (hf.stacks || 0) >= playerStackCap('hellfire')) {
+      const conv = (((state.realm && state.realm.tierIdx) || 0) >= 4) ? 0.20 : 0.15;
+      const bleed = Math.round((res.hpDamage + res.qiAbsorbed) * conv);
+      if (bleed > 0) {
+        const sb = tgt.spirit;
+        tgt.spirit = Math.max(0, tgt.spirit - bleed);
+        if (tgt.spirit < sb) pushLog('hurt', `  → ${sb - tgt.spirit} spirit rent by full hellfire.`);
+        if (tgt.spirit <= 0 && sb > 0) pushLog('posture', `  → ${tgt.name} is soul-broken! +30% damage taken.`);
+      }
     }
   }
 }
@@ -13520,7 +13537,7 @@ function playerStrike(opts) {
       : (isAuto ? `${p.name} strikes — a measured, half-mindful blow.`
                 : `${p.name} strikes — a clean, disciplined blow.`));
     pushLog('hurt', damageLogLine(res, e));
-    applyPostHitTriggers(p, res);
+    applyPostHitTriggers(p, res, e);
     if (!res.dodged) {
       applyDemonicHellfire(e);   // v0.68: demonic hellfire brands every landed blow
       // v0.68: schools with strikeAppliesOnHit (Dragonforge's Moltenwake) sunder on STRIKES too.
@@ -13665,7 +13682,7 @@ function playerTechnique(techId) {
         });
         if (ctx.crit) pushLog('posture', `  → critical strike!`);
         pushLog('hurt', damageLogLine(res, tgt));
-        applyPostHitTriggers(p, res);
+        applyPostHitTriggers(p, res, tgt);
         dhHpDealt += res.hpDamage; dhQiDrained += res.qiAbsorbed;
         // v0.45: school passive on-hit statuses ride along on every damaging hit.
         if (!res.dodged) { applySchoolOnHit(p, tgt); applyDemonicHellfire(tgt); }
@@ -14227,7 +14244,9 @@ function tickCombatantEffects(c, opts) {
     if (ef.kind === 'hellfire') {
       // v1.5: Demon Heart's hellfire burns 1% of MAX hp/stack; others 1% of MISSING hp/stack.
       const hfBase = isDemonHeart(state) ? (c.hpMax || 0) : Math.max(0, (c.hpMax || 0) - c.hp);
-      const burn = Math.max(1, Math.round(hfBase * 0.01 * (ef.stacks || 1)));
+      let burn = Math.max(1, Math.round(hfBase * 0.01 * (ef.stacks || 1)));
+      // v1.10: a Demon Heart at Nascent Soul+ burns hotter — its hellfire ticks twice per turn (2x burn on its victims).
+      if (isDemonHeart(state) && ((state.realm && state.realm.tierIdx) || 0) >= 5 && combat && c !== combat.player) burn *= 2;
       if (c.hp > 0 && hfBase > 0) {
         c.hp = Math.max(0, c.hp - burn);
         pushLog('hurt', `  → ${c.name} loses ${burn} hp to hellfire (x${ef.stacks || 1}).`);
@@ -14396,6 +14415,18 @@ function endOfRound() {
     const selfBurn = Math.max(1, Math.round(p.hp * 0.05));
     p.hp = Math.max(1, p.hp - selfBurn);
     pushLog('hurt', `  → ${selfBurn} hp consumed by the demon within.`);
+  }
+  // v1.10: a Demon Heart's tribulations endure — the heavenly judge knits itself back together,
+  // healing 3 + (realm level) HP each round. Pairs with the -25% trib damage: softer hits, longer trial.
+  if (isDemonHeart(state) && combat.tribulation) {
+    const rgn = 3 + (((state.realm && state.realm.tierIdx) || 0) + 1);
+    combat.enemies.forEach(en => {
+      if (en.hp > 0 && en.hp < en.hpMax) {
+        const before = en.hp;
+        en.hp = Math.min(en.hpMax, en.hp + rgn);
+        if (en.hp > before) pushLog('hurt', `  → ${en.name} mends ${en.hp - before} hp (the trial refuses to end).`);
+      }
+    });
   }
 
   // v0.45 Sap of the Grove (Verdant) + Regrowth: heal-over-time at end of round.
