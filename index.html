@@ -541,11 +541,11 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v1.12';
+const GAME_VERSION = 'v1.13';
 // v0.78: CI injects the build's short sha here; the APK shell reads it FROM THE RUNNING
 // PAGE (window.BUILD_SHA) and compares against the repo head — staleness detection that
-// cannot be fooled by cached metadata. 'bcea744' = local/dev build (shell falls back).
-const BUILD_SHA = 'bcea744';
+// cannot be fooled by cached metadata. 'fae54d5' = local/dev build (shell falls back).
+const BUILD_SHA = 'fae54d5';
 if (typeof window !== 'undefined') window.BUILD_SHA = BUILD_SHA;
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
@@ -12365,10 +12365,11 @@ function tryAdvanceRealm() {
     if (trib) {
       pendingTribulation = { targetTier: toTier, cost: info.cost };
       initCombat(trib.enemyId);
-      if (isDemonHeart(state) && combat.enemies && combat.enemies[0]) {   // v1.5: demon-heart breakthroughs are judged ~2x as hard
+      if (isDemonHeart(state) && combat.enemies && combat.enemies[0]) {   // v1.5: demon-heart breakthroughs are judged harder (HP still 2x — the endurance trial)
         const te = combat.enemies[0];
         te.hpMax = Math.round(te.hpMax * 2); te.hp = te.hpMax;
-        te.weaponPower = Math.round((te.weaponPower || 0) * 2);
+        // v1.13: damage boost cut 2x -> 1.5x. With the v1.10 -25% incoming softener (dealDamage), net trib damage is ~1.125x of baseline (down from ~1.5x).
+        te.weaponPower = Math.round((te.weaponPower || 0) * 1.5);
       }
       combat.tribulation = { kind: trib.kind, turns: trib.turns || 0 };
       if (trib.kind === 'survival') {
@@ -17030,9 +17031,10 @@ function renderCharSheet() {
       <div style="font-size:0.8rem;color:var(--ink-soft);margin:0.15rem 0">Sect-hunter defeats this realm: <strong style="color:${hunters >= cap - 3 ? 'var(--crimson)' : 'var(--gold)'}">${hunters}/${cap}</strong> — death at the cap; slay a hunter to drop it by 2. Tribulation streak: <strong>${tribStreak}/3</strong>.</div>`;
     const pBtns = document.createElement('div'); pBtns.className = 'consumable-buttons';
     const pb = document.createElement('button'); pb.className = 'ghost small';
-    pb.textContent = 'Purify the Heart — reset the hunt + streak (lose half your layers)';
-    pb.onclick = () => {
-      if (!confirm("Purge the hunt and the tribulation streak — but you fall back half the layers of your current realm (rounded down, this realm's insight reset). Proceed?")) return;
+    // v1.13: renamed Purify the Heart -> Reinforce Demonic Qi (a demon does not cleanse — it doubles down);
+    // and fixed the broken confirm() (window.confirm never fires in the WebView) via the two-tap arm.
+    pb.textContent = 'Reinforce Demonic Qi — reset the hunt + streak (lose half your layers)';
+    armDestructiveButton(pb, "Tap again — fall back half this realm's layers (insight reset)", () => {
       state.demonHeartHunterDefeats = 0;
       state.tribulationFails = {};
       state.realm.layer = Math.max(1, (state.realm.layer || 1) - Math.floor((state.realm.layer || 1) / 2));   // v1.6: lose half the layers, not all the way to 1
@@ -17040,7 +17042,7 @@ function renderCharSheet() {
       if (state.confirmed) state.finalStats = finalStats(state);
       saveChar();
       render();
-    };
+    });
     pBtns.appendChild(pb); dh.appendChild(pBtns); sectP.appendChild(dh);
   }
   appendPanel(sectP, 'sect');
