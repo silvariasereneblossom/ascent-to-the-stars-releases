@@ -544,8 +544,8 @@ const STAT_KEYS = STATS.map(s => s.key);
 const GAME_VERSION = 'v1.12';
 // v0.78: CI injects the build's short sha here; the APK shell reads it FROM THE RUNNING
 // PAGE (window.BUILD_SHA) and compares against the repo head — staleness detection that
-// cannot be fooled by cached metadata. '479f90f' = local/dev build (shell falls back).
-const BUILD_SHA = '479f90f';
+// cannot be fooled by cached metadata. 'bcea744' = local/dev build (shell falls back).
+const BUILD_SHA = 'bcea744';
 if (typeof window !== 'undefined') window.BUILD_SHA = BUILD_SHA;
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
@@ -10672,10 +10672,10 @@ const ARRAYS = {
 };
 
 function arrayCapacity(char) {
-  if (!char || !char.realm) return 2;
-  // v1.12: +1 slot every SECOND realm (Mortal/Qi-Cond 2, Foundation/Core-Formation 3,
-  // Golden-Core/Nascent-Soul 4, Spirit Severing 5). Was +1 every realm (capped 8).
-  return 2 + Math.floor((char.realm.tierIdx || 0) / 2);
+  if (!char || !char.realm) return 3;
+  // v1.12: base 3, +1 slot every SECOND realm (Mortal/Qi-Cond 3, Foundation/Core-Formation 4,
+  // Golden-Core/Nascent-Soul 5, Spirit Severing 6). Was +1 every realm (capped 8).
+  return 3 + Math.floor((char.realm.tierIdx || 0) / 2);
 }
 
 function activeArrays(char) {
