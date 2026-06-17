@@ -544,8 +544,8 @@ const STAT_KEYS = STATS.map(s => s.key);
 const GAME_VERSION = 'v1.14';
 // v0.78: CI injects the build's short sha here; the APK shell reads it FROM THE RUNNING
 // PAGE (window.BUILD_SHA) and compares against the repo head — staleness detection that
-// cannot be fooled by cached metadata. '63742f7' = local/dev build (shell falls back).
-const BUILD_SHA = '63742f7';
+// cannot be fooled by cached metadata. '9a015dd' = local/dev build (shell falls back).
+const BUILD_SHA = '9a015dd';
 if (typeof window !== 'undefined') window.BUILD_SHA = BUILD_SHA;
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
@@ -14536,8 +14536,9 @@ function tribMechHook(phase, ctx) {
     case 'rising_storm':   // Endurance Trial — escalating pressure each round.
       if (phase === 'roundEnd') {
         s.storm = (s.storm || 0) + 1;
-        const res = dealDamage(p, 0, { directHP: Math.round(p.hpMax * 0.02 * s.storm), attacker: e, attackerElement: e.element });
-        if (res.hpDamage > 0) pushLog('hurt', `  → The tribulation storm builds (×${s.storm}) — ${res.hpDamage} damage.`);
+        // v1.14 tune: 1.5% max HP per storm step, ramp capped at x8, so the late turns bite without compounding past survivability on top of the enemy's own attacks.
+        const res = dealDamage(p, 0, { directHP: Math.round(p.hpMax * 0.015 * Math.min(s.storm, 8)), attacker: e, attackerElement: e.element });
+        if (res.hpDamage > 0) pushLog('hurt', `  → The tribulation storm builds (×${Math.min(s.storm, 8)}) — ${res.hpDamage} damage.`);
       }
       break;
 
@@ -14600,7 +14601,9 @@ function tribMechHook(phase, ctx) {
       } else if (phase === 'roundEnd') {
         s.debtTurn = (s.debtTurn || 0) + 1;
         if (s.debtTurn % 3 === 0 && (s.debt || 0) > 0) {
-          const res = dealDamage(p, 0, { directHP: Math.round(s.debt * 0.20), attacker: e, attackerElement: 'fire' });
+          // v1.14 tune: 15% of tallied damage, capped at 30% of max HP so a big-HP foe can't turn your output into a one-shot.
+          const collect = Math.min(Math.round(s.debt * 0.15), Math.round(p.hpMax * 0.30));
+          const res = dealDamage(p, 0, { directHP: collect, attacker: e, attackerElement: 'fire' });
           s.debt = 0;
           if (res.hpDamage > 0) pushLog('hurt', `  → The judge collects your karmic debt: ${res.hpDamage} in fire.`);
         }
@@ -14622,7 +14625,9 @@ function tribMechHook(phase, ctx) {
         s.listTurn = (s.listTurn || 0) + 1;
         if (s.listTurn % 3 === 0) {
           if (p.hp < p.hpMax * 0.5) {
-            const res = dealDamage(p, 0, { directHP: Math.round(p.hpMax * 0.45), attacker: e, attackerElement: 'fire' });
+            // v1.14 tune: scaled by how far below half you are — ~20% maxHP just under half, ramping to lethal only when already critical. No flat 45% cliff.
+            const dmg = Math.round(p.hpMax * (0.70 - p.hp / p.hpMax));
+            const res = dealDamage(p, 0, { directHP: dmg, attacker: e, attackerElement: 'fire' });
             pushLog('hurt', `  → You stood below the line. The Chooser strikes your name — ${res.hpDamage} damage.`);
           } else {
             pushLog('line', `  → The Chooser reviews the list. You are above the line, for now — stay above half health.`);
