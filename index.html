@@ -541,11 +541,11 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v1.13';
+const GAME_VERSION = 'v1.14';
 // v0.78: CI injects the build's short sha here; the APK shell reads it FROM THE RUNNING
 // PAGE (window.BUILD_SHA) and compares against the repo head — staleness detection that
-// cannot be fooled by cached metadata. 'fae54d5' = local/dev build (shell falls back).
-const BUILD_SHA = 'fae54d5';
+// cannot be fooled by cached metadata. '63742f7' = local/dev build (shell falls back).
+const BUILD_SHA = '63742f7';
 if (typeof window !== 'undefined') window.BUILD_SHA = BUILD_SHA;
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
@@ -6473,6 +6473,29 @@ function findTribulation(fromTier, toTier) {
   return TRIBULATIONS.find(t => t.fromTier === fromTier && t.toTier === toTier);
 }
 let pendingTribulation = null;
+
+// v1.14: each tribulation has a UNIQUE battle mechanic, dispatched by tribMechHook() from the
+// combat loop (gated on combat.tribulation). enemyId -> { key, label, blurb shown in-fight }.
+// Per-fight scratch lives in combat.tribMechState (rebuilt each fight with combat).
+const TRIB_MECHANICS = {
+  // ---- Righteous path ----
+  inner_demon:         { key: 'reflection',      label: 'Reflection',      blurb: 'It is you — a quarter of the damage you deal rebounds onto you.' },
+  qi_endurance_trial:  { key: 'rising_storm',     label: 'Rising Storm',    blurb: 'The pressure mounts every turn; the last turns of the trial bite hardest.' },
+  heart_demon:         { key: 'soul_siege',       label: 'Soul Siege',      blurb: 'It gnaws your spirit directly. Soul-break, and every blow lands 30% harder.' },
+  // ---- Demonic path (DEMON_TRIBS) ----
+  heavens_first_glare: { key: 'gathering_glare',  label: 'Gathering Glare', blurb: 'The sky stares harder each turn; at full glare it smites. Meditate to avert your eyes.' },
+  thunder_brand_envoy: { key: 'thunder_brand',    label: 'Thunder Brand',   blurb: 'Every basic strike you land brands you; at 5 brands the thunder detonates.' },
+  heaven_chain_warden: { key: 'chains_of_law',    label: 'Chains of Law',   blurb: 'Every third turn a chain of written law binds one of your techniques.' },
+  karmic_fire_judge:   { key: 'karmic_debt',      label: 'Karmic Debt',     blurb: 'All damage you deal is tallied; every third turn the judge collects a fifth of it in fire.' },
+  silence_decree_lord: { key: 'the_decree',       label: 'The Decree',      blurb: 'It periodically silences you — Strike and Meditate only.' },
+  annihilation_chooser:{ key: 'the_list',         label: 'The List',        blurb: 'Every third turn it reviews the list: below half health, your name is struck off.' },
+};
+function activeTribMech() {
+  if (!combat || !combat.tribulation || !combat.enemyId) return null;
+  return TRIB_MECHANICS[combat.enemyId] || null;
+}
+function playerSilenced() { return !!(combat && combat.player && (combat.player.effects || []).some(ef => ef.kind === 'silence')); }
+function isTechLocked(tid) { return !!(combat && combat.player && combat.player.lockedTechs && combat.player.lockedTechs[tid] > 0); }
 
 // ============================================================
 // Ascension boons (meta-progression)
@@ -13330,6 +13353,12 @@ function dealDamage(target, amount, opts) {
     target.biggestHpHit = Math.max(target.biggestHpHit || 0, totalHp);
   }
 
+  // v1.14: tribulation mechanics that react to the player damaging the trib foe (reflection, karmic tally).
+  // Player attacks target the foe and carry no opts.attacker (enemy attacks set it); single-enemy tribs only.
+  if (combat && combat.tribulation && target === combat.enemy && !opts.attacker) {
+    tribMechHook('playerHitEnemy', { dealt: Math.round(totalHp) + Math.round(absorbed) });
+  }
+
   return {
     qiAbsorbed: Math.round(absorbed),
     hpDamage: Math.round(totalHp),
@@ -13635,6 +13664,7 @@ function playerStrike(opts) {
       if (p.hp > before) pushLog('heal', `  → +${p.hp - before} hp (Bloodbond)`);
     }
   }
+  tribMechHook('playerStruck');   // v1.14: e.g. Thunder Brand stacks on basic strikes
   endPlayerAction();
 }
 
@@ -13664,6 +13694,7 @@ function playerTechnique(techId) {
   const p = combat.player, e = combat.enemy;
   const tech = TECHNIQUES[techId];
   if (p.cooldowns[techId] > 0) return;
+  if (playerSilenced() || isTechLocked(techId)) return;   // v1.14: tribulation silence/chains (buttons are also disabled)
   const qiCost = effectiveQiCost(p, tech);
   let hpCost = effectiveHpCost(p, tech);
   if (isDemonHeart(state) && techId === 'demon_ascendant') hpCost = Math.round(p.hp * 0.20);   // v1.8: Devourer's Crown costs 20% of current HP
@@ -13937,6 +13968,7 @@ function playerMeditate() {
     pushLog('flavor', `  → The gathered Sword Intent disperses with the breath.`);
     p.swordIntent = 0;
   }
+  tribMechHook('playerMeditated');   // v1.14: e.g. Meditate averts the Gathering Glare
   endPlayerAction();
 }
 
@@ -14480,6 +14512,127 @@ function enemyBasicStrike(e, p) {
   if (!res.dodged) applyPosture(p, 4, false, 3);
 }
 
+// v1.14: unique tribulation mechanics. Phases: 'roundEnd' (end of endOfRound), 'playerHitEnemy'
+// (player dealt damage to the trib foe; ctx.dealt), 'playerStruck' (a basic strike landed),
+// 'playerMeditated'. All damage to the player routes through dealDamage so the trib damage
+// softeners (Will, Demon-Heart, heritage/boon) apply consistently. directHP bypasses the qi barrier.
+function tribMechHook(phase, ctx) {
+  const m = activeTribMech();
+  if (!m || combat.over) return;
+  ctx = ctx || {};
+  if (!combat.tribMechState) combat.tribMechState = {};
+  const s = combat.tribMechState;
+  const p = combat.player, e = combat.enemy;
+  if (!p || !e || p.hp <= 0) return;   // don't pile on after a DOT already felled the player (checkDeath runs post-endOfRound)
+  switch (m.key) {
+
+    case 'reflection':   // Inner Demon — a share of the damage you deal rebounds onto you (floored non-lethal).
+      if (phase === 'playerHitEnemy' && ctx.dealt > 0) {
+        const r = Math.round(ctx.dealt * 0.25);
+        if (r > 0) { p.hp = Math.max(1, p.hp - r); pushLog('hurt', `  → The inner demon turns your blow back on you: ${r} damage.`); }
+      }
+      break;
+
+    case 'rising_storm':   // Endurance Trial — escalating pressure each round.
+      if (phase === 'roundEnd') {
+        s.storm = (s.storm || 0) + 1;
+        const res = dealDamage(p, 0, { directHP: Math.round(p.hpMax * 0.02 * s.storm), attacker: e, attackerElement: e.element });
+        if (res.hpDamage > 0) pushLog('hurt', `  → The tribulation storm builds (×${s.storm}) — ${res.hpDamage} damage.`);
+      }
+      break;
+
+    case 'soul_siege':   // Heart Demon — assails spirit directly; soul-break auto-amplifies via dealDamage.
+      if (phase === 'roundEnd') {
+        const res = dealDamage(p, 0, { directSpirit: Math.max(1, Math.round(p.spiritMax * 0.18)), attacker: e });
+        pushLog('hurt', `  → The heart-demon gnaws at your soul: ${res.spiritDamage} spirit.`);
+        if (p.spirit <= 0) pushLog('posture', `  → Your spirit gutters — soul-broken. Every blow now lands 30% harder.`);
+      }
+      break;
+
+    case 'gathering_glare':   // Heaven's First Glare — meter climbs each turn; smites at 3; Meditate averts it.
+      if (phase === 'roundEnd') {
+        s.glare = (s.glare || 0) + 1;
+        if (s.glare >= 3) {
+          s.glare = 0;
+          const res = dealDamage(p, 0, { directHP: Math.round(p.hpMax * 0.22), attacker: e, attackerElement: 'fire' });
+          pushLog('hurt', `  → THE GLARE FALLS — heaven's full weight burns you for ${res.hpDamage}.`);
+        } else {
+          pushLog('posture', `  → The glare intensifies (${s.glare}/3). Meditate to avert your eyes.`);
+        }
+      } else if (phase === 'playerMeditated' && s.glare > 0) {
+        s.glare = Math.max(0, s.glare - 2);
+        pushLog('line', `  → You lower your eyes; the glare loses its grip (now ${s.glare}/3).`);
+      }
+      break;
+
+    case 'thunder_brand':   // Thunder-Brand Envoy — basic strikes brand you; detonates at 5.
+      if (phase === 'playerStruck') {
+        s.brand = (s.brand || 0) + 1;
+        if (s.brand >= 5) {
+          s.brand = 0;
+          const res = dealDamage(p, 0, { directHP: Math.round(p.hpMax * 0.18), attacker: e, attackerElement: 'fire' });
+          pushLog('hurt', `  → The thunder-brand detonates for ${res.hpDamage}! Vary your attacks.`);
+        } else {
+          pushLog('posture', `  → A thunder-brand sears into you (${s.brand}/5).`);
+        }
+      }
+      break;
+
+    case 'chains_of_law':   // Heaven-Chain Warden — every 3rd turn, bind a random technique for 2 turns.
+      if (phase === 'roundEnd') {
+        if (p.lockedTechs) Object.keys(p.lockedTechs).forEach(k => { if (--p.lockedTechs[k] <= 0) delete p.lockedTechs[k]; });
+        s.chainTurn = (s.chainTurn || 0) + 1;
+        if (s.chainTurn % 3 === 0) {
+          const pool = (p.loadout || []).filter(tid => !(p.lockedTechs && p.lockedTechs[tid] > 0) && TECHNIQUES[tid]);
+          if (pool.length) {
+            const pick = pool[Math.floor(Math.random() * pool.length)];
+            if (!p.lockedTechs) p.lockedTechs = {};
+            p.lockedTechs[pick] = 2;
+            pushLog('posture', `  → Chains of law bind your ${TECHNIQUES[pick].name} for 2 turns.`);
+          }
+        }
+      }
+      break;
+
+    case 'karmic_debt':   // Karmic-Fire Judge — tally damage dealt; collect a fifth in fire every 3rd turn.
+      if (phase === 'playerHitEnemy' && ctx.dealt > 0) {
+        s.debt = (s.debt || 0) + ctx.dealt;
+      } else if (phase === 'roundEnd') {
+        s.debtTurn = (s.debtTurn || 0) + 1;
+        if (s.debtTurn % 3 === 0 && (s.debt || 0) > 0) {
+          const res = dealDamage(p, 0, { directHP: Math.round(s.debt * 0.20), attacker: e, attackerElement: 'fire' });
+          s.debt = 0;
+          if (res.hpDamage > 0) pushLog('hurt', `  → The judge collects your karmic debt: ${res.hpDamage} in fire.`);
+        }
+      }
+      break;
+
+    case 'the_decree':   // Silencing-Decree Lord — re-silences you for 2 turns every 4th turn.
+      if (phase === 'roundEnd') {
+        s.decreeTurn = (s.decreeTurn || 0) + 1;
+        if (s.decreeTurn % 4 === 0 && !playerSilenced()) {
+          applyStatusTo(p, 'silence', 0, 2, 'Silencing Decree');
+          pushLog('posture', `  → The Silencing Decree falls — your techniques are sealed for 2 turns.`);
+        }
+      }
+      break;
+
+    case 'the_list':   // Annihilation Chooser — every 3rd turn, execute if below half health.
+      if (phase === 'roundEnd') {
+        s.listTurn = (s.listTurn || 0) + 1;
+        if (s.listTurn % 3 === 0) {
+          if (p.hp < p.hpMax * 0.5) {
+            const res = dealDamage(p, 0, { directHP: Math.round(p.hpMax * 0.45), attacker: e, attackerElement: 'fire' });
+            pushLog('hurt', `  → You stood below the line. The Chooser strikes your name — ${res.hpDamage} damage.`);
+          } else {
+            pushLog('line', `  → The Chooser reviews the list. You are above the line, for now — stay above half health.`);
+          }
+        }
+      }
+      break;
+  }
+}
+
 function endOfRound() {
   const p = combat.player;
   Object.keys(p.cooldowns).forEach(k => { if (p.cooldowns[k]>0) p.cooldowns[k]--; });
@@ -14539,6 +14692,8 @@ function endOfRound() {
   // v0.64: Perception (mind) keeps the meridians flowing mid-combat: +1 qi/turn per 6 mind.
   const regen = 2 + (p.mods.qiRegenBonus || 0) + Math.floor(((state.finalStats && state.finalStats.mind) || 0) / 6);
   p.qi = Math.min(p.qiMax, p.qi + regen);
+
+  tribMechHook('roundEnd');   // v1.14: per-round tribulation mechanics (storm/glare/chains/debt/decree/list/soul-siege)
 
   combat.turn++;
   pushLog('turn', `— Turn ${combat.turn} —`);
@@ -17306,6 +17461,20 @@ function renderCombat() {
     grid2.appendChild(banner);
   }
 
+  // v1.14: surface the active tribulation's unique mechanic (+ its live meter where it has one).
+  const tmech = activeTribMech();
+  if (tmech) {
+    const ts = combat.tribMechState || {};
+    let meter = '';
+    if (tmech.key === 'gathering_glare') meter = ` — glare ${ts.glare || 0}/3`;
+    else if (tmech.key === 'thunder_brand') meter = ` — brand ${ts.brand || 0}/5`;
+    else if (tmech.key === 'karmic_debt') meter = (ts.debt || 0) > 0 ? ` — debt mounting` : '';
+    const mb = document.createElement('div');
+    mb.style.cssText = 'grid-column: 1 / -1; background: rgba(192,96,96,0.12); border: 1px solid var(--crimson); padding: 0.5rem 0.6rem; border-radius: 3px; font-size: 0.82rem; text-align: center;';
+    mb.innerHTML = `<strong style="color:var(--crimson)">${tmech.label}${meter}</strong> — ${tmech.blurb}`;
+    grid2.appendChild(mb);
+  }
+
   // v0.24b: auto-combat toggle + status banner. Suppressed during tribulations
   // (tribulations are too important to trust to a half-mindful auto-strike).
   if (!isSurvival && !combat.tribulation) {
@@ -17355,13 +17524,14 @@ function renderCombat() {
       const effHp = effectiveHpCost(p, t);
       const noQi = p.qi < effCost;
       const noHp = effHp && p.hp <= effHp;
-      const disabled = cd > 0 || noQi || noHp;
+      const locked = isTechLocked(tid), sealed = playerSilenced();   // v1.14: tribulation chains / decree
+      const disabled = cd > 0 || noQi || noHp || locked || sealed;
       const btn = document.createElement('button');
       btn.className = 'action-btn tip';
       // v0.45: explicit single-target / AOE marker on every technique button.
       const isAoeBtn = t.target === 'aoe';
       btn.setAttribute('data-tip', `[${isAoeBtn ? 'AOE — hits every standing enemy at 70% damage' : 'Single-target'}] ${t.desc}`);
-      const cdLabel = cd > 0 ? ` · cd ${cd}` : '';
+      const cdLabel = locked ? ' · chained' : sealed ? ' · sealed' : cd > 0 ? ` · cd ${cd}` : '';
       const hpLabel = effHp ? ` · ${effHp} hp` : '';
       const tgtLabel = isAoeBtn ? ' · AOE' : ' · ST';
       btn.innerHTML = `<span class="name">${t.name}</span><span class="meta">${effCost} qi${hpLabel}${tgtLabel}${cdLabel}</span>`;
