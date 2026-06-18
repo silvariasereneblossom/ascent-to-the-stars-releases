@@ -541,11 +541,11 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v1.21';
+const GAME_VERSION = 'v1.22';
 // v0.78: CI injects the build's short sha here; the APK shell reads it FROM THE RUNNING
 // PAGE (window.BUILD_SHA) and compares against the repo head — staleness detection that
-// cannot be fooled by cached metadata. '11573d6' = local/dev build (shell falls back).
-const BUILD_SHA = '11573d6';
+// cannot be fooled by cached metadata. 'e23b402' = local/dev build (shell falls back).
+const BUILD_SHA = 'e23b402';
 if (typeof window !== 'undefined') window.BUILD_SHA = BUILD_SHA;
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
@@ -14982,6 +14982,7 @@ function renderTabBar() {
     { id: 'library',  label: 'Library' },
     { id: 'forge',    label: 'Forge Weapon' },
     { id: 'armor',    label: 'Forge Armor' },
+    { id: 'materials', label: 'Materials' },
     { id: 'garden',   label: 'House' },
     { id: 'disassembly', label: 'Disassembly' },
     { id: 'market',   label: 'Market' },
@@ -16462,27 +16463,12 @@ function renderCharSheet() {
   appendPanel(gP, 'garden');
 
   // --- Forge panel (v0.23: split into Weapons / Armor / Materials sub-tabs) ---
-  if (!state.ui) state.ui = { forgeTab: 'weapons' };
-  if (!state.ui.forgeTab || state.ui.forgeTab === 'armor') state.ui.forgeTab = 'weapons';   // v1.20: armor crafting moved to the Forge Armor tab
+  if (!state.ui) state.ui = {};
   const fP = document.createElement('div');
   fP.className = 'panel';
   fP.innerHTML = `<h3>Forge Weapon <span style="font-weight:normal;color:var(--ink-soft);font-size:0.85rem">铸器</span></h3>
     <p style="font-size:0.85rem;color:var(--ink-soft);margin:0 0 0.5rem">Forge and refine weapons from gathered materials. Equip them in the Loadout tab.</p>`;
-  const subNav = document.createElement('div');
-  subNav.style.cssText = 'display:flex;gap:0.4rem;margin-bottom:0.6rem;flex-wrap:wrap;';
-  [
-    { key: 'weapons',   label: 'Weapons' },
-    { key: 'materials', label: 'Materials' },
-  ].forEach(({key, label}) => {
-    const btn = document.createElement('button');
-    btn.className = 'small' + (state.ui.forgeTab === key ? ' gold' : ' ghost');
-    btn.textContent = label;
-    btn.onclick = () => { state.ui.forgeTab = key; saveChar(); render(); };
-    subNav.appendChild(btn);
-  });
-  fP.appendChild(subNav);
-
-  if (state.ui.forgeTab === 'weapons') {
+  {   // v1.21b: Materials moved to its own tab; Forge Weapon no longer needs a sub-nav.
     // Wave 1b: weapon refinement — invest materials into equipped weapons (no failure).
     const refHdr = document.createElement('div');
     refHdr.innerHTML = `<div style="font-weight:bold;margin:0.2rem 0">Refine — Equipped Weapons <span style="color:var(--ink-soft);font-weight:normal;font-size:0.8rem">炼器</span></div>
@@ -16561,9 +16547,17 @@ function renderCharSheet() {
       fP.appendChild(none);
     }
     visibleRecipes.forEach(recipe => fP.appendChild(buildWeaponRecipeRow(recipe)));
-  } else {
-    // v0.86: materials ordered by realm (matTier), then rarity within a realm, with
-    // realm header rows — mirrors the pills/potions grouping.
+  }
+
+  appendPanel(fP, 'forge');
+
+  // v1.21b: Materials is its OWN top-level tab now (it was a read-only, non-interactive sub-tab of the Forge).
+  const mP = document.createElement('div');
+  mP.className = 'panel';
+  mP.innerHTML = `<h3>Materials <span style="font-weight:normal;color:var(--ink-soft);font-size:0.85rem">材料</span></h3>
+    <p style="font-size:0.85rem;color:var(--ink-soft);margin:0 0 0.5rem">Everything you've gathered, sorted by realm. Spent in the Forge, with the Wandering Master, and on arrays.</p>`;
+  {
+    // materials ordered by realm (matTier), then rarity within a realm, with realm header rows.
     const matsList = Object.entries(MATERIALS).filter(([id]) => id !== 'spirit_stone').sort((a, b) => {
       const order = { common: 0, rare: 1, legendary: 2, divine: 3 };
       return (matTier(a[0]) - matTier(b[0])) ||
@@ -16576,8 +16570,8 @@ function renderCharSheet() {
       <div class="consumable-name">Spirit Stones <span style="color:var(--ink-soft);font-weight:normal;font-size:0.8rem">灵石</span></div>
       <div class="consumable-desc"><strong>${stones}</strong> in purse. Used to buy techniques from the Wandering Master and to anchor greater forge work.</div>
     </div>`;
-    fP.appendChild(stoneRow);
-    fP.appendChild(realmTabChips('forgeMatRealm', t => matsList.filter(([mid]) => matTier(mid) === t).length));   // v1.4
+    mP.appendChild(stoneRow);
+    mP.appendChild(realmTabChips('forgeMatRealm', t => matsList.filter(([mid]) => matTier(mid) === t).length));
     let lastMatTier = -1;
     matsList.filter(([mid]) => realmTabShows('forgeMatRealm', matTier(mid))).forEach(([mid, mat]) => {
       const mt = matTier(mid);
@@ -16586,7 +16580,7 @@ function renderCharSheet() {
         const th = document.createElement('div');
         th.style.cssText = 'font-size:0.78rem;color:var(--ink-soft);margin:0.45rem 0 0.1rem;border-bottom:1px solid rgba(120,120,120,0.25);padding-bottom:0.1rem';
         th.innerHTML = `<strong>${REALMS[mt].name}</strong> ${REALMS[mt].zh || ''}`;
-        fP.appendChild(th);
+        mP.appendChild(th);
       }
       const have = state.base.materials[mid] || 0;
       const row = document.createElement('div');
@@ -16597,11 +16591,10 @@ function renderCharSheet() {
         <div class="consumable-name">${mat.name} <span style="color:var(--ink-soft);font-weight:normal;font-size:0.8rem">${mat.zh || ''}</span> <span class="rarity-tag rarity-${mat.rarity||'common'}">${mat.rarity||'common'}</span> <span style="float:right;font-weight:bold">${have}</span></div>
         <div class="consumable-desc">${mat.desc}</div>
       </div>`;
-      fP.appendChild(row);
+      mP.appendChild(row);
     });
   }
-
-  appendPanel(fP, 'forge');
+  appendPanel(mP, 'materials');
 
   // v1.20: Forge Armor tab — armor CRAFTING (moved out of Forge's old armor sub-tab; armor EQUIP now lives in Loadout).
   const acP = document.createElement('div');
