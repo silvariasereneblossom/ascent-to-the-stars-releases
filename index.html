@@ -541,11 +541,11 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v1.22';
+const GAME_VERSION = 'v1.23';
 // v0.78: CI injects the build's short sha here; the APK shell reads it FROM THE RUNNING
 // PAGE (window.BUILD_SHA) and compares against the repo head — staleness detection that
-// cannot be fooled by cached metadata. 'e23b402' = local/dev build (shell falls back).
-const BUILD_SHA = 'e23b402';
+// cannot be fooled by cached metadata. '6615bc0' = local/dev build (shell falls back).
+const BUILD_SHA = '6615bc0';
 if (typeof window !== 'undefined') window.BUILD_SHA = BUILD_SHA;
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
@@ -7534,6 +7534,19 @@ const CONSUMABLES = {
   },
 
   // ---- v0.49: lifespan pills. ADD years (longevity) or SPEND a % of remaining lifespan for power. ----
+  // v1.23: cursed stat potions — ENCOUNTER-DROP ONLY (no recipe; kind 'cursed' keeps them out of the House brew
+  // list, but they still show in the Loadout consumables panel when held). Grant a random permanent stat at a
+  // lifespan cost (demon-heart pays nothing via lifespanConsumptionMult=0).
+  cursed_draught_lesser: {
+    name: 'Cursed Vigor Draught', zh: '咒元浆', kind: 'cursed', rarity: 'rare',
+    effects: [{ kind: 'stat_perm_random', value: 1 }, { kind: 'lifespan_cost_pct', value: 0.02 }],
+    desc: '+1 to a random stat — but it drinks 2% of your remaining lifespan. Scavenged from ordinary foes.',
+  },
+  cursed_draught_greater: {
+    name: 'Cursed Sovereign Draught', zh: '咒君浆', kind: 'cursed', rarity: 'legendary',
+    effects: [{ kind: 'stat_perm_random', value: 2 }, { kind: 'lifespan_cost_pct', value: 0.08 }],
+    desc: '+2 to a random stat — but it drinks 8% of your remaining lifespan. Wrung from a slain boss.',
+  },
   longevity_pill: {
     name: 'Longevity Pill', zh: '延寿丹', kind: 'pill', rarity: 'rare',
     recipe: { jade_lotus: 2 }, minRealmTier: 1,
@@ -13013,6 +13026,11 @@ function consume(recipeId) {
       STAT_KEYS.forEach(k => { state.finalStats[k] = (state.finalStats[k] || 0) + ef.value; });
       return;
     }
+    if (ef.kind === 'stat_perm_random') {   // v1.23: cursed potions — +value to a random stat
+      const rk = STAT_KEYS[Math.floor(Math.random() * STAT_KEYS.length)];
+      state.finalStats[rk] = (state.finalStats[rk] || 0) + ef.value;
+      return;
+    }
     if (ef.kind === 'lifespan_add') {            // extend the lifespan cap by N years
       // v1.15: a Demon Heart has no lifespan to extend — the longevity essence converts to power instead.
       if (isDemonHeart(state)) {
@@ -14274,6 +14292,26 @@ function grantEnemyDefeatRewards(e) {
   const bookChance = enemyData.bookDropChance != null ? enemyData.bookDropChance : 0.08;
   const bookDrop = rollBookDrop(bookChance);
   if (bookDrop) state.foundBooks.push(bookDrop);
+
+  // v1.23: random encounters sometimes drop market-available herbs (qty scales 1.5x/realm; Fortune up to a 50%
+  // chance to double), and above 20 Fortune can drop a CURSED stat potion (random stat at a lifespan cost).
+  const luck = (state.finalStats && state.finalStats.luck) || 0;
+  const dropTier = state.realm.tierIdx || 0;
+  if (Math.random() < 0.35) {
+    const herbPool = Object.keys(HERBS).filter(hid => (HERBS[hid].minRealmTier || 0) <= dropTier);
+    if (herbPool.length) {
+      const herbId = herbPool[Math.floor(Math.random() * herbPool.length)];
+      let herbN = Math.max(1, Math.round((1 + Math.floor(Math.random() * 2)) * Math.pow(1.5, dropTier)));
+      if (Math.random() < Math.min(0.50, luck / 100)) herbN *= 2;   // Fortune: up to 50% chance to double
+      state.base.herbs[herbId] = (state.base.herbs[herbId] || 0) + herbN;
+      pushLog('reward', `Herbs gathered: ${herbN}× ${HERBS[herbId].name}.`);
+    }
+  }
+  if (luck > 20 && Math.random() < 0.12) {
+    const cursedId = combat.bossFight ? 'cursed_draught_greater' : 'cursed_draught_lesser';
+    state.base.consumables[cursedId] = (state.base.consumables[cursedId] || 0) + 1;
+    pushLog('reward', `A ${CONSUMABLES[cursedId].name} is left among the remains — power, at a price.`);
+  }
 
   // v0.23: qi-on-kill from weapons/artifacts.
   const qiOnKill = (combat.player && combat.player.mods.qiOnKill) || 0;
@@ -17559,7 +17597,7 @@ function renderConsumableRow(id, c, mode) {
   const infoDiv = document.createElement('div');
   infoDiv.style.flex = '1 1 55%';
   infoDiv.innerHTML = `<div class="consumable-name">${c.name} <span style="color:var(--ink-soft);font-weight:normal;font-size:0.8rem">${c.zh}</span> <span class="rarity-tag rarity-${c.rarity}">${c.rarity}</span> ${owned ? `× <strong>${owned}</strong>` : ''}</div>
-    <div class="consumable-desc">${c.desc}<br>Recipe: ${recipeText}</div>
+    <div class="consumable-desc">${c.desc}${recipeText ? '<br>Recipe: ' + recipeText : ''}</div>
     ${reqHTML}`;
   row.appendChild(infoDiv);
 
