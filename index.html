@@ -541,11 +541,11 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v1.17';
+const GAME_VERSION = 'v1.18';
 // v0.78: CI injects the build's short sha here; the APK shell reads it FROM THE RUNNING
 // PAGE (window.BUILD_SHA) and compares against the repo head — staleness detection that
-// cannot be fooled by cached metadata. '916899a' = local/dev build (shell falls back).
-const BUILD_SHA = '916899a';
+// cannot be fooled by cached metadata. 'a95b471' = local/dev build (shell falls back).
+const BUILD_SHA = 'a95b471';
 if (typeof window !== 'undefined') window.BUILD_SHA = BUILD_SHA;
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
@@ -10702,7 +10702,8 @@ const ARRAYS = {
 function arrayCapacity(char) {
   if (!char || !char.realm) return 3;
   // v1.15: base 3, +1 slot EVERY realm (Mortal 3 ... Spirit Severing 9). Reverted from v1.12's every-second-realm.
-  return 3 + (char.realm.tierIdx || 0);
+  // v1.18: + 2 bonus glyph slots per 5 Golden Core quality levels.
+  return 3 + (char.realm.tierIdx || 0) + 2 * Math.floor((char.goldenCoreQuality || 0) / 5);
 }
 
 function activeArrays(char) {
@@ -12156,8 +12157,9 @@ function finalStats(st) {
     }
   }
   const demonBonus = isDemonHeart(st) ? 6 : (st.demonic ? 4 : 0);  // v1.5: demon-heart = 1.5x the demonic +4
+  const gcStat = st.goldenCoreQuality || 0;   // v1.18: Golden Core grade grants +1 to every stat per quality level
   STAT_KEYS.forEach(k => {
-    const v = st.baseStats[k] + st.allocation[k] + (h[k] || 0) + latent + demonBonus + ((st.freeAlloc && st.freeAlloc[k]) || 0);
+    const v = st.baseStats[k] + st.allocation[k] + (h[k] || 0) + latent + demonBonus + ((st.freeAlloc && st.freeAlloc[k]) || 0) + gcStat;
     out[k] = Math.max(10, v);   // v1.4: effective stats never below 10
   });
   return out;
@@ -12499,6 +12501,37 @@ function toggleActiveSkill(tid) {
   saveChar();
 }
 
+// ============================================================
+// v1.18: Golden Core QUALITY. Forming the core assigns a PERMANENT grade X..I (level 1..10), scored at ascension on
+// Might (cultivatorMight), invested insight+cultivation boosts (temp sources time-scaled to a 1-hour reference), and
+// insight overcap vs the breakthrough threshold. Each quality level grants escalating, permanent power.
+// ============================================================
+const GC_ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
+function goldenCoreLevel() { return (state && state.goldenCoreQuality) || 0; }   // 0 = pre-Golden-Core
+function goldenCoreGradeLabel(level) { return GC_ROMAN[Math.max(0, Math.min(9, 10 - level))]; }   // level 10 -> 'I' (best), level 1 -> 'X'
+// A temp buff's bonus, scaled by remaining duration toward a 1-hour reference (a 10-min +60% buff counts ~1/6 = +10%).
+function goldenCoreTempScale(kind) {
+  if (!state || !state.base || !state.base.buffs) return 1;
+  const now = Date.now();
+  const b = state.base.buffs.find(x => x.kind === kind && x.expiresAt > now);
+  if (!b) return 1;
+  return 1 + (b.value - 1) * Math.min(1, Math.max(0, (b.expiresAt - now) / 3600000));
+}
+// Quality SCORE (%) at ascension. preInsight/threshold drive the overcap term (pass 0,0 to skip it, e.g. backfill).
+function goldenCoreScore(preInsight, threshold) {
+  const might = cultivatorMight();
+  const mightScore = might >= 400 ? 60 + 2 * Math.floor((might - 400) / 50) : 60 * (might / 400);   // 60% at 400, +2%/50 over
+  // combined invested insight + cultivation boost, with the temp cultivation buff time-scaled
+  const tempCult = activeBuffValue('cultivation_mult', 1);
+  const cultBoost = tempCult > 0 ? (cultivationBoostMult() / tempCult) * goldenCoreTempScale('cultivation_mult') : cultivationBoostMult();
+  const insightBoost = boonInsightMult() * skillCombatInsightMult() * (computeMods(state).insightMult || 1) * metaInsightMult();
+  const B = Math.max(0, (cultBoost - 1) + (insightBoost - 1));
+  const insightCultScore = 6 * B;   // 3% per 50% combined boost (so ~15% at +250%)
+  const overcapScore = (threshold > 0) ? Math.min(10, 10 * Math.max(0, (preInsight - threshold) / threshold)) : 0;   // up to +10%
+  return mightScore + insightCultScore + overcapScore;
+}
+function goldenCoreQualityFromScore(score) { return Math.max(1, Math.min(10, Math.ceil(score / 10))); }   // ~10%/grade, I at 100% (75% -> III)
+
 function computeMaxHP(char) {
   // v0.23: HP cushion +40% vs v0.22 — base, body coefficient, and per-realm hpBonus
   // each scaled together so tier curve stays the same shape, just taller.
@@ -12507,7 +12540,7 @@ function computeMaxHP(char) {
   const total = base + activeBuffValue('hp_max_add', 0) + boonHPAdd() + skillHPAdd() + (mods.hpBonus || 0) + metaHPAdd() + bodyQuenchHPAdd();
   // v0.89: hpMult (HP%) scales the whole pool — flat +HP and HP% on the same defensive
   // piece compound, the intended bulwark synergy. Demonic x1.2 stacks on top.
-  return Math.round(total * (mods.hpMult || 1) * cultPowerMults(char).hp * (isDemonHeart(char) ? 1.3 : (char.demonic ? 1.2 : 1)));   // v1.5: demon-heart x1.3; v1.16: + per-layer HP growth
+  return Math.round(total * (mods.hpMult || 1) * cultPowerMults(char).hp * (1 + 0.05 * (char.goldenCoreQuality || 0)) * (isDemonHeart(char) ? 1.3 : (char.demonic ? 1.2 : 1)));   // v1.5 demon x1.3; v1.16 per-layer HP; v1.18 +5% Body/GC level
 }
 // v0.98: ascension alone stops being enough — cultivation compounds per layer into qi (pool + barrier)
 // and a little damage. Survival becomes a qi-tank spine (~25% of the curve); GEAR carries the rest,
@@ -12526,11 +12559,11 @@ function computeMaxQi(char) {
   const mods = computeMods(char);
   // v0.82: base 25 -> 38 (x1.5); spirit weight 4 -> 8 (stats matter more); every flat qiBonus
   // source DOUBLED (building qi pays double — more than just the base boost).
-  return Math.round((38 + char.finalStats.spirit * 8 + realmBonusFor(char).qi + (mods.qiBonus || 0) * 2) * cultPowerMults(char).qiPool);
+  return Math.round((38 + char.finalStats.spirit * 8 + realmBonusFor(char).qi + (mods.qiBonus || 0) * 2) * cultPowerMults(char).qiPool * (1 + 0.10 * (char.goldenCoreQuality || 0)));   // v1.18: +10% Qi/GC level
 }
 function computeMaxSpirit(char) {
   const mods = computeMods(char);
-  return 12 + char.finalStats.sense * 2 + (mods.spiritBonus || 0);
+  return Math.round((12 + char.finalStats.sense * 2 + (mods.spiritBonus || 0)) * (1 + 0.10 * (char.goldenCoreQuality || 0)));   // v1.18: +10% Spirit/GC level
 }
 
 // ============================================================
@@ -12943,7 +12976,7 @@ function cultivationRate() {
   // v0.68 IDENTITY FLIP (operator): the demonic dao feeds on SLAUGHTER, not stillness.
   // Raw cultivation runs at HALF pace; the killing economy (below) more than repays it.
   const demonCult = isDemonHeart(state) ? 0 : (state.demonic ? 0.5 : 1);   // v1.5: a demon does not sit and cultivate — insight from battle + rift only
-  return (base + statBonus) * method.mult * locMult * realmMult * cultBuff * boonCultivationMult() * skillCultivationMult() * heritageCult * gearCult * rootGrade * foundation * sectRankMult() * metaCultMult() * demonCult;
+  return (base + statBonus) * method.mult * locMult * realmMult * cultBuff * boonCultivationMult() * skillCultivationMult() * heritageCult * gearCult * rootGrade * foundation * sectRankMult() * metaCultMult() * demonCult * (1 + 0.20 * goldenCoreLevel());   // v1.18: +20% cultivation speed/GC level
 }
 
 // v1.16: the multiplicative "cultivation boost" the player has invested in — every factor in cultivationRate()
@@ -12964,7 +12997,7 @@ function playerInsightMult() {
   if (!state || !state.confirmed) return 1;
   const m = computeMods(state).insightMult || 1;
   const dm = isDemonHeart(state) ? 2 : (state.demonic ? 1.5 : 1);
-  return boonInsightMult() * skillCombatInsightMult() * m * metaInsightMult() * dm * (state.demonic ? cultivationBoostMult() : 1);
+  return boonInsightMult() * skillCombatInsightMult() * m * metaInsightMult() * dm * (state.demonic ? cultivationBoostMult() : 1) * (1 + 0.20 * goldenCoreLevel());   // v1.18: +20% insight/GC level (also reaches the rift)
 }
 
 function startCultivation(locationId) {
@@ -13280,7 +13313,7 @@ function initCombat(enemyIdOrIds, areaCultMult) {
     turn: 1,
     // v0.64: cultivator might quietly feeds damage (+might/1000 as a fraction).
     // Cached here — cultivatorMight() runs computeMods and is too heavy per-hit.
-    mightDamageBonus: cultivatorMight() / 1000,
+    mightDamageBonus: cultivatorMight() / 1000 + 0.015 * goldenCoreLevel(),   // v1.18: +1.5% global damage/GC level
     cultDmgMult: cultPowerMults(state).dmg,   // v0.98: small per-layer damage growth (gear carries the bulk)
     enemyId: enemies[0].id,  // legacy single-enemy ID used by victory-reward / insight scaling
     log: [],
@@ -14037,7 +14070,7 @@ function grantEnemyDefeatRewards(e) {
   const enemyData = ENEMIES[e.id];
   const hmVictory = heritageMech();
   const rewardScale = (e.scale && e.scale.reward) || 1;
-  const insight = Math.round(enemyData.insightReward * rewardScale * boonInsightMult() * skillCombatInsightMult() * (combat.player.mods.insightMult || 1) * ((SCHOOLS[state.selectedSchool] && SCHOOLS[state.selectedSchool].insightFromKillsMult) || 1) * (hmVictory.combatInsightMult || 1) * combatInsightMult(combat) * metaInsightMult() * (isDemonHeart(state) ? 2 : (state.demonic ? 1.5 : 1)) * 1.5 * ((combat && combat.demonicQiVenture) ? 1.5 : 1) * (state.demonic ? cultivationBoostMult() : 1));   // v1.6: demon-heart 2x; demonic-qi venture +50%; v0.97 +50% base; v1.16: demonic cult boosts convert 1:1 to combat insight
+  const insight = Math.round(enemyData.insightReward * rewardScale * boonInsightMult() * skillCombatInsightMult() * (combat.player.mods.insightMult || 1) * ((SCHOOLS[state.selectedSchool] && SCHOOLS[state.selectedSchool].insightFromKillsMult) || 1) * (hmVictory.combatInsightMult || 1) * combatInsightMult(combat) * metaInsightMult() * (isDemonHeart(state) ? 2 : (state.demonic ? 1.5 : 1)) * 1.5 * ((combat && combat.demonicQiVenture) ? 1.5 : 1) * (state.demonic ? cultivationBoostMult() : 1) * (1 + 0.20 * goldenCoreLevel()));   // v1.6: demon-heart 2x; demonic-qi venture +50%; v0.97 +50% base; v1.16: demonic cult->insight 1:1; v1.18: +20% insight/GC level
   addInsight(insight);
   state.sectKills = (state.sectKills || 0) + 1;  // Wave 2b: progress toward the sect hunt bounty
   // v0.92: slaying a cultivator of the OPPOSING path earns sect contribution (operator) — a demonic
@@ -14202,12 +14235,19 @@ function checkDeath() {
 
     // Tribulation victory: advance realm, skip extra insight reward (already granted per-enemy).
     if (combat.tribulation && pendingTribulation) {
+      const gcThreshold = pendingTribulation.cost;      // v1.18: Golden Core overcap reference (insight needed to break in)
+      const gcPreInsight = state.realm.insight;         // insight BEFORE the breakthrough spend
       state.realm.insight -= pendingTribulation.cost;
       state.realm.tierIdx = pendingTribulation.targetTier;
       state.realm.layer = 1;
       state.realmDefeats = 0;  // v0.25: breakthrough resets defeat counter
       state.bodyQuench = (state.bodyQuench || 0) + 1;  // Wave 3c: surviving the tribulation tempers the body
       pushLog('reward', `Realm breakthrough: ${REALMS[state.realm.tierIdx].name}! The tribulation's fire tempers your body — now +${bodyQuenchHPAdd()} max HP for life.`);
+      // v1.18: forming the Golden Core sets a PERMANENT quality grade from your power at the moment of ascension.
+      if (state.realm.tierIdx === 4 && !state.goldenCoreQuality) {
+        state.goldenCoreQuality = goldenCoreQualityFromScore(goldenCoreScore(gcPreInsight, gcThreshold));
+        pushLog('reward', `Your Golden Core crystallizes at grade ${goldenCoreGradeLabel(state.goldenCoreQuality)} (quality ${state.goldenCoreQuality}/10) — every power it grants scales with that grade.`);
+      }
       if (state.tribulationFails && state.tribulationFails[combat.enemyId]) {
         state.tribulationFails[combat.enemyId] = 0;
       }
@@ -15683,6 +15723,10 @@ function renderCharSheet() {
     </div>
     <div class="realm-bar"><div class="realm-bar-fill" id="insight-bar" style="width:${progressPct}%"></div></div>
     <p style="font-size:0.85rem;color:var(--ink-soft);margin:0.2rem 0 0.6rem;font-style:italic">${tier.flavor}</p>`;
+  if (goldenCoreLevel() > 0) {
+    const gcl = goldenCoreLevel();
+    realmHTML += `<p class="tip" data-tip="Your Golden Core's quality, locked in when you formed it. Per quality level: +1 to all stats, +5% Body, +10% Qi, +10% Spirit, +20% cultivation & insight, +1.5% damage; +2 glyph slots per 5 levels." style="font-size:0.85rem;color:var(--gold);margin:0 0 0.4rem">Golden Core: grade <strong>${goldenCoreGradeLabel(gcl)}</strong> <span style="color:var(--ink-soft)">(quality ${gcl}/10)</span></p>`;
+  }
   realmHTML += `<p class="tip" data-tip="Lifespan is a resource. Age advances slowly and ONLY while actively cultivating (idling/offline are safe); each realm hugely extends your span. Certain pills, schools, and artifacts ADD lifespan; powerful pills SPEND it (a share of what remains) for permanent power. Running out is death by old age — which reincarnates you with your souls intact." style="font-size:0.8rem;color:var(--ink-soft);margin:0 0 0.4rem">Age <strong>${Math.floor(state.age || 16)}</strong> / lifespan <strong>${lifespanMax()}</strong> yrs &middot; <strong style="color:var(--jade)">${Math.floor(lifespanRemaining())}</strong> remaining${state.bodyQuench ? ` · body tempered ×${state.bodyQuench} (+${bodyQuenchHPAdd()} HP)` : ''}</p>`;
   if (destinyPicksAvailable() > 0 && eligibleDestinies().length) {
     realmHTML += `<div class="button-row" style="margin-top:0.4rem"><button class="gold" id="choose-destiny">Choose a Destiny (${destinyPicksAvailable()} available)</button></div>
@@ -17791,6 +17835,12 @@ try {
       }
       applyDemonicLoadoutSwap(parsed);   // v0.70: existing demonic saves get the heretical signature
       state = parsed;
+      // v1.18: backfill Golden Core quality for saves that ascended before the grade system existed
+      // (scored from current power; overcap omitted since the ascension moment is gone).
+      if (state.realm && (state.realm.tierIdx || 0) >= 4 && !state.goldenCoreQuality) {
+        state.goldenCoreQuality = goldenCoreQualityFromScore(goldenCoreScore(0, 0));
+        if (state.confirmed) state.finalStats = finalStats(state);
+      }
     }
   }
 } catch (e) {}
