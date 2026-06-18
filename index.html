@@ -541,11 +541,11 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v1.25';
+const GAME_VERSION = 'v1.26';
 // v0.78: CI injects the build's short sha here; the APK shell reads it FROM THE RUNNING
 // PAGE (window.BUILD_SHA) and compares against the repo head — staleness detection that
-// cannot be fooled by cached metadata. '5e368e6' = local/dev build (shell falls back).
-const BUILD_SHA = '5e368e6';
+// cannot be fooled by cached metadata. '661247c' = local/dev build (shell falls back).
+const BUILD_SHA = '661247c';
 if (typeof window !== 'undefined') window.BUILD_SHA = BUILD_SHA;
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
@@ -9775,6 +9775,98 @@ function modSummary(mods) {
   return parts.length ? parts.join(', ') : '(no stats)';
 }
 
+// v1.26: STAT SHEET — a grouped, exhaustive breakdown of every active bonus, shown under
+// Loadout. Reads the SAME computeMods the combat engine uses, so what you see is what you
+// fight with. Data-driven over the full baseInscriptionMods channel set: if a channel ever
+// gets added and isn't listed here, it simply won't show (no crash) — keep this in sync.
+function statSheetHTML(char, mods) {
+  mods = mods || computeMods(char);
+  const fs = char.finalStats || {};
+  const hpMax = computeMaxHP(char), qiMax = computeMaxQi(char), spMax = computeMaxSpirit(char);
+  const postureMax = 60 + 2 * (fs.will || 0);
+  const rb = realmBonusFor(char);
+  const w = WEAPONS[char.weapon];
+  const wpnPower = Math.round((w ? w.power : 0) + refineWeaponBonus(char) + rb.weapon + (mods.weaponBonus || 0));
+  const offN = (char.weapons && char.weapons.offhands || []).length;
+  let might = 0; try { might = cultivatorMight(); } catch (e) {}
+
+  // formatters
+  const add = (v, lbl, unit) => (v ? `${v > 0 ? '+' : ''}${Math.round(v * 10) / 10}${unit || ''} ${lbl}` : null);
+  const pct = (v, lbl) => (v ? `${v > 0 ? '+' : ''}${Math.round(v * 100)}% ${lbl}` : null);   // fraction → %
+  const mul = (v, lbl) => (v != null && v !== 1 ? `${v >= 1 ? '+' : ''}${Math.round((v - 1) * 100)}% ${lbl}` : null);
+  const mapc = (obj, sign, lbl) => Object.entries(obj || {}).filter(([, x]) => x).map(([k, x]) => `${sign}${Math.round(x * 100)}% ${lbl} ${k}`);
+
+  const offense = [
+    add(mods.weaponBonus, 'weapon power'),
+    pct(mods.critChance, 'crit chance'),
+    mul(mods.critMult, 'crit damage'),
+    mul(mods.strikeDamageMult, 'strike damage'),
+    mul(mods.techDamageMult, 'technique damage'),
+    pct(mods.firstStrikeBonus, 'opening-strike damage'),
+    pct(mods.lowHpBonus, 'damage while bloodied'),
+    pct(mods.lifestealPct, 'lifesteal'),
+    mul(mods.dotMult, 'damage-over-time'),
+    pct(mods.perTurnRamp, 'damage per turn (ramp)'),
+    pct(mods.lateBonus, 'damage from turn 4+'),
+    mul(mods.spiritDamageMult, 'spirit damage'),
+    pct(mods.elementBoostAll, 'element-overcome bonus'),
+    add(mods.qiOnKill, 'qi on kill'),
+  ].concat(mapc(mods.elementAmp, '+', 'vs element'))
+   .concat(mapc(mods.vsKindMult, '+', 'vs'))
+   .concat(Object.entries(mods.schoolDamageMult || {}).filter(([, x]) => x !== 1).map(([k, x]) => `+${Math.round((x - 1) * 100)}% ${k} techniques`))
+   .filter(Boolean);
+
+  const defense = [
+    add(mods.flatDR, 'flat DR'),
+    mods.incomingMult < 1 ? `-${Math.round((1 - mods.incomingMult) * 100)}% incoming damage` : mul(mods.incomingMult, 'incoming damage'),
+    add(mods.hpBonus, 'Body'),
+    mul(mods.hpMult, 'max Body'),
+    pct(mods.dodgeChance, 'dodge'),
+  ].concat(mapc(mods.elementWard, '-', 'from element')).filter(Boolean);
+
+  const utility = [
+    add(mods.qiBonus, 'max qi'),
+    add(mods.qiRegenBonus, 'qi regen/turn'),
+    add(mods.spiritBonus, 'max spirit'),
+    mul(mods.postureMult, 'posture damage'),
+    add(mods.postureBreakBonus, 'break duration', 't'),
+    mul(mods.cultMult, 'cultivation'),
+    mul(mods.insightMult, 'insight'),
+    mul(mods.meditateMult, 'meditate'),
+    mods.hpCostMult !== 1 ? `${mods.hpCostMult > 1 ? '+' : ''}${Math.round((mods.hpCostMult - 1) * 100)}% Body-cost of techniques` : null,
+    add(mods.strikeHeal, 'heal on strike'),
+  ].filter(Boolean);
+
+  // context chips
+  const kit = SCHOOL_KITS[char.selectedSchool];
+  const chips = [];
+  if (kit) chips.push(`<span class="buff-chip" style="border-color:var(--gold)">Passive: ${kit.passiveName}</span>`);
+  if (isDemonHeart(char)) chips.push(`<span class="buff-chip" style="background:rgba(160,40,40,0.18);border-color:var(--crimson)">Demon-Heart (×1.3 Body, +15% bloodied, +10% taken, −10% posture)</span>`);
+  else if (char.demonic) chips.push(`<span class="buff-chip" style="background:rgba(160,40,40,0.15);border-color:var(--crimson)">Demonic path (×1.2 Body, +4 stats)</span>`);
+  const gcl = (typeof goldenCoreLevel === 'function') ? goldenCoreLevel() : (char.goldenCoreQuality || 0);
+  if (gcl > 0) chips.push(`<span class="buff-chip" style="border-color:var(--gold)">Golden Core ${goldenCoreGradeLabel(gcl)} (qual ${gcl})</span>`);
+  if (char.spiritRoot) {
+    const sr = char.spiritRoot;
+    chips.push(`<span class="buff-chip">Root ${sr.gradeName || 'Common'} (+${Math.round(((sr.grade||1)-1)*100)}% cult)</span>`);
+  }
+
+  const grp = (title, arr) => arr.length
+    ? `<div style="margin-top:0.35rem"><span style="color:var(--gold);font-weight:bold;font-size:0.78rem">${title}</span> <span style="color:var(--ink-soft);font-size:0.8rem">${arr.join(' · ')}</span></div>`
+    : '';
+
+  return `<div class="panel" style="background:rgba(0,0,0,0.12);padding:0.5rem 0.6rem;margin:0 0 0.6rem">
+    <div style="font-size:0.82rem;margin-bottom:0.2rem"><strong style="color:var(--gold)">Stat Sheet</strong> <span style="color:var(--ink-soft);font-size:0.76rem">— every active bonus, as combat computes it</span></div>
+    <div style="font-size:0.84rem">
+      <strong>Body</strong> ${hpMax} · <strong>Qi</strong> ${qiMax} · <strong>Spirit</strong> ${spMax} · <strong>Posture</strong> ${postureMax} · <strong>Weapon</strong> ${wpnPower}${offN ? ` (+${offN} off-hand)` : ''} · <strong>Might</strong> ${might}
+    </div>
+    <div style="font-size:0.8rem;color:var(--ink-soft);margin-top:0.15rem">Stats — Body ${fs.body||0} · Spirit ${fs.spirit||0} · Sense ${fs.sense||0} · Mind ${fs.mind||0} · Will ${fs.will||0} · Luck ${fs.luck||0}</div>
+    ${grp('Offense', offense)}
+    ${grp('Defense', defense)}
+    ${grp('Utility', utility)}
+    ${chips.length ? `<div style="margin-top:0.4rem">${chips.join(' ')}</div>` : ''}
+  </div>`;
+}
+
 function mergeMods(target, add) {
   Object.entries(add).forEach(([k, v]) => {
     if (typeof v === 'number') {
@@ -15063,6 +15155,7 @@ function renderTabBar() {
     { id: 'bosses',   label: 'Bosses' },
     { id: 'config',   label: 'Config' },
   ];
+  if (devModeOn()) tabs.push({ id: 'dev', label: '★ Dev' });
   tabs.forEach(t => {
     const b = document.createElement('button');
     b.className = 'tab' + (activeTab === t.id ? ' active' : '');
@@ -15248,8 +15341,120 @@ function buildConfigPanel() {
   lsBtn.textContent = noDeath ? 'OFF — enable' : 'ON — disable';
   lsBtn.onclick = () => { if (!META.settings) META.settings = {}; META.settings.noAgeDeath = !META.settings.noAgeDeath; saveMeta(); render(); };
   lsBtns.appendChild(lsBtn); lsRow.appendChild(lsBtns); cfgP.appendChild(lsRow);
+  // v1.26: Dev Mode toggle — surfaces a Dev tab for tuning/testing (set realm, stats, insight,
+  // path, school, resources). Global preference (persists via META). Harmless when off.
+  const devOn = devModeOn();
+  const dvRow = document.createElement('div'); dvRow.className = 'consumable-row';
+  dvRow.innerHTML = `<div class="consumable-info">
+      <div class="consumable-name">Dev Mode <span style="color:var(--ink-soft);font-size:0.75rem">测试</span></div>
+      <div class="consumable-desc">Adds a <strong>Dev</strong> tab for tuning &amp; testing: jump realms, set stats/insight, toggle the demonic path, switch schools, grant resources. For balancing — not part of normal play.</div>
+    </div>`;
+  const dvBtns = document.createElement('div'); dvBtns.className = 'consumable-buttons';
+  const dvBtn = document.createElement('button');
+  dvBtn.className = devOn ? 'gold' : 'ghost';
+  dvBtn.textContent = devOn ? 'ON — disable' : 'OFF — enable';
+  dvBtn.onclick = () => { if (!META.settings) META.settings = {}; META.settings.devMode = !META.settings.devMode; saveMeta(); render(); };
+  dvBtns.appendChild(dvBtn); dvRow.appendChild(dvBtns); cfgP.appendChild(dvRow);
   appendMusicControls(cfgP);
   return cfgP;
+}
+function devModeOn() { return !!(META.settings && META.settings.devMode); }
+
+// v1.26: DEV MODE panel — directly mutates the global `state` (the same pattern the legit
+// code uses: allocFreePoint/finalizeAscension), then recomputes finalStats + saves + renders.
+// Gated behind the Config toggle; the Dev tab only appears when devModeOn().
+function buildDevPanel() {
+  const p = document.createElement('div');
+  p.className = 'panel';
+  const apply = (fn) => { try { fn(); } catch (e) {} if (state) state.finalStats = finalStats(state); saveChar(); render(); };
+  const mkBtn = (label, fn, cls) => { const b = document.createElement('button'); b.className = 'small ' + (cls || 'ghost'); b.textContent = label; b.onclick = () => apply(fn); return b; };
+  const mkRow = (title, desc, btns) => {
+    const row = document.createElement('div'); row.style.cssText = 'margin:0 0 0.6rem;border-bottom:1px solid rgba(120,120,120,0.18);padding-bottom:0.5rem';
+    row.innerHTML = `<div style="font-size:0.84rem;font-weight:bold;color:var(--gold)">${title}</div>${desc ? `<div style="font-size:0.76rem;color:var(--ink-soft);margin-bottom:0.3rem">${desc}</div>` : ''}`;
+    const bar = document.createElement('div'); bar.className = 'button-row'; bar.style.cssText = 'flex-wrap:wrap;gap:0.3rem';
+    btns.forEach(b => bar.appendChild(b)); row.appendChild(bar); p.appendChild(row); return row;
+  };
+  p.innerHTML = `<h3 style="color:var(--crimson)">★ Dev Mode <span style="font-weight:normal;color:var(--ink-soft);font-size:0.8rem">tuning &amp; testing — not normal play</span></h3>
+    <p style="font-size:0.78rem;color:var(--ink-soft);margin:0 0 0.6rem">Current: <strong>${REALMS[state.realm.tierIdx].name}</strong> L${state.realm.layer} · ${SCHOOLS[state.selectedSchool].name}${state.demonic ? ' · <span style="color:var(--crimson)">DEMONIC</span>' : ''} · GC ${state.goldenCoreQuality || 0}/10 · insight ${Math.floor(state.realm.insight)} · Might ${(function(){try{return cultivatorMight()}catch(e){return '?'}})()}</p>`;
+
+  // Realm jump
+  mkRow('Realm', 'Jump to a realm (layer 1). Re-derives stats &amp; pools.',
+    REALMS.map((r, t) => mkBtn(r.name, () => { state.realm.tierIdx = t; state.realm.layer = 1; state.realm.insight = 0; }, state.realm.tierIdx === t ? 'gold' : 'ghost')));
+  mkRow('Layer', 'Move within the current realm.', [
+    mkBtn('− layer', () => { state.realm.layer = Math.max(1, (state.realm.layer || 1) - 1); }),
+    mkBtn('+ layer', () => { const max = REALMS[state.realm.tierIdx].layers; state.realm.layer = Math.min(max, (state.realm.layer || 1) + 1); }),
+    mkBtn('max layer', () => { state.realm.layer = REALMS[state.realm.tierIdx].layers; }),
+  ]);
+
+  // Insight
+  mkRow('Insight', 'Grant insight (for breakthroughs / sinks).', [
+    mkBtn('+1k', () => addInsight(1000)),
+    mkBtn('+100k', () => addInsight(100000)),
+    mkBtn('+1M', () => addInsight(1000000)),
+    mkBtn('fill to advance', () => { const info = advanceInfo(state); if (info) state.realm.insight = info.cost; }),
+    mkBtn('clear', () => { state.realm.insight = 0; }),
+  ]);
+
+  // Stats
+  const STAT_KEYS_LOCAL = STAT_KEYS;
+  mkRow('Stats', 'Set base stats / grant free points. (Effective = base + path + GC + heritage.)', [
+    mkBtn('base → 20', () => STAT_KEYS_LOCAL.forEach(k => state.baseStats[k] = 20)),
+    mkBtn('base → 40', () => STAT_KEYS_LOCAL.forEach(k => state.baseStats[k] = 40)),
+    mkBtn('base → 80', () => STAT_KEYS_LOCAL.forEach(k => state.baseStats[k] = 80)),
+    mkBtn('+30 free pts', () => { state.freePoints = (state.freePoints || 0) + 30; }),
+    mkBtn('max best-stats', () => { const bs = SCHOOLS[state.selectedSchool].bestStats || []; bs.forEach(k => state.baseStats[k] = (state.baseStats[k] || 0) + 40); }),
+  ]);
+
+  // Golden Core quality
+  mkRow('Golden Core quality', 'Quality 0–10 (10 = grade I, best). Drives the v1.18 per-level bonuses.',
+    [0, 2, 4, 6, 8, 10].map(q => mkBtn('GC ' + q, () => { state.goldenCoreQuality = q; }, (state.goldenCoreQuality || 0) === q ? 'gold' : 'ghost')));
+
+  // Path
+  mkRow('Path', 'Toggle the demonic path (re-derives stats + signature technique). Demon-Heart school is always demonic.', [
+    mkBtn(state.demonic ? 'set RIGHTEOUS' : 'set DEMONIC', () => {
+      if (isDemonHeart(state)) return;   // demon_heart forced demonic
+      state.demonic = !state.demonic;
+      const sc = SCHOOLS[state.selectedSchool];
+      state.loadout = sc.techniques.slice(); state.activeSkills = sc.techniques.slice();
+      applyDemonicLoadoutSwap(state);
+    }, state.demonic ? 'gold' : 'ghost'),
+  ]);
+
+  // School switch
+  mkRow('School', 'Switch school (re-seeds weapon + loadout, applies demonic signature if on the path).',
+    Object.keys(SCHOOLS).map(sid => mkBtn(SCHOOLS[sid].name.replace(/ (Sect|Hall|Pavilion|Pagoda|Palace|Monastery|Forge|Guild|Hermitage|Academy|Conclave|Cloister|Archers)$/, ''), () => {
+      state.selectedSchool = sid;
+      const sc = SCHOOLS[sid];
+      if (sc.isDemon) state.demonic = true;
+      state.weapon = sc.weapon;
+      state.loadout = sc.techniques.slice(); state.activeSkills = sc.techniques.slice();
+      applyDemonicLoadoutSwap(state);
+    }, state.selectedSchool === sid ? 'gold' : 'ghost')));
+
+  // Techniques
+  mkRow('Techniques', 'Learn every purchasable technique for this school (+ demonic ladder if on the path).', [
+    mkBtn('learn all school techs', () => {
+      Object.entries(TECHNIQUES).forEach(([tid, t]) => {
+        const mine = (t.school === state.selectedSchool) || (t.demonicOnly && state.demonic);
+        if (mine && t.minRealmTier != null && !state.loadout.includes(tid)) state.loadout.push(tid);
+      });
+    }),
+  ]);
+
+  // Resources
+  mkRow('Resources', 'Grant crafting materials / spirit stones / souls.', [
+    mkBtn('+9999 all materials', () => { Object.keys(MATERIALS).forEach(m => { state.base.materials[m] = (state.base.materials[m] || 0) + 9999; }); }),
+    mkBtn('+100k spirit stones', () => { state.base.materials.spirit_stone = (state.base.materials.spirit_stone || 0) + 100000; }),
+    mkBtn('+50 souls', () => { META.souls = (META.souls || 0) + 50; saveMeta(); }),
+  ]);
+
+  // In-combat restore
+  if (typeof combat !== 'undefined' && combat && combat.player) {
+    mkRow('In combat', 'Restore the current fight.', [
+      mkBtn('full restore', () => { const pl = combat.player; pl.hp = pl.hpMax; pl.qi = pl.qiMax; pl.spirit = pl.spiritMax; pl.posture = 0; pl.broken = 0; }),
+    ]);
+  }
+  return p;
 }
 
 // Music controls — shared by the title-screen Config panel and the in-game Config tab.
@@ -16782,6 +16987,7 @@ function renderCharSheet() {
   let loadoutHTML = `<h3>${dispLoad.name} ${roleLabelLoad ? `<span style="font-size:0.7rem;font-weight:normal;color:${roleColorLoad};border:1px solid ${roleColorLoad};padding:0.1rem 0.4rem;border-radius:0.3rem;vertical-align:middle">${roleLabelLoad}</span>` : ''}</h3>
     <p style="font-size:0.85rem;color:var(--ink-soft);margin:0 0 0.4rem">${dispLoad.flavor}</p>
     ${kitLoad ? `<p style="font-size:0.82rem;margin:0 0 0.4rem"><strong style="color:var(--gold)">Passive — ${kitLoad.passiveName}</strong> <span style="color:var(--ink-soft);font-size:0.78rem">${kitLoad.passiveZh}</span>: ${kitLoad.passiveDesc}</p>` : ''}
+    ${statSheetHTML(state, mods)}
     <p style="font-size:0.82rem;color:var(--ink-soft);margin:0 0 0.5rem">Active Abilities <strong style="color:var(--gold)">${activeCount}/${activeCap}</strong> — only active techniques can be used in combat. Tap to slot / unslot. Slots grow +1 at Golden Core and +1 at Nascent Soul.</p>
     <div class="tech-list">`;
   state.loadout.forEach(tid => {
@@ -17584,6 +17790,7 @@ function renderCharSheet() {
   lsBtn.onclick = () => { if (!META.settings) META.settings = {}; META.settings.noAgeDeath = !META.settings.noAgeDeath; saveMeta(); render(); };
   lsBtns.appendChild(lsBtn); lsRow.appendChild(lsBtns); cfgP.appendChild(lsRow);
   appendPanel(buildConfigPanel(), 'config');  // unified: the in-game tab shows the same panel as the title screen
+  if (devModeOn()) appendPanel(buildDevPanel(), 'dev');  // v1.26: dev tuning/testing panel
   const reBtn = document.getElementById('random-encounter');
   if (reBtn) {
     const wcd = walkCooldownLeft();
