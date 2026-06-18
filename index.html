@@ -541,11 +541,11 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v1.23';
+const GAME_VERSION = 'v1.24';
 // v0.78: CI injects the build's short sha here; the APK shell reads it FROM THE RUNNING
 // PAGE (window.BUILD_SHA) and compares against the repo head — staleness detection that
-// cannot be fooled by cached metadata. '6615bc0' = local/dev build (shell falls back).
-const BUILD_SHA = '6615bc0';
+// cannot be fooled by cached metadata. '26a26c9' = local/dev build (shell falls back).
+const BUILD_SHA = '26a26c9';
 if (typeof window !== 'undefined') window.BUILD_SHA = BUILD_SHA;
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
@@ -752,7 +752,7 @@ const HERITAGES = [
     flavor: 'You fell from somewhere no one has mapped. Your shadow arrives half a heartbeat late.' },
   { name: 'World-Tree Scion', rarity: 'divine',
     mods: { body:4, mind:4, sense:3, will:2 },
-    extra: 'Herbs grow 15% faster around you. HP regenerates slowly between fights.',
+    extra: 'Herbs grow 15% faster around you. Body regenerates slowly between fights.',
     flavor: 'Roots tangle in your spine. The dao grows along them.' },
   { name: 'Dao Reincarnate', rarity: 'divine',
     mods: { spirit:3, body:3, mind:3, sense:3, luck:3, will:3 },
@@ -1655,7 +1655,7 @@ const TECHNIQUES = {
   anvil_fall: {
     name: 'Anvil Fall', zh: '砧降', school: 'thunder_hammer',
     qi: 0, hpCost: 14, cd: 3, damage: 5.6, postureBuild: 24,
-    desc: 'A full-body plunge. Pays HP for devastating damage and posture.',
+    desc: 'A full-body plunge. Pays Body for devastating damage and posture.',
     logHit: (a,t) => `${a} becomes the hammer, and the hammer becomes the anvil; ${t} is between.` },
   forge_stance: {
     name: 'Stormcall', zh: '唤雷', school: 'thunder_hammer',
@@ -1888,12 +1888,12 @@ const TECHNIQUES = {
   demon_feast: {
     name: 'Demon Feast', zh: '魔宴', school: 'demon_heart',
     qi: 24, cd: 3, damage: 4.6, directHP: 22, postureBuild: 18,
-    desc: 'A vast draining cut. Steals a large chunk of enemy HP.',
+    desc: 'A vast draining cut. Steals a large chunk of enemy Body.',
     logHit: (a,t) => `${a} opens their mouth — a thousand teeth — and feasts.` },
   demon_dao: {
     name: 'Demon Dao', zh: '魔道', school: 'demon_heart',
     qi: 40, hpCost: 16, cd: 3, damage: 8.2, postureBuild: 20,
-    desc: "A blasphemous finisher. Pays HP for a strike that laughs at the heavens.",
+    desc: "A blasphemous finisher. Pays Body for a strike that laughs at the heavens.",
     logHit: (a,t) => `${a}'s saber names the heavens' mistake, and corrects it.` },
 
   // --- Starfall (2 extra) ---
@@ -2114,7 +2114,7 @@ const TECHNIQUES = {
     name: 'Verdant Communion', zh: '翠林同息', school: 'verdant_monastery', target: 'aoe',
     qi: 11, cd: 3, damage: 1.0, postureBuild: 12,
     selfBuff: { regrowthPct: 0.06, turns: 3 },
-    desc: 'Borrow the patience of trees. AOE strike, and you regrow 6% max HP per turn for 3 turns.',
+    desc: 'Borrow the patience of trees. AOE strike, and you regrow 6% max Body per turn for 3 turns.',
     logHit: (a,t) => `Green light moves through ${a} like sap rising; the staff falls on ${t} almost as an afterthought.` },
   thunder_roll: {
     name: 'Rolling Thunder', zh: '滚雷', school: 'thunder_hammer', target: 'aoe',
@@ -2243,7 +2243,7 @@ const SCHOOLS = {
     name: 'Verdant Monastery', zh: '翠林寺',
     weapon: 'grove_staff',
     techniques: ['grove_strike','root_bind','greenwave_sweep','heartwood_stance','grove_bloom'],
-    specialty: 'MIXED regeneration tank. Sap of the Grove regrows 3% max HP every round — more under Verdant Communion. Root casters dry while you simply refuse to die.',
+    specialty: 'MIXED regeneration tank. Sap of the Grove regrows 3% max Body every round — more under Verdant Communion. Root casters dry while you simply refuse to die.',
     bestStats: ['body','mind'],
     flavor: 'A monastery woven into a grove that has been a monastery longer than the monks. The trees are considered elder disciples.',
   },
@@ -2451,7 +2451,7 @@ const EXPANSION_TECHS = {
   iron_p1_settled: {
     name: 'Settled Bones', zh: '定骨', school: 'iron_body', minRealmTier: 1, passive: true,
     applyMods: m => { m.hpBonus += 60; m.flatDR += 3; },
-    desc: 'PASSIVE. The frame stops arguing with the load: +60 HP, +3 flat damage reduction.' },
+    desc: 'PASSIVE. The frame stops arguing with the load: +60 Body, +3 flat damage reduction.' },
   iron_grudge_stance: {
     name: 'Grudge-Holding Stance', zh: '记仇势', school: 'iron_body', minRealmTier: 2,
     qi: 9, cd: 3, damage: 0, postureBuild: 12,
@@ -2471,7 +2471,7 @@ const EXPANSION_TECHS = {
     name: 'Ox-Hide Tempering', zh: '牛皮炼', school: 'iron_body', minRealmTier: 3, passive: true,
     kitMod: k => { k.flatDRBase = (k.flatDRBase || 0) + 3; },
     applyMods: m => { m.hpBonus += 80; },
-    desc: 'PASSIVE. Iron Skin sits +3 thicker at its base, and the body beneath holds +80 HP.' },
+    desc: 'PASSIVE. Iron Skin sits +3 thicker at its base, and the body beneath holds +80 Body.' },
   iron_immovable_decree: {
     name: 'Immovable Decree', zh: '不动令', school: 'iron_body', minRealmTier: 4,
     qi: 12, cd: 4, damage: 0, instant: true, qiRestore: 10,
@@ -2495,12 +2495,12 @@ const EXPANSION_TECHS = {
   iron_mountain_buries: {
     name: 'The Mountain Buries Its Dead', zh: '山葬式', school: 'iron_body', minRealmTier: 6,
     qi: 18, hpCost: 30, cd: 4, damage: 9.6, postureBuild: 30,
-    desc: 'The hall\'s last lesson. Pay 30 HP; deliver an ending with a mountain\'s patience behind it.',
+    desc: 'The hall\'s last lesson. Pay 30 Body; deliver an ending with a mountain\'s patience behind it.',
     logHit: (a,t) => `${a} falls on ${t} the way a hillside does — once, and comprehensively.` },
   iron_p6_scripture: {
     name: 'Scripture of Standing', zh: '立身经', school: 'iron_body', minRealmTier: 6, passive: true,
     applyMods: m => { m.hpBonus += 200; m.incomingMult *= 0.94; },
-    desc: 'PASSIVE. The flesh finishes its argument: +200 HP and all incoming damage -6%.' },
+    desc: 'PASSIVE. The flesh finishes its argument: +200 Body and all incoming damage -6%.' },
 
   // ============ Whispering Array Pavilion — the field is the weapon ============
   array_binding_double: {
@@ -2605,7 +2605,7 @@ const EXPANSION_TECHS = {
   flame_p4_oven_walls: {
     name: 'Oven-Wall Skin', zh: '窑壁肤', school: 'crimson_flame', minRealmTier: 4, passive: true,
     applyMods: m => { m.hpBonus += 100; m.elementBoostAll += 0.06; },
-    desc: 'PASSIVE. Fired clay over living coal: +100 HP and your elemental advantages bite +6% deeper.' },
+    desc: 'PASSIVE. Fired clay over living coal: +100 Body and your elemental advantages bite +6% deeper.' },
   flame_ashfall_famine: {
     name: 'Ashfall: Famine of Air', zh: '灰落绝息', school: 'crimson_flame', minRealmTier: 5,
     qi: 30, cd: 3, damage: 6.6, postureBuild: 18, target: 'aoe',
@@ -2637,7 +2637,7 @@ const EXPANSION_TECHS = {
   water_p1_lakebed: {
     name: 'Lakebed Stillness', zh: '湖底静', school: 'moonlit_water', minRealmTier: 1, passive: true,
     applyMods: m => { m.qiRegenBonus += 1; m.hpBonus += 40; },
-    desc: 'PASSIVE. Settle like silt: +40 HP and +1 qi regen per turn.' },
+    desc: 'PASSIVE. Settle like silt: +40 Body and +1 qi regen per turn.' },
   water_still_surface: {
     name: 'Still Surface', zh: '止水面', school: 'moonlit_water', minRealmTier: 2,
     qi: 9, cd: 3, damage: 0, postureBuild: 6, qiRestore: 12,
@@ -2762,7 +2762,7 @@ const EXPANSION_TECHS = {
   demon_p1_first_hunger: {
     name: 'First Hunger', zh: '初饥', school: 'demon_heart', minRealmTier: 1, passive: true,
     kitMod: k => { k.lifestealBonus = (k.lifestealBonus || 0) + 0.03; },
-    desc: 'PASSIVE. The Hungry Dao notices you sooner: +3% of all damage returns as your HP.' },
+    desc: 'PASSIVE. The Hungry Dao notices you sooner: +3% of all damage returns as your Body.' },
   demon_banquet_posture: {
     name: 'Banquet Posture', zh: '宴势', school: 'demon_heart', minRealmTier: 2,
     qi: 10, cd: 3, damage: 1.4, postureBuild: 10,
@@ -2783,7 +2783,7 @@ const EXPANSION_TECHS = {
     name: 'A Growing Appetite', zh: '长饥', school: 'demon_heart', minRealmTier: 3, passive: true,
     kitMod: k => { k.lifestealBonus = (k.lifestealBonus || 0) + 0.03; },
     applyMods: m => { m.hpBonus += 80; },
-    desc: 'PASSIVE. +3% more of the Hungry Dao and +80 HP — you are what you eat, cumulatively.' },
+    desc: 'PASSIVE. +3% more of the Hungry Dao and +80 Body — you are what you eat, cumulatively.' },
   demon_seat_at_table: {
     name: 'Seat at the Long Table', zh: '长桌座', school: 'demon_heart', minRealmTier: 4,
     qi: 12, cd: 4, damage: 0, instant: true, qiRestore: 14,
@@ -2917,7 +2917,7 @@ const EXPANSION_TECHS = {
   grove_p1_deep_roots: {
     name: 'Deep Roots', zh: '深根', school: 'verdant_monastery', minRealmTier: 1, passive: true,
     applyMods: m => { m.hpBonus += 70; },
-    desc: 'PASSIVE. What is well-rooted is hard to uproot: +70 HP.' },
+    desc: 'PASSIVE. What is well-rooted is hard to uproot: +70 Body.' },
   grove_thorn_communion: {
     name: 'Thorn Communion', zh: '棘通', school: 'verdant_monastery', minRealmTier: 2,
     qi: 12, cd: 3, damage: 1.3, postureBuild: 10, target: 'aoe',
@@ -2927,7 +2927,7 @@ const EXPANSION_TECHS = {
   grove_p2_evergreen: {
     name: 'Evergreen Vow', zh: '常青誓', school: 'verdant_monastery', minRealmTier: 2, passive: true,
     kitMod: k => { k.regenPct = (k.regenPct || 0) + 0.01; },
-    desc: 'PASSIVE. Sap of the Grove runs richer: regrow +1% more max HP each round.' },
+    desc: 'PASSIVE. Sap of the Grove runs richer: regrow +1% more max Body each round.' },
   grove_greenwave_flood: {
     name: 'Greenwave: Canopy Flood', zh: '绿浪冠洪', school: 'verdant_monastery', minRealmTier: 3,
     qi: 16, cd: 2, damage: 3.4, postureBuild: 18, target: 'aoe',
@@ -2937,7 +2937,7 @@ const EXPANSION_TECHS = {
   grove_p3_heartwood: {
     name: 'Heartwood Constitution', zh: '心材骨', school: 'verdant_monastery', minRealmTier: 3, passive: true,
     applyMods: m => { m.hpBonus += 90; m.flatDR += 4; },
-    desc: 'PASSIVE. Grow a core that saws disagree with: +90 HP, +4 flat DR.' },
+    desc: 'PASSIVE. Grow a core that saws disagree with: +90 Body, +4 flat DR.' },
   grove_quiet_season: {
     name: 'The Quiet Season', zh: '静季', school: 'verdant_monastery', minRealmTier: 4,
     qi: 10, cd: 4, damage: 0, instant: true, qiRestore: 16,
@@ -2957,7 +2957,7 @@ const EXPANSION_TECHS = {
   grove_p5_grove_provides: {
     name: 'The Grove Provides', zh: '林养', school: 'verdant_monastery', minRealmTier: 5, passive: true,
     applyMods: m => { m.lifestealPct += 0.04; m.hpBonus += 100; },
-    desc: 'PASSIVE. Everything returns to the soil, then to you: +4% lifesteal, +100 HP.' },
+    desc: 'PASSIVE. Everything returns to the soil, then to you: +4% lifesteal, +100 Body.' },
   grove_stands_forever: {
     name: 'The Grove Stands Forever', zh: '林永立', school: 'verdant_monastery', minRealmTier: 6,
     qi: 40, cd: 4, damage: 8.2, postureBuild: 24, target: 'aoe',
@@ -2967,7 +2967,7 @@ const EXPANSION_TECHS = {
   grove_p6_older_than_monks: {
     name: 'Older Than the Monks', zh: '先僧而立', school: 'verdant_monastery', minRealmTier: 6, passive: true,
     kitMod: k => { k.regenPct = (k.regenPct || 0) + 0.02; },
-    desc: 'PASSIVE. Be the thing the monastery was built around: regrow +2% more max HP every round.' },
+    desc: 'PASSIVE. Be the thing the monastery was built around: regrow +2% more max Body every round.' },
 
   // ============ Thunder Hammer Forge — every stance is provisional ============
   storm_smash_forgefall: {
@@ -2997,7 +2997,7 @@ const EXPANSION_TECHS = {
   thunder_p3_forge_lungs: {
     name: 'Forge-Bellows Lungs', zh: '炉肺', school: 'thunder_hammer', minRealmTier: 3, passive: true,
     applyMods: m => { m.postureBreakBonus += 1; m.hpBonus += 60; },
-    desc: 'PASSIVE. Breathe like the bellows: stance breaks last +1 turn, +60 HP.' },
+    desc: 'PASSIVE. Breathe like the bellows: stance breaks last +1 turn, +60 Body.' },
   thunder_quench_hiss: {
     name: 'Quenching Hiss', zh: '淬嘶', school: 'thunder_hammer', minRealmTier: 4,
     qi: 12, cd: 4, damage: 0, instant: true, qiRestore: 14,
@@ -3128,7 +3128,7 @@ const EXPANSION_TECHS = {
   reed_p4_funeral_acoustics: {
     name: 'Funeral Acoustics', zh: '葬礼声学', school: 'bone_reed', minRealmTier: 4, passive: true,
     applyMods: m => { m.spiritDamageMult *= 1.10; m.hpBonus += 70; },
-    desc: 'PASSIVE. Rooms learn to carry your sound: +10% spirit damage, +70 HP.' },
+    desc: 'PASSIVE. Rooms learn to carry your sound: +10% spirit damage, +70 Body.' },
   reed_hollow_aria: {
     name: 'Hollow Song: Full Aria', zh: '空歌全咏', school: 'bone_reed', minRealmTier: 5,
     qi: 28, cd: 3, damage: 5.4, directSpirit: 28, postureBuild: 16, target: 'aoe',
@@ -3252,7 +3252,7 @@ const EXPANSION_TECHS = {
   forge_p4_tempered_core: {
     name: 'Tempered Core', zh: '淬核', school: 'dragonforge', minRealmTier: 4, passive: true,
     applyMods: m => { m.hpBonus += 90; m.flatDR += 5; },
-    desc: 'PASSIVE. Quench the self as carefully as the steel: +90 HP, +5 flat DR.' },
+    desc: 'PASSIVE. Quench the self as carefully as the steel: +90 Body, +5 flat DR.' },
   forge_quench_dragons_memory: {
     name: "Quench: Dragon's Memory", zh: '淬火龙忆', school: 'dragonforge', minRealmTier: 5,
     qi: 26, cd: 3, damage: 3.2, postureBuild: 20, consumeBonus: { kind: 'sunder', perStack: 1.1 },
@@ -3314,7 +3314,7 @@ const EXPANSION_TECHS = {
   chain_p4_oath_calligraphy: {
     name: 'Oath Calligraphy', zh: '誓书法', school: 'chain_saint', minRealmTier: 4, passive: true,
     applyMods: m => { m.spiritDamageMult *= 1.10; m.hpBonus += 70; },
-    desc: 'PASSIVE. Vows written on the soul directly: +10% spirit damage, +70 HP.' },
+    desc: 'PASSIVE. Vows written on the soul directly: +10% spirit damage, +70 Body.' },
   chain_soul_pull_verdict: {
     name: 'Soul Pull: Standing Verdict', zh: '魂拽定谳', school: 'chain_saint', minRealmTier: 5,
     qi: 28, cd: 3, damage: 6.0, directSpirit: 24, pierceQi: 0.4, postureBuild: 24,
@@ -3342,7 +3342,7 @@ const EXPANSION_TECHS = {
     name: 'Bloodprice Edge', zh: '血价锋', minRealmTier: 1, demonicOnly: true,
     qi: 2, hpCost: 8, cd: 1, damage: 2.6, postureBuild: 14,
     effect: 'bleed', effectPower: 0.10, effectTurns: 3,
-    desc: 'Pay 8 HP, cut far above your station, and leave the wound open. The heavens take notes.',
+    desc: 'Pay 8 Body, cut far above your station, and leave the wound open. The heavens take notes.',
     logHit: (a,t) => `${a} pays in advance; ${t} covers the remainder, in installments.` },
   dem_p1_scar_ledger: {
     name: 'Scar Ledger', zh: '疤账', minRealmTier: 1, demonicOnly: true, passive: true,
@@ -3357,7 +3357,7 @@ const EXPANSION_TECHS = {
   dem_p2_heretic_vitality: {
     name: 'Heretic Vitality', zh: '逆徒元气', minRealmTier: 2, demonicOnly: true, passive: true,
     applyMods: m => { m.hpBonus += 90; },
-    desc: 'PASSIVE (demonic). What heaven rejects, the body keeps: +90 HP.' },
+    desc: 'PASSIVE (demonic). What heaven rejects, the body keeps: +90 Body.' },
   dem_devour_falling: {
     name: 'Devour the Falling', zh: '噬坠者', minRealmTier: 3, demonicOnly: true,
     qi: 14, cd: 2, damage: 3.8, postureBuild: 16,
@@ -3382,7 +3382,7 @@ const EXPANSION_TECHS = {
     name: 'Throneless Sovereign', zh: '无座君', minRealmTier: 5, demonicOnly: true,
     qi: 24, hpCost: 20, cd: 3, damage: 7.8, postureBuild: 20,
     effect: 'bleed', effectPower: 0.12, effectTurns: 3, effectStacks: 3,
-    desc: 'Rule without permission: pay 20 HP for devastating damage and 3 Bleed stacks. Thrones are for the patient.',
+    desc: 'Rule without permission: pay 20 Body for devastating damage and 3 Bleed stacks. Thrones are for the patient.',
     logHit: (a,t) => `${a} issues a decree with no seal but the wound it leaves in ${t}.` },
   dem_p5_demon_core: {
     name: 'Demon-Core Tempering', zh: '魔核炼', minRealmTier: 5, demonicOnly: true, passive: true,
@@ -3393,7 +3393,7 @@ const EXPANSION_TECHS = {
     name: 'Eat the Heavens', zh: '吞天', minRealmTier: 6, demonicOnly: true,
     qi: 36, hpCost: 26, cd: 4, damage: 8.4, postureBuild: 22, target: 'aoe',
     effect: 'leech', effectPower: 0.35, effectTurns: 3,
-    desc: 'The path\'s destination, rehearsed: pay 26 HP for enormous AOE and leeches in everything standing.',
+    desc: 'The path\'s destination, rehearsed: pay 26 Body for enormous AOE and leeches in everything standing.',
     logHit: (a,t) => `${a} opens wide. The sky, sensibly, backs up a span.` },
   dem_p6_path_complete: {
     name: 'The Path, Complete', zh: '道全', minRealmTier: 6, demonicOnly: true, passive: true,
@@ -3444,7 +3444,7 @@ const SCHOOL_KITS = {
   },
   demon_heart: {
     passiveName: 'Hungry Dao', passiveZh: '饥道',
-    passiveDesc: 'A share of all damage you deal returns as HP. You take +10% damage and burn 5% of your HP each turn — but you strike 15% harder while bloodied. Live on the edge; drink your way back to full.',
+    passiveDesc: 'A share of all damage you deal returns as Body. You take +10% damage and burn 5% of your Body each turn — but you strike 15% harder while bloodied. Live on the edge; drink your way back to full.',
     lifestealBonus: 0.15,
   },
   starfall: {
@@ -3454,7 +3454,7 @@ const SCHOOL_KITS = {
   },
   verdant_monastery: {
     passiveName: 'Sap of the Grove', passiveZh: '林髓',
-    passiveDesc: 'Regrow 3% of max HP at the end of every round.',
+    passiveDesc: 'Regrow 3% of max Body at the end of every round.',
     regenPct: 0.03,
   },
   thunder_hammer: {
@@ -3500,7 +3500,7 @@ const DEMONIC_TWISTS = {
   silent_daggers:    { critBonus: 0.15, onTechHit: { kind: 'poison', power: 0.12, turns: 4 }, twistDesc: '+15% crit; deadlier venom.' },
   demon_heart:       { lifestealBonus: 0.40,                      twistDesc: 'Hungry Dao drinks 40% (50% at Golden Core).' },
   starfall:          { critBonus: 0.05,                           twistDesc: '+5% crit on top of Celestial Sight.' },
-  verdant_monastery: { regenPct: 0.05,                            twistDesc: 'Regrow 5% max HP per round.' },
+  verdant_monastery: { regenPct: 0.05,                            twistDesc: 'Regrow 5% max Body per round.' },
   thunder_hammer:    { postureBonus: 0.40,                        twistDesc: '+40% posture damage.' },
   cloud_traveler:    { dodgeChance: 0.20,                         twistDesc: '20% innate dodge.' },
   bone_reed:         { spiritDamageBonus: 0.45,                   twistDesc: 'Spirit damage +45%.' },
@@ -3556,7 +3556,7 @@ const DEMONIC_SIGNATURE_TECHS = {
     name: 'Carrion Bulwark', zh: '腐躯壁', school: 'iron_body',
     qi: 4, hpCost: 10, cd: 3, damage: 0, postureBuild: 8,
     buff: { incomingMult: 0.40, turns: 2, reflectPct: 0.50 },
-    desc: 'Pay 10 HP to become a wall that hates back: incoming 40% and HALF of what lands is returned, 2 rounds.',
+    desc: 'Pay 10 Body to become a wall that hates back: incoming 40% and HALF of what lands is returned, 2 rounds.',
     logHit: (a,t) => `${a} opens their own skin willingly; what touches it regrets the introduction.` }],
   whispering_array: ['dem_sig_array', {
     name: 'Glyph of the Flayed', zh: '剥皮纹', school: 'whispering_array', target: 'aoe',
@@ -3568,7 +3568,7 @@ const DEMONIC_SIGNATURE_TECHS = {
     name: 'Pyre of Sins', zh: '罪火葬', school: 'crimson_flame', target: 'aoe',
     qi: 12, hpCost: 8, cd: 2, damage: 1.6, postureBuild: 10,
     effect: 'burn', effectPower: 0.22, effectTurns: 3, effectStacks: 3,
-    desc: 'Feed the fire something personal. AOE, pays 8 HP: 3 Burn stacks on everything standing.',
+    desc: 'Feed the fire something personal. AOE, pays 8 Body: 3 Burn stacks on everything standing.',
     logHit: (a,t) => `${a} burns a memory as kindling; the pyre takes everyone's measure.` }],
   moonlit_water: ['dem_sig_water', {
     name: 'Drowning Grasp', zh: '溺爪', school: 'moonlit_water', target: 'aoe',
@@ -3733,15 +3733,15 @@ function schoolKit(schoolId) {
 const STATUS_INFO = {
   qi_drain:   { label: 'drain',       tip: ef => `Losing ${ef.value} qi per turn. ${ef.turns} turn(s) left.` },
   qi_cost_up: { label: 'knotted',     tip: ef => `Technique qi costs ×${ef.value}. ${ef.turns} turn(s) left.` },
-  bleed:      { label: 'bleed',       tip: ef => `Bleeding ${ef.value} HP per turn. ${ef.turns} turn(s) left.` },
-  burn:       { label: 'burn',        tip: ef => `Burning: ${ef.value} HP per turn, ignores qi shield. ${ef.turns} turn(s) left.` },
-  poison:     { label: 'poison',      tip: ef => `Poisoned: ${ef.value} HP per turn, ignores qi shield. ${ef.turns} turn(s) left.` },
+  bleed:      { label: 'bleed',       tip: ef => `Bleeding ${ef.value} Body per turn. ${ef.turns} turn(s) left.` },
+  burn:       { label: 'burn',        tip: ef => `Burning: ${ef.value} Body per turn, ignores qi shield. ${ef.turns} turn(s) left.` },
+  poison:     { label: 'poison',      tip: ef => `Poisoned: ${ef.value} Body per turn, ignores qi shield. ${ef.turns} turn(s) left.` },
   chill:      { label: 'chill',       tip: ef => `Chilled: outgoing damage -${Math.round(ef.value*100)}%. ${ef.turns} turn(s) left.` },
   shock:      { label: 'shocked',     tip: ef => `Shocked: loses its next action.` },
   sunder:     { label: 'sunder',      tip: ef => `Sundered: +${Math.round(ef.value*100)}% damage taken and armor (flat DR) negated. ${ef.turns} turn(s) left.` },
   pressured:  { label: 'pressured',   tip: ef => `Stellar Pressure: +${Math.round(ef.value*100)}% posture damage taken. ${ef.turns} turn(s) left.` },
   mark:       { label: 'marked',      tip: ef => `Star Mark: +${Math.round(ef.value*100)}% damage taken from the hunter, who also crits it +20% more often. ${ef.turns} turn(s) left.` },
-  leech:      { label: 'leeched',     tip: ef => `Leeched: losing ${ef.value} HP per turn to the attacker, who heals for it. ${ef.turns} turn(s) left.` },
+  leech:      { label: 'leeched',     tip: ef => `Leeched: losing ${ef.value} Body per turn to the attacker, who heals for it. ${ef.turns} turn(s) left.` },
   entangle:   { label: 'entangled',   tip: ef => `Entangled: losing ${ef.value} qi per turn and meditation is sealed. ${ef.turns} turn(s) left.` },
   silence:    { label: 'silenced',    tip: ef => `Silenced: cannot use techniques. ${ef.turns} turn(s) left.` },
   resonance:  { label: 'resonance',   tip: ef => `Resonating: losing ${ef.value} spirit per turn. ${ef.turns} turn(s) left.` },
@@ -3890,7 +3890,7 @@ const INSCRIPTIONS = {
   },
   bloodbond: {
     name: 'Bloodbond Script', zh: '血缘铭', rarity: 'common',
-    desc: 'Strikes restore 3 HP on hit. A scroll of your own blood woven into the grip.',
+    desc: 'Strikes restore 3 Body on hit. A scroll of your own blood woven into the grip.',
     apply: m => { m.strikeHeal += 3; },
   },
   meridian_clearing: {
@@ -3919,19 +3919,19 @@ const INSCRIPTIONS = {
     desc: 'Weapon power +2. A crude, reliable tempering.',
     apply: m => { m.weaponBonus += 2; } },
   iron_brand: { name: 'Iron Brand', zh: '铁烙', rarity: 'common',
-    desc: '+15 max HP. A forge-brand burned into the grip.',
+    desc: '+15 max Body. A forge-brand burned into the grip.',
     apply: m => { m.hpBonus += 15; } },
   breath_glyph: { name: 'Breath Glyph', zh: '息符', rarity: 'common',
     desc: '+1 qi regenerated per turn. A simple meridian-opening mark.',
     apply: m => { m.qiRegenBonus += 1; } },
   heart_seed: { name: 'Heart Seed', zh: '心种', rarity: 'common',
-    desc: 'Strikes restore 3 HP on hit. A small red sigil in the hilt wood.',
+    desc: 'Strikes restore 3 Body on hit. A small red sigil in the hilt wood.',
     apply: m => { m.strikeHeal += 3; } },
   quick_etch: { name: 'Quick-Etch Glyph', zh: '速刻', rarity: 'common',
     desc: '+5% posture damage. A hastily etched line along the edge.',
     apply: m => { m.postureMult *= 1.05; } },
   mountain_base: { name: 'Mountain Base', zh: '山基', rarity: 'common',
-    desc: '+20 max HP. Heavy, squat glyph on the weapon\'s pommel.',
+    desc: '+20 max Body. Heavy, squat glyph on the weapon\'s pommel.',
     apply: m => { m.hpBonus += 20; } },
   narrow_edge: { name: 'Narrow Edge', zh: '窄锋', rarity: 'common',
     desc: '+1 weapon, +5% posture damage. A fine honing mark.',
@@ -3946,10 +3946,10 @@ const INSCRIPTIONS = {
     desc: '+2 max qi. A shallow groove that bleeds heat away.',
     apply: m => { m.qiBonus += 2; } },
   rust_filigree: { name: 'Rust Filigree', zh: '锈纹', rarity: 'common',
-    desc: 'Strikes restore 4 HP on hit. An old battlefield reuse-mark.',
+    desc: 'Strikes restore 4 Body on hit. An old battlefield reuse-mark.',
     apply: m => { m.strikeHeal += 4; } },
   woven_thread: { name: 'Woven Thread', zh: '织丝', rarity: 'common',
-    desc: '+10 max HP. A fine silk binding that settles the qi.',
+    desc: '+10 max Body. A fine silk binding that settles the qi.',
     apply: m => { m.hpBonus += 10; } },
   meridian_seed: { name: 'Meridian Seed', zh: '脉种', rarity: 'common',
     desc: 'Meditate recovers 10% more qi. A small internal-cultivation glyph.',
@@ -3958,19 +3958,19 @@ const INSCRIPTIONS = {
     desc: '−5% incoming damage. Cheap ward, reliable nonetheless.',
     apply: m => { m.incomingMult *= 0.95; } },
   stitch_glyph: { name: 'Stitch Glyph', zh: '缝符', rarity: 'common',
-    desc: '+2 HP on strike, +1 qi regen. A layered healer\'s mark.',
+    desc: '+2 Body on strike, +1 qi regen. A layered healer\'s mark.',
     apply: m => { m.strikeHeal += 2; m.qiRegenBonus += 1; } },
   dawnline: { name: 'Dawnline', zh: '晨线', rarity: 'common',
     desc: '+3 weapon power. A pale-gold line along the edge.',
     apply: m => { m.weaponBonus += 3; } },
   pebble_hold: { name: 'Pebble Hold', zh: '卵握', rarity: 'common',
-    desc: '+15 max HP. A pebble-pattern braid on the grip.',
+    desc: '+15 max Body. A pebble-pattern braid on the grip.',
     apply: m => { m.hpBonus += 15; } },
   featherlight: { name: 'Featherlight', zh: '轻羽', rarity: 'common',
     desc: '+5% technique damage. A slight lifting of the weapon\'s qi weight.',
     apply: m => { m.techDamageMult *= 1.05; } },
   red_thread: { name: 'Red Thread', zh: '赤丝', rarity: 'common',
-    desc: 'Strikes restore 3 HP on hit. A small knot of crimson silk.',
+    desc: 'Strikes restore 3 Body on hit. A small knot of crimson silk.',
     apply: m => { m.strikeHeal += 3; } },
   bright_inlay: { name: 'Bright Inlay', zh: '亮嵌', rarity: 'common',
     desc: '+1 weapon, +5% meditate. Tiny mirror chips along the grip.',
@@ -4003,7 +4003,7 @@ const INSCRIPTIONS = {
     desc: '+5% technique damage. A small brass bell tied to the hilt.',
     apply: m => { m.techDamageMult *= 1.05; } },
   copper_lip: { name: 'Copper Lip', zh: '铜唇', rarity: 'common',
-    desc: '+4 HP on strike. A copper band along the weapon\'s mouth.',
+    desc: '+4 Body on strike. A copper band along the weapon\'s mouth.',
     apply: m => { m.strikeHeal += 4; } },
 
   // ========== 20 Rare inscriptions ==========
@@ -4011,7 +4011,7 @@ const INSCRIPTIONS = {
     desc: '+5 weapon power. A silver filament threaded through the steel.',
     apply: m => { m.weaponBonus += 5; } },
   cloudsteel_inlay: { name: 'Cloudsteel Inlay', zh: '云钢嵌', rarity: 'rare',
-    desc: '+80 max HP. Thin cloudsteel plates woven under the grip.',
+    desc: '+80 max Body. Thin cloudsteel plates woven under the grip.',
     apply: m => { m.hpBonus += 80; } },
   meridian_weave: { name: 'Meridian Weave', zh: '脉织', rarity: 'rare',
     desc: '+3 qi regen per turn. A tight weaving of pass-qi channels.',
@@ -4020,7 +4020,7 @@ const INSCRIPTIONS = {
     desc: '+15% posture damage. A small balanced formation of jade chips.',
     apply: m => { m.postureMult *= 1.15; } },
   rattler_glyph: { name: 'Rattler Glyph', zh: '响符', rarity: 'rare',
-    desc: 'Strikes restore 6 HP on hit. The glyph hums when the weapon bites.',
+    desc: 'Strikes restore 6 Body on hit. The glyph hums when the weapon bites.',
     apply: m => { m.strikeHeal += 6; } },
   windcut_rune: { name: 'Wind-Cut Rune', zh: '裂风符', rarity: 'rare',
     desc: '+10% technique damage. A wind-rune that extends each tech\'s reach.',
@@ -4035,7 +4035,7 @@ const INSCRIPTIONS = {
     desc: '+5 weapon power, +2 max qi. A crackling filament along the spine.',
     apply: m => { m.weaponBonus += 5; m.qiBonus += 2; } },
   tomb_steel: { name: 'Tomb Steel', zh: '墓钢', rarity: 'rare',
-    desc: '+60 max HP, +3 max qi. Dense iron recycled from a warrior-tomb.',
+    desc: '+60 max Body, +3 max qi. Dense iron recycled from a warrior-tomb.',
     apply: m => { m.hpBonus += 60; m.qiBonus += 3; } },
   sparrow_flash: { name: 'Sparrow Flash', zh: '雀闪', rarity: 'rare',
     desc: '+12% strike damage. A small bright-metal bird in the crossguard.',
@@ -4073,7 +4073,7 @@ const INSCRIPTIONS = {
     desc: '+10 weapon power. A bone-inlay said to be scavenged from a wyrm.',
     apply: m => { m.weaponBonus += 10; } },
   sunforge_array: { name: 'Sunforge Array', zh: '阳炉阵', rarity: 'legendary',
-    desc: '+200 max HP. A formation that kindles a slow inner fire.',
+    desc: '+200 max Body. A formation that kindles a slow inner fire.',
     apply: m => { m.hpBonus += 200; } },
   starweave_inlay: { name: 'Starweave Inlay', zh: '星织嵌', rarity: 'legendary',
     desc: '+25% technique damage. Filaments of star-iron trace every hidden stroke.',
@@ -4088,7 +4088,7 @@ const INSCRIPTIONS = {
     desc: '−20% incoming damage. A glyph that dulls strikes before they land.',
     apply: m => { m.incomingMult *= 0.8; } },
   emperor_mark: { name: "Emperor's Mark", zh: '帝印', rarity: 'legendary',
-    desc: '+12 weapon, +100 max HP. A sealed imperial glyph, rarely granted.',
+    desc: '+12 weapon, +100 max Body. A sealed imperial glyph, rarely granted.',
     apply: m => { m.weaponBonus += 12; m.hpBonus += 100; } },
   heaven_veiled_array: { name: 'Heaven-Veiled Array', zh: '蔽天阵', rarity: 'legendary',
     desc: '+3 max spirit, +15% posture damage. The soul travels one half-step further.',
@@ -4097,7 +4097,7 @@ const INSCRIPTIONS = {
     desc: '+15% weapon power. A brand in a script no modern cultivator can read.',
     apply: m => { m.weaponMultFlat *= 1.15; } },
   worldtree_seal: { name: 'World-Tree Seal', zh: '世树印', rarity: 'legendary',
-    desc: '+150 max HP, +3 qi regen, +5 weapon power. A root-shaped seal that grows into its bearer.',
+    desc: '+150 max Body, +3 qi regen, +5 weapon power. A root-shaped seal that grows into its bearer.',
     apply: m => { m.hpBonus += 150; m.qiRegenBonus += 3; m.weaponBonus += 5; } },
 
   // ========== 8 Divine inscriptions (v1.1 — Nascent Soul / Spirit Severing ceiling) ==========
@@ -4105,7 +4105,7 @@ const INSCRIPTIONS = {
     desc: '+18 weapon power. A shard of a fallen star, still humming with its own gravity.',
     apply: m => { m.weaponBonus += 18; } },
   immortal_aegis: { name: 'Immortal Aegis', zh: '不朽盾', rarity: 'divine',
-    desc: '+400 max HP. A ward-script that refuses, on principle, to let you die.',
+    desc: '+400 max Body. A ward-script that refuses, on principle, to let you die.',
     apply: m => { m.hpBonus += 400; } },
   void_sovereign: { name: 'Void Sovereign', zh: '虚君', rarity: 'divine',
     desc: '-28% incoming damage. Blows arrive a half-step into a place you have already left.',
@@ -4123,7 +4123,7 @@ const INSCRIPTIONS = {
     desc: '+18% strike damage, +8% crit chance. An edge that cuts the idea of the thing, not the thing.',
     apply: m => { m.strikeDamageMult *= 1.18; m.critChance += 0.08; } },
   eternal_spring: { name: 'Eternal Spring', zh: '长春', rarity: 'divine',
-    desc: '+10 HP on strike, +5 qi regen per turn. A spring that was old when the mountains were young.',
+    desc: '+10 Body on strike, +5 qi regen per turn. A spring that was old when the mountains were young.',
     apply: m => { m.strikeHeal += 10; m.qiRegenBonus += 5; } },
 };
 
@@ -4163,13 +4163,13 @@ const INSCR_RARITY_SCALE = { common: 1, rare: 1.75, legendary: 2.75, divine: 4 }
 const INSCR_RIDER_COUNT  = { common: 0, rare: 1, legendary: 2, divine: 3 };
 function inscrRealmScale(realm) { return 1 + (realm || 0) * 0.06; }   // Mortal 1.0 -> SS 1.36
 const CHANNEL_LABEL = {
-  weaponBonus: 'weapon power', hpBonus: 'max HP', qiRegenBonus: 'qi regen/turn',
-  strikeHeal: 'HP on hit', spiritBonus: 'max spirit', qiBonus: 'max qi',
+  weaponBonus: 'weapon power', hpBonus: 'max Body', qiRegenBonus: 'qi regen/turn',
+  strikeHeal: 'Body on hit', spiritBonus: 'max spirit', qiBonus: 'max qi',
 };
 // theme -> { flat channel + base, % channel + base, % mode (mul / reduce / add), display stat, rider ladder }
 const INSCRIPTION_THEMES = {
   weapon:    { flatCh: 'weaponBonus', flatBase: 4,  pctCh: 'weaponMultFlat',   pctBase: 0.04, pctMode: 'mul',    stat: 'weapon power',      riders: ['crit', 'lifesteal', 'firstStrike'] },
-  guard:     { flatCh: 'hpBonus',     flatBase: 40, pctCh: 'hpMult',           pctBase: 0.04, pctMode: 'mul',    stat: 'max HP',            riders: ['flatDR', 'dodge', 'ward'] },
+  guard:     { flatCh: 'hpBonus',     flatBase: 40, pctCh: 'hpMult',           pctBase: 0.04, pctMode: 'mul',    stat: 'max Body',            riders: ['flatDR', 'dodge', 'ward'] },
   bulwark:   { flatCh: 'hpBonus',     flatBase: 22, pctCh: 'incomingMult',     pctBase: 0.05, pctMode: 'reduce', stat: 'damage taken',      riders: ['flatDR', 'dodge', 'lowHp'] },
   qi:        { flatCh: 'qiRegenBonus',flatBase: 2,  pctCh: 'meditateMult',     pctBase: 0.12, pctMode: 'mul',    stat: 'qi recovered',      riders: ['qiPool', 'qiOnKill', 'ramp'] },
   sustain:   { flatCh: 'strikeHeal',  flatBase: 4,  pctCh: 'lifestealPct',     pctBase: 0.03, pctMode: 'add',    stat: 'lifesteal',         riders: ['qiOnKill', 'dodge', 'ward'] },
@@ -4277,7 +4277,7 @@ function baseInscriptionMods() {
     postureBreakBonus: 0,
     // ---- new channels ----
     hpBonus: 0,
-    hpMult: 1,               // v0.89: multiplicative max-HP bonus (HP%), defensive-style stat
+    hpMult: 1,               // v0.89: multiplicative max-Body bonus (Body%), defensive-style stat
     qiBonus: 0,
     spiritBonus: 0,
     incomingMult: 1,
@@ -4295,7 +4295,7 @@ function baseInscriptionMods() {
     lifestealPct: 0,         // additive, fraction of damage healed
     flatDR: 0,               // flat reduction per incoming hit (capped at 40% of incoming)
     firstStrikeBonus: 0,     // additive % to outgoing damage on round 1
-    lowHpBonus: 0,           // additive % to outgoing damage at <33% HP
+    lowHpBonus: 0,           // additive % to outgoing damage at <33% Body
     vsKindMult: {},          // { demonic: 0.15, beast: 0.10, ... } additive %
     qiOnKill: 0,             // flat qi restored on enemy death
     // ---- v0.57 build-variety channels ----
@@ -5452,9 +5452,9 @@ const ENEMIES = {
 // Descriptive metadata for now; Phase 3 will use this to drive multi-enemy AI patterning,
 // loot bias, and "elite + 2 mooks" encounter composition. Six archetypes:
 //   brawler    — aggressive melee, prefers basic strikes + low-cd techs
-//   assassin   — high burst, low HP, opens with finishers
+//   assassin   — high burst, low Body, opens with finishers
 //   caster     — spirit / qi-focused, manages qi, uses long-cd big techs
-//   tank       — high HP/posture, defensive techs, attrition
+//   tank       — high Body/posture, defensive techs, attrition
 //   controller — debuff/status focus, qi_drain / qi_cost_up / bleed
 //   elite      — boss-tier, full toolbox, longer fights
 // ============================================================
@@ -6134,8 +6134,8 @@ const BOSS_SIGNATURE_TECHS = {
     logHit: (a,t) => `${a} shows ${t} the rehearsal of the first morning. It is too much light to survive politely.` }],
 };
 // v0.99: per-boss FINISHER — a dangerous payoff move (operator: bosses ran 2 fewer moves than the
-// player). The AI HOLDS it out of normal rotation and unleashes it when you're low (<=40% HP) or it
-// is enraged (<=33% HP) — so every boss fight has a threatening final phase. Values scale up the roster.
+// player). The AI HOLDS it out of normal rotation and unleashes it when you're low (<=40% Body) or it
+// is enraged (<=33% Body) — so every boss fight has a threatening final phase. Values scale up the roster.
 const BOSS_FINISHER_TECHS = {
   boar_king: ['withered_gore', { name: 'Withering Gore', qi: 16, cd: 4, damage: 3.6, postureBuild: 30, pierceQi: 0.2, finisher: true,
     effect: 'bleed', effectValue: 12, effectTurns: 3,
@@ -6274,10 +6274,10 @@ const BOSSES = {
 const BOSS_DIFFICULTY_MULT = 1.5;
 const REALM_ENEMY_BUFF = [1, 1.10, 1.15, 1.20, 1.25, 1.30, 1.35];   // v0.64: by realm tier (elites/bosses keep this gentle curve)
 // v1.17: NORMAL encounters get a sharper per-realm curve — steeper acceleration from Foundation (tier 2), a BIG
-// jump at Golden Core (tier 4, ~3x Foundation), and HP-leaning so high-realm foes are durable, not one-shotters.
+// jump at Golden Core (tier 4, ~3x Foundation), and Body-leaning so high-realm foes are durable, not one-shotters.
 // Magnitudes are aggressive on purpose (operator wants a real climb) — high-realm values are prime tuning knobs.
-const REALM_ENEMY_HP_BUFF  = [1, 1.15, 1.45, 2.4, 4.8, 6.5, 8.5];   // tier 0-6 — HP scales hard
-const REALM_ENEMY_DMG_BUFF = [1, 1.10, 1.25, 1.6, 2.6, 3.3, 4.2];   // tier 0-6 — damage scales gentler than HP
+const REALM_ENEMY_Body_BUFF  = [1, 1.15, 1.45, 2.4, 4.8, 6.5, 8.5];   // tier 0-6 — Body scales hard
+const REALM_ENEMY_DMG_BUFF = [1, 1.10, 1.25, 1.6, 2.6, 3.3, 4.2];   // tier 0-6 — damage scales gentler than Body
 function bossAnchorScale(bossTier) {
   const tier = REALMS[bossTier];
   let stats = 1.0;
@@ -6510,7 +6510,7 @@ const BOONS = {
   forge_kissed:        { name: 'Forge-Kissed',            zh: '炉之契', desc: 'Begin with 10× Spirit Iron and 5× Spirit Stone.' },
   dao_memory:          { name: 'Dao Memory',              zh: '道忆', desc: '+25% insight from all sources permanently.' },
   heavenly_root:       { name: 'Heavenly Root',           zh: '天根', desc: '+20% cultivation rate permanently.' },
-  iron_will:           { name: 'Iron Will',               zh: '铁志', desc: '+60 max HP permanently.' },
+  iron_will:           { name: 'Iron Will',               zh: '铁志', desc: '+60 max Body permanently.' },
   void_tempered:       { name: 'Void-Tempered',           zh: '虚炼体', desc: 'Incoming damage −12% permanently.' },
   fated_blade:         { name: 'Fated Blade',             zh: '宿命刃', desc: '+5 weapon power permanently.' },
   pill_tongue:         { name: 'Pill-Touched Tongue',     zh: '丹舌', desc: 'Begin with 2× Foundation Pill and a Celestial Dao Pill recipe at reach.' },
@@ -6520,7 +6520,7 @@ const BOONS = {
   // ---- 10 additional boons ----
   deep_memory:         { name: 'Deep Memory',              zh: '深忆', desc: '+50% insight from all sources (stacks multiplicatively with Dao Memory).' },
   world_breath:        { name: 'World-Breath',             zh: '世息', desc: '+35% cultivation rate (stacks multiplicatively with Heavenly Root).' },
-  adamant_form:        { name: 'Adamant Form',             zh: '金刚身', desc: '+200 max HP permanently.' },
+  adamant_form:        { name: 'Adamant Form',             zh: '金刚身', desc: '+200 max Body permanently.' },
   ghostproof_frame:    { name: 'Ghostproof Frame',         zh: '驱魂架', desc: '−20% incoming damage (stacks multiplicatively with Void-Tempered).' },
   sky_piercing_edge:   { name: 'Sky-Piercing Edge',        zh: '破天锋', desc: '+15 weapon power permanently.' },
   forge_ascendant:     { name: 'Forge Ascendant',          zh: '升炉', desc: 'Begin with 30× Spirit Iron, 20× Spirit Stone, and 3× Dragon Scale.' },
@@ -6534,8 +6534,8 @@ const BOONS = {
   battle_hardened:       { name: 'Battle-Hardened',        zh: '战炼身', desc: '+30% strike damage permanently.' },
   inscrutable_step:      { name: 'Inscrutable Step',       zh: '难测步', desc: '−15% qi cost on every technique permanently.' },
   heart_held_sutra:      { name: 'Heart-Held Sutra',       zh: '心持经', desc: 'During tribulations only, incoming damage −25%.' },
-  heaven_sundering_resolve: { name: 'Heaven-Sundering Resolve', zh: '裂天志', desc: '+50 weapon power and +200 max HP permanently.' },
-  cycle_memory:          { name: 'Cycle Memory',           zh: '轮忆', desc: 'Per ascension already completed: +5 weapon power and +50 max HP. Scales with reincarnations.' },
+  heaven_sundering_resolve: { name: 'Heaven-Sundering Resolve', zh: '裂天志', desc: '+50 weapon power and +200 max Body permanently.' },
+  cycle_memory:          { name: 'Cycle Memory',           zh: '轮忆', desc: 'Per ascension already completed: +5 weapon power and +50 max Body. Scales with reincarnations.' },
   dao_read:              { name: 'Dao-Read',               zh: '道阅', desc: '+60% insight from all sources permanently.' },
   eternal_spring:        { name: 'Eternal Spring Garden',  zh: '永春园', desc: 'Begin with 6 plots already growing rare herbs.' },
 };
@@ -6715,7 +6715,7 @@ const SKILLS = [
     desc: 'DEMONIC ONLY. Heal 5% of all damage you deal. Every wound is a tributary.' },
   { id: 'ha_defier_marrow', name: "Heaven-Defier's Marrow", zh: '逆天髓', category: 'Heretical Arts', cost: 120000, minTier: 3, demonicOnly: true,
     effect: { kind: 'mods', mods: { hpBonus: 150, flatDR: 8 } },
-    desc: 'DEMONIC ONLY. +150 max HP, +8 flat damage reduction. The body learns to hold a grudge against harm itself.' },
+    desc: 'DEMONIC ONLY. +150 max Body, +8 flat damage reduction. The body learns to hold a grudge against harm itself.' },
   { id: 'ha_calamity_tempo', name: 'Calamity Tempo', zh: '劫律', category: 'Heretical Arts', cost: 700000, minTier: 4, demonicOnly: true,
     effect: { kind: 'mods', mods: { perTurnRamp: 0.02, dotMult: 1.15 } },
     desc: 'DEMONIC ONLY. +2% damage per combat turn and your DOTs (hellfire included by spirit if not by letter) tick +15%.' },
@@ -6734,13 +6734,13 @@ const SKILLS = [
   // Body / defense
   { id: 'body_1', name: 'Iron Skin', zh: '铁皮', category: 'Body', cost: 2000, minTier: 1,
     effect: { kind: 'hp_add', value: 40 },
-    desc: '+40 max HP.' },
+    desc: '+40 max Body.' },
   { id: 'body_2', name: 'Bronze Marrow', zh: '铜髓', category: 'Body', cost: 30000, minTier: 2,
     requires: ['body_1'], effect: { kind: 'hp_add', value: 250 },
-    desc: '+250 max HP.' },
+    desc: '+250 max Body.' },
   { id: 'body_3', name: 'Gold Bones', zh: '金骨', category: 'Body', cost: 300000, minTier: 4,
     requires: ['body_2'], effect: { kind: 'hp_add', value: 1200 },
-    desc: '+1200 max HP.' },
+    desc: '+1200 max Body.' },
 
   // Weapon / combat
   { id: 'weapon_1', name: 'Keener Edge', zh: '利锋', category: 'Combat', cost: 2500, minTier: 1, minLayer: 3,
@@ -6802,7 +6802,7 @@ const SKILLS = [
     desc: '+2% cultivation rate per rank, with a realm-scaled milestone bonus every 5 ranks. Cost doubles each rank; max 5 ranks per realm (35 total).' },
   { id: 'rep_hp', name: 'Endless Tempering', zh: '无尽炼体', category: 'Endless Path', cost: 1500, costMult: 2, minTier: 1, repeatable: true, maxRank: 35,
     effect: { kind: 'hp_add', value: 50 },
-    desc: '+50 max HP per rank, with a realm-scaled milestone bonus every 5 ranks. Cost doubles each rank; max 5 ranks per realm (35 total).' },
+    desc: '+50 max Body per rank, with a realm-scaled milestone bonus every 5 ranks. Cost doubles each rank; max 5 ranks per realm (35 total).' },
   { id: 'rep_weapon', name: 'Whetstone Heart', zh: '砺心', category: 'Endless Path', cost: 3000, costMult: 2, minTier: 1, repeatable: true, maxRank: 35,
     effect: { kind: 'weapon_add', value: 2 },
     desc: '+2 weapon power per rank, with a realm-scaled milestone bonus every 5 ranks. Cost doubles each rank; max 5 ranks per realm (35 total).' },
@@ -6838,7 +6838,7 @@ const SKILL_BOOKS = {
   book_nine_heart: {
     name: 'Nine-Heart Lotus Scroll', zh: '九心莲卷', rarity: 'rare', cost: 18000,
     effect: { kind: 'hp_add', value: 300 },
-    desc: '+300 max HP. Each breath becomes a slow-closing petal.',
+    desc: '+300 max Body. Each breath becomes a slow-closing petal.',
   },
   book_lightning_reflex: {
     name: 'Lightning Reflex Scripture', zh: '雷觉经', rarity: 'rare', cost: 22000,
@@ -6877,7 +6877,7 @@ const SKILL_BOOKS = {
   book_river_stance: { name: 'River-Stance Form', zh: '流势式', rarity: 'rare', cost: 6000, minTier: 0,
     effect: { kind: 'weapon_add', value: 5 }, desc: '+5 weapon power. A flowing form copied from a riverside hermit.' },
   book_oxhide_breathing: { name: 'Oxhide Breathing Method', zh: '牛皮息法', rarity: 'rare', cost: 6500, minTier: 0,
-    effect: { kind: 'hp_add', value: 120 }, desc: '+120 max HP. Breathe low and slow; the hide thickens.' },
+    effect: { kind: 'hp_add', value: 120 }, desc: '+120 max Body. Breathe low and slow; the hide thickens.' },
   book_quickening_breath: { name: 'Quickening Breath Manual', zh: '催息诀', rarity: 'rare', cost: 7000, minTier: 0,
     effect: { kind: 'cultivation_mult', value: 1.18 }, desc: '+18% cultivation rate. The breath learns to hurry without breaking.' },
   book_paper_ward: { name: 'Paper-Ward Scripture', zh: '纸符经', rarity: 'rare', cost: 7500, minTier: 0,
@@ -6897,7 +6897,7 @@ const SKILL_BOOKS = {
   book_swift_meridian: { name: 'Swift-Meridian Scripture', zh: '疾脉经', rarity: 'rare', cost: 9000, minTier: 1,
     effect: { kind: 'weapon_add', value: 6 }, desc: '+6 weapon power. The qi reaches the fist a heartbeat sooner.' },
   book_deep_well_method: { name: 'Deep-Well Method', zh: '深井法', rarity: 'rare', cost: 9500, minTier: 1,
-    effect: { kind: 'hp_add', value: 180 }, desc: '+180 max HP. Dig the dantian deeper; hold more of the world.' },
+    effect: { kind: 'hp_add', value: 180 }, desc: '+180 max Body. Dig the dantian deeper; hold more of the world.' },
   book_dawn_ward: { name: 'Dawn-Ward Scripture', zh: '晨护经', rarity: 'rare', cost: 13000, minTier: 1,
     effect: { kind: 'incoming_mult_perm', value: 0.92 }, desc: '-8% incoming damage. The first light is hard to cut through.' },
 
@@ -6915,7 +6915,7 @@ const SKILL_BOOKS = {
   book_jade_sinew: {
     name: 'Jade Sinew Manual', zh: '玉筋诀', rarity: 'rare', cost: 25000,
     effect: { kind: 'hp_add', value: 600 },
-    desc: '+600 max HP. Each tendon is rewoven into jade-fibre.',
+    desc: '+600 max Body. Each tendon is rewoven into jade-fibre.',
   },
   book_storm_palm: {
     name: 'Storm Palm Scripture', zh: '暴掌经', rarity: 'rare', cost: 30000,
@@ -6972,7 +6972,7 @@ const BOOK_ARCHETYPES = [
   ['ward',    'Iron-Ward Sutra',       '铁护经', t => ({ kind: 'incoming_mult_perm', value: +(1 - (0.04 + 0.008 * t)).toFixed(3) }), t => `-${Math.round((0.04 + 0.008 * t) * 100)}% incoming damage`],
   ['keen',    'Keen-Eye Record',       '锐目录', t => ({ kind: 'mods', mods: { critChance: +(0.03 + 0.008 * t).toFixed(3) } }), t => `+${(3 + 0.8 * t).toFixed(1)}% critical chance`],
   ['venom',   'Lingering-Rot Codex',   '余腐典', t => ({ kind: 'mods', mods: { dotMult: +(1 + 0.06 + 0.015 * t).toFixed(3) } }), t => `+${Math.round((0.06 + 0.015 * t) * 100)}% damage-over-time`],
-  ['marrow',  'Marrow-Forge Manual',   '炼髓诀', t => ({ kind: 'hp_add', value: 50 * (t + 1) }), t => `+${50 * (t + 1)} max HP`],
+  ['marrow',  'Marrow-Forge Manual',   '炼髓诀', t => ({ kind: 'hp_add', value: 50 * (t + 1) }), t => `+${50 * (t + 1)} max Body`],
   ['blood',   'Blood-Drinking Scroll', '饮血卷', t => ({ kind: 'mods', mods: { lifestealPct: +(0.03 + 0.008 * t).toFixed(3) } }), t => `+${Math.round((0.03 + 0.008 * t) * 100)}% lifesteal`],
 ];
 (function generateBookLadder() {
@@ -7587,7 +7587,7 @@ const CONSUMABLES = {
     name: 'Iron Bone Pill', zh: '铁骨丹', kind: 'pill', rarity: 'common',
     recipe: { body_root: 2 },
     effects: [{ kind: 'hp_max_add', value: 25, durationMin: 60 }],
-    desc: '+25 max HP for 60 minutes.',
+    desc: '+25 max Body for 60 minutes.',
   },
   foundation_pill: {
     name: 'Foundation Pill', zh: '筑基丹', kind: 'pill', rarity: 'rare',
@@ -7683,7 +7683,7 @@ const CONSUMABLES = {
     recipe: { golden_cloud_cap: 4, moonfire_iris: 4 },
     minRealmTier: 4, minLayer: 3,
     effects: [{ kind: 'hp_max_add', value: 400, durationMin: 60 }],
-    desc: '+400 max HP for 60 minutes. The golden core bleeds warmth into every vein.',
+    desc: '+400 max Body for 60 minutes. The golden core bleeds warmth into every vein.',
   },
 
   // Nascent Soul-tier consumables
@@ -7715,7 +7715,7 @@ const CONSUMABLES = {
     name: 'Thousand Grains Pill', zh: '千粒丹', kind: 'pill', rarity: 'common',
     recipe: { body_root: 2, sunpetal: 1 },
     effects: [{ kind: 'hp_max_add', value: 30, durationMin: 45 }],
-    desc: '+30 max HP for 45 minutes. Dense, heavy pill of pressed grains.',
+    desc: '+30 max Body for 45 minutes. Dense, heavy pill of pressed grains.',
   },
   iron_tea: {
     name: 'Iron Tea', zh: '铁茶', kind: 'potion', rarity: 'common',
@@ -7778,7 +7778,7 @@ const CONSUMABLES = {
     recipe: { crimson_peony: 2, moonfire_iris: 1 },
     minRealmTier: 2, minLayer: 2,
     effects: [{ kind: 'hp_max_add', value: 80, durationMin: 20 }],
-    desc: '+80 max HP for 20 minutes. Tastes of hot flowers and mulled wine.',
+    desc: '+80 max Body for 20 minutes. Tastes of hot flowers and mulled wine.',
   },
   ghost_calm_pill: {
     name: 'Ghost-Calm Pill', zh: '安魂丹', kind: 'pill', rarity: 'rare',
@@ -7799,7 +7799,7 @@ const CONSUMABLES = {
     recipe: { body_root: 4, razorgrass: 2 },
     minRealmTier: 2, minLayer: 1,
     effects: [{ kind: 'hp_max_add', value: 120, durationMin: 30 }],
-    desc: '+120 max HP for 30 minutes. The bones take on a slow inner warmth.',
+    desc: '+120 max Body for 30 minutes. The bones take on a slow inner warmth.',
   },
 
   // ============ Legendary (10 new) ============
@@ -7822,7 +7822,7 @@ const CONSUMABLES = {
     recipe: { dragonmint: 3, phoenix_petal: 2, golden_cloud_cap: 1 },
     minRealmTier: 3, minLayer: 3,
     effects: [{ kind: 'hp_max_add', value: 300, durationMin: 60 }],
-    desc: '+300 max HP for 60 minutes. You breathe in a way that would alarm a mortal physician.',
+    desc: '+300 max Body for 60 minutes. You breathe in a way that would alarm a mortal physician.',
   },
   radiant_sky_elixir: {
     name: 'Radiant Sky Elixir', zh: '辉天酿', kind: 'potion', rarity: 'legendary',
@@ -7924,7 +7924,7 @@ const CONSUMABLES = {
     recipe: { windreed: 3, frostbell: 3, jade_lotus: 1 },
     minRealmTier: 1, minLayer: 6,
     effects: [{ kind: 'hp_max_add', value: 60, durationMin: 20 }],
-    desc: '+60 max HP for 20 minutes. Tastes faintly of spring soil.',
+    desc: '+60 max Body for 20 minutes. Tastes faintly of spring soil.',
   },
   abyssal_tonic: {
     name: 'Abyssal Tonic', zh: '渊剂', kind: 'potion', rarity: 'legendary',
@@ -7935,7 +7935,7 @@ const CONSUMABLES = {
   },
 
   // ============ v0.45: realm-kit fill-ins (12 new) ============
-  // Every realm tier now offers a full kit: cultivation pill, HP pill, weapon potion,
+  // Every realm tier now offers a full kit: cultivation pill, Body pill, weapon potion,
   // defense potion. These fill the gaps at Mortal / QC / CF / GC / NS / SS.
   riverstone_tea: {
     name: 'Riverstone Tea', zh: '河石茶', kind: 'potion', rarity: 'common',
@@ -7955,7 +7955,7 @@ const CONSUMABLES = {
     recipe: { windreed: 2, body_root: 2 },
     minRealmTier: 1, minLayer: 3,
     effects: [{ kind: 'hp_max_add', value: 60, durationMin: 40 }],
-    desc: '+60 max HP for 40 minutes. Light, hollow, surprisingly filling.',
+    desc: '+60 max Body for 40 minutes. Light, hollow, surprisingly filling.',
   },
   lotus_veil_draught: {
     name: 'Lotus-Veil Draught', zh: '莲幕饮', kind: 'potion', rarity: 'rare',
@@ -7976,7 +7976,7 @@ const CONSUMABLES = {
     recipe: { phoenix_petal: 2, dragonmint: 2 },
     minRealmTier: 3, minLayer: 2,
     effects: [{ kind: 'hp_max_add', value: 200, durationMin: 45 }],
-    desc: '+200 max HP for 45 minutes. Warm going down, warmer staying there.',
+    desc: '+200 max Body for 45 minutes. Warm going down, warmer staying there.',
   },
   twin_river_pill: {
     name: 'Twin-River Pill', zh: '双江丹', kind: 'pill', rarity: 'legendary',
@@ -8004,14 +8004,14 @@ const CONSUMABLES = {
     recipe: { soulfire_moss: 3, tri_dao_sage: 2, starvine: 2 },
     minRealmTier: 5, minLayer: 2,
     effects: [{ kind: 'hp_max_add', value: 800, durationMin: 60 }],
-    desc: '+800 max HP for 60 minutes. The nascent soul lends the body its certainty.',
+    desc: '+800 max Body for 60 minutes. The nascent soul lends the body its certainty.',
   },
   world_pillar_pill: {
     name: 'World-Pillar Pill', zh: '世柱丹', kind: 'pill', rarity: 'divine',
     recipe: { heaven_root: 3, primordial_sage: 2 },
     minRealmTier: 6,
     effects: [{ kind: 'hp_max_add', value: 2000, durationMin: 60 }],
-    desc: '+2000 max HP for 60 minutes. For one hour, you are load-bearing.',
+    desc: '+2000 max Body for 60 minutes. For one hour, you are load-bearing.',
   },
   dao_sealed_draught: {
     name: 'Dao-Sealed Draught', zh: '封道饮', kind: 'potion', rarity: 'divine',
@@ -8421,12 +8421,12 @@ const ELEMENT_GEN_PFX = {
 const WEAPON_GEN_EFFECT = {
   sword:      t => [m => { m.critChance += 0.04 + 0.01 * t; }, `+${4 + t}% crit`],
   saber:      t => [m => { m.lifestealPct += 0.04 + 0.01 * t; }, `+${4 + t}% lifesteal`],
-  unarmed:    t => [m => { m.hpBonus += 15 * (t + 1); m.flatDR += 1 + t; }, `+${15 * (t + 1)} HP, +${1 + t} DR`],
+  unarmed:    t => [m => { m.hpBonus += 15 * (t + 1); m.flatDR += 1 + t; }, `+${15 * (t + 1)} Body, +${1 + t} DR`],
   focus:      t => [m => { m.qiBonus += 10 * (t + 1); m.qiRegenBonus += 1 + Math.floor(t / 2); }, `+${10 * (t + 1)} qi, +${1 + Math.floor(t / 2)} qi regen`],
   polearm:    t => [m => { m.firstStrikeBonus += 0.08 + 0.03 * t; }, `+${Math.round((0.08 + 0.03 * t) * 100)}% opener`],
   dagger:     t => [m => { m.critChance += 0.03 + 0.01 * t; m.critMult += 0.05 + 0.02 * t; }, `+${3 + t}% crit, harder crits`],
   bow:        t => [m => { m.firstStrikeBonus += 0.06 + 0.02 * t; m.critChance += 0.02 + 0.005 * t; }, `+${Math.round((0.06 + 0.02 * t) * 100)}% opener, +crit`],
-  staff:      t => [m => { m.qiRegenBonus += 1 + Math.ceil(t / 2); m.hpBonus += 10 * (t + 1); }, `+${1 + Math.ceil(t / 2)} qi regen, +${10 * (t + 1)} HP`],
+  staff:      t => [m => { m.qiRegenBonus += 1 + Math.ceil(t / 2); m.hpBonus += 10 * (t + 1); }, `+${1 + Math.ceil(t / 2)} qi regen, +${10 * (t + 1)} Body`],
   hammer:     t => [m => { m.postureMult *= 1.08 + 0.02 * t; }, `+${Math.round((0.08 + 0.02 * t) * 100)}% posture`],
   chakram:    t => [m => { m.dodgeChance += 0.02 + 0.005 * t; }, `+${(2 + 0.5 * t).toFixed(1)}% dodge`],
   greatsword: t => [m => { m.lowHpBonus += 0.08 + 0.03 * t; }, `+${Math.round((0.08 + 0.03 * t) * 100)}% damage when bloodied`],
@@ -8690,17 +8690,17 @@ function realmGearFlavor(tier, slot, rarity, noun) {
 })();
 // Armor rarity ladder: per realm, a rare / legendary / divine defensive piece (slots rotate),
 // divine again tuned to shade into the next realm's baseline.
-// v0.87: THE armor HP curve (single knob). Operator: "20 HP increments are far too small
-// when boss HP and damage is scaling much higher" — enemy weapon power grows ~96x Mortal->SS,
+// v0.87: THE armor Body curve (single knob). Operator: "20 Body increments are far too small
+// when boss Body and damage is scaling much higher" — enemy weapon power grows ~96x Mortal->SS,
 // the old [14..460] curve only ~33x with flat hand-authored pieces on top. Index 7 is the
 // virtual t7 anchor so divine-of-SS still lands ~1.55x above SS common (the locked
 // divine(t) = common(t+1) rule holds at every tier by construction).
-const ARMOR_HP_BASE = [15, 34, 75, 165, 360, 700, 1300, 2000];
+const ARMOR_Body_BASE = [15, 34, 75, 165, 360, 700, 1300, 2000];
 (function generateArmorLadder() {
   const slotsCycle = [['helmet', 'Helm', '盔'], ['chest', 'Robe', '袍'], ['boots', 'Boots', '靴']];
-  const hpBase = ARMOR_HP_BASE;
+  const hpBase = ARMOR_Body_BASE;
   for (let t = 0; t <= 6; t++) {
-    const nextHp = ARMOR_HP_BASE[t + 1];
+    const nextHp = ARMOR_Body_BASE[t + 1];
     const powerOf = { rare: Math.round(hpBase[t] + (nextHp - hpBase[t]) * 0.33), legendary: Math.round(hpBase[t] + (nextHp - hpBase[t]) * 0.66), divine: nextHp };
     ['rare', 'legendary', 'divine'].forEach((rar, ri) => {
       const [slot, noun, nounZh] = slotsCycle[(t + ri) % 3];
@@ -8844,7 +8844,7 @@ ARMOR_RECIPES.push(
 const ARMOR_RARITY_EFFECT_COUNT = { common: 1, rare: 2, legendary: 3, divine: 5 };  // local: the weapon table declares later in-file
 const ARMOR_EFFECT_POOL = [
   { ch: 'flatDR',          mk: t => 1 + t,                 blurb: t => `+${1 + t} DR` },
-  { ch: 'hpBonus',         mk: t => 12 * (t + 1),          blurb: t => `+${12 * (t + 1)} HP` },
+  { ch: 'hpBonus',         mk: t => 12 * (t + 1),          blurb: t => `+${12 * (t + 1)} Body` },
   { ch: 'qiBonus',         mk: t => 8 * (t + 1),           blurb: t => `+${8 * (t + 1)} qi` },
   { ch: 'qiRegenBonus',    mk: t => 1 + Math.floor(t / 3), blurb: t => `+${1 + Math.floor(t / 3)} qi regen` },
   { ch: 'spiritBonus',     mk: t => 4 * (t + 1),           blurb: t => `+${4 * (t + 1)} max spirit` },
@@ -9095,8 +9095,8 @@ const ARMOR_SETS = {
   iron_disciple: {
     name: 'Iron Disciple', zh: '铁徒',
     bonuses: [
-      { pieces: 2, desc: '+30 max HP', apply: m => { m.hpBonus += 30; } },
-      { pieces: 4, desc: '+80 max HP, -8% incoming; +8 flat DR, +10% damage while bloodied',
+      { pieces: 2, desc: '+30 max Body', apply: m => { m.hpBonus += 30; } },
+      { pieces: 4, desc: '+80 max Body, -8% incoming; +8 flat DR, +10% damage while bloodied',
         apply: m => { m.hpBonus += 80; m.incomingMult *= 0.92; m.flatDR += 8; m.lowHpBonus += 0.10; } },
     ],
   },
@@ -9142,8 +9142,8 @@ const ARMOR_SETS = {
   dragon_scale: {
     name: 'Dragon Scale', zh: '龙鳞',
     bonuses: [
-      { pieces: 2, desc: '+100 max HP', apply: m => { m.hpBonus += 100; } },
-      { pieces: 4, desc: '+400 max HP, -15% incoming; +8% lifesteal, +10% damage vs beasts',
+      { pieces: 2, desc: '+100 max Body', apply: m => { m.hpBonus += 100; } },
+      { pieces: 4, desc: '+400 max Body, -15% incoming; +8% lifesteal, +10% damage vs beasts',
         apply: m => { m.hpBonus += 400; m.incomingMult *= 0.85; m.lifestealPct += 0.08; m.vsKindMult = m.vsKindMult || {}; m.vsKindMult.beast = (m.vsKindMult.beast || 0) + 0.10; } },
     ],
   },
@@ -9159,7 +9159,7 @@ const ARMOR_SETS = {
     name: 'Starforged', zh: '星铸',
     bonuses: [
       { pieces: 2, desc: '+10 weapon power', apply: m => { m.weaponBonus += 10; } },
-      { pieces: 4, desc: '+50 weapon power, +300 max HP, +20% cultivation; +6% crit, +10% opener damage',
+      { pieces: 4, desc: '+50 weapon power, +300 max Body, +20% cultivation; +6% crit, +10% opener damage',
         apply: m => { m.weaponBonus += 50; m.hpBonus += 300; m.cultMult *= 1.2; m.critChance += 0.06; m.firstStrikeBonus += 0.10; } },
     ],
   },
@@ -9176,7 +9176,7 @@ const ARMOR_SETS = {
 const BOSS_LOOT = {
   // v0.86: Mortal (t0) set numbers toned down — operator rule: a Mortal boss set should be
   // competitive with EARLY Qi Condensation gear but must NOT beat QC's divine pieces
-  // (genr_armor_1_divine is ~50 HP + 5 DR + 18 qi per slot; the old 40/120 totals blew past it).
+  // (genr_armor_1_divine is ~50 Body + 5 DR + 18 qi per slot; the old 40/120 totals blew past it).
   boar_king:            { setName: 'Withered-Wood Warplate', setZh: '枯林战甲',
     set: { hpBonus: 22, postureMult: 1.06 }, set2: { postureMult: 1.10 }, set4: { hpBonus: 60, lowHpBonus: 0.10 },
     refName: "Boar-King's Fury", refZh: '猪王怒', refine: { lowHpBonus: 0.06, postureMult: 1.04 },
@@ -9244,7 +9244,7 @@ Object.entries(BOSS_LOOT).forEach(([bossId, L]) => {
   const setKey = `bset_${bossId}`;
   BOSS_SET_SLOTS.forEach(([slot, noun, nounZh]) => {
     const id = bossSetId(bossId, slot);
-    // each piece carries the per-piece set theme + a slot-baseline HP slice
+    // each piece carries the per-piece set theme + a slot-baseline Body slice
     const mods = Object.assign({}, scaleBossMods(L.set, 1));
     mods.hpBonus = (mods.hpBonus || 0) + (15 + tier * 12);
     ARMOR[id] = {
@@ -9409,17 +9409,17 @@ ARMOR_SETS.vanquisher = {
 
 // ============================================================
 // v0.87 ARMOR REALM SCALING — every armor piece's hpBonus (and flatDR where present)
-// is FLOORED at load to a per-(realm, rarity, slot) value off ARMOR_HP_BASE. This
+// is FLOORED at load to a per-(realm, rarity, slot) value off ARMOR_Body_BASE. This
 // drags the flat hand-authored pieces (and the GC-era regression) up to the curve;
 // pieces already above their floor (awakened relics, hand-tuned chests) keep their
 // numbers. Runs AFTER every ARMOR/ARMOR_RECIPES registration and AFTER the v0.72
-// rarity enrichment (which counts mod channels — adding HP first would starve it).
+// rarity enrichment (which counts mod channels — adding Body first would starve it).
 // The v0.86 Mortal boss-set cap sits below its floor and is unaffected.
 // ============================================================
 const ARMOR_SLOT_WEIGHT = { chest: 1.0, helmet: 0.8, boots: 0.8, gloves: 0.7, accessory: 0.5 };
 function armorHpFloor(t, rarity, slot) {
-  const base = ARMOR_HP_BASE[Math.min(6, t)];
-  const next = ARMOR_HP_BASE[Math.min(7, t + 1)];
+  const base = ARMOR_Body_BASE[Math.min(6, t)];
+  const next = ARMOR_Body_BASE[Math.min(7, t + 1)];
   const frac = { common: 0, rare: 0.33, legendary: 0.66, divine: 1 }[rarity] || 0;
   return Math.round((base + (next - base) * frac) * (ARMOR_SLOT_WEIGHT[slot] || 0.5));
 }
@@ -9433,17 +9433,17 @@ function armorDrFloor(t, rarity) {
 // armor glass-cannon). All from generic realm materials (not boss-gated). Each axis = a
 // 4-piece armor SET (axis-leaning 2pc/4pc bonuses) + a single accessory, so the choice
 // reaches the armor slots AND the two accessory slots. Registered BEFORE scaleArmorWithRealm
-// so HP/DR get realm-floored (the BURST line is flagged lightArmor -> a reduced HP floor,
+// so Body/DR get realm-floored (the BURST line is flagged lightArmor -> a reduced Body floor,
 // so it's genuinely fragile). v0.90: every piece carries a unique per-realm NAME + LORE
 // (operator: "interesting lore blurbs and names") instead of the old "Name · Realm" stamp.
 //   • OFFENSIVE — heavy bruiser: weapon power, crit, strike/tech damage. Tanky baseline
-//     (it's armor) that hits harder. Accessory is pure offense (no HP).
-//   • DEFENSIVE — bulwark: flat HP, HP% (hpMult), flat DR, DR% (incomingMult).
-//   • BURST (v0.90) — glass cannon: LIGHT armor (~35% HP floor), extreme alpha-strike
+//     (it's armor) that hits harder. Accessory is pure offense (no Body).
+//   • DEFENSIVE — bulwark: flat Body, Body% (hpMult), flat DR, DR% (incomingMult).
+//   • BURST (v0.90) — glass cannon: LIGHT armor (~35% Body floor), extreme alpha-strike
 //     (opener, crit, crit damage) and bloodied-damage (lowHpBonus) — it hits hardest at
-//     death's door, which is where light armor tends to put you. No HP%/DR% at all.
+//     death's door, which is where light armor tends to put you. No Body%/DR% at all.
 // ============================================================
-const LIGHT_ARMOR_HP_MULT = 0.35;   // v0.90: lightArmor pieces floor to this fraction of normal
+const LIGHT_ARMOR_Body_MULT = 0.35;   // v0.90: lightArmor pieces floor to this fraction of normal
 function styleRealmBasket(t, mult) {
   const cost = {};
   Object.entries(WEAPON_GEN_TIER[t].mats).forEach(([m, n]) => { cost[m] = Math.max(1, Math.round(n * mult)); });
@@ -9543,19 +9543,19 @@ const STYLE_FLAVOR = {
         pieceMods: slot => { const m = { flatDR: 1 + Math.floor(t / 2) };
           if (slot === 'chest') m.hpMult = r2(1 + 0.03 + 0.005 * t); return m; },
         bonuses: [
-          { pieces: 2, desc: `+${Math.round((0.07 + 0.01 * t) * 100)}% max HP`,
+          { pieces: 2, desc: `+${Math.round((0.07 + 0.01 * t) * 100)}% max Body`,
             apply: m => { m.hpMult = (m.hpMult || 1) * (1 + 0.07 + 0.01 * t); } },
-          { pieces: 4, desc: `-${Math.round((0.09 + 0.01 * t) * 100)}% incoming damage, +5% max HP`,
+          { pieces: 4, desc: `-${Math.round((0.09 + 0.01 * t) * 100)}% incoming damage, +5% max Body`,
             apply: m => { m.incomingMult *= (1 - (0.09 + 0.01 * t)); m.hpMult = (m.hpMult || 1) * 1.05; } },
         ],
         accMods: () => ({ hpBonus: 20 + 30 * t, hpMult: r2(1 + 0.04 + 0.01 * t),
           flatDR: 2 + t, incomingMult: r2(1 - (0.02 + 0.005 * t)) }),
         pieceTag: 'Plate that intends to still be standing at the end of the fight.',
-        accTag: 'Pure defense — +HP, +HP%, flat DR, and reduced incoming damage.',
+        accTag: 'Pure defense — +Body, +Body%, flat DR, and reduced incoming damage.',
       },
       burst: {
         light: true,
-        pieceMods: slot => { const m = {};   // NO HP/DR — fragile by design (lightArmor floors HP low)
+        pieceMods: slot => { const m = {};   // NO Body/DR — fragile by design (lightArmor floors Body low)
           if (slot === 'helmet') m.critChance = r2(0.02 + 0.004 * t);
           if (slot === 'chest') m.weaponBonus = 4 + t * 3;
           if (slot === 'gloves') m.critMult = r2(1 + 0.12 + 0.03 * t);   // multiplier (mergeMods multiplies base 1.5)
@@ -9604,12 +9604,12 @@ const STYLE_FLAVOR = {
   Object.entries(ARMOR).forEach(([aid, a]) => {
     if (!a.mods) return;
     const t = armorTierOf(aid);
-    // Pure-utility accessories (wards, amps — no HP) keep their identity; everything
-    // else, and any accessory that already grants HP, is pulled up to the curve.
+    // Pure-utility accessories (wards, amps — no Body) keep their identity; everything
+    // else, and any accessory that already grants Body, is pulled up to the curve.
     // v0.90: lightArmor pieces (the glass-cannon burst line) floor to a fraction of normal
     // so they stay genuinely fragile — the damage is the whole point.
     if (a.slot !== 'accessory' || (a.mods.hpBonus || 0) > 0) {
-      const floor = Math.round(armorHpFloor(t, a.rarity, a.slot) * (a.lightArmor ? LIGHT_ARMOR_HP_MULT : 1));
+      const floor = Math.round(armorHpFloor(t, a.rarity, a.slot) * (a.lightArmor ? LIGHT_ARMOR_Body_MULT : 1));
       a.mods.hpBonus = Math.max(a.mods.hpBonus || 0, floor);
     }
     if ((a.mods.flatDR || 0) > 0) {
@@ -9742,7 +9742,7 @@ function modSummary(mods) {
   if (!mods) return '';
   const parts = [];
   const labels = {
-    weaponBonus: 'wpn', hpBonus: 'HP', qiBonus: 'max qi', spiritBonus: 'max spirit',
+    weaponBonus: 'wpn', hpBonus: 'Body', qiBonus: 'max qi', spiritBonus: 'max spirit',
     qiRegenBonus: 'qi regen', postureBreakBonus: 'break turns', strikeHeal: 'strike heal',
     flatDR: 'DR',
   };
@@ -9755,7 +9755,7 @@ function modSummary(mods) {
     postureMult: 'posture', techDamageMult: 'tech dmg', strikeDamageMult: 'strike dmg',
     incomingMult: 'incoming', insightMult: 'insight', meditateMult: 'meditate',
     weaponMultFlat: 'wpn', cultMult: 'cultivation', spiritDamageMult: 'spirit dmg',
-    dotMult: 'DOT', bossCdMult: 'boss cooldown', hpMult: 'max HP', critMult: 'crit dmg',
+    dotMult: 'DOT', bossCdMult: 'boss cooldown', hpMult: 'max Body', critMult: 'crit dmg',
   };
   Object.entries(mods).forEach(([k, v]) => {
     if (labels[k] && v) {
@@ -9847,7 +9847,7 @@ function applyArtifactsToMods(mods, char) {
 // cosmetic and decoupled from power. Per-life — reset on ascension/reincarnation.
 // ============================================================
 const DESTINIES = {
-  d_iron_hide:    { name: 'Iron Hide',          zh: '铁皮命', rarity: 'common', minTier: 0, mods: { hpBonus: 80 }, desc: '+80 max HP.' },
+  d_iron_hide:    { name: 'Iron Hide',          zh: '铁皮命', rarity: 'common', minTier: 0, mods: { hpBonus: 80 }, desc: '+80 max Body.' },
   d_keen:         { name: 'Keen Instinct',      zh: '利觉', rarity: 'common', minTier: 0, mods: { weaponBonus: 6 }, desc: '+6 weapon power.' },
   d_swift_breath: { name: 'Swift Breath',       zh: '疾息', rarity: 'common', minTier: 0, mods: { cultMult: 1.10 }, desc: '+10% cultivation rate.' },
   d_deep_well:    { name: 'Deep Dantian',       zh: '深丹', rarity: 'common', minTier: 0, mods: { qiBonus: 50, qiRegenBonus: 2 }, desc: '+50 max qi, +2 qi regen per turn.' },
@@ -9858,10 +9858,10 @@ const DESTINIES = {
   d_blood_1:      { name: 'Blood Sip',          zh: '吸血一', rarity: 'rare', minTier: 1, mods: { lifestealPct: 0.06 }, desc: 'Heal 6% of damage dealt. (Chain I)' },
   d_blood_2:      { name: 'Blood Feast',        zh: '血宴', rarity: 'legendary', minTier: 3, requires: 'd_blood_1', replaces: 'd_blood_1', mods: { lifestealPct: 0.14 }, desc: 'Heal 14% of damage dealt. Replaces Blood Sip. (Chain II)' },
   d_blood_3:      { name: 'Blood Sovereign',    zh: '血君', rarity: 'divine', minTier: 5, requires: 'd_blood_2', replaces: 'd_blood_2', mods: { lifestealPct: 0.25 }, desc: 'Heal 25% of damage dealt. Replaces Blood Feast. (Chain III)' },
-  d_desperate:    { name: 'Cornered Beast',     zh: '困兽', rarity: 'legendary', minTier: 3, keystone: true, mods: { lowHpBonus: 0.40, flatDR: 12 }, desc: 'Keystone: below 50% HP, +40% damage; always +12 flat damage reduction.' },
+  d_desperate:    { name: 'Cornered Beast',     zh: '困兽', rarity: 'legendary', minTier: 3, keystone: true, mods: { lowHpBonus: 0.40, flatDR: 12 }, desc: 'Keystone: below 50% Body, +40% damage; always +12 flat damage reduction.' },
   d_warlord:      { name: "Warlord's Edge",     zh: '战王锋', rarity: 'legendary', minTier: 3, mods: { weaponBonus: 20, strikeDamageMult: 1.15 }, desc: '+20 weapon power, +15% strike damage.' },
   d_dao_clarity:  { name: 'Dao Clarity',        zh: '道澄', rarity: 'legendary', minTier: 4, mods: { cultMult: 1.35, insightMult: 1.25 }, desc: '+35% cultivation rate, +25% insight.' },
-  d_heaven_defy:  { name: 'Heaven-Defying Will', zh: '逆天志', rarity: 'divine', minTier: 5, keystone: true, mods: { weaponBonus: 30, hpBonus: 300, cultMult: 1.25, incomingMult: 0.90 }, desc: 'Keystone: +30 weapon power, +300 max HP, +25% cultivation, -10% incoming.' },
+  d_heaven_defy:  { name: 'Heaven-Defying Will', zh: '逆天志', rarity: 'divine', minTier: 5, keystone: true, mods: { weaponBonus: 30, hpBonus: 300, cultMult: 1.25, incomingMult: 0.90 }, desc: 'Keystone: +30 weapon power, +300 max Body, +25% cultivation, -10% incoming.' },
 
   // ---- v0.57: ramping / build-identity destinies (operator: lean into ramping play) ----
   d_crescendo:    { name: 'Crescendo', zh: '渐强', rarity: 'rare', minTier: 1, keystone: true, mods: { perTurnRamp: 0.05 }, desc: 'Keystone: +5% damage per combat turn elapsed (caps at +45%). Long fights become your fights.' },
@@ -10168,10 +10168,10 @@ const GEN_EFFECT_POOL = [
   { key: 'critdmg', ch: 'critMult',         mk: t => m => { m.critMult += 0.06 + 0.02 * t; },           blurb: t => 'harder crits' },
   { key: 'steal',   ch: 'lifestealPct',     mk: t => m => { m.lifestealPct += 0.02 + 0.01 * t; },       blurb: t => `+${Math.round((0.02 + 0.01 * t) * 100)}% lifesteal` },
   { key: 'opener',  ch: 'firstStrikeBonus', mk: t => m => { m.firstStrikeBonus += 0.05 + 0.02 * t; },   blurb: t => `+${Math.round((0.05 + 0.02 * t) * 100)}% opener` },
-  { key: 'lowhp',   ch: 'lowHpBonus',       mk: t => m => { m.lowHpBonus += 0.06 + 0.02 * t; },         blurb: t => `+${Math.round((0.06 + 0.02 * t) * 100)}% when bloodied (<50% HP)` },
+  { key: 'lowhp',   ch: 'lowHpBonus',       mk: t => m => { m.lowHpBonus += 0.06 + 0.02 * t; },         blurb: t => `+${Math.round((0.06 + 0.02 * t) * 100)}% when bloodied (<50% Body)` },
   { key: 'posture', ch: 'postureMult',      mk: t => m => { m.postureMult *= 1.05 + 0.02 * t; },        blurb: t => `+${Math.round((0.05 + 0.02 * t) * 100)}% posture` },
   { key: 'dodge',   ch: 'dodgeChance',      mk: t => m => { m.dodgeChance += 0.01 + 0.005 * t; },       blurb: t => `+${(1 + 0.5 * t).toFixed(1)}% dodge` },
-  { key: 'hp',      ch: 'hpBonus',          mk: t => m => { m.hpBonus += 12 * (t + 1); },               blurb: t => `+${12 * (t + 1)} HP` },
+  { key: 'hp',      ch: 'hpBonus',          mk: t => m => { m.hpBonus += 12 * (t + 1); },               blurb: t => `+${12 * (t + 1)} Body` },
   { key: 'qi',      ch: 'qiBonus',          mk: t => m => { m.qiBonus += 8 * (t + 1); },                blurb: t => `+${8 * (t + 1)} qi` },
   { key: 'regen',   ch: 'qiRegenBonus',     mk: t => m => { m.qiRegenBonus += 1 + Math.floor(t / 3); }, blurb: t => `+${1 + Math.floor(t / 3)} qi regen` },
   { key: 'dr',      ch: 'flatDR',           mk: t => m => { m.flatDR += 1 + t; },                       blurb: t => `+${1 + t} DR` },
@@ -10462,7 +10462,7 @@ function realmRunReadyAt(slotKey) {
   return (state[s.last] || 0) + s.cd;
 }
 function realmRunReady(slotKey) { return Date.now() >= realmRunReadyAt(slotKey); }
-// A single "power" number for abstract dive checks: weapon power + a slice of HP + total stats.
+// A single "power" number for abstract dive checks: weapon power + a slice of Body + total stats.
 function cultivatorMight() {
   const w = WEAPONS[state.weapon];
   const rb = realmBonusFor(state);
@@ -10554,7 +10554,7 @@ function realmRunExtract(collapsed, slotKey) {
 // cultivation (meditating at a location); idling, passive cultivation, and offline NEVER age you.
 // Each realm grants a far larger lifespan, so progressing keeps you well ahead — only stalling at
 // one realm for a very long time risks old age, which is death -> reincarnation (souls intact),
-// not a hard loss. Surviving a Heavenly tribulation permanently tempers the body (+HP).
+// not a hard loss. Surviving a Heavenly tribulation permanently tempers the body (+Body).
 // ============================================================
 // Lifespan is a RESOURCE, not a passive clock. Breaking realms hugely extends the span (ACS-style);
 // aging is slow; certain pills/schools/artifacts ADD lifespan; powerful pills SPEND it (a % of what's
@@ -11301,7 +11301,7 @@ function reincarnateChar() {
 // ============================================================
 const SOUL_UPGRADES = {
   cult:    { name: 'Soul Cultivation', zh: '魂修', per: 0.04, baseCost: 3, costMult: 1.4, fmt: r => `+${Math.round(r * 4)}% cultivation rate` },
-  body:    { name: 'Soul Body',        zh: '魂体', per: 40,   baseCost: 2, costMult: 1.4, fmt: r => `+${r * 40} max HP` },
+  body:    { name: 'Soul Body',        zh: '魂体', per: 40,   baseCost: 2, costMult: 1.4, fmt: r => `+${r * 40} max Body` },
   insight: { name: 'Soul Insight',     zh: '魂悟', per: 0.04, baseCost: 3, costMult: 1.4, fmt: r => `+${Math.round(r * 4)}% combat insight` },
   memory:  { name: 'Inherited Memory', zh: '宿忆', per: 120,  baseCost: 5, costMult: 1.5, fmt: r => `+${r * 120} starting insight each life` },
 };
@@ -12435,12 +12435,12 @@ function realmBonusFor(char) {
 //   GC (4): 1x to 5.5x
 //   NS (5): 1x to 6.25x
 //   SS (6): 1x to 7x
-// Insight reward stays gentler (1.0x to 2.0x) so the cost doesn't compound brutally with HP.
+// Insight reward stays gentler (1.0x to 2.0x) so the cost doesn't compound brutally with Body.
 // v0.80: LAYER_SCALE_COEF widens the within-realm difficulty gap ~3x (was 3.0) so layers
 // feel like a real climb — early layers easy, late layers a wall. Single tuning knob; if the
 // back half feels too brutal, lower it further. Bosses use their OWN anchor (bossAnchorScale, 3.0) so they remain a fixed, farmable mid-realm reference, not part of this ramp.
 const LAYER_SCALE_COEF = 4.5;  // v1.17: sharper within-realm climb (was 3.75) — location-to-location difficulty ramps harder
-// v0.86: global difficulty tick (operator: "+20-25% overall"). Multiplies enemy HP and
+// v0.86: global difficulty tick (operator: "+20-25% overall"). Multiplies enemy Body and
 // weapon power in buildEnemyCombat — normals, elites, bosses, and rift enemies alike.
 // Rift REWARDS untouched. Single knob; 1.0 restores v0.85 difficulty.
 const DIFFICULTY_TICK = 1.22;
@@ -12502,7 +12502,7 @@ function tryAdvanceRealm() {
     if (trib) {
       pendingTribulation = { targetTier: toTier, cost: info.cost };
       initCombat(trib.enemyId);
-      if (isDemonHeart(state) && combat.enemies && combat.enemies[0]) {   // v1.5: demon-heart breakthroughs are judged harder (HP still 2x — the endurance trial)
+      if (isDemonHeart(state) && combat.enemies && combat.enemies[0]) {   // v1.5: demon-heart breakthroughs are judged harder (Body still 2x — the endurance trial)
         const te = combat.enemies[0];
         te.hpMax = Math.round(te.hpMax * 2); te.hp = te.hpMax;
         // v1.13: damage boost cut 2x -> 1.5x. With the v1.10 -25% incoming softener (dealDamage), net trib damage is ~1.125x of baseline (down from ~1.5x).
@@ -12641,14 +12641,14 @@ function goldenCoreScore(preInsight, threshold) {
 function goldenCoreQualityFromScore(score) { return Math.max(1, Math.min(10, Math.ceil(score / 10))); }   // ~10%/grade, I at 100% (75% -> III)
 
 function computeMaxHP(char) {
-  // v0.23: HP cushion +40% vs v0.22 — base, body coefficient, and per-realm hpBonus
+  // v0.23: Body cushion +40% vs v0.22 — base, body coefficient, and per-realm hpBonus
   // each scaled together so tier curve stays the same shape, just taller.
   const base = 63 + char.finalStats.body * 7 + Math.round(realmBonusFor(char).hp * 1.4);
   const mods = computeMods(char);
   const total = base + activeBuffValue('hp_max_add', 0) + boonHPAdd() + skillHPAdd() + (mods.hpBonus || 0) + metaHPAdd() + bodyQuenchHPAdd();
-  // v0.89: hpMult (HP%) scales the whole pool — flat +HP and HP% on the same defensive
+  // v0.89: hpMult (Body%) scales the whole pool — flat +Body and Body% on the same defensive
   // piece compound, the intended bulwark synergy. Demonic x1.2 stacks on top.
-  return Math.round(total * (mods.hpMult || 1) * cultPowerMults(char).hp * (1 + 0.05 * (char.goldenCoreQuality || 0)) * (isDemonHeart(char) ? 1.3 : (char.demonic ? 1.2 : 1)));   // v1.5 demon x1.3; v1.16 per-layer HP; v1.18 +5% Body/GC level
+  return Math.round(total * (mods.hpMult || 1) * cultPowerMults(char).hp * (1 + 0.05 * (char.goldenCoreQuality || 0)) * (isDemonHeart(char) ? 1.3 : (char.demonic ? 1.2 : 1)));   // v1.5 demon x1.3; v1.16 per-layer Body; v1.18 +5% Body/GC level
 }
 // v0.98: ascension alone stops being enough — cultivation compounds per layer into qi (pool + barrier)
 // and a little damage. Survival becomes a qi-tank spine (~25% of the curve); GEAR carries the rest,
@@ -12661,7 +12661,7 @@ function cultLayers(char) {
 }
 function cultPowerMults(char) {
   const L = cultLayers(char);
-  return { qiPool: Math.pow(1.08, L), qiBarrier: Math.pow(1.04, L), dmg: Math.pow(1.015, L), hp: Math.pow(1.04, L) };   // v1.16: HP now compounds per layer too (breakthroughs grow Body % not just flat)
+  return { qiPool: Math.pow(1.08, L), qiBarrier: Math.pow(1.04, L), dmg: Math.pow(1.015, L), hp: Math.pow(1.04, L) };   // v1.16: Body now compounds per layer too (breakthroughs grow Body % not just flat)
 }
 function computeMaxQi(char) {
   const mods = computeMods(char);
@@ -12916,7 +12916,7 @@ function canCraft(recipeId) {
 
 // v0.24a: weapon-recipe material costs scaled by this constant. Recipe definitions
 // stay readable as "designed costs"; this is the only number to change for tuning.
-// Armor recipes are NOT scaled — gating armor would block the rebalanced player-HP curve.
+// Armor recipes are NOT scaled — gating armor would block the rebalanced player-Body curve.
 const WEAPON_MAT_COST_MULT = 4;
 
 function effectiveWeaponRecipeCost(recipe) {
@@ -13271,14 +13271,14 @@ function buildEnemyCombat(enemyId) {
     ? bossAnchorScale(BOSSES[enemyId].tier)
     : playerLayerScale(state);
   // v0.92: Mortal-tier bosses read a touch soft (by design they fall to a fresh QC cultivator, but
-  // the operator wants them ~1.25x meaner). Applies to HP + weapon power only.
+  // the operator wants them ~1.25x meaner). Applies to Body + weapon power only.
   const mortalBossMult = (enemyData.isBoss && BOSSES[enemyId] && BOSSES[enemyId].tier === 0) ? 1.25 : 1;
   // v0.23 robustness pass: separate normal vs elite multipliers stacked on top of the
   // existing v0.18 phase-2 bump (hp x2.5 / wpn x2 / qi-spirit-posture x2). Elite gets a
   // steeper bump so boss fights feel meaningfully harder than mooks at the same tier.
-  // v0.23.1: normal HP bumped from 1.30 -> 1.65 — optimized builds were one-shotting mooks.
-  // v0.25: 20% nerf to enemy HP and weaponPower across the board — v0.23 overshot.
-  //   normal HP 1.65 -> 1.32,  elite HP 1.20 -> 0.96,  elite extra 2.20 -> 1.76
+  // v0.23.1: normal Body bumped from 1.30 -> 1.65 — optimized builds were one-shotting mooks.
+  // v0.25: 20% nerf to enemy Body and weaponPower across the board — v0.23 overshot.
+  //   normal Body 1.65 -> 1.32,  elite Body 1.20 -> 0.96,  elite extra 2.20 -> 1.76
   //   normal wpn 1.15 -> 0.92, elite wpn 1.50 -> 1.20
   // qi/spirit/posture intentionally NOT nerfed — those are pacing knobs, not damage/health.
   const isElite = enemyData.archetype === 'elite';
@@ -13286,19 +13286,19 @@ function buildEnemyCombat(enemyId) {
   const wpnBoost     = isElite ? 1.20 : 0.92;
   const qiBoost      = isElite ? 1.50 : 1.15;
   const postureBoost = isElite ? 1.50 : 1.15;
-  // Elite extra HP — also nerfed 20%.
+  // Elite extra Body — also nerfed 20%.
   const eliteHpExtra = isElite ? 1.76 : 1.00;
 
   // v0.64: per-realm enemy buff (compensates the cultivator-might damage bonus).
   // Mortal x1, then 1.1 / 1.15 / 1.2 / 1.25 / 1.3 / 1.35 by realm tier (regular enemies
-  // use the player's tier; bosses their own anchor tier). Applies to HP and damage.
+  // use the player's tier; bosses their own anchor tier). Applies to Body and damage.
   const buffTier = (enemyData.isBoss && BOSSES[enemyId]) ? BOSSES[enemyId].tier : (state.realm.tierIdx || 0);
-  // v1.17: NORMAL encounters (non-elite, non-boss) ride the sharp HP/dmg curves + a flat base-power bump;
+  // v1.17: NORMAL encounters (non-elite, non-boss) ride the sharp Body/dmg curves + a flat base-power bump;
   // elites (tribulations, inquisitors) and bosses stay on the gentle REALM_ENEMY_BUFF so they aren't re-tuned here.
   const isNormalFoe = !isElite && !enemyData.isBoss;
-  const realmHpBuff  = isNormalFoe ? REALM_ENEMY_HP_BUFF[Math.min(6, buffTier)]  : REALM_ENEMY_BUFF[Math.min(6, buffTier)];
+  const realmHpBuff  = isNormalFoe ? REALM_ENEMY_Body_BUFF[Math.min(6, buffTier)]  : REALM_ENEMY_BUFF[Math.min(6, buffTier)];
   const realmDmgBuff = isNormalFoe ? REALM_ENEMY_DMG_BUFF[Math.min(6, buffTier)] : REALM_ENEMY_BUFF[Math.min(6, buffTier)];
-  const normalHpMult  = isNormalFoe ? 1.4 : 1;   // v1.17: +40% HP base
+  const normalHpMult  = isNormalFoe ? 1.4 : 1;   // v1.17: +40% Body base
   const normalDmgMult = isNormalFoe ? 1.1 : 1;   // v1.17: +10% damage base
   // v1.17: inquisitors (righteous hunters) must threaten even a well-built demon — Core (t3) especially.
   let inqHpMult = 1, inqDmgMult = 1;
@@ -13322,7 +13322,7 @@ function buildEnemyCombat(enemyId) {
   const scaledSpiritMax = Math.round(enemyData.spiritMax * scale.stats * 2 * qiBoost);
   // v0.81: enemy posture pools were too deep to break — normals x0.75, bosses x0.40 (even
   // dedicated posture-break builds stalled on bosses). Posture is the stagger axis, not an
-  // HP clone; it should be reachable.
+  // Body clone; it should be reachable.
   const posMult = enemyData.isBoss ? 0.40 : 0.75;
   const scaledPostureMax = Math.round(enemyData.postureMax * scale.stats * 2 * postureBoost * posMult);
   const scaledWeaponPower = Math.max(1, Math.round(enemyData.weaponPower * scale.stats * 2 * wpnBoost * realmDmgBuff * normalDmgMult * inqDmgMult * tribMult * backHalf * DIFFICULTY_TICK * mortalBossMult));
@@ -13352,7 +13352,7 @@ function buildEnemyCombat(enemyId) {
     effects: [],
     scale,
     flatDR: eliteFlatDR,
-    // v0.99: bosses get a qi barrier too (their qi soaks >1:1 before HP), scaling a little by tier.
+    // v0.99: bosses get a qi barrier too (their qi soaks >1:1 before Body), scaling a little by tier.
     qiShieldMult: enemyData.isBoss ? (1.3 + 0.05 * (enemyData.tier || 0)) : 1,
   };
 }
@@ -13404,7 +13404,7 @@ function initCombat(enemyIdOrIds, areaCultMult) {
     name: state.name,
     hpMax: computeMaxHP(state), hp: computeMaxHP(state),
     qiMax: computeMaxQi(state), qi: computeMaxQi(state),
-    qiShieldMult: cultPowerMults(state).qiBarrier,   // v0.98: qi barrier — qi soaks >1:1 before HP
+    qiShieldMult: cultPowerMults(state).qiBarrier,   // v0.98: qi barrier — qi soaks >1:1 before Body
     spiritMax: computeMaxSpirit(state), spirit: computeMaxSpirit(state),
     // v0.64: Dao Heart (will) hardens the stance — posture max scales with it.
     postureMax: 60 + 2 * ((state.finalStats && state.finalStats.will) || 0), posture: 0, broken: 0,
@@ -13528,7 +13528,7 @@ function dealDamage(target, amount, opts) {
     if (dr > 0) hpDmg = Math.max(0, hpDmg - dr);
   }
 
-  // v0.98: qi barrier — each point of qi soaks qiShieldMult× its value before overflowing to HP
+  // v0.98: qi barrier — each point of qi soaks qiShieldMult× its value before overflowing to Body
   // (default 1 for enemies; the player's grows with cultivation).
   const qsm = target.qiShieldMult || 1;
   const absorbed = Math.min(target.qi * qsm, qiDmg);
@@ -13541,7 +13541,7 @@ function dealDamage(target, amount, opts) {
   if (target.spirit < 0) target.spirit = 0;
 
   // Track the largest single hit the player has taken this combat — used by the death rule
-  // (a finishing blow that took out a big chunk of max HP marks the defeat as reckless).
+  // (a finishing blow that took out a big chunk of max Body marks the defeat as reckless).
   if (combat && target === combat.player) {
     target.lastHpHit = totalHp;
     target.biggestHpHit = Math.max(target.biggestHpHit || 0, totalHp);
@@ -13690,7 +13690,7 @@ function setAutoCombat(on) {
   saveChar();
 }
 
-// v0.23: applies crit / first-strike / low-HP / vs-kind to outgoing damage.
+// v0.23: applies crit / first-strike / low-Body / vs-kind to outgoing damage.
 // Mutates ctx.crit so the log line can mark the hit. Returns scaled damage.
 // v0.45: also folds in school-kit hooks — crit bonuses, Mark consumption, Red-Ink
 // Authority (+dmg vs debuffed), Hunter's Eye (crits apply Mark), Sword Intent stacks.
@@ -13771,7 +13771,7 @@ function applySchoolOnHit(p, tgt) {
 }
 
 // v0.45: per-application value for a technique-carried status. effectPower scales the
-// DOT tick off weapon power (so DOTs stay relevant as enemy HP scales by realm);
+// DOT tick off weapon power (so DOTs stay relevant as enemy Body scales by realm);
 // resonance scales gently by tier since spirit pools are small.
 function playerStatusValue(p, tech) {
   const dotAmp = (p.mods && p.mods.dotMult) || 1;  // v0.57: DOT-amp gear/skills
@@ -13790,7 +13790,7 @@ function applyPostHitTriggers(p, res, tgt) {
     if (heal > 0) {
       const before = p.hp;
       p.hp = Math.min(p.hpMax, p.hp + heal);
-      if (p.hp > before) pushLog('heal', `  → +${p.hp - before} hp (lifesteal)`);
+      if (p.hp > before) pushLog('heal', `  → +${p.hp - before} Body (lifesteal)`);
     }
   }
   // v1.10: demon_heart — at MAX hellfire, every hit rends a share of its damage into the target's SPIRIT
@@ -13855,7 +13855,7 @@ function playerStrike(opts) {
     if (p.mods.strikeHeal > 0 && res.qiAbsorbed + res.hpDamage > 0) {
       const before = p.hp;
       p.hp = Math.min(p.hpMax, p.hp + p.mods.strikeHeal);
-      if (p.hp > before) pushLog('heal', `  → +${p.hp - before} hp (Bloodbond)`);
+      if (p.hp > before) pushLog('heal', `  → +${p.hp - before} Body (Bloodbond)`);
     }
   }
   tribMechHook('playerStruck');   // v1.14: e.g. Thunder Brand stacks on basic strikes
@@ -13891,7 +13891,7 @@ function playerTechnique(techId) {
   if (playerSilenced() || isTechLocked(techId)) return;   // v1.14: tribulation silence/chains (buttons are also disabled)
   const qiCost = effectiveQiCost(p, tech);
   let hpCost = effectiveHpCost(p, tech);
-  if (isDemonHeart(state) && techId === 'demon_ascendant') hpCost = Math.round(p.hp * 0.20);   // v1.8: Devourer's Crown costs 20% of current HP
+  if (isDemonHeart(state) && techId === 'demon_ascendant') hpCost = Math.round(p.hp * 0.20);   // v1.8: Devourer's Crown costs 20% of current Body
   if (p.qi < qiCost) return;
   if (hpCost && p.hp <= hpCost) return;
 
@@ -13995,13 +13995,13 @@ function playerTechnique(techId) {
     if (isDemonHeart(state) && !isAoe) {
       if (techId === 'demon_ascendant' && dhHellStacks > 0) {
         const extra = Math.round((dhHpDealt + dhQiDrained) * 0.10 * dhHellStacks);
-        if (extra > 0) { const b = p.hp; p.hp = Math.min(p.hpMax, p.hp + extra); if (p.hp > b) pushLog('heal', `  → +${p.hp - b} hp — the Crown feeds on ${dhHellStacks} hellfire.`); }
+        if (extra > 0) { const b = p.hp; p.hp = Math.min(p.hpMax, p.hp + extra); if (p.hp > b) pushLog('heal', `  → +${p.hp - b} Body — the Crown feeds on ${dhHellStacks} hellfire.`); }
       } else if (techId === 'demon_devour' && dhQiDrained > 0) {
         const b = p.qi; p.qi = Math.min(p.qiMax, p.qi + dhQiDrained); if (p.qi > b) pushLog('heal', `  → +${p.qi - b} qi siphoned from the barrier.`);
       }
     }
     // v0.57 Ashfall Detonation: blow up an existing DOT on the target for its remaining
-    // damage at a multiplier (consumes the status; lands as direct HP like the DOT would).
+    // damage at a multiplier (consumes the status; lands as direct Body like the DOT would).
     if (tech.detonate && tgt.hp > 0 && tgt.effects) {
       const dIdx = tgt.effects.findIndex(ef => ef.kind === tech.detonate.kind);
       if (dIdx >= 0) {
@@ -14129,7 +14129,7 @@ function playerTechnique(techId) {
   if (tech.selfBuff && tech.selfBuff.regrowthPct) {
     p.buffs.regrowthPct = tech.selfBuff.regrowthPct;
     p.buffs.regrowthTurns = tech.selfBuff.turns || 1;
-    pushLog('heal', `  → Regrowth: +${Math.round(tech.selfBuff.regrowthPct*100)}% max HP per turn for ${p.buffs.regrowthTurns} turns.`);
+    pushLog('heal', `  → Regrowth: +${Math.round(tech.selfBuff.regrowthPct*100)}% max Body per turn for ${p.buffs.regrowthTurns} turns.`);
   }
 
   if (tech.instant) render(); else endPlayerAction();   // v0.51: free-action techniques don't take the turn
@@ -14376,7 +14376,7 @@ function checkDeath() {
       state.realm.layer = 1;
       state.realmDefeats = 0;  // v0.25: breakthrough resets defeat counter
       state.bodyQuench = (state.bodyQuench || 0) + 1;  // Wave 3c: surviving the tribulation tempers the body
-      pushLog('reward', `Realm breakthrough: ${REALMS[state.realm.tierIdx].name}! The tribulation's fire tempers your body — now +${bodyQuenchHPAdd()} max HP for life.`);
+      pushLog('reward', `Realm breakthrough: ${REALMS[state.realm.tierIdx].name}! The tribulation's fire tempers your body — now +${bodyQuenchHPAdd()} max Body for life.`);
       // v1.18: forming the Golden Core sets a PERMANENT quality grade from your power at the moment of ascension.
       if (state.realm.tierIdx === 4 && !state.goldenCoreQuality) {
         state.goldenCoreQuality = goldenCoreQualityFromScore(goldenCoreScore(gcPreInsight, gcThreshold));
@@ -14527,7 +14527,7 @@ function handleTribulationFailure(enemyId, charName, enemyData) {
 // Stops early if checkDeath fires combat.over (e.g. player died from a bleed at start).
 // v0.45: shared status ticker for both sides. Handles every DOT/drain kind; fixes the
 // latent bug where enemy-side bleed (Azure-Thread Severing) never actually ticked.
-// opts.healTarget receives the HP drained by leech ticks.
+// opts.healTarget receives the Body drained by leech ticks.
 function tickCombatantEffects(c, opts) {
   opts = opts || {};
   c.effects = c.effects.filter(ef => {
@@ -14540,11 +14540,11 @@ function tickCombatantEffects(c, opts) {
     }
     if (ef.kind === 'burn' || ef.kind === 'poison' || ef.kind === 'bleed' || ef.kind === 'leech') {
       const before = c.hp;
-      // v1.0.1: boss DOTs lean on % of MAX HP (flesh-burn that ignores the qi shield) so they
+      // v1.0.1: boss DOTs lean on % of MAX Body (flesh-burn that ignores the qi shield) so they
       // stay threatening at high realms where a flat value rounds to nothing. Flat value is the
       // floor for the common roster / player-applied burns (which carry no pct fields = pure flat).
       let dmg = (ef.value || 0) + Math.round((ef.pctHp || 0) * (c.hpMax || 0));
-      // v1.8: Sovereign Parasite drinks an extra 1% of the target's MAX HP per hellfire stack.
+      // v1.8: Sovereign Parasite drinks an extra 1% of the target's MAX Body per hellfire stack.
       if (ef.kind === 'leech' && ef.name === 'Sovereign Parasite') {
         const hf = (c.effects || []).find(x => x.kind === 'hellfire');
         if (hf) dmg += Math.round((c.hpMax || 0) * 0.01 * (hf.stacks || 1));
@@ -14553,13 +14553,13 @@ function tickCombatantEffects(c, opts) {
       const lost = before - c.hp;
       if (lost > 0) {
         const label = (STATUS_INFO[ef.kind] && STATUS_INFO[ef.kind].label) || ef.kind;
-        pushLog('hurt', `  → ${c.name} loses ${lost} hp to ${ef.name} (${label}${ef.stacks > 1 ? ` ×${ef.stacks}` : ''}).`);
+        pushLog('hurt', `  → ${c.name} loses ${lost} Body to ${ef.name} (${label}${ef.stacks > 1 ? ` ×${ef.stacks}` : ''}).`);
         if (combat && c === combat.player) c.lastHpHit = Math.max(c.lastHpHit || 0, lost);
         if (ef.kind === 'leech' && opts.healTarget && opts.healTarget.hp > 0) {
           const ht = opts.healTarget;
           const beforeHeal = ht.hp;
           ht.hp = Math.min(ht.hpMax, ht.hp + lost);
-          if (ht.hp > beforeHeal) pushLog('heal', `  → +${ht.hp - beforeHeal} hp drained through ${ef.name}.`);
+          if (ht.hp > beforeHeal) pushLog('heal', `  → +${ht.hp - beforeHeal} Body drained through ${ef.name}.`);
         }
       }
       // v1.0.1: a burn carrying pctQi ALSO melts the qi shield itself — the dedicated anti-qi-tank
@@ -14580,7 +14580,7 @@ function tickCombatantEffects(c, opts) {
       if (isDemonHeart(state) && ((state.realm && state.realm.tierIdx) || 0) >= 5 && combat && c !== combat.player) burn *= 2;
       if (c.hp > 0 && hfBase > 0) {
         c.hp = Math.max(0, c.hp - burn);
-        pushLog('hurt', `  → ${c.name} loses ${burn} hp to hellfire (x${ef.stacks || 1}).`);
+        pushLog('hurt', `  → ${c.name} loses ${burn} Body to hellfire (x${ef.stacks || 1}).`);
         if (combat && c === combat.player) c.lastHpHit = Math.max(c.lastHpHit || 0, burn);
       }
     }
@@ -14696,7 +14696,7 @@ function enemyUseTech(e, p, techId) {
     }
     p.effects.push({
       kind: tech.effect, value: tech.effectValue, turns, name: tech.name,
-      // v1.0.1: boss DOTs may carry %-of-max riders (HP / qi / spirit) so they scale with the realm.
+      // v1.0.1: boss DOTs may carry %-of-max riders (Body / qi / spirit) so they scale with the realm.
       pctHp: tech.effectPctHp || 0, pctQi: tech.effectPctQi || 0, pctSpirit: tech.effectPctSpirit || 0,
     });
     if (tech.effect === 'qi_drain') pushLog('flavor', `A glyph sticks to you, drinking your qi.`);
@@ -14757,7 +14757,7 @@ function tribMechHook(phase, ctx) {
     case 'rising_storm':   // Endurance Trial — escalating pressure each round.
       if (phase === 'roundEnd') {
         s.storm = (s.storm || 0) + 1;
-        // v1.14 tune: 1.5% max HP per storm step, ramp capped at x8, so the late turns bite without compounding past survivability on top of the enemy's own attacks.
+        // v1.14 tune: 1.5% max Body per storm step, ramp capped at x8, so the late turns bite without compounding past survivability on top of the enemy's own attacks.
         const res = dealDamage(p, 0, { directHP: Math.round(p.hpMax * 0.015 * Math.min(s.storm, 8)), attacker: e, attackerElement: e.element });
         if (res.hpDamage > 0) pushLog('hurt', `  → The tribulation storm builds (×${Math.min(s.storm, 8)}) — ${res.hpDamage} damage.`);
       }
@@ -14822,7 +14822,7 @@ function tribMechHook(phase, ctx) {
       } else if (phase === 'roundEnd') {
         s.debtTurn = (s.debtTurn || 0) + 1;
         if (s.debtTurn % 3 === 0 && (s.debt || 0) > 0) {
-          // v1.14 tune: 15% of tallied damage, capped at 30% of max HP so a big-HP foe can't turn your output into a one-shot.
+          // v1.14 tune: 15% of tallied damage, capped at 30% of max Body so a big-Body foe can't turn your output into a one-shot.
           const collect = Math.min(Math.round(s.debt * 0.15), Math.round(p.hpMax * 0.30));
           const res = dealDamage(p, 0, { directHP: collect, attacker: e, attackerElement: 'fire' });
           s.debt = 0;
@@ -14866,22 +14866,22 @@ function endOfRound() {
   // v0.45: player-side statuses tick through the same engine as enemies (bleed, drains,
   // and any future enemy-applied DOT kinds all handled in one place).
   tickCombatantEffects(p);
-  // v1.8: the demon body consumes itself — 5% of CURRENT HP per turn (its lifesteal engine repays it;
-  // asymptotes toward 1 HP and never self-kills — the kill must come from the enemy).
+  // v1.8: the demon body consumes itself — 5% of CURRENT Body per turn (its lifesteal engine repays it;
+  // asymptotes toward 1 Body and never self-kills — the kill must come from the enemy).
   if (isDemonHeart(state) && p.hp > 1) {
     const selfBurn = Math.max(1, Math.round(p.hp * 0.05));
     p.hp = Math.max(1, p.hp - selfBurn);
-    pushLog('hurt', `  → ${selfBurn} hp consumed by the demon within.`);
+    pushLog('hurt', `  → ${selfBurn} Body consumed by the demon within.`);
   }
   // v1.10: a Demon Heart's tribulations endure — the heavenly judge knits itself back together,
-  // healing 3 + (realm level) HP each round. Pairs with the -25% trib damage: softer hits, longer trial.
+  // healing 3 + (realm level) Body each round. Pairs with the -25% trib damage: softer hits, longer trial.
   if (isDemonHeart(state) && combat.tribulation) {
     const rgn = 3 + (((state.realm && state.realm.tierIdx) || 0) + 1);
     combat.enemies.forEach(en => {
       if (en.hp > 0 && en.hp < en.hpMax) {
         const before = en.hp;
         en.hp = Math.min(en.hpMax, en.hp + rgn);
-        if (en.hp > before) pushLog('hurt', `  → ${en.name} mends ${en.hp - before} hp (the trial refuses to end).`);
+        if (en.hp > before) pushLog('hurt', `  → ${en.name} mends ${en.hp - before} Body (the trial refuses to end).`);
       }
     });
   }
@@ -14897,7 +14897,7 @@ function endOfRound() {
   if (regen0 > 0 && p.hp > 0 && p.hp < p.hpMax) {
     const before = p.hp;
     p.hp = Math.min(p.hpMax, p.hp + regen0);
-    if (p.hp > before) pushLog('heal', `  → +${p.hp - before} hp (regrowth)`);
+    if (p.hp > before) pushLog('heal', `  → +${p.hp - before} Body (regrowth)`);
   }
 
   if (p.buffs.incomingTurns > 0) {
@@ -15583,7 +15583,7 @@ function renderCreation() {
     ? `<div style="font-size:0.8rem;margin-top:0.3rem"><strong>Your school's demonic form${demonLore ? ` — ${demonLore.name} ${demonLore.zh}` : ''}:</strong> ${DEMONIC_TWISTS[state.selectedSchool].twistDesc}${demonLore ? `<div style="color:var(--ink-soft);margin-top:0.15rem">${demonLore.flavor}</div>` : ''}</div>` : '';
   dP.innerHTML = `<strong>The Demonic Path</strong> <span style="color:var(--ink-soft);font-size:0.85rem">魔道</span>
     <p style="font-size:0.85rem;color:var(--ink-soft);margin:0.3rem 0 0.4rem">Any school can be walked as heresy — each has a demonic mirror of itself. The demonic dao grows by SLAUGHTER, not stillness.</p>
-    <div style="font-size:0.82rem"><strong style="color:var(--gold)">Gains:</strong> +4 to every stat · +20% max HP · +20% to ALL damage · every landed blow brands HELLFIRE (stacks to 5; each stack burns 1% of the target's MISSING health per turn) · +50% insight from kills, and righteous hunters who ambush you are worth TRIPLE · your school's passive sharpened · six demon-only grounds.</div>
+    <div style="font-size:0.82rem"><strong style="color:var(--gold)">Gains:</strong> +4 to every stat · +20% max Body · +20% to ALL damage · every landed blow brands HELLFIRE (stacks to 5; each stack burns 1% of the target's MISSING health per turn) · +50% insight from kills, and righteous hunters who ambush you are worth TRIPLE · your school's passive sharpened · six demon-only grounds.</div>
     <div style="font-size:0.82rem;margin-top:0.25rem"><strong style="color:var(--crimson)">Price:</strong> raw cultivation runs at HALF pace (this dao is fed, not sat with) · a heavenly tribulation bars EVERY breakthrough, against executioners far above your realm · righteous sects hunt you on the road.</div>
     ${twistLine}`;
   const dBtnRow = document.createElement('div');
@@ -15740,11 +15740,11 @@ function weaponModBlurb(w) {
   if (probe.lifestealPct > 0) tags.push(`${Math.round(probe.lifestealPct*100)}% lifesteal`);
   if (probe.flatDR > 0) tags.push(`${probe.flatDR} DR`);
   if (probe.firstStrikeBonus > 0) tags.push(`+${Math.round(probe.firstStrikeBonus*100)}% opener`);
-  if (probe.lowHpBonus > 0) tags.push(`+${Math.round(probe.lowHpBonus*100)}% at low HP`);
+  if (probe.lowHpBonus > 0) tags.push(`+${Math.round(probe.lowHpBonus*100)}% at low Body`);
   if (probe.qiOnKill > 0) tags.push(`+${probe.qiOnKill} qi/kill`);
   Object.entries(probe.vsKindMult || {}).forEach(([k, v]) => { if (v > 0) tags.push(`+${Math.round(v*100)}% vs ${k}`); });
   if (probe.qiRegenBonus > 0) tags.push(`+${probe.qiRegenBonus} qi regen`);
-  if (probe.hpBonus > 0) tags.push(`+${probe.hpBonus} hp`);
+  if (probe.hpBonus > 0) tags.push(`+${probe.hpBonus} Body`);
   if (probe.qiBonus > 0) tags.push(`+${probe.qiBonus} qi`);
   if (probe.spiritBonus > 0) tags.push(`+${probe.spiritBonus} spirit`);
   if (probe.spiritDamageMult > 1) tags.push(`+${Math.round((probe.spiritDamageMult-1)*100)}% spirit dmg`);
@@ -15826,7 +15826,7 @@ function renderCharSheet() {
   const wpnMult = activeBuffValue('weapon_mult', 1);
   const wpnPower = Math.round((weapon.power + refineWeaponBonus(state) + rb.weapon + mods.weaponBonus) * wpnMult);
   html += `<div style="margin-top:0.8rem;font-size:0.88rem">
-    <strong>Body</strong> ${hpMax} HP &middot;
+    <strong>Body</strong> ${hpMax} Body &middot;
     <strong>Qi Pool</strong> ${qiMax} &middot;
     <strong>Spirit</strong> ${spMax} &middot;
     <strong>Weapon Power</strong> ${wpnPower}
@@ -15862,7 +15862,7 @@ function renderCharSheet() {
     const gcl = goldenCoreLevel();
     realmHTML += `<p class="tip" data-tip="Your Golden Core's quality, locked in when you formed it. Per quality level: +1 to all stats, +5% Body, +10% Qi, +10% Spirit, +20% cultivation & insight, +1.5% damage; +2 glyph slots per 5 levels." style="font-size:0.85rem;color:var(--gold);margin:0 0 0.4rem">Golden Core: grade <strong>${goldenCoreGradeLabel(gcl)}</strong> <span style="color:var(--ink-soft)">(quality ${gcl}/10)</span></p>`;
   }
-  realmHTML += `<p class="tip" data-tip="Lifespan is a resource. Age advances slowly and ONLY while actively cultivating (idling/offline are safe); each realm hugely extends your span. Certain pills, schools, and artifacts ADD lifespan; powerful pills SPEND it (a share of what remains) for permanent power. Running out is death by old age — which reincarnates you with your souls intact." style="font-size:0.8rem;color:var(--ink-soft);margin:0 0 0.4rem">Age <strong>${Math.floor(state.age || 16)}</strong> / lifespan <strong>${lifespanMax()}</strong> yrs &middot; <strong style="color:var(--jade)">${Math.floor(lifespanRemaining())}</strong> remaining${state.bodyQuench ? ` · body tempered ×${state.bodyQuench} (+${bodyQuenchHPAdd()} HP)` : ''}</p>`;
+  realmHTML += `<p class="tip" data-tip="Lifespan is a resource. Age advances slowly and ONLY while actively cultivating (idling/offline are safe); each realm hugely extends your span. Certain pills, schools, and artifacts ADD lifespan; powerful pills SPEND it (a share of what remains) for permanent power. Running out is death by old age — which reincarnates you with your souls intact." style="font-size:0.8rem;color:var(--ink-soft);margin:0 0 0.4rem">Age <strong>${Math.floor(state.age || 16)}</strong> / lifespan <strong>${lifespanMax()}</strong> yrs &middot; <strong style="color:var(--jade)">${Math.floor(lifespanRemaining())}</strong> remaining${state.bodyQuench ? ` · body tempered ×${state.bodyQuench} (+${bodyQuenchHPAdd()} Body)` : ''}</p>`;
   if (destinyPicksAvailable() > 0 && eligibleDestinies().length) {
     realmHTML += `<div class="button-row" style="margin-top:0.4rem"><button class="gold" id="choose-destiny">Choose a Destiny (${destinyPicksAvailable()} available)</button></div>
       <p style="font-size:0.78rem;color:#c79cf0;margin-top:0.3rem">A breakthrough has opened a fork in your fate.</p>`;
@@ -15985,7 +15985,7 @@ function renderCharSheet() {
         let cur = '';
         if (rank > 0) {
           if (sk.effect.kind === 'cultivation_mult') cur = `now +${Math.round(v * 100)}% cultivation`;
-          else if (sk.effect.kind === 'hp_add') cur = `now +${Math.round(v)} max HP`;
+          else if (sk.effect.kind === 'hp_add') cur = `now +${Math.round(v)} max Body`;
           else if (sk.effect.kind === 'weapon_add') cur = `now +${Math.round(v)} weapon power`;
           else if (sk.effect.kind === 'combat_insight_mult') cur = `now +${Math.round(v * 100)}% combat insight`;
           else if (sk.effect.kind === 'incoming_mult_perm') cur = `now -${Math.round(v * 100)}% damage taken`;
@@ -16278,7 +16278,7 @@ function renderCharSheet() {
       chip.className = 'buff-chip tip';
       const labelKind = {
         cultivation_mult: 'cultivation rate',
-        hp_max_add: 'max HP',
+        hp_max_add: 'max Body',
         weapon_mult: 'weapon power',
         incoming_mult: 'incoming damage',
       }[buff.kind] || buff.kind;
@@ -16765,7 +16765,7 @@ function renderCharSheet() {
     const effHp = t.hpCost ? Math.ceil(t.hpCost * mods.hpCostMult) : 0;
     // v0.45: ST/AOE + status badges on every technique row.
     const meta = [t.target === 'aoe' ? 'AOE' : 'ST', `${effQi} qi`, `${t.cd} turn cd`];
-    if (effHp) meta.push(`${effHp} HP cost`);
+    if (effHp) meta.push(`${effHp} Body cost`);
     if (t.effect && STATUS_INFO[t.effect]) meta.push(STATUS_INFO[t.effect].label);
     const isActive = state.activeSkills.includes(tid);
     const full = !isActive && activeCount >= activeCap;
@@ -17798,7 +17798,7 @@ function renderCombat() {
       const isAoeBtn = t.target === 'aoe';
       btn.setAttribute('data-tip', `[${isAoeBtn ? 'AOE — hits every standing enemy at 70% damage' : 'Single-target'}] ${t.desc}`);
       const cdLabel = locked ? ' · chained' : sealed ? ' · sealed' : cd > 0 ? ` · cd ${cd}` : '';
-      const hpLabel = effHp ? ` · ${effHp} hp` : '';
+      const hpLabel = effHp ? ` · ${effHp} Body` : '';
       const tgtLabel = isAoeBtn ? ' · AOE' : ' · ST';
       btn.innerHTML = `<span class="name">${t.name}</span><span class="meta">${effCost} qi${hpLabel}${tgtLabel}${cdLabel}</span>`;
       btn.disabled = disabled;
@@ -17832,7 +17832,7 @@ function renderCombatant(c, side) {
     if (c.swordIntent > 0) effTags += `<span class="rarity-tag rarity-legendary tip" data-tip="Sword Intent: +${c.swordIntent * 8}% damage. Builds on technique hits; meditating resets it.">sword intent ${c.swordIntent}/${schoolKit().intentCap || 5}</span>`;
     if (c.buffs && c.buffs.dodgeTurns > 0) effTags += `<span class="rarity-tag rarity-legendary tip" data-tip="Mistwalk: +${Math.round((c.buffs.dodgeChance||0)*100)}% dodge for ${c.buffs.dodgeTurns} more round(s).">mistwalk ${c.buffs.dodgeTurns}</span>`;
     if (c.buffs && c.buffs.reflectTurns > 0) effTags += `<span class="rarity-tag rarity-legendary tip" data-tip="Avalanche Guard: +${Math.round((c.buffs.reflectPct||0)*100)}% of damage taken is reflected for ${c.buffs.reflectTurns} more round(s).">guard ${c.buffs.reflectTurns}</span>`;
-    if (c.buffs && c.buffs.regrowthTurns > 0) effTags += `<span class="rarity-tag rarity-legendary tip" data-tip="Regrowth: healing ${Math.round((c.buffs.regrowthPct||0)*100)}% max HP per round for ${c.buffs.regrowthTurns} more round(s).">regrowth ${c.buffs.regrowthTurns}</span>`;
+    if (c.buffs && c.buffs.regrowthTurns > 0) effTags += `<span class="rarity-tag rarity-legendary tip" data-tip="Regrowth: healing ${Math.round((c.buffs.regrowthPct||0)*100)}% max Body per round for ${c.buffs.regrowthTurns} more round(s).">regrowth ${c.buffs.regrowthTurns}</span>`;
   }
   const brokenTag = broken
     ? `<span class="broken-banner tip" data-tip="Posture broken: qi damage to this combatant is doubled for ${c.broken} more turn${c.broken===1?'':'s'}.">Posture Broken — ${c.broken}</span>`
@@ -17855,8 +17855,8 @@ function renderCombatant(c, side) {
     ${(elBadge || matchup) ? `<div style="margin:0.2rem 0">${elBadge} ${matchup}</div>` : ''}
     ${broken ? `<div>${brokenTag}</div>` : ''}
     ${effTags ? `<div style="margin:0.2rem 0">${effTags}</div>` : ''}
-    ${bar('HP', c.hp, c.hpMax, 'bar-hp', 'Body vitality. Reaches 0 = defeat.')}
-    ${bar('Qi Shield', c.qi, c.qiMax, 'bar-qi', 'Absorbs damage before HP. Some techniques (direct HP, pierce) bypass it.')}
+    ${bar('Body', c.hp, c.hpMax, 'bar-hp', 'Body vitality. Reaches 0 = defeat.')}
+    ${bar('Qi Shield', c.qi, c.qiMax, 'bar-qi', 'Absorbs damage before Body. Some techniques (direct Body, pierce) bypass it.')}
     ${bar('Spirit', c.spirit, c.spiritMax, 'bar-spirit', 'Mental/soul pool. Some techniques target it directly.')}
     ${bar('Posture', c.posture, c.postureMax, 'bar-posture' + (broken ? ' broken' : ''), 'Fill this bar to break the target: 3 turns of doubled qi damage.')}
   `;
