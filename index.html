@@ -541,11 +541,11 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v1.16';
+const GAME_VERSION = 'v1.17';
 // v0.78: CI injects the build's short sha here; the APK shell reads it FROM THE RUNNING
 // PAGE (window.BUILD_SHA) and compares against the repo head — staleness detection that
-// cannot be fooled by cached metadata. 'eec6d2b' = local/dev build (shell falls back).
-const BUILD_SHA = 'eec6d2b';
+// cannot be fooled by cached metadata. '916899a' = local/dev build (shell falls back).
+const BUILD_SHA = '916899a';
 if (typeof window !== 'undefined') window.BUILD_SHA = BUILD_SHA;
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
@@ -6272,7 +6272,12 @@ const BOSSES = {
 // v0.62: fixed difficulty anchor — the layer-scale a player faces at the MIDPOINT of the
 // boss's realm, times the difficulty knob. Single tuning number: BOSS_DIFFICULTY_MULT.
 const BOSS_DIFFICULTY_MULT = 1.5;
-const REALM_ENEMY_BUFF = [1, 1.10, 1.15, 1.20, 1.25, 1.30, 1.35];   // v0.64: by realm tier
+const REALM_ENEMY_BUFF = [1, 1.10, 1.15, 1.20, 1.25, 1.30, 1.35];   // v0.64: by realm tier (elites/bosses keep this gentle curve)
+// v1.17: NORMAL encounters get a sharper per-realm curve — steeper acceleration from Foundation (tier 2), a BIG
+// jump at Golden Core (tier 4, ~3x Foundation), and HP-leaning so high-realm foes are durable, not one-shotters.
+// Magnitudes are aggressive on purpose (operator wants a real climb) — high-realm values are prime tuning knobs.
+const REALM_ENEMY_HP_BUFF  = [1, 1.15, 1.45, 2.4, 4.8, 6.5, 8.5];   // tier 0-6 — HP scales hard
+const REALM_ENEMY_DMG_BUFF = [1, 1.10, 1.25, 1.6, 2.6, 3.3, 4.2];   // tier 0-6 — damage scales gentler than HP
 function bossAnchorScale(bossTier) {
   const tier = REALMS[bossTier];
   let stats = 1.0;
@@ -12324,7 +12329,7 @@ function realmBonusFor(char) {
 // v0.80: LAYER_SCALE_COEF widens the within-realm difficulty gap ~3x (was 3.0) so layers
 // feel like a real climb — early layers easy, late layers a wall. Single tuning knob; if the
 // back half feels too brutal, lower it further. Bosses use their OWN anchor (bossAnchorScale, 3.0) so they remain a fixed, farmable mid-realm reference, not part of this ramp.
-const LAYER_SCALE_COEF = 3.75;  // v0.84: midpoint of v0.83's 3.0 and v0.81's 4.5 (v0.83 read too easy)
+const LAYER_SCALE_COEF = 4.5;  // v1.17: sharper within-realm climb (was 3.75) — location-to-location difficulty ramps harder
 // v0.86: global difficulty tick (operator: "+20-25% overall"). Multiplies enemy HP and
 // weapon power in buildEnemyCombat — normals, elites, bosses, and rift enemies alike.
 // Rift REWARDS untouched. Single knob; 1.0 restores v0.85 difficulty.
@@ -13141,7 +13146,20 @@ function buildEnemyCombat(enemyId) {
   // Mortal x1, then 1.1 / 1.15 / 1.2 / 1.25 / 1.3 / 1.35 by realm tier (regular enemies
   // use the player's tier; bosses their own anchor tier). Applies to HP and damage.
   const buffTier = (enemyData.isBoss && BOSSES[enemyId]) ? BOSSES[enemyId].tier : (state.realm.tierIdx || 0);
-  const realmBuff = REALM_ENEMY_BUFF[Math.min(6, buffTier)];
+  // v1.17: NORMAL encounters (non-elite, non-boss) ride the sharp HP/dmg curves + a flat base-power bump;
+  // elites (tribulations, inquisitors) and bosses stay on the gentle REALM_ENEMY_BUFF so they aren't re-tuned here.
+  const isNormalFoe = !isElite && !enemyData.isBoss;
+  const realmHpBuff  = isNormalFoe ? REALM_ENEMY_HP_BUFF[Math.min(6, buffTier)]  : REALM_ENEMY_BUFF[Math.min(6, buffTier)];
+  const realmDmgBuff = isNormalFoe ? REALM_ENEMY_DMG_BUFF[Math.min(6, buffTier)] : REALM_ENEMY_BUFF[Math.min(6, buffTier)];
+  const normalHpMult  = isNormalFoe ? 1.4 : 1;   // v1.17: +40% HP base
+  const normalDmgMult = isNormalFoe ? 1.1 : 1;   // v1.17: +10% damage base
+  // v1.17: inquisitors (righteous hunters) must threaten even a well-built demon — Core (t3) especially.
+  let inqHpMult = 1, inqDmgMult = 1;
+  if (String(enemyId).startsWith('righteous_hunter_t')) {
+    const ht = parseInt(String(enemyId).slice('righteous_hunter_t'.length), 10) || 0;
+    inqHpMult  = (ht === 3) ? 2.0 : 1.5;
+    inqDmgMult = (ht === 3) ? 1.2 : 1.15;
+  }
   // v0.84: GENTLE back-half bump restored (midpoint of v0.83's none and v0.81's 1.2-1.4):
   // 1.1 at the realm midpoint ramping to 1.2 at the top layer. Bosses exempt.
   let backHalf = 1;
@@ -13152,7 +13170,7 @@ function buildEnemyCombat(enemyId) {
   }
   // v0.84: TRIBULATION fights at 0.75 (midpoint of v0.83's 0.5 and the un-halved 1.0 — QC trib read too easy).
   const tribMult = (typeof pendingTribulation !== 'undefined' && pendingTribulation) ? 0.75 : 1;
-  const scaledHpMax = Math.round(enemyData.hpMax * scale.stats * 2.5 * hpBoost * eliteHpExtra * realmBuff * tribMult * backHalf * DIFFICULTY_TICK * mortalBossMult);
+  const scaledHpMax = Math.round(enemyData.hpMax * scale.stats * 2.5 * hpBoost * eliteHpExtra * realmHpBuff * normalHpMult * inqHpMult * tribMult * backHalf * DIFFICULTY_TICK * mortalBossMult);
   const scaledQiMax = Math.round(enemyData.qiMax * scale.stats * 2 * qiBoost);
   const scaledSpiritMax = Math.round(enemyData.spiritMax * scale.stats * 2 * qiBoost);
   // v0.81: enemy posture pools were too deep to break — normals x0.75, bosses x0.40 (even
@@ -13160,7 +13178,7 @@ function buildEnemyCombat(enemyId) {
   // HP clone; it should be reachable.
   const posMult = enemyData.isBoss ? 0.40 : 0.75;
   const scaledPostureMax = Math.round(enemyData.postureMax * scale.stats * 2 * postureBoost * posMult);
-  const scaledWeaponPower = Math.max(1, Math.round(enemyData.weaponPower * scale.stats * 2 * wpnBoost * realmBuff * tribMult * backHalf * DIFFICULTY_TICK * mortalBossMult));
+  const scaledWeaponPower = Math.max(1, Math.round(enemyData.weaponPower * scale.stats * 2 * wpnBoost * realmDmgBuff * normalDmgMult * inqDmgMult * tribMult * backHalf * DIFFICULTY_TICK * mortalBossMult));
   // Flat damage reduction. Elites get a thicker pad; normals get a small one (v0.23.2)
   // that scales gently by tier. Both blunt chip-damage / multi-hit AOE strategies.
   const tierIdx = state.realm.tierIdx || 0;
