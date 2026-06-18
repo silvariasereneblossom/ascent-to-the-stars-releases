@@ -541,11 +541,11 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v1.18';
+const GAME_VERSION = 'v1.19';
 // v0.78: CI injects the build's short sha here; the APK shell reads it FROM THE RUNNING
 // PAGE (window.BUILD_SHA) and compares against the repo head — staleness detection that
-// cannot be fooled by cached metadata. 'a95b471' = local/dev build (shell falls back).
-const BUILD_SHA = 'a95b471';
+// cannot be fooled by cached metadata. '45c8796' = local/dev build (shell falls back).
+const BUILD_SHA = '45c8796';
 if (typeof window !== 'undefined') window.BUILD_SHA = BUILD_SHA;
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
@@ -6873,6 +6873,34 @@ const SKILL_BOOKS = {
     desc: '+50 weapon power. The handwriting is no longer entirely human.',
   },
 
+  // ---- v1.19: more RARE books available at LOW realms (minTier 0-1) — modest, varied early-game scriptures. ----
+  book_river_stance: { name: 'River-Stance Form', zh: '流势式', rarity: 'rare', cost: 6000, minTier: 0,
+    effect: { kind: 'weapon_add', value: 5 }, desc: '+5 weapon power. A flowing form copied from a riverside hermit.' },
+  book_oxhide_breathing: { name: 'Oxhide Breathing Method', zh: '牛皮息法', rarity: 'rare', cost: 6500, minTier: 0,
+    effect: { kind: 'hp_add', value: 120 }, desc: '+120 max HP. Breathe low and slow; the hide thickens.' },
+  book_quickening_breath: { name: 'Quickening Breath Manual', zh: '催息诀', rarity: 'rare', cost: 7000, minTier: 0,
+    effect: { kind: 'cultivation_mult', value: 1.18 }, desc: '+18% cultivation rate. The breath learns to hurry without breaking.' },
+  book_paper_ward: { name: 'Paper-Ward Scripture', zh: '纸符经', rarity: 'rare', cost: 7500, minTier: 0,
+    effect: { kind: 'incoming_mult_perm', value: 0.94 }, desc: '-6% incoming damage. A talisman folded over the heart.' },
+  book_keen_eye: { name: 'Keen-Eye Treatise', zh: '锐目论', rarity: 'rare', cost: 8000, minTier: 1,
+    effect: { kind: 'stat_add', statKey: 'mind', value: 1 }, desc: '+1 Perception. The dao rewards a patient, noticing eye.' },
+  book_quiet_river_heart: { name: 'Quiet-River Heart Sutra', zh: '静流心经', rarity: 'rare', cost: 8000, minTier: 1,
+    effect: { kind: 'stat_add', statKey: 'spirit', value: 1 }, desc: '+1 Spirit Root. Still water draws the deepest qi.' },
+  book_stoneskin_canon: { name: 'Stoneskin Canon', zh: '石肤典', rarity: 'rare', cost: 8500, minTier: 1,
+    effect: { kind: 'stat_add', statKey: 'body', value: 1 }, desc: '+1 Constitution. Stand like the mountain stands.' },
+  book_sense_widening: { name: 'Sense-Widening Scroll', zh: '展识卷', rarity: 'rare', cost: 8000, minTier: 1,
+    effect: { kind: 'stat_add', statKey: 'sense', value: 1 }, desc: '+1 Divine Sense. The mind reaches a little further out.' },
+  book_iron_resolve: { name: 'Iron-Resolve Litany', zh: '铁志祷', rarity: 'rare', cost: 8000, minTier: 1,
+    effect: { kind: 'stat_add', statKey: 'will', value: 1 }, desc: '+1 Dao Heart. Repeat it until the heavens stop frightening you.' },
+  book_fortunes_thread: { name: "Fortune's-Thread Almanac", zh: '气运历', rarity: 'rare', cost: 8000, minTier: 1,
+    effect: { kind: 'stat_add', statKey: 'luck', value: 1 }, desc: '+1 Fortune. The thread is thin, but it pulls.' },
+  book_swift_meridian: { name: 'Swift-Meridian Scripture', zh: '疾脉经', rarity: 'rare', cost: 9000, minTier: 1,
+    effect: { kind: 'weapon_add', value: 6 }, desc: '+6 weapon power. The qi reaches the fist a heartbeat sooner.' },
+  book_deep_well_method: { name: 'Deep-Well Method', zh: '深井法', rarity: 'rare', cost: 9500, minTier: 1,
+    effect: { kind: 'hp_add', value: 180 }, desc: '+180 max HP. Dig the dantian deeper; hold more of the world.' },
+  book_dawn_ward: { name: 'Dawn-Ward Scripture', zh: '晨护经', rarity: 'rare', cost: 13000, minTier: 1,
+    effect: { kind: 'incoming_mult_perm', value: 0.92 }, desc: '-8% incoming damage. The first light is hard to cut through.' },
+
   // ---- 10 additional skill books ----
   book_dawn_meditation: {
     name: 'Dawn-Meditation Manual', zh: '晨观诀', rarity: 'common', cost: 1000,
@@ -10492,10 +10520,17 @@ function realmRunExtract(collapsed, slotKey) {
   const s = RUN_SLOTS[slotKey || 'realm'];
   const run = state[s.field];
   if (!run) return;
+  // v1.19: being CAST OUT (collapsed) forfeits a chunk of banked insight — 60%, demonic paths 30%, Demon-Heart 15%.
+  let lostInsight = 0;
+  if (collapsed && run.insight > 0) {
+    const lossPct = isDemonHeart(state) ? 0.15 : (state.demonic ? 0.30 : 0.60);
+    lostInsight = Math.round(run.insight * lossPct);
+    run.insight = Math.max(0, run.insight - lostInsight);
+  }
   addInsight(run.insight);
   if (run.stones) state.base.materials.spirit_stone = (state.base.materials.spirit_stone || 0) + run.stones;
   run.relics.forEach(id => { if (ARTIFACTS[id]) state.artifacts.owned.push(id); });
-  state[s.summary] = `${collapsed ? 'Cast out of the ' + s.name.toLowerCase() : 'You withdraw from the ' + s.name.toLowerCase()} after ${run.floor} floor${run.floor === 1 ? '' : 's'} — gained ${Math.round(run.insight)} insight, ${run.stones} stones${run.relics.length ? `, ${run.relics.length} relic${run.relics.length === 1 ? '' : 's'}` : ''}.`;
+  state[s.summary] = `${collapsed ? 'Cast out of the ' + s.name.toLowerCase() : 'You withdraw from the ' + s.name.toLowerCase()} after ${run.floor} floor${run.floor === 1 ? '' : 's'} — gained ${Math.round(run.insight)} insight${lostInsight > 0 ? ` (${lostInsight} torn away by the collapse)` : ''}, ${run.stones} stones${run.relics.length ? `, ${run.relics.length} relic${run.relics.length === 1 ? '' : 's'}` : ''}.`;
   state[s.field] = null;
   state[s.last] = Date.now();
   saveChar(); render();
@@ -10696,6 +10731,55 @@ const ARRAYS = {
     desc: 'A grand array drawn to the turning of the sky itself. +8% strike and technique damage, and -10 flat damage taken.',
     cost: { dao_crystal: 2, heaven_silver: 2, spirit_stone: 60 },
     mods: { strikeDamageMult: 1.08, techDamageMult: 1.08, flatDR: 10 }, minTier: 6,
+  },
+  // ---- v1.19: more array variety — stance-break, vs-kind, ramp, element-ward, qi-regen, demonic, high-realm hybrid. ----
+  sundering_stake_array: {
+    name: 'Sundering-Stake Array', zh: '破势阵',
+    desc: 'Iron stakes that catch the stance and lever it open. +2 posture-break depth and +8% posture damage.',
+    cost: { star_iron: 2, ancient_rust: 3, spirit_stone: 10 },
+    mods: { postureBreakBonus: 2, postureMult: 1.08 }, minTier: 2,
+  },
+  beast_bane_glyph: {
+    name: 'Beast-Bane Glyph', zh: '镇兽阵',
+    desc: 'Warding sigils that read the gait of beasts. +15% damage vs beast-kind foes.',
+    cost: { beast_sinew: 5, spirit_stone: 8 },
+    mods: { vsKindMult: { beast: 0.15 } }, minTier: 2,
+  },
+  relentless_siege_array: {
+    name: 'Relentless-Siege Array', zh: '缠战阵',
+    desc: 'A grinding lattice that rewards the long fight. +4% damage each turn (builds, capped at 9 turns).',
+    cost: { ancient_rust: 3, star_iron: 2, spirit_stone: 12 },
+    mods: { perTurnRamp: 0.04 }, minTier: 3,
+  },
+  ember_ward_array: {
+    name: 'Ember-Ward Array', zh: '御火阵',
+    desc: 'A ring of quench-stones that drinks heat. -15% damage taken from Fire-element foes.',
+    cost: { flame_marrow: 1, glacial_core: 1, spirit_stone: 10 },
+    mods: { elementWard: { fire: 0.15 } }, minTier: 2,
+  },
+  deep_spring_array: {
+    name: 'Deep-Spring Array', zh: '深泉阵',
+    desc: 'Channels that draw a steady well of qi. +2 qi regen per turn and +15 max qi.',
+    cost: { spirit_iron: 6, spirit_stone: 6 },
+    mods: { qiRegenBonus: 2, qiBonus: 15 }, minTier: 1,
+  },
+  rivals_end_array: {
+    name: "Rival's-End Array", zh: '终敌阵',
+    desc: 'A duelist\'s lattice tuned against other cultivators. +15% damage vs human-kind (rival) foes.',
+    cost: { star_iron: 4, spirit_pearl: 2, spirit_stone: 16 },
+    mods: { vsKindMult: { human: 0.15 } }, minTier: 4,
+  },
+  blood_rite_array: {
+    name: 'Blood-Rite Array', zh: '血祭阵',
+    desc: 'DEMONIC ONLY. A standing rite paid in blood: +5% lifesteal and +8% damage while bloodied.',
+    cost: { demon_core_shard: 1, ghost_bone: 4, spirit_stone: 14 },
+    mods: { lifestealPct: 0.05, lowHpBonus: 0.08 }, minTier: 3, demonicOnly: true,
+  },
+  immortal_lattice: {
+    name: 'Immortal Lattice', zh: '仙网阵',
+    desc: 'A nested lattice of primordial stone and dao-crystal. +10 weapon power and +8% technique damage.',
+    cost: { primordial_stone: 1, dao_crystal: 1, spirit_stone: 30 },
+    mods: { weaponBonus: 10, techDamageMult: 1.08 }, minTier: 5,
   },
 };
 
