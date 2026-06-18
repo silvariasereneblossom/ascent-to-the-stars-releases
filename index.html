@@ -541,11 +541,11 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v1.19';
+const GAME_VERSION = 'v1.20';
 // v0.78: CI injects the build's short sha here; the APK shell reads it FROM THE RUNNING
 // PAGE (window.BUILD_SHA) and compares against the repo head — staleness detection that
-// cannot be fooled by cached metadata. '45c8796' = local/dev build (shell falls back).
-const BUILD_SHA = '45c8796';
+// cannot be fooled by cached metadata. 'bc0bc1b' = local/dev build (shell falls back).
+const BUILD_SHA = 'bc0bc1b';
 if (typeof window !== 'undefined') window.BUILD_SHA = BUILD_SHA;
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
@@ -14968,9 +14968,9 @@ function renderTabBar() {
     { id: 'self',     label: 'Loadout' },
     { id: 'skills',   label: 'Skills' },
     { id: 'library',  label: 'Library' },
-    { id: 'armor',    label: 'Armor' },
+    { id: 'forge',    label: 'Forge Weapon' },
+    { id: 'armor',    label: 'Forge Armor' },
     { id: 'garden',   label: 'House' },
-    { id: 'forge',    label: 'Forge' },
     { id: 'disassembly', label: 'Disassembly' },
     { id: 'market',   label: 'Market' },
     { id: 'sect',     label: 'Sect' },
@@ -16130,7 +16130,7 @@ function renderCharSheet() {
       <div id="weapon-list"></div>`;
   }
   artP.innerHTML = artHTML;
-  appendPanel(artP, 'forge');
+  appendPanel(artP, 'self');   // v1.20: weapon equip + inscription slotting moved to Loadout
 
   const slotRow = document.getElementById('slot-row');
   if (slotRow) {
@@ -16343,7 +16343,7 @@ function renderCharSheet() {
         th.innerHTML = `<strong>${REALMS[tier].name}</strong> ${REALMS[tier].zh || ''}`;
         gP.appendChild(th);
       }
-      gP.appendChild(renderConsumableRow(id, c));
+      gP.appendChild(renderConsumableRow(id, c, 'craft'));   // v1.20: House brews (craft only); drinking moved to Loadout
     });
   };
   appendConsumableSection('pill',   'Pills',   'long-duration, for cultivation and body. Grouped by realm; higher-realm recipes reveal themselves when you get there.');
@@ -16434,16 +16434,15 @@ function renderCharSheet() {
 
   // --- Forge panel (v0.23: split into Weapons / Armor / Materials sub-tabs) ---
   if (!state.ui) state.ui = { forgeTab: 'weapons' };
-  if (!state.ui.forgeTab) state.ui.forgeTab = 'weapons';
+  if (!state.ui.forgeTab || state.ui.forgeTab === 'armor') state.ui.forgeTab = 'weapons';   // v1.20: armor crafting moved to the Forge Armor tab
   const fP = document.createElement('div');
   fP.className = 'panel';
-  fP.innerHTML = `<h3>Forge <span style="font-weight:normal;color:var(--ink-soft);font-size:0.85rem">铸造炉</span></h3>
-    <p style="font-size:0.85rem;color:var(--ink-soft);margin:0 0 0.5rem">Refine gathered materials. Recipes unlock as you climb realms.</p>`;
+  fP.innerHTML = `<h3>Forge Weapon <span style="font-weight:normal;color:var(--ink-soft);font-size:0.85rem">铸器</span></h3>
+    <p style="font-size:0.85rem;color:var(--ink-soft);margin:0 0 0.5rem">Forge and refine weapons from gathered materials. Equip them in the Loadout tab.</p>`;
   const subNav = document.createElement('div');
   subNav.style.cssText = 'display:flex;gap:0.4rem;margin-bottom:0.6rem;flex-wrap:wrap;';
   [
     { key: 'weapons',   label: 'Weapons' },
-    { key: 'armor',     label: 'Armor' },
     { key: 'materials', label: 'Materials' },
   ].forEach(({key, label}) => {
     const btn = document.createElement('button');
@@ -16533,14 +16532,6 @@ function renderCharSheet() {
       fP.appendChild(none);
     }
     visibleRecipes.forEach(recipe => fP.appendChild(buildWeaponRecipeRow(recipe)));
-  } else if (state.ui.forgeTab === 'armor') {
-    // v0.59: per-realm sub-tabs (chips), layer-sorted within the realm.
-    fP.appendChild(realmTabChips('forgeArmorRealm', t => ARMOR_RECIPES.filter(r => (r.minRealmTier || 0) === t).length));
-    ARMOR_RECIPES.filter(r => realmTabShows('forgeArmorRealm', r.minRealmTier || 0))
-      .slice().sort((a, b) =>  // v1.1: realm (sub-tab) then rarity, then layer
-        ((RARITY_RANK[(ARMOR[a.id] || {}).rarity] || 0) - (RARITY_RANK[(ARMOR[b.id] || {}).rarity] || 0)) ||
-        ((a.minLayer || 0) - (b.minLayer || 0)))
-      .forEach(recipe => fP.appendChild(buildArmorRecipeRow(recipe)));
   } else {
     // v0.86: materials ordered by realm (matTier), then rarity within a realm, with
     // realm header rows — mirrors the pills/potions grouping.
@@ -16582,6 +16573,19 @@ function renderCharSheet() {
   }
 
   appendPanel(fP, 'forge');
+
+  // v1.20: Forge Armor tab — armor CRAFTING (moved out of Forge's old armor sub-tab; armor EQUIP now lives in Loadout).
+  const acP = document.createElement('div');
+  acP.className = 'panel';
+  acP.innerHTML = `<h3>Forge Armor <span style="font-weight:normal;color:var(--ink-soft);font-size:0.85rem">铸甲</span></h3>
+    <p style="font-size:0.85rem;color:var(--ink-soft);margin:0 0 0.5rem">Forge armor from gathered materials. Equip what you craft in the Loadout tab.</p>`;
+  acP.appendChild(realmTabChips('forgeArmorRealm', t => ARMOR_RECIPES.filter(r => (r.minRealmTier || 0) === t).length));
+  ARMOR_RECIPES.filter(r => realmTabShows('forgeArmorRealm', r.minRealmTier || 0))
+    .slice().sort((a, b) =>  // realm (sub-tab) then rarity, then layer
+      ((RARITY_RANK[(ARMOR[a.id] || {}).rarity] || 0) - (RARITY_RANK[(ARMOR[b.id] || {}).rarity] || 0)) ||
+      ((a.minLayer || 0) - (b.minLayer || 0)))
+    .forEach(recipe => acP.appendChild(buildArmorRecipeRow(recipe)));
+  appendPanel(acP, 'armor');
 
   // v1.1: Disassembly tab — break gear into materials + inscriptions into essence, and craft
   // new inscriptions from essence (the operator's inscription purchase/crafting interface).
@@ -16842,7 +16846,23 @@ function renderCharSheet() {
       aP.appendChild(row);
     });
   }
-  appendPanel(aP, 'armor');
+  appendPanel(aP, 'self');   // v1.20: armor EQUIPPING moved to Loadout (the 'armor' tab is now Forge Armor = crafting)
+
+  // v1.20: potion/pill USAGE moved to Loadout — drink what you brew in the House (crafting stays there).
+  const useP = document.createElement('div');
+  useP.className = 'panel';
+  useP.innerHTML = `<h3>Consumables <span style="font-weight:normal;color:var(--ink-soft);font-size:0.85rem">丹药</span></h3>
+    <p style="font-size:0.85rem;color:var(--ink-soft);margin:0 0 0.5rem">Pills and potions on hand — drink them here. Brew more in the House.</p>`;
+  const ownedCons = Object.entries(state.base.consumables || {}).filter(([cid, n]) => n > 0 && CONSUMABLES[cid]);
+  if (!ownedCons.length) {
+    const noneC = document.createElement('div'); noneC.className = 'consumable-desc'; noneC.style.opacity = '0.7';
+    noneC.textContent = 'No pills or potions on hand. Brew them in the House.';
+    useP.appendChild(noneC);
+  } else {
+    ownedCons.sort((a, b) => ((CONSUMABLES[a[0]].minRealmTier || 0) - (CONSUMABLES[b[0]].minRealmTier || 0)))
+      .forEach(([cid]) => useP.appendChild(renderConsumableRow(cid, CONSUMABLES[cid], 'use')));
+  }
+  appendPanel(useP, 'self');
 
   // Locations
   const locP = document.createElement('div');
@@ -17495,7 +17515,9 @@ function renderCharSheet() {
   });
 }
 
-function renderConsumableRow(id, c) {
+function renderConsumableRow(id, c, mode) {
+  // v1.20: mode 'craft' (House) shows only the Craft button; 'use' (Loadout) shows only Use; default = both.
+  mode = mode || 'both';
   const row = document.createElement('div');
   row.className = 'consumable-row tip';
   row.setAttribute('data-tip', c.desc);
@@ -17521,18 +17543,22 @@ function renderConsumableRow(id, c) {
 
   const btns = document.createElement('div');
   btns.className = 'plot-buttons';
-  const craftBtn = document.createElement('button');
-  craftBtn.className = 'small';
-  craftBtn.textContent = 'Craft';
-  craftBtn.disabled = !canMake;
-  craftBtn.onclick = () => { craft(id); render(); };
-  btns.appendChild(craftBtn);
-  const useBtn = document.createElement('button');
-  useBtn.className = 'gold small';
-  useBtn.textContent = 'Use';
-  useBtn.disabled = !owned;
-  useBtn.onclick = () => { consume(id); render(); };
-  btns.appendChild(useBtn);
+  if (mode !== 'use') {
+    const craftBtn = document.createElement('button');
+    craftBtn.className = 'small';
+    craftBtn.textContent = 'Craft';
+    craftBtn.disabled = !canMake;
+    craftBtn.onclick = () => { craft(id); render(); };
+    btns.appendChild(craftBtn);
+  }
+  if (mode !== 'craft') {
+    const useBtn = document.createElement('button');
+    useBtn.className = 'gold small';
+    useBtn.textContent = 'Use';
+    useBtn.disabled = !owned;
+    useBtn.onclick = () => { consume(id); render(); };
+    btns.appendChild(useBtn);
+  }
   row.appendChild(btns);
   return row;
 }
