@@ -541,11 +541,11 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v1.15';
+const GAME_VERSION = 'v1.16';
 // v0.78: CI injects the build's short sha here; the APK shell reads it FROM THE RUNNING
 // PAGE (window.BUILD_SHA) and compares against the repo head — staleness detection that
-// cannot be fooled by cached metadata. '8d4b85e' = local/dev build (shell falls back).
-const BUILD_SHA = '8d4b85e';
+// cannot be fooled by cached metadata. 'eec6d2b' = local/dev build (shell falls back).
+const BUILD_SHA = 'eec6d2b';
 if (typeof window !== 'undefined') window.BUILD_SHA = BUILD_SHA;
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
@@ -10447,7 +10447,7 @@ function realmRunDescend(slotKey) {
   const t = state.realm.tierIdx || 0;
   if (floor % 3 === 0) {
     // Safe treasure cache.
-    const ins = Math.round((30 + floor * 12) * (1 + t * 0.5));   // v1.6: rift insight nerf reverted (pre-v0.97) — a safe insight source again
+    const ins = Math.round((30 + floor * 12) * (1 + t * 0.5) * playerInsightMult());   // v1.6: rift insight nerf reverted; v1.16: insight boosts now apply to the rift
     const st = 3 + floor + t * 2;
     run.insight += ins; run.stones += st;
     run.log = `Floor ${floor}: a quiet treasure vault — banked +${ins} insight, +${st} stones.`;
@@ -10458,7 +10458,7 @@ function realmRunDescend(slotKey) {
     const luck = (state.finalStats && state.finalStats.luck) || 0;
     const winChance = Math.max(0.1, Math.min(0.95, might / (might + diff) + luck * 0.01));
     if (Math.random() < winChance) {
-      const ins = Math.round((40 + floor * 16) * (1 + t * 0.5));   // v1.6: rift insight nerf reverted (pre-v0.97)
+      const ins = Math.round((40 + floor * 16) * (1 + t * 0.5) * playerInsightMult());   // v1.6: rift insight nerf reverted; v1.16: insight boosts apply
       const st = 4 + floor + t * 2;
       run.insight += ins; run.stones += st;
       run.log = `Floor ${floor}: you overcome the guardian — banked +${ins} insight, +${st} stones.`;
@@ -10477,7 +10477,7 @@ function realmRunDescend(slotKey) {
     const ids = Object.keys(ARTIFACTS);
     const relicId = ids[Math.floor(Math.random() * ids.length)];
     run.relics.push(relicId);
-    const bonus = Math.round((100 + floor * 40) * (1 + t * 0.5));   // v1.6: rift insight nerf reverted (pre-v0.97)
+    const bonus = Math.round((100 + floor * 40) * (1 + t * 0.5) * playerInsightMult());   // v1.6: rift insight nerf reverted; v1.16: insight boosts apply
     run.insight += bonus;
     run.log += ` An inheritance opens at the heart of floor ${floor}: <strong>${ARTIFACTS[relicId].name}</strong> + ${bonus} insight.`;
   }
@@ -12502,7 +12502,7 @@ function computeMaxHP(char) {
   const total = base + activeBuffValue('hp_max_add', 0) + boonHPAdd() + skillHPAdd() + (mods.hpBonus || 0) + metaHPAdd() + bodyQuenchHPAdd();
   // v0.89: hpMult (HP%) scales the whole pool — flat +HP and HP% on the same defensive
   // piece compound, the intended bulwark synergy. Demonic x1.2 stacks on top.
-  return Math.round(total * (mods.hpMult || 1) * (isDemonHeart(char) ? 1.3 : (char.demonic ? 1.2 : 1)));   // v1.5: demon-heart x1.3
+  return Math.round(total * (mods.hpMult || 1) * cultPowerMults(char).hp * (isDemonHeart(char) ? 1.3 : (char.demonic ? 1.2 : 1)));   // v1.5: demon-heart x1.3; v1.16: + per-layer HP growth
 }
 // v0.98: ascension alone stops being enough — cultivation compounds per layer into qi (pool + barrier)
 // and a little damage. Survival becomes a qi-tank spine (~25% of the curve); GEAR carries the rest,
@@ -12515,7 +12515,7 @@ function cultLayers(char) {
 }
 function cultPowerMults(char) {
   const L = cultLayers(char);
-  return { qiPool: Math.pow(1.08, L), qiBarrier: Math.pow(1.04, L), dmg: Math.pow(1.015, L) };
+  return { qiPool: Math.pow(1.08, L), qiBarrier: Math.pow(1.04, L), dmg: Math.pow(1.015, L), hp: Math.pow(1.04, L) };   // v1.16: HP now compounds per layer too (breakthroughs grow Body % not just flat)
 }
 function computeMaxQi(char) {
   const mods = computeMods(char);
@@ -12939,6 +12939,27 @@ function cultivationRate() {
   // Raw cultivation runs at HALF pace; the killing economy (below) more than repays it.
   const demonCult = isDemonHeart(state) ? 0 : (state.demonic ? 0.5 : 1);   // v1.5: a demon does not sit and cultivate — insight from battle + rift only
   return (base + statBonus) * method.mult * locMult * realmMult * cultBuff * boonCultivationMult() * skillCultivationMult() * heritageCult * gearCult * rootGrade * foundation * sectRankMult() * metaCultMult() * demonCult;
+}
+
+// v1.16: the multiplicative "cultivation boost" the player has invested in — every factor in cultivationRate()
+// EXCEPT the structural base/stat/method/location/realm/demon parts. Demonic paths (incl. Demon-Heart) convert
+// this 1:1 into combat-insight gain (a slaughter-dao still profits from cultivation investment).
+function cultivationBoostMult() {
+  if (!state || !state.confirmed) return 1;
+  const hm = heritageMech();
+  const heritageCult = (hm.cultivationMult || 1) * (hm.cultInsightMult || 1) * ((hm.schoolCultMult && hm.schoolCultMult[state.selectedSchool]) || 1);
+  const gearCult = computeMods(state).cultMult || 1;
+  const rootGrade = (state.spiritRoot && state.spiritRoot.grade) || 1;
+  const foundation = state.foundationQuality || 1;
+  return activeBuffValue('cultivation_mult', 1) * boonCultivationMult() * skillCultivationMult() * heritageCult * gearCult * rootGrade * foundation * sectRankMult() * metaCultMult();
+}
+// v1.16: aggregate insight-gain multiplier — applied to the Secret Realm and Rift Gate (which previously
+// granted raw insight). Mirrors the general insight mults from the combat formula, plus the demonic conversion.
+function playerInsightMult() {
+  if (!state || !state.confirmed) return 1;
+  const m = computeMods(state).insightMult || 1;
+  const dm = isDemonHeart(state) ? 2 : (state.demonic ? 1.5 : 1);
+  return boonInsightMult() * skillCombatInsightMult() * m * metaInsightMult() * dm * (state.demonic ? cultivationBoostMult() : 1);
 }
 
 function startCultivation(locationId) {
@@ -13998,7 +14019,7 @@ function grantEnemyDefeatRewards(e) {
   const enemyData = ENEMIES[e.id];
   const hmVictory = heritageMech();
   const rewardScale = (e.scale && e.scale.reward) || 1;
-  const insight = Math.round(enemyData.insightReward * rewardScale * boonInsightMult() * skillCombatInsightMult() * (combat.player.mods.insightMult || 1) * ((SCHOOLS[state.selectedSchool] && SCHOOLS[state.selectedSchool].insightFromKillsMult) || 1) * (hmVictory.combatInsightMult || 1) * combatInsightMult(combat) * metaInsightMult() * (isDemonHeart(state) ? 2 : (state.demonic ? 1.5 : 1)) * 1.5 * ((combat && combat.demonicQiVenture) ? 1.5 : 1));   // v1.6: demon-heart 2x; demonic-qi venture +50%; v0.97 +50% base
+  const insight = Math.round(enemyData.insightReward * rewardScale * boonInsightMult() * skillCombatInsightMult() * (combat.player.mods.insightMult || 1) * ((SCHOOLS[state.selectedSchool] && SCHOOLS[state.selectedSchool].insightFromKillsMult) || 1) * (hmVictory.combatInsightMult || 1) * combatInsightMult(combat) * metaInsightMult() * (isDemonHeart(state) ? 2 : (state.demonic ? 1.5 : 1)) * 1.5 * ((combat && combat.demonicQiVenture) ? 1.5 : 1) * (state.demonic ? cultivationBoostMult() : 1));   // v1.6: demon-heart 2x; demonic-qi venture +50%; v0.97 +50% base; v1.16: demonic cult boosts convert 1:1 to combat insight
   addInsight(insight);
   state.sectKills = (state.sectKills || 0) + 1;  // Wave 2b: progress toward the sect hunt bounty
   // v0.92: slaying a cultivator of the OPPOSING path earns sect contribution (operator) — a demonic
