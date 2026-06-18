@@ -541,11 +541,11 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v1.24';
+const GAME_VERSION = 'v1.25';
 // v0.78: CI injects the build's short sha here; the APK shell reads it FROM THE RUNNING
 // PAGE (window.BUILD_SHA) and compares against the repo head — staleness detection that
-// cannot be fooled by cached metadata. '26a26c9' = local/dev build (shell falls back).
-const BUILD_SHA = '26a26c9';
+// cannot be fooled by cached metadata. '5e368e6' = local/dev build (shell falls back).
+const BUILD_SHA = '5e368e6';
 if (typeof window !== 'undefined') window.BUILD_SHA = BUILD_SHA;
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
@@ -4804,7 +4804,7 @@ const ENEMIES = {
     id: 'rival_sword',
     name: 'Rival Sword Cultivator', zh: '敌剑修',
     hpMax: 90, qiMax: 54, spiritMax: 30, postureMax: 72,
-    weaponPower: 12,
+    weaponPower: 9,   // v1.25: was 12 - out-damaged even a refined tank; toned down so a defensive build can out-last it (still a hard rival)
     techIds: ['crescent_arc','thousand_hells'],
     insightReward: 20,
     drops: [{ id: 'azure_steel', chance: 0.18 }],
@@ -6273,11 +6273,12 @@ const BOSSES = {
 // boss's realm, times the difficulty knob. Single tuning number: BOSS_DIFFICULTY_MULT.
 const BOSS_DIFFICULTY_MULT = 1.5;
 const REALM_ENEMY_BUFF = [1, 1.10, 1.15, 1.20, 1.25, 1.30, 1.35];   // v0.64: by realm tier (elites/bosses keep this gentle curve)
-// v1.17: NORMAL encounters get a sharper per-realm curve — steeper acceleration from Foundation (tier 2), a BIG
-// jump at Golden Core (tier 4, ~3x Foundation), and Body-leaning so high-realm foes are durable, not one-shotters.
-// Magnitudes are aggressive on purpose (operator wants a real climb) — high-realm values are prime tuning knobs.
-const REALM_ENEMY_Body_BUFF  = [1, 1.15, 1.45, 2.4, 4.8, 6.5, 8.5];   // tier 0-6 — Body scales hard
-const REALM_ENEMY_DMG_BUFF = [1, 1.10, 1.25, 1.6, 2.6, 3.3, 4.2];   // tier 0-6 — damage scales gentler than Body
+// v1.17: NORMAL encounters get a sharper per-realm curve — steeper acceleration from Foundation (tier 2).
+// v1.25: the v1.17 high-realm magnitudes OVERSHOT (measured: a Golden Core normal had ~182k Body, ~1.9x a
+// tribulation's — normals out-tanked the wall, and low-damage builds slogged for 100+ turns at Mortal).
+// Pulled the curve WAY down so normals are clearly easier than tribulations again; the wall is the trib, not trash.
+const REALM_ENEMY_Body_BUFF  = [1, 1.1, 1.3, 1.7, 2.2, 2.8, 3.5];   // tier 0-6 — moderated (was 1.15..8.5)
+const REALM_ENEMY_DMG_BUFF = [1, 1.1, 1.2, 1.5, 2.0, 2.5, 3.0];   // tier 0-6 — moderated (was 1.1..4.2)
 function bossAnchorScale(bossTier) {
   const tier = REALMS[bossTier];
   let stats = 1.0;
@@ -13298,8 +13299,8 @@ function buildEnemyCombat(enemyId) {
   const isNormalFoe = !isElite && !enemyData.isBoss;
   const realmHpBuff  = isNormalFoe ? REALM_ENEMY_Body_BUFF[Math.min(6, buffTier)]  : REALM_ENEMY_BUFF[Math.min(6, buffTier)];
   const realmDmgBuff = isNormalFoe ? REALM_ENEMY_DMG_BUFF[Math.min(6, buffTier)] : REALM_ENEMY_BUFF[Math.min(6, buffTier)];
-  const normalHpMult  = isNormalFoe ? 1.4 : 1;   // v1.17: +40% Body base
-  const normalDmgMult = isNormalFoe ? 1.1 : 1;   // v1.17: +10% damage base
+  const normalHpMult  = isNormalFoe ? 1.15 : 1;   // v1.25: +15% Body base (was +40% in v1.17 — fixed the Mortal-tank slog)
+  const normalDmgMult = isNormalFoe ? 1.05 : 1;   // v1.25: +5% damage base (was +10%)
   // v1.17: inquisitors (righteous hunters) must threaten even a well-built demon — Core (t3) especially.
   let inqHpMult = 1, inqDmgMult = 1;
   if (String(enemyId).startsWith('righteous_hunter_t')) {
@@ -13315,9 +13316,14 @@ function buildEnemyCombat(enemyId) {
     const lf = tl > 1 ? (state.realm.layer - 1) / (tl - 1) : 0;
     if (lf > 0.5) backHalf = 1.1 + 0.2 * (lf - 0.5);   // 1.1 @ mid -> 1.2 @ top
   }
-  // v0.84: TRIBULATION fights at 0.75 (midpoint of v0.83's 0.5 and the un-halved 1.0 — QC trib read too easy).
-  const tribMult = (typeof pendingTribulation !== 'undefined' && pendingTribulation) ? 0.75 : 1;
-  const scaledHpMax = Math.round(enemyData.hpMax * scale.stats * 2.5 * hpBoost * eliteHpExtra * realmHpBuff * normalHpMult * inqHpMult * tribMult * backHalf * DIFFICULTY_TICK * mortalBossMult);
+  // v0.84/v1.25: TRIBULATION damage stays softened (0.75 — operator deliberately cut trib damage in v1.10/v1.13),
+  // but trib BODY is now BOOSTED (x1.8) so the tribulation is the CLEAR hardest fight (the real wall), not softer
+  // than a trash mob. Measured pre-v1.25: a Golden Core trib had ~97k Body vs a normal's ~182k — fully inverted.
+  // Damage stays gentle on purpose: a trib should be an endurance + unique-mechanic fight, not a burst race.
+  const isTribFight = (typeof pendingTribulation !== 'undefined' && pendingTribulation);
+  const tribHpMult  = isTribFight ? 1.8 : 1;
+  const tribDmgMult = isTribFight ? 0.75 : 1;
+  const scaledHpMax = Math.round(enemyData.hpMax * scale.stats * 2.5 * hpBoost * eliteHpExtra * realmHpBuff * normalHpMult * inqHpMult * tribHpMult * backHalf * DIFFICULTY_TICK * mortalBossMult);
   const scaledQiMax = Math.round(enemyData.qiMax * scale.stats * 2 * qiBoost);
   const scaledSpiritMax = Math.round(enemyData.spiritMax * scale.stats * 2 * qiBoost);
   // v0.81: enemy posture pools were too deep to break — normals x0.75, bosses x0.40 (even
@@ -13325,7 +13331,7 @@ function buildEnemyCombat(enemyId) {
   // Body clone; it should be reachable.
   const posMult = enemyData.isBoss ? 0.40 : 0.75;
   const scaledPostureMax = Math.round(enemyData.postureMax * scale.stats * 2 * postureBoost * posMult);
-  const scaledWeaponPower = Math.max(1, Math.round(enemyData.weaponPower * scale.stats * 2 * wpnBoost * realmDmgBuff * normalDmgMult * inqDmgMult * tribMult * backHalf * DIFFICULTY_TICK * mortalBossMult));
+  const scaledWeaponPower = Math.max(1, Math.round(enemyData.weaponPower * scale.stats * 2 * wpnBoost * realmDmgBuff * normalDmgMult * inqDmgMult * tribDmgMult * backHalf * DIFFICULTY_TICK * mortalBossMult));
   // Flat damage reduction. Elites get a thicker pad; normals get a small one (v0.23.2)
   // that scales gently by tier. Both blunt chip-damage / multi-hit AOE strategies.
   const tierIdx = state.realm.tierIdx || 0;
@@ -13735,6 +13741,25 @@ function applyPlayerOutgoingMods(p, dmg, target, ctx) {
     if (mark) { dmg *= 1 + mark.value; markCrit = 0.20; }
     // v0.45 Red-Ink Authority (Jade Inkwell): +dmg to anything under one of your writs.
     if (kit.ampVsDebuffed && target.effects.length > 0) dmg *= 1 + kit.ampVsDebuffed;
+  }
+  // v1.25: BODY-POWERED damage. A body-cultivation build channels its tempered physique into every blow —
+  // strikes AND techniques both route through here. Two parts, both scaling with bodyFrac (Body's share of your
+  // stats), so a glass cannon barely benefits and a dedicated tank benefits a lot:
+  //   1) a damage MULTIPLIER (the tougher you are, the harder you hit), and
+  //   2) a tank-themed CRUSH = a small % of the target's max Body, CAPPED at ~2 strikes in absolute terms so it
+  //      shreds high-Body sponges (e.g. stone elementals) WITHOUT trivializing million-Body bosses.
+  // Fixes the "tank takes forever to kill at Mortal" report while keeping the tank's identity (Body = offense too).
+  {
+    const fsb = state.finalStats || {};
+    const statTot = (fsb.spirit || 0) + (fsb.body || 0) + (fsb.mind || 0) + (fsb.sense || 0) + (fsb.luck || 0) + (fsb.will || 0);
+    const bodyFrac = statTot > 0 ? Math.min(0.6, (fsb.body || 0) / statTot) : 0;
+    if (bodyFrac > 0 && dmg > 0) {
+      dmg *= 1 + bodyFrac * 1.2;   // tank (~0.46 frac) -> +55%; balanced (~0.3) -> +36%; glass (~0.1) -> +12%
+      if (target && target.hpMax) {
+        const crush = Math.min(target.hpMax * bodyFrac * 0.03, (p.weaponPower || 0) * 2.0);
+        if (crush > 0) dmg += crush;
+      }
+    }
   }
   // Celestial Sight (Starfall): realm-scaled base crit + a per-hit ramp this battle (+ Star Mark crit).
   // v0.57: + timed crit buffs (Executioner's Calm).
@@ -14184,7 +14209,16 @@ function grantEnemyDefeatRewards(e) {
   const enemyData = ENEMIES[e.id];
   const hmVictory = heritageMech();
   const rewardScale = (e.scale && e.scale.reward) || 1;
-  const insight = Math.round(enemyData.insightReward * rewardScale * boonInsightMult() * skillCombatInsightMult() * (combat.player.mods.insightMult || 1) * ((SCHOOLS[state.selectedSchool] && SCHOOLS[state.selectedSchool].insightFromKillsMult) || 1) * (hmVictory.combatInsightMult || 1) * combatInsightMult(combat) * metaInsightMult() * (isDemonHeart(state) ? 2 : (state.demonic ? 1.5 : 1)) * 1.5 * ((combat && combat.demonicQiVenture) ? 1.5 : 1) * (state.demonic ? cultivationBoostMult() : 1) * (1 + 0.20 * goldenCoreLevel()));   // v1.6: demon-heart 2x; demonic-qi venture +50%; v0.97 +50% base; v1.16: demonic cult->insight 1:1; v1.18: +20% insight/GC level
+  const rawInsight = Math.round(enemyData.insightReward * rewardScale * boonInsightMult() * skillCombatInsightMult() * (combat.player.mods.insightMult || 1) * ((SCHOOLS[state.selectedSchool] && SCHOOLS[state.selectedSchool].insightFromKillsMult) || 1) * (hmVictory.combatInsightMult || 1) * combatInsightMult(combat) * metaInsightMult() * (isDemonHeart(state) ? 2 : (state.demonic ? 1.5 : 1)) * 1.5 * ((combat && combat.demonicQiVenture) ? 1.5 : 1) * (state.demonic ? cultivationBoostMult() : 1) * (1 + 0.20 * goldenCoreLevel()));   // v1.6: demon-heart 2x; demonic-qi venture +50%; v0.97 +50% base; v1.16: demonic cult->insight 1:1; v1.18: +20% insight/GC level
+  // v1.25: the demonic mult stack (cult x GC x demon x base) compounds MULTIPLICATIVELY — measured ~42k/kill at
+  // modest Golden Core investment, and "millions per battle" once geared (cultBoost 8x -> 208k, 15x+ -> 1M+).
+  // Operator wants it kept big but the runaway capped. Cap = ~1.25x the realm's BASE layer cost (a stable per-realm
+  // reference, NOT the compounding layer cost): modest play stays under it untouched, only the over-geared snowball
+  // clamps down. Heavy cult investment still pays off in PASSIVE cultivation (cultivationBoostMult feeds the
+  // cultivation tick), so the build choice still matters — combat just can't snowball into millions per fight.
+  const _capRef = (REALMS[state.realm.tierIdx] || {}).insightPerLayer || (REALMS[(state.realm.tierIdx || 0) + 1] || {}).insightPerLayer || 5000;
+  const insightCap = Math.round(_capRef * 1.25);
+  const insight = Math.min(rawInsight, insightCap);
   addInsight(insight);
   state.sectKills = (state.sectKills || 0) + 1;  // Wave 2b: progress toward the sect hunt bounty
   // v0.92: slaying a cultivator of the OPPOSING path earns sect contribution (operator) — a demonic
