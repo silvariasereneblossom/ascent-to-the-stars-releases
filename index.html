@@ -541,11 +541,11 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v1.14';
+const GAME_VERSION = 'v1.15';
 // v0.78: CI injects the build's short sha here; the APK shell reads it FROM THE RUNNING
 // PAGE (window.BUILD_SHA) and compares against the repo head — staleness detection that
-// cannot be fooled by cached metadata. '9a015dd' = local/dev build (shell falls back).
-const BUILD_SHA = '9a015dd';
+// cannot be fooled by cached metadata. '8d4b85e' = local/dev build (shell falls back).
+const BUILD_SHA = '8d4b85e';
 if (typeof window !== 'undefined') window.BUILD_SHA = BUILD_SHA;
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
@@ -10506,7 +10506,7 @@ function realmRunExtract(collapsed, slotKey) {
 // Lifespan is a RESOURCE, not a passive clock. Breaking realms hugely extends the span (ACS-style);
 // aging is slow; certain pills/schools/artifacts ADD lifespan; powerful pills SPEND it (a % of what's
 // remaining) for permanent power. Old age still kills you, but it's now aspirational, not a constant threat.
-const REALM_LIFESPAN = [80, 240, 700, 2000, 6000, 18000, 60000];   // years by tierIdx — each realm ~3x the last
+const REALM_LIFESPAN = [80, 240, 700, 3000, 6000, 18000, 60000];   // years by tierIdx — v1.15: Core Formation (idx 3) 2000 -> 3000 (1.5x)
 const AGE_PER_SEC = 0.008;   // gentle clock: ~125s of active cultivation per in-world year (5x slower than before)
 // Schools that thread longevity into their dao grant bonus years (added to the cap).
 const SCHOOL_LIFESPAN = { moonlit_water: 250, whispering_array: 150, crimson_flame: 80 };
@@ -10696,9 +10696,8 @@ const ARRAYS = {
 
 function arrayCapacity(char) {
   if (!char || !char.realm) return 3;
-  // v1.12: base 3, +1 slot every SECOND realm (Mortal/Qi-Cond 3, Foundation/Core-Formation 4,
-  // Golden-Core/Nascent-Soul 5, Spirit Severing 6). Was +1 every realm (capped 8).
-  return 3 + Math.floor((char.realm.tierIdx || 0) / 2);
+  // v1.15: base 3, +1 slot EVERY realm (Mortal 3 ... Spirit Severing 9). Reverted from v1.12's every-second-realm.
+  return 3 + (char.realm.tierIdx || 0);
 }
 
 function activeArrays(char) {
@@ -12596,7 +12595,8 @@ function bodyInscriptionSlots() {
 function bodyInscriptions() { return (state && state.bodyInscriptions) || []; }
 function lifespanConsumptionMult() {
   if (isDemonHeart(state)) return 0;   // v1.5: a demon neither ages nor spends lifespan (zeroes aging, defeat tolls, lifespan-cost pills)
-  return 1 + 0.10 * bodyInscriptions().length;
+  const base = 1 + 0.10 * bodyInscriptions().length;
+  return state.demonic ? base * 0.5 : base;   // v1.15: demonic paths (non-Demon-Heart) age at half the rate
 }
 function slotBodyInscription(id) {
   if (!state.demonic || !INSCRIPTIONS[id]) return;
@@ -12678,7 +12678,8 @@ function arraysHerbGrowMult() {
   let m = 1;
   try {
     ((state.base && state.base.arrays) || []).forEach(aid => {
-      const a = ARRAYS[aid]; if (a && a.mods && a.mods.herbGrowMult) m *= a.mods.herbGrowMult;
+      const em = effectiveArrayMods(aid);   // v1.15: level-scaled — spirit-stone upgrades now actually speed herb growth
+      if (em && em.herbGrowMult) m *= em.herbGrowMult;
     });
   } catch (e) {}
   return m;
@@ -12879,6 +12880,13 @@ function consume(recipeId) {
       return;
     }
     if (ef.kind === 'lifespan_add') {            // extend the lifespan cap by N years
+      // v1.15: a Demon Heart has no lifespan to extend — the longevity essence converts to power instead.
+      if (isDemonHeart(state)) {
+        addInsight(20000);
+        const k = STAT_KEYS[Math.floor(Math.random() * STAT_KEYS.length)];
+        state.finalStats[k] = (state.finalStats[k] || 0) + 1;
+        return;
+      }
       state.lifespanBonus = (state.lifespanBonus || 0) + ef.value;
       return;
     }
