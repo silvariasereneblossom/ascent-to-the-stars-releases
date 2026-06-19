@@ -541,11 +541,11 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v1.27';
+const GAME_VERSION = 'v1.27.1';
 // v0.78: CI injects the build's short sha here; the APK shell reads it FROM THE RUNNING
 // PAGE (window.BUILD_SHA) and compares against the repo head — staleness detection that
-// cannot be fooled by cached metadata. '3f741f3' = local/dev build (shell falls back).
-const BUILD_SHA = '3f741f3';
+// cannot be fooled by cached metadata. 'accd33e' = local/dev build (shell falls back).
+const BUILD_SHA = 'accd33e';
 if (typeof window !== 'undefined') window.BUILD_SHA = BUILD_SHA;
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
@@ -7630,6 +7630,24 @@ const CONSUMABLES = {
     effects: [{ kind: 'stat_perm_random', value: 2 }, { kind: 'lifespan_cost_pct', value: 0.08 }],
     desc: '+2 to a random stat — but it drinks 8% of your remaining lifespan. Wrung from a slain boss.',
   },
+  // v1.27: MARKET stat elixirs — a clean (no-lifespan-cost) random-stat source, sold one per 12h each
+  // (own supply timer; see MARKET_OFFERS). Three escalating tiers gated by realm. kind 'pill' so the
+  // Loadout consumables panel surfaces them; no recipe (purchase-only).
+  essence_elixir_minor: {
+    name: 'Elixir of Scattered Essence', zh: '散元丹', kind: 'pill', rarity: 'rare',
+    effects: [{ kind: 'stat_perm_random', value: 1 }],
+    desc: '+1 to a random stat, no lifespan cost. The caravan stocks one every 12 hours.',
+  },
+  essence_elixir_greater: {
+    name: 'Elixir of Gathered Essence', zh: '聚元丹', kind: 'pill', rarity: 'legendary',
+    effects: [{ kind: 'stat_perm_random', value: 2 }],
+    desc: '+2 to a random stat, no lifespan cost. Rare caravan stock — one every 12 hours.',
+  },
+  essence_elixir_supreme: {
+    name: 'Elixir of Perfected Essence', zh: '圆元丹', kind: 'pill', rarity: 'divine',
+    effects: [{ kind: 'stat_perm_random', value: 3 }],
+    desc: '+3 to a random stat, no lifespan cost. The finest caravan stock — one every 12 hours.',
+  },
   longevity_pill: {
     name: 'Longevity Pill', zh: '延寿丹', kind: 'pill', rarity: 'rare',
     recipe: { jade_lotus: 2 }, minRealmTier: 1,
@@ -9410,13 +9428,16 @@ function hardSetCost(bossId) {
   Object.entries(WEAPON_GEN_TIER[tier].mats).forEach(([m, n]) => { cost[m] = (cost[m] || 0) + n * 2; });
   return cost;
 }
+// v1.27: the Ascendant is an UPGRADE of the lesser base piece — you can only forge a slot whose base
+// piece you already own, and forging CONSUMES that base piece.
 function nextHardSetSlot(bossId) {
-  const pair = BOSS_SET_SLOTS.find(([slot]) => !(state.armor.owned || []).includes(hardSetId(bossId, slot)));
+  const owned = state.armor.owned || [];
+  const pair = BOSS_SET_SLOTS.find(([slot]) => owned.includes(bossSetId(bossId, slot)) && !owned.includes(hardSetId(bossId, slot)));
   return pair ? pair[0] : null;
 }
 function canCraftHardSetPiece(bossId) {
   if (bossKillCount(bossId + HARD_BOSS_SUFFIX) < 1) return false;   // must have beaten the Heavenscourge
-  if (!nextHardSetSlot(bossId)) return false;
+  if (!nextHardSetSlot(bossId)) return false;                       // and own the lesser base piece to upgrade
   return Object.entries(hardSetCost(bossId)).every(([m, n]) => (state.base.materials[m] || 0) >= n);
 }
 function craftHardSetPiece(bossId) {
@@ -9426,6 +9447,11 @@ function craftHardSetPiece(bossId) {
     state.base.materials[m] -= n;
     if (state.base.materials[m] <= 0) delete state.base.materials[m];
   });
+  // consume the LESSER base piece (unequip if worn), then grant the upgraded Ascendant piece.
+  const baseId = bossSetId(bossId, slot);
+  const oi = state.armor.owned.indexOf(baseId);
+  if (oi >= 0) state.armor.owned.splice(oi, 1);
+  Object.keys(state.armor.equipped || {}).forEach(s => { if (state.armor.equipped[s] === baseId) state.armor.equipped[s] = null; });
   state.armor.owned.push(hardSetId(bossId, slot));
   saveChar();
   return true;
@@ -9817,6 +9843,8 @@ function rollArmorDrop(enemyData) {
   else if (reward < 700) { chance = 0.08; tier = 3; }       // GC
   else if (reward < 1500){ chance = 0.10; tier = 4; }       // NS
   else                   { chance = 0.12; tier = 5; }       // SS
+  // v1.27: armor rarity scales no higher than the player's current realm (tier band aligns to realm tier).
+  tier = Math.min(tier, (state.realm && state.realm.tierIdx) || 0);
   if (Math.random() >= chance) return null;
   // Pool of armor matching the tier by rarity.
   const rarityByTier = [
@@ -10728,6 +10756,12 @@ function realmRunDifficulty(floor) {
   const t = state.realm.tierIdx || 0;
   return Math.round((18 + floor * 7) * (1 + t * 0.7));
 }
+// v1.27: rift DEPTH is capped per realm — 15/30/45/60/75/90 (deeper realms reach further). Reaching the
+// cap clears the rift (auto-extract, keep everything). All caps are multiples of 15 (=both 3 and 5), so
+// the final floor is always a treasure-cache + inheritance capstone.
+function riftMaxDepth() { return ([15, 15, 30, 45, 60, 75, 90][(state.realm && state.realm.tierIdx) || 0]) || 15; }
+// Reward curve weighted toward the BACK HALF: deep floors pay disproportionately (~2.5x insight at the core).
+function riftDepthReward(floor) { return 1 + 1.5 * Math.pow(floor / riftMaxDepth(), 2); }
 function enterRealmRun(slotKey) {
   const s = RUN_SLOTS[slotKey || 'realm'];
   if (s.demonicOnly && !state.demonic) return;
@@ -10746,7 +10780,7 @@ function realmRunDescend(slotKey) {
   const t = state.realm.tierIdx || 0;
   if (floor % 3 === 0) {
     // Safe treasure cache.
-    const ins = Math.round((30 + floor * 12) * (1 + t * 0.5) * playerInsightMult());   // v1.6: rift insight nerf reverted; v1.16: insight boosts now apply to the rift
+    const ins = Math.round((30 + floor * 12) * (1 + t * 0.5) * playerInsightMult() * riftDepthReward(floor));   // v1.6: rift insight nerf reverted; v1.16: insight boosts apply; v1.27: back-half curve
     const st = 3 + floor + t * 2;
     run.insight += ins; run.stones += st;
     run.log = `Floor ${floor}: a quiet treasure vault — banked +${ins} insight, +${st} stones.`;
@@ -10757,7 +10791,7 @@ function realmRunDescend(slotKey) {
     const luck = (state.finalStats && state.finalStats.luck) || 0;
     const winChance = Math.max(0.1, Math.min(0.95, might / (might + diff) + luck * 0.01));
     if (Math.random() < winChance) {
-      const ins = Math.round((40 + floor * 16) * (1 + t * 0.5) * playerInsightMult());   // v1.6: rift insight nerf reverted; v1.16: insight boosts apply
+      const ins = Math.round((40 + floor * 16) * (1 + t * 0.5) * playerInsightMult() * riftDepthReward(floor));   // v1.6: nerf reverted; v1.16: boosts apply; v1.27: back-half curve
       const st = 4 + floor + t * 2;
       run.insight += ins; run.stones += st;
       run.log = `Floor ${floor}: you overcome the guardian — banked +${ins} insight, +${st} stones.`;
@@ -10772,13 +10806,21 @@ function realmRunDescend(slotKey) {
     }
   }
   if (floor % 5 === 0) {
-    // Inheritance milestone.
-    const ids = Object.keys(ARTIFACTS);
-    const relicId = ids[Math.floor(Math.random() * ids.length)];
+    // Inheritance milestone. v1.27: the relic scales no higher than the current realm (rarity-capped).
+    const allowed = ['common', 'rare', 'legendary', 'divine'].slice(0, [0, 0, 1, 1, 2, 2, 2][t] + 2);
+    const ids = Object.keys(ARTIFACTS).filter(id => allowed.includes(ARTIFACTS[id].rarity));
+    const pool = ids.length ? ids : Object.keys(ARTIFACTS);
+    const relicId = pool[Math.floor(Math.random() * pool.length)];
     run.relics.push(relicId);
-    const bonus = Math.round((100 + floor * 40) * (1 + t * 0.5) * playerInsightMult());   // v1.6: rift insight nerf reverted; v1.16: insight boosts apply
+    const bonus = Math.round((100 + floor * 40) * (1 + t * 0.5) * playerInsightMult() * riftDepthReward(floor));   // v1.6: nerf reverted; v1.16: boosts apply; v1.27: back-half curve
     run.insight += bonus;
     run.log += ` An inheritance opens at the heart of floor ${floor}: <strong>${ARTIFACTS[relicId].name}</strong> + ${bonus} insight.`;
+  }
+  // v1.27: depth cap — reaching the realm's deepest reach clears the rift (auto-extract, keep everything).
+  if (floor >= riftMaxDepth()) {
+    run.log += ` You reach the rift's core — the deepest the heavens of this realm permit (floor ${riftMaxDepth()}). You withdraw with all you have banked.`;
+    realmRunExtract(false, slotKey);
+    return;
   }
   saveChar(); render();
 }
@@ -11166,6 +11208,11 @@ const MARKET_OFFERS = {
   blood_forging_pill:  { price: 90,  minTier: 3, kind: 'consumable' },
   heaven_defying_pill: { price: 160, minTier: 4, kind: 'consumable' },
   millennium_peach:    { price: 420, minTier: 5, kind: 'consumable' },
+  // v1.27: random-stat elixirs — each on its OWN 12h supply timer (supplyMs), outside the daily cap.
+  // Tiers gate at start / Foundation Establishment (t2) / Nascent Soul (t5); 5000 / 10000 / 20000 stones.
+  essence_elixir_minor:   { price: 5000,  minTier: 0, kind: 'consumable', supplyMs: 12 * 3600 * 1000 },
+  essence_elixir_greater: { price: 10000, minTier: 2, kind: 'consumable', supplyMs: 12 * 3600 * 1000 },
+  essence_elixir_supreme: { price: 20000, minTier: 5, kind: 'consumable', supplyMs: 12 * 3600 * 1000 },
 };
 // Realm-gated offer list + per-kind name / inventory lookups.
 function marketOffers(char) {
@@ -11188,7 +11235,17 @@ const MARKET_SELL_PRICE = { common: 5, rare: 20, legendary: 80, divine: 200 };
 function ensureMarketState() {
   if (!state.market) state.market = { lastRefresh: Date.now(), boughtToday: {} };
   if (!state.market.boughtToday) state.market.boughtToday = {};
+  if (!state.market.supplyBought) state.market.supplyBought = {};   // v1.27: per-offer restock timestamps (stat elixirs)
 }
+// v1.27: supply-gated offers (the stat elixirs) restock one per offer.supplyMs, on their OWN timer
+// (independent of the hourly daily-cap stock). Tracked per id in state.market.supplyBought.
+function offerSupplyMsLeft(matId) {
+  const offer = MARKET_OFFERS[matId];
+  if (!offer || !offer.supplyMs) return 0;
+  ensureMarketState();
+  return Math.max(0, offer.supplyMs - (Date.now() - ((state.market.supplyBought && state.market.supplyBought[matId]) || 0)));
+}
+function offerSupplyReady(matId) { return offerSupplyMsLeft(matId) <= 0; }
 
 function marketDailyCap(char) {
   // Simple daily limit on total units purchased across all materials. Scales with realm.
@@ -11246,14 +11303,20 @@ function marketBuyMaterial(matId) {
   const tier = (state.realm && state.realm.tierIdx) || 0;
   if ((offer.minTier || 0) > tier) return false;   // realm-gated stock
   if ((state.base.materials.spirit_stone || 0) < offer.price) return false;
-  const used = Object.values(state.market.boughtToday).reduce((a, b) => a + b, 0);
-  if (used >= marketDailyCap(state)) return false;
+  if (offer.supplyMs) {
+    if (!offerSupplyReady(matId)) return false;   // v1.27: own 12h supply timer, outside the daily cap
+  } else {
+    const used = Object.values(state.market.boughtToday).reduce((a, b) => a + b, 0);
+    if (used >= marketDailyCap(state)) return false;
+  }
   state.base.materials.spirit_stone -= offer.price;
+  if (state.base.materials.spirit_stone <= 0) delete state.base.materials.spirit_stone;
   // Route to the correct inventory: consumables (pills/draughts), herbs, or materials.
   if (offer.kind === 'consumable') state.base.consumables[matId] = (state.base.consumables[matId] || 0) + 1;
   else if (HERBS[matId]) state.base.herbs[matId] = (state.base.herbs[matId] || 0) + 1;
   else state.base.materials[matId] = (state.base.materials[matId] || 0) + 1;
-  state.market.boughtToday[matId] = (state.market.boughtToday[matId] || 0) + 1;
+  if (offer.supplyMs) state.market.supplyBought[matId] = Date.now();
+  else state.market.boughtToday[matId] = (state.market.boughtToday[matId] || 0) + 1;
   saveChar();
   return true;
 }
@@ -11490,6 +11553,9 @@ function rollArtifactDrop(enemyData) {
   else if (reward < 100)  { chance = 0.05; tier = 1; }
   else if (reward < 400)  { chance = 0.06; tier = 2; }
   else                    { chance = 0.08; tier = 3; }
+  // v1.27: artifact rarity scales NO HIGHER than the player's current realm — a low-realm cultivator
+  // ambushed by a far-stronger foe can't farm above-realm divine relics. (tier band -> max rarity.)
+  tier = Math.min(tier, [0, 0, 1, 1, 2, 2, 2][(state.realm && state.realm.tierIdx) || 0]);
   if (Math.random() >= chance) return null;
   const rarities = ['common','rare','legendary','divine'];
   const allowed = rarities.slice(0, Math.min(rarities.length, tier + 2));
@@ -13160,6 +13226,7 @@ function meetsRealmReq(def) {
 function canCraft(recipeId) {
   const c = CONSUMABLES[recipeId];
   if (!c) return false;
+  if (!c.recipe || !Object.keys(c.recipe).length) return false;   // v1.27: no recipe = not brewable (purchase/drop-only, e.g. essence elixirs / cursed draughts)
   if (!meetsRealmReq(c)) return false;
   for (const [herb, count] of Object.entries(effectiveRecipe(c))) {
     if ((state.base.herbs[herb] || 0) < count) return false;
@@ -13271,17 +13338,20 @@ function consume(recipeId) {
   const c = CONSUMABLES[recipeId];
   const now = Date.now();
   c.effects.forEach(ef => {
+    // v1.27: permanent stat gains write to baseStats (the persistent layer finalStats() rebuilds from).
+    // Previously they wrote to state.finalStats, which the next finalStats() recompute WIPED — so perm
+    // pills/draughts silently did nothing across a recompute. baseStats survives. (recompute below.)
     if (ef.kind === 'stat_perm') {
-      state.finalStats[ef.statKey] = (state.finalStats[ef.statKey] || 0) + ef.value;
+      state.baseStats[ef.statKey] = (state.baseStats[ef.statKey] || 10) + ef.value;
       return;
     }
     if (ef.kind === 'stat_perm_all') {
-      STAT_KEYS.forEach(k => { state.finalStats[k] = (state.finalStats[k] || 0) + ef.value; });
+      STAT_KEYS.forEach(k => { state.baseStats[k] = (state.baseStats[k] || 10) + ef.value; });
       return;
     }
-    if (ef.kind === 'stat_perm_random') {   // v1.23: cursed potions — +value to a random stat
+    if (ef.kind === 'stat_perm_random') {   // v1.23: cursed/elixir potions — +value to a random stat
       const rk = STAT_KEYS[Math.floor(Math.random() * STAT_KEYS.length)];
-      state.finalStats[rk] = (state.finalStats[rk] || 0) + ef.value;
+      state.baseStats[rk] = (state.baseStats[rk] || 10) + ef.value;
       return;
     }
     if (ef.kind === 'lifespan_add') {            // extend the lifespan cap by N years
@@ -13289,7 +13359,7 @@ function consume(recipeId) {
       if (isDemonHeart(state)) {
         addInsight(20000);
         const k = STAT_KEYS[Math.floor(Math.random() * STAT_KEYS.length)];
-        state.finalStats[k] = (state.finalStats[k] || 0) + 1;
+        state.baseStats[k] = (state.baseStats[k] || 10) + 1;
         return;
       }
       state.lifespanBonus = (state.lifespanBonus || 0) + ef.value;
@@ -13308,6 +13378,7 @@ function consume(recipeId) {
       sourceName: c.name,
     });
   });
+  state.finalStats = finalStats(state);   // v1.27: refresh so baseStats-based perm gains apply immediately
   saveChar();
 }
 
@@ -14897,6 +14968,9 @@ function tickCombatantEffects(c, opts) {
       // v1.5: Demon Heart's hellfire burns 1% of MAX hp/stack; others 1% of MISSING hp/stack.
       const hfBase = isDemonHeart(state) ? (c.hpMax || 0) : Math.max(0, (c.hpMax || 0) - c.hp);
       let burn = Math.max(1, Math.round(hfBase * 0.01 * (ef.stacks || 1)));
+      // v1.27: DOT-strengthening (dotMult) now ALSO amplifies Hellfire — matches the long-standing tech
+      // flavor ("+20% to all DOT, hellfire included"). Applied for player-inflicted hellfire (target is a foe).
+      if (combat && combat.player && c !== combat.player) burn = Math.max(1, Math.round(burn * ((combat.player.mods && combat.player.mods.dotMult) || 1)));
       // v1.10: a Demon Heart at Nascent Soul+ burns hotter — its hellfire ticks twice per turn (2x burn on its victims).
       if (isDemonHeart(state) && ((state.realm && state.realm.tierIdx) || 0) >= 5 && combat && c !== combat.player) burn *= 2;
       if (c.hp > 0 && hfBase > 0) {
@@ -16836,7 +16910,7 @@ function renderCharSheet() {
     gP.appendChild(hdr);
     const rarityOrder = { common: 0, rare: 1, legendary: 2, divine: 3 };
     const visible = Object.entries(CONSUMABLES)
-      .filter(([id, c]) => c.kind === kind && (meetsRealmReq(c) || (state.base.consumables[id] || 0) > 0))
+      .filter(([id, c]) => c.kind === kind && c.recipe && (meetsRealmReq(c) || (state.base.consumables[id] || 0) > 0))   // v1.27: only brewable (recipe) items in the House list
       .sort((a, b) =>
         ((a[1].minRealmTier || 0) - (b[1].minRealmTier || 0)) ||
         ((a[1].minLayer || 0) - (b[1].minLayer || 0)) ||
@@ -17525,8 +17599,12 @@ function renderCharSheet() {
           const has = (state.base.materials[m] || 0) >= n;
           return `<span style="color:${has ? 'var(--ink)' : 'var(--crimson)'}">${n}x ${(MATERIALS[m] && MATERIALS[m].name) || m}</span>`;
         }).join(', ');
-        hRow.innerHTML = `<strong style="color:var(--gold)">Ascendant ${L.setName}</strong> <span style="color:var(--ink-soft)">${hOwned}/4 · +40% theme & flat DR</span>
-          ${hNext ? `<div style="color:var(--ink-soft);margin-top:0.1rem">Next piece: ${hCostStr}</div>` : '<div style="color:var(--gold);margin-top:0.1rem">Ascendant set complete.</div>'}`;
+        const hStatus = hOwned >= 4
+          ? '<div style="color:var(--gold);margin-top:0.1rem">Ascendant set complete.</div>'
+          : hNext
+            ? `<div style="color:var(--ink-soft);margin-top:0.1rem">Upgrade your ${(BOSS_SET_SLOTS.find(s => s[0] === hNext) || [, 'piece'])[1]} (consumes the base piece): ${hCostStr}</div>`
+            : '<div style="color:var(--ink-soft);margin-top:0.1rem">Forge the base set pieces first — the Ascendant upgrades them.</div>';
+        hRow.innerHTML = `<strong style="color:var(--gold)">Ascendant ${L.setName}</strong> <span style="color:var(--ink-soft)">${hOwned}/4 · stronger pieces & set effects</span>${hStatus}`;
         if (hNext) {
           const hsb = document.createElement('button');
           hsb.className = 'small ' + (canCraftHardSetPiece(bid) ? 'gold' : 'ghost');
@@ -17687,19 +17765,27 @@ function renderCharSheet() {
     const remaining = dailyCap - usedCount;
     const nm = offerName(matId, offer);
     const isPill = offer.kind === 'consumable';
-    const kindTag = isPill ? ` <span class="rarity-tag" style="opacity:0.85;border-color:var(--jade);color:var(--jade)">pill/draught</span>` : '';
+    const isSupply = !!offer.supplyMs;   // v1.27: stat elixirs — own 12h supply timer
+    const kindTag = isPill ? ` <span class="rarity-tag" style="opacity:0.85;border-color:var(--jade);color:var(--jade)">${isSupply ? 'elixir · 1 per 12h' : 'pill/draught'}</span>` : '';
     const desc = isPill && CONSUMABLES[matId] ? `${CONSUMABLES[matId].desc} You hold ${have}.` : `You hold ${have}.`;
+    let stockNote;
+    if (isSupply) {
+      const msLeft = offerSupplyMsLeft(matId);
+      stockNote = msLeft <= 0 ? ' · <span style="color:var(--jade)">in stock</span>' : ` · restocks in ${Math.ceil(msLeft / 3600000)}h`;
+    } else {
+      stockNote = `, ${sold} bought`;
+    }
     const row = document.createElement('div');
     row.className = 'consumable-row';
     row.innerHTML = `
       <div class="consumable-info">
-        <div class="consumable-name">${nm}${kindTag} <span style="color:var(--ink-soft);font-size:0.75rem">— ${offer.price} stones each, ${sold} bought</span></div>
+        <div class="consumable-name">${nm}${kindTag} <span style="color:var(--ink-soft);font-size:0.75rem">— ${offer.price} stones each${stockNote}</span></div>
         <div class="consumable-desc">${desc}</div>
       </div>`;
     const btns = document.createElement('div');
     btns.className = 'consumable-buttons';
     const b = document.createElement('button');
-    const canBuy = stones >= offer.price && remaining > 0;
+    const canBuy = stones >= offer.price && (isSupply ? offerSupplyReady(matId) : remaining > 0);
     b.textContent = `Buy 1 (${offer.price})`;
     b.disabled = !canBuy;
     b.onclick = () => { if (marketBuyMaterial(matId)) render(); };
