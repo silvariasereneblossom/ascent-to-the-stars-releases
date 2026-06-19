@@ -541,11 +541,11 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v1.27.2';
+const GAME_VERSION = 'v1.27.3';
 // v0.78: CI injects the build's short sha here; the APK shell reads it FROM THE RUNNING
 // PAGE (window.BUILD_SHA) and compares against the repo head — staleness detection that
-// cannot be fooled by cached metadata. '8b8b14a' = local/dev build (shell falls back).
-const BUILD_SHA = '8b8b14a';
+// cannot be fooled by cached metadata. 'fdc4a4d' = local/dev build (shell falls back).
+const BUILD_SHA = 'fdc4a4d';
 if (typeof window !== 'undefined') window.BUILD_SHA = BUILD_SHA;
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
@@ -10809,8 +10809,10 @@ function realmRunDifficulty(floor) {
 // cap clears the rift (auto-extract, keep everything). All caps are multiples of 15 (=both 3 and 5), so
 // the final floor is always a treasure-cache + inheritance capstone.
 function riftMaxDepth() { return ([15, 15, 30, 45, 60, 75, 90][(state.realm && state.realm.tierIdx) || 0]) || 15; }
-// Reward curve weighted toward the BACK HALF: deep floors pay disproportionately (~2.5x insight at the core).
-function riftDepthReward(floor) { return 1 + 1.5 * Math.pow(floor / riftMaxDepth(), 2); }
+// v1.27.3: reward curve REDISTRIBUTED toward depth — shallow floors pay BELOW baseline, deep floors well
+// above, so the insight is in the descent, not the entrance. ~0.30x at floor 1 -> 1.0x near mid -> 3.0x at
+// the core (e.g. depth 25%->0.56x, 50%->1.13x, 75%->1.95x, 100%->3.0x).
+function riftDepthReward(floor) { return 0.3 + 2.7 * Math.pow(floor / riftMaxDepth(), 1.7); }
 function enterRealmRun(slotKey) {
   const s = RUN_SLOTS[slotKey || 'realm'];
   if (s.demonicOnly && !state.demonic) return;
