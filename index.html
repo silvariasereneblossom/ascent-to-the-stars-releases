@@ -541,11 +541,11 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v1.26';
+const GAME_VERSION = 'v1.27';
 // v0.78: CI injects the build's short sha here; the APK shell reads it FROM THE RUNNING
 // PAGE (window.BUILD_SHA) and compares against the repo head — staleness detection that
-// cannot be fooled by cached metadata. '8eaf844' = local/dev build (shell falls back).
-const BUILD_SHA = '8eaf844';
+// cannot be fooled by cached metadata. '3f741f3' = local/dev build (shell falls back).
+const BUILD_SHA = '3f741f3';
 if (typeof window !== 'undefined') window.BUILD_SHA = BUILD_SHA;
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
@@ -4278,6 +4278,7 @@ function baseInscriptionMods() {
     // ---- new channels ----
     hpBonus: 0,
     hpMult: 1,               // v0.89: multiplicative max-Body bonus (Body%), defensive-style stat
+    qiDamageMult: 1,         // v1.27: bonus damage to a foe's QI BARRIER — anti-caster focus builds drain/break it faster
     qiBonus: 0,
     spiritBonus: 0,
     incomingMult: 1,
@@ -5948,6 +5949,48 @@ function mkEnemy(id, d) {
 ].forEach(([id, d]) => mkEnemy(id, d));
 const DEMON_TRIBS = { 1: 'heavens_first_glare', 2: 'thunder_brand_envoy', 3: 'heaven_chain_warden',
                       4: 'karmic_fire_judge', 5: 'silence_decree_lord', 6: 'annihilation_chooser' };
+// v1.27: DEMONIC tribulation difficulty curve, indexed by TARGET tier (1..6 = the breakthrough you
+// are attempting). Multiplies the trib enemy's Body / damage ON TOP of the base trib scaling
+// (1.8 / 0.75), ONLY for demonic breakthrough tribs (the heresy's escalating price). Operator
+// target: moderate-gear ~50/40/20/20/20/20, high-gear ~100/90/75/60/50/40 (scaling down by realm,
+// with headroom for super-investment above "high"). Tuned against tools/trib_sim.js. [0] unused.
+const DEMON_TRIB_HP_CURVE  = [1, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00];
+const DEMON_TRIB_DMG_CURVE = [1, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00];
+// v1.27: QI-BARRIER PIERCE for demonic tribulations. The heavens' judgment bypasses the
+// cultivation qi-shield that otherwise makes a high-investment heretic unkillable: this
+// fraction of a demonic trib's damage hits Body directly. Object (not bare number) so it can
+// be tuned at runtime by the sim. `.v` is the pierce fraction (0 = off, 0.5 = half). Tuned per
+// the operator's "high scales 100->40 by realm" target.
+const DEMON_TRIB_QI_PIERCE = { v: 0 };
+// v1.27: at high realms the pierced damage ALSO bites the qi pool (drains casting fuel), so the
+// pierce can't backfire by preserving the player's qi-for-casting. Fraction of the pierced
+// amount additionally drained from qi, by TARGET tier: NS (5) = 0.5, SS (6) = 1.0. [0] unused.
+const DEMON_TRIB_QI_BITE = [1, 0, 0, 0, 0, 0, 0];
+// v1.27: at the highest realms the heavens DENY the heretic mercy — self-mending (lifesteal,
+// regen, strike-heal) is suppressed during the trib, so the build's sustain can no longer out-tank
+// the judgment. Heal x this fraction, by TARGET tier: NS (5) 0.5 (-50%), SS (6) 0.25 (-75%). [0] unused.
+const DEMON_TRIB_HEAL_MULT = [1, 1, 1, 1, 1, 1, 1];
+// v1.27: HIGH-REALM ENEMY QI SCALING — enemy qi pools scale with the enemy's base × layer, but the
+// PLAYER's qi-drain (leech / qi-damage) compounds with cultivation, so by the high realms a geared
+// player empties any foe's qi instantly and it goes passive (meditates forever / can't fuel its
+// moveset). This multiplies enemy qiMax by player realm tier so high-realm foes can actually fight.
+// [tierIdx 0..6]. Tuned against the sim. 1.0 = unchanged.
+const ENEMY_QI_SCALE = [1, 1, 1, 1, 1, 1, 1];
+// v1.27: the qi-barrier redesign means ~25% of your damage reaches a barriered foe's Body, so the
+// SAME enemy Body now takes ~4x longer to grind. This rescales enemy Body by player tier so kills
+// land in a reasonable window (operator: ~10 rounds at Golden Core+ for moderate gear) while the
+// DANGER comes from enemy damage, not from being a slow Body sponge. [tierIdx 0..6]. 1.0 = unchanged.
+const ENEMY_HP_SCALE = [1, 1, 1, 0.8, 0.5, 0.5, 0.5];   // v1.27: CF (tier3) eased down per operator; GC+ Body down to offset the ~25% qi-barrier (kills land ~10 rounds, danger comes from damage)
+// v1.27: enemy DAMAGE scaling by player tier — paired with the log-DR rework so that a heavily
+// DEFENSIVE build (huge DR) is COMPENSATED-FOR (foes hit hard enough to still threaten it) rather
+// than becoming unkillable, while glass builds feel the danger. Tuned with ENEMY_HP_SCALE so high
+// realms are "die fast, but the foe hits hard" (operator). [tierIdx 0..6]. 1.0 = unchanged.
+const ENEMY_DMG_SCALE = [1, 1, 1, 0.85, 3, 4, 4];   // v1.27: CF (tier3) eased per operator. GC+ enemy damage was drastically undertuned (NS/SS foes took 600+ rounds to threaten a low-DR build). Scaled up so offensive builds feel real danger while DEFENSIVE (log-DR) builds are compensated-for, not immune.
+function tribHealMult() {
+  if (typeof combat === 'undefined' || !combat || !combat.tribulation) return 1;
+  if (!state || !state.demonic || typeof pendingTribulation === 'undefined' || !pendingTribulation || !pendingTribulation.targetTier) return 1;
+  return DEMON_TRIB_HEAL_MULT[pendingTribulation.targetTier] || 1;
+}
 
 // v0.68: RIGHTEOUS HUNTERS — demonic cultivators are ambushed on ordinary ventures by
 // sect enforcers of their own realm. Worth TRIPLE insight (the slaughter economy).
@@ -6263,6 +6306,45 @@ const BOSSES = {
   dawn_sovereign:       { tier: 6, blurb: 'Before the first sunrise there was a rehearsal. It still sits its throne, waiting for notes.',
                           firstKill: { sun_fragment: 2, dao_crystal: 1, spirit_stone: 1200 } },
 };
+
+// v1.27: HARD-MODE boss variants — a "stretch fight" available at the boss's OWN realm but tuned to
+// the BOTTOM OF THE NEXT REALM (HARD_BOSS_MULT on every stat), dropping an UPGRADED version of that
+// boss's set. Derived data-drivenly from the 14-boss roster so each boss gets one, inheriting its
+// wired signature+finisher. Same anchor tier as the base boss (gating + bossAnchorScale stay in-realm);
+// the raw-stat multiplier is what makes it a stretch. Tuned in the sim (see HARD_BOSS_MULT).
+const HARD_BOSS_MULT = 1.6;   // stretch fight ~bottom of next realm; floors look brutal but exclude relics/Ascendant set/full inscriptions — the endgame kit this gates
+const HARD_BOSS_SUFFIX = '_hard';
+Object.keys(BOSSES).forEach(bid => {
+  const base = ENEMIES[bid];
+  if (!base || !base.isBoss) return;
+  const hid = bid + HARD_BOSS_SUFFIX;
+  const fin = base._finisher;
+  const techIds = base.techIds.slice();
+  ENEMIES[hid] = {
+    id: hid, name: `${base.name}, Heavenscourge`, zh: base.zh, tier: base.tier,
+    hpMax: Math.round(base.hpMax * HARD_BOSS_MULT),
+    qiMax: Math.round(base.qiMax * HARD_BOSS_MULT),
+    spiritMax: Math.round(base.spiritMax * HARD_BOSS_MULT),
+    postureMax: Math.round(base.postureMax * HARD_BOSS_MULT),
+    weaponPower: Math.round(base.weaponPower * HARD_BOSS_MULT),
+    insightReward: Math.round(base.insightReward * 1.6),
+    techIds, drops: (base.drops || []).slice(), materialDrops: (base.materialDrops || []).slice(),
+    archetype: base.archetype, kind: base.kind, element: base.element,
+    isBoss: true, isHardBoss: true, _finisher: fin,
+    intro: base.intro, victoryText: base.victoryText, defeatText: base.defeatText,
+    ai: (e, p) => {   // mirrors the wired finisher AI (line ~6249), bound to the hard enemy
+      enemyTickCDs(e);
+      const desperate = (p.hp <= p.hpMax * 0.40) || (e.hp <= e.hpMax * 0.33);
+      if (fin && desperate && enemyCanUse(e, fin)) return enemyUseTech(e, p, fin);
+      for (const t of techIds) if (t !== fin && enemyCanUse(e, t)) return enemyUseTech(e, p, t);
+      if (e.qi < 14) return enemyMeditate(e);
+      return enemyBasicStrike(e, p);
+    },
+  };
+  ENEMY_ARCHETYPES[hid] = base.archetype;
+  BOSSES[hid] = { tier: BOSSES[bid].tier, hard: true, baseBoss: bid,
+    blurb: `Heavenscourge rite — ${base.name} pushed to the threshold of the next realm. Best it for an ascendant set.` };
+});
 
 
 
@@ -9294,10 +9376,70 @@ function craftBossSetPiece(bossId) {
   return true;
 }
 
+// v1.27: UPGRADED ("Ascendant") boss sets — the reward for a boss's HARD-mode (Heavenscourge) variant.
+// +40% on the set theme and 2/4-piece bonuses vs the base set, plus a flat-DR slab per piece so a full
+// ascendant defensive set pushes an extreme build toward ~130 DR. Craftable only after the Heavenscourge kill.
+const HARD_SET_MULT = 1.4;
+function hardSetId(bossId, slot) { return `bset_${bossId}_hard_${slot}`; }
+Object.entries(BOSS_LOOT).forEach(([bossId, L]) => {
+  const tier = BOSSES[bossId].tier;
+  const setKey = `bset_${bossId}_hard`;
+  BOSS_SET_SLOTS.forEach(([slot, noun, nounZh]) => {
+    const id = hardSetId(bossId, slot);
+    const mods = scaleBossMods(L.set, HARD_SET_MULT);
+    mods.hpBonus = (mods.hpBonus || 0) + Math.round((15 + tier * 12) * HARD_SET_MULT);
+    mods.flatDR = (mods.flatDR || 0) + Math.round(armorDrFloor(tier, 'divine') * 2.3);   // feeds the extreme-DR tier (~130 for a full ascendant defensive build)
+    ARMOR[id] = {
+      name: `Ascendant ${L.setName} ${noun}`, zh: `${L.setZh}${nounZh}`, slot, rarity: 'divine', set: setKey,
+      mods, bossSet: bossId, hardSet: true,
+      desc: `Ascendant ${L.setName} — wrung from ${ENEMIES[bossId] ? ENEMIES[bossId].name : bossId}'s Heavenscourge rite. (Upgraded 2/4-piece set bonuses.)`,
+    };
+  });
+  ARMOR_SETS[setKey] = {
+    name: `Ascendant ${L.setName}`, zh: L.setZh,
+    bonuses: [
+      { pieces: 2, desc: modSummary(scaleBossMods(L.set2, HARD_SET_MULT)), apply: m => mergeMods(m, scaleBossMods(L.set2, HARD_SET_MULT)) },
+      { pieces: 4, desc: modSummary(scaleBossMods(L.set4, HARD_SET_MULT)), apply: m => mergeMods(m, scaleBossMods(L.set4, HARD_SET_MULT)) },
+    ],
+  };
+});
+function hardSetCost(bossId) {
+  const tier = BOSSES[bossId].tier;
+  const cost = {};
+  cost[BOSS_UNIQUE_MATS[bossId][0]] = 2;   // costlier than the base set (1 unique)
+  Object.entries(WEAPON_GEN_TIER[tier].mats).forEach(([m, n]) => { cost[m] = (cost[m] || 0) + n * 2; });
+  return cost;
+}
+function nextHardSetSlot(bossId) {
+  const pair = BOSS_SET_SLOTS.find(([slot]) => !(state.armor.owned || []).includes(hardSetId(bossId, slot)));
+  return pair ? pair[0] : null;
+}
+function canCraftHardSetPiece(bossId) {
+  if (bossKillCount(bossId + HARD_BOSS_SUFFIX) < 1) return false;   // must have beaten the Heavenscourge
+  if (!nextHardSetSlot(bossId)) return false;
+  return Object.entries(hardSetCost(bossId)).every(([m, n]) => (state.base.materials[m] || 0) >= n);
+}
+function craftHardSetPiece(bossId) {
+  const slot = nextHardSetSlot(bossId);
+  if (!slot || !canCraftHardSetPiece(bossId)) return false;
+  Object.entries(hardSetCost(bossId)).forEach(([m, n]) => {
+    state.base.materials[m] -= n;
+    if (state.base.materials[m] <= 0) delete state.base.materials[m];
+  });
+  state.armor.owned.push(hardSetId(bossId, slot));
+  saveChar();
+  return true;
+}
+
 // ---- Weapon refinement tracks (themed, per boss, applied to a weapon you OWN) ----
-const BOSS_REFINE_CAP = 5;
+const BOSS_REFINE_CAP = 5;            // max level on a SINGLE boss track (per weapon)
+const WEAPON_REFINE_TOTAL_CAP = 5;   // v1.27: a weapon holds only 5 upgrade levels TOTAL across all boss tracks — spend them deliberately; refundable below
 function weaponBossRefineLevel(wid, bossId) {
   return (state.weaponBossRefine && state.weaponBossRefine[wid] && state.weaponBossRefine[wid][bossId]) || 0;
+}
+function weaponBossRefineTotal(wid) {
+  const tracks = state.weaponBossRefine && state.weaponBossRefine[wid];
+  return tracks ? Object.values(tracks).reduce((s, n) => s + (n || 0), 0) : 0;
 }
 function bossRefineCost(bossId, nextLevel) {
   const tier = BOSSES[bossId].tier;
@@ -9309,6 +9451,7 @@ function bossRefineCost(bossId, nextLevel) {
 function canApplyBossRefine(wid, bossId) {
   if (!wid || !WEAPONS[wid] || !BOSS_LOOT[bossId]) return false;
   if (weaponBossRefineLevel(wid, bossId) >= BOSS_REFINE_CAP) return false;
+  if (weaponBossRefineTotal(wid) >= WEAPON_REFINE_TOTAL_CAP) return false;   // v1.27: aggregate 5-upgrade cap
   const cost = bossRefineCost(bossId, weaponBossRefineLevel(wid, bossId) + 1);
   return Object.entries(cost).every(([m, n]) => (state.base.materials[m] || 0) >= n);
 }
@@ -9322,6 +9465,19 @@ function applyBossRefine(wid, bossId) {
   if (!state.weaponBossRefine) state.weaponBossRefine = {};
   if (!state.weaponBossRefine[wid]) state.weaponBossRefine[wid] = {};
   state.weaponBossRefine[wid][bossId] = next;
+  saveChar();
+  return true;
+}
+// v1.27: refund the TOP level of a boss track, crediting back that step's full material cost.
+// Lets the player re-spend their 5-upgrade budget on a different boss as builds evolve.
+function refundBossRefine(wid, bossId) {
+  const cur = weaponBossRefineLevel(wid, bossId);
+  if (cur <= 0) return false;
+  Object.entries(bossRefineCost(bossId, cur)).forEach(([m, n]) => {
+    state.base.materials[m] = (state.base.materials[m] || 0) + n;
+  });
+  state.weaponBossRefine[wid][bossId] = cur - 1;
+  if (state.weaponBossRefine[wid][bossId] <= 0) delete state.weaponBossRefine[wid][bossId];
   saveChar();
   return true;
 }
@@ -9425,8 +9581,12 @@ function armorHpFloor(t, rarity, slot) {
   return Math.round((base + (next - base) * frac) * (ARMOR_SLOT_WEIGHT[slot] || 0.5));
 }
 function armorDrFloor(t, rarity) {
-  const m = { legendary: 3, divine: 5 }[rarity];
-  return m ? Math.round(m * Math.pow(1.6, Math.min(6, t))) : 0;
+  // v1.27: DR is a LOG stat on a 1-200 scale (200 -> 99% reduction; see dealDamage). Rescaled so a
+  // PRACTICAL late-game build lands ~50-60 DR, a defensively-geared HIGH build ~100, and an EXTREME
+  // DR-stack (defensive set + DR inscriptions + iron kit) ~130 (operator targets).
+  if (rarity === 'divine')    return Math.round(2 + 1.4 * t);   // SS ~10, GC ~7, FE ~5
+  if (rarity === 'legendary') return Math.round(1.3 + 0.9 * t); // SS ~7, GC ~5
+  return 0;
 }
 // ============================================================
 // v0.89/v0.90 STYLE LINES — craftable build-identity gear at every realm, three axes the
@@ -13413,17 +13573,19 @@ function buildEnemyCombat(enemyId) {
   // than a trash mob. Measured pre-v1.25: a Golden Core trib had ~97k Body vs a normal's ~182k — fully inverted.
   // Damage stays gentle on purpose: a trib should be an endurance + unique-mechanic fight, not a burst race.
   const isTribFight = (typeof pendingTribulation !== 'undefined' && pendingTribulation);
-  const tribHpMult  = isTribFight ? 1.8 : 1;
-  const tribDmgMult = isTribFight ? 0.75 : 1;
-  const scaledHpMax = Math.round(enemyData.hpMax * scale.stats * 2.5 * hpBoost * eliteHpExtra * realmHpBuff * normalHpMult * inqHpMult * tribHpMult * backHalf * DIFFICULTY_TICK * mortalBossMult);
-  const scaledQiMax = Math.round(enemyData.qiMax * scale.stats * 2 * qiBoost);
+  // v1.27: demonic breakthrough tribs scale harder by realm (DEMON_TRIB_*_CURVE), on top of the base.
+  const demonTribTier = (isTribFight && state.demonic && pendingTribulation && pendingTribulation.targetTier && DEMON_TRIB_HP_CURVE[pendingTribulation.targetTier]) ? pendingTribulation.targetTier : 0;
+  const tribHpMult  = isTribFight ? 1.8 * (demonTribTier ? DEMON_TRIB_HP_CURVE[demonTribTier] : 1) : 1;
+  const tribDmgMult = isTribFight ? 0.75 * (demonTribTier ? DEMON_TRIB_DMG_CURVE[demonTribTier] : 1) : 1;
+  const scaledHpMax = Math.round(enemyData.hpMax * scale.stats * 2.5 * hpBoost * eliteHpExtra * realmHpBuff * normalHpMult * inqHpMult * tribHpMult * backHalf * DIFFICULTY_TICK * mortalBossMult * (ENEMY_HP_SCALE[state.realm.tierIdx || 0] || 1));
+  const scaledQiMax = Math.round(enemyData.qiMax * scale.stats * 2 * qiBoost * (ENEMY_QI_SCALE[state.realm.tierIdx || 0] || 1));
   const scaledSpiritMax = Math.round(enemyData.spiritMax * scale.stats * 2 * qiBoost);
   // v0.81: enemy posture pools were too deep to break — normals x0.75, bosses x0.40 (even
   // dedicated posture-break builds stalled on bosses). Posture is the stagger axis, not an
   // Body clone; it should be reachable.
   const posMult = enemyData.isBoss ? 0.40 : 0.75;
   const scaledPostureMax = Math.round(enemyData.postureMax * scale.stats * 2 * postureBoost * posMult);
-  const scaledWeaponPower = Math.max(1, Math.round(enemyData.weaponPower * scale.stats * 2 * wpnBoost * realmDmgBuff * normalDmgMult * inqDmgMult * tribDmgMult * backHalf * DIFFICULTY_TICK * mortalBossMult));
+  const scaledWeaponPower = Math.max(1, Math.round(enemyData.weaponPower * scale.stats * 2 * wpnBoost * realmDmgBuff * normalDmgMult * inqDmgMult * tribDmgMult * backHalf * DIFFICULTY_TICK * mortalBossMult * (ENEMY_DMG_SCALE[state.realm.tierIdx || 0] || 1)));
   // Flat damage reduction. Elites get a thicker pad; normals get a small one (v0.23.2)
   // that scales gently by tier. Both blunt chip-damage / multi-hit AOE strategies.
   const tierIdx = state.realm.tierIdx || 0;
@@ -13525,7 +13687,7 @@ function initCombat(enemyIdOrIds, areaCultMult) {
     turn: 1,
     // v0.64: cultivator might quietly feeds damage (+might/1000 as a fraction).
     // Cached here — cultivatorMight() runs computeMods and is too heavy per-hit.
-    mightDamageBonus: cultivatorMight() / 1000 + 0.015 * goldenCoreLevel(),   // v1.18: +1.5% global damage/GC level
+    mightDamageBonus: cultivatorMight() / 1000 + 0.03 * goldenCoreLevel(),   // v1.18: +1.5% -> v1.27: +3% global damage/GC level (gear/quality weight)
     cultDmgMult: cultPowerMults(state).dmg,   // v0.98: small per-layer damage growth (gear carries the bulk)
     enemyId: enemies[0].id,  // legacy single-enemy ID used by victory-reward / insight scaling
     log: [],
@@ -13606,33 +13768,61 @@ function dealDamage(target, amount, opts) {
     if (ward > 0) { qiDmg *= 1 - ward; hpDmg *= 1 - ward; spiritDmg *= 1 - ward; }
   }
 
-  if (opts.pierceQi) {
-    const pierced = qiDmg * opts.pierceQi;
+  // v1.27: demonic tribulations pierce the cultivation qi-shield (Body-direct), on top of any
+  // technique pierceQi — this is what lets a trib actually threaten a fully-geared heretic.
+  const demonTribDmg = combat && target === combat.player && combat.tribulation && state && state.demonic;
+  let pierceFrac = opts.pierceQi || 0;
+  if (demonTribDmg && DEMON_TRIB_QI_PIERCE.v > 0) pierceFrac = Math.max(pierceFrac, DEMON_TRIB_QI_PIERCE.v);
+  if (pierceFrac) {
+    const pierced = qiDmg * pierceFrac;
     hpDmg += pierced;
     qiDmg -= pierced;
+    // v1.27: high-realm demonic tribs ALSO drain casting qi by a fraction of the pierced amount
+    // (NS 0.5 / SS 1.0) — denies the qi-for-casting that otherwise lets pierce backfire.
+    const tt = (demonTribDmg && pendingTribulation && pendingTribulation.targetTier) || 0;
+    if (tt && DEMON_TRIB_QI_BITE[tt]) target.qi = Math.max(0, target.qi - pierced * DEMON_TRIB_QI_BITE[tt]);
   }
 
   // v0.23 flatDR — applied after multipliers, capped at 40% of incoming.
   // Player reads from mods; enemies can carry a target.flatDR (set in initCombat for elites).
   // v0.45: Sundered targets lose their flat DR entirely (the armor has been melted off).
-  const targetDR = sunderEf ? 0 : ((combat && target === combat.player)
-    ? (combat.player.mods.flatDR || 0)
-    : (target.flatDR || 0));
-  if (targetDR > 0) {
-    const cap = (qiDmg + hpDmg) * 0.4;
-    let dr = Math.min(targetDR, cap);
-    const qSoak = Math.min(qiDmg, dr);
-    qiDmg -= qSoak; dr -= qSoak;
-    if (dr > 0) hpDmg = Math.max(0, hpDmg - dr);
+  // v1.27: DR REWORK. PLAYER DR is now LOGARITHMIC on a 1-200 scale — damage × 0.01^(DR/200), so
+  // 100 DR ≈ 90%, 200 ≈ 99%, asymptotic (never full immunity); strong early, diminishing late.
+  // Enemies keep the old flat-subtract (capped 40%) — DR is a player gear stat; foes don't "gear".
+  if (combat && target === combat.player) {
+    const pdr = sunderEf ? 0 : (combat.player.mods.flatDR || 0);
+    if (pdr > 0) { const drMult = Math.pow(0.01, Math.max(0, pdr) / 200); qiDmg *= drMult; hpDmg *= drMult; }
+  } else {
+    const edr = sunderEf ? 0 : (target.flatDR || 0);
+    if (edr > 0) {
+      const cap = (qiDmg + hpDmg) * 0.4;
+      let dr = Math.min(edr, cap);
+      const qSoak = Math.min(qiDmg, dr);
+      qiDmg -= qSoak; dr -= qSoak;
+      if (dr > 0) hpDmg = Math.max(0, hpDmg - dr);
+    }
   }
 
-  // v0.98: qi barrier — each point of qi soaks qiShieldMult× its value before overflowing to Body
-  // (default 1 for enemies; the player's grows with cultivation).
+  // v1.27 QI-BARRIER REDESIGN (operator): while a combatant has a qi barrier, qi-damage SPLITS —
+  // half drains the barrier, half hits Body at HALF rate (~25% of the hit reaches Body while the
+  // barrier holds). BREAK the barrier (qi -> 0) and the hit lands FULL on Body, and a foe with no qi
+  // can't fuel its techniques (anti-caster payoff). A focused build raises qiDamageMult to drain the
+  // barrier faster — by default you mostly chip ~25% and the barrier holds (foes keep casting).
+  // qiShieldMult still makes a barrier "deeper" (the player's grows with cultivation).
   const qsm = target.qiShieldMult || 1;
-  const absorbed = Math.min(target.qi * qsm, qiDmg);
-  target.qi -= absorbed / qsm;
-  const overflow = qiDmg - absorbed;
-  const totalHp = overflow + hpDmg;
+  const qiDmgMult = (combat && combat.player && target !== combat.player && combat.player.mods) ? (combat.player.mods.qiDamageMult || 1) : 1;
+  let absorbed, totalHp;
+  if (target.qi > 0 && qiDmg > 0) {
+    const qiPortion = qiDmg * 0.5 * qiDmgMult;     // half of the hit pressures the barrier (focus amps it)
+    const barrierCap = target.qi * qsm;
+    absorbed = Math.min(barrierCap, qiPortion);
+    target.qi -= absorbed / qsm;
+    const broke = qiPortion >= barrierCap;          // this hit emptied the barrier -> full damage lands
+    totalHp = qiDmg * 0.25 + (broke ? qiDmg * 0.75 : 0) + hpDmg;
+  } else {
+    absorbed = 0;
+    totalHp = qiDmg + hpDmg;                         // no barrier -> full damage to Body
+  }
   target.hp -= totalHp;
   target.spirit -= spiritDmg;
   if (target.hp < 0) target.hp = 0;
@@ -13798,6 +13988,11 @@ function applyPlayerOutgoingMods(p, dmg, target, ctx) {
   const turn = (combat && combat.turn) || 1;
   if (m.firstStrikeBonus && turn <= 1 && !(ctx && ctx.instant)) dmg *= 1 + m.firstStrikeBonus;
   if (m.lowHpBonus && p.hp > 0 && p.hp / p.hpMax < 0.50) dmg *= 1 + m.lowHpBonus;  // v0.70: bloodied at <50% (was 33%)
+  // v1.27: weapon REFINEMENT is now a real damage multiplier — gear investment that scales late-game
+  // power (operator: "a well-geared cultivator should feel tangibly stronger"), not just flat weapon
+  // power diluted by realm scaling. Primary weapon: +5% outgoing damage per refine level (refine 10 = +50%).
+  const refineLvl = (typeof state !== 'undefined' && state.refine && state.weapon && state.refine[state.weapon]) || 0;
+  if (refineLvl) dmg *= 1 + 0.05 * refineLvl;
   if (target && target.kind && m.vsKindMult && m.vsKindMult[target.kind]) {
     dmg *= 1 + m.vsKindMult[target.kind];
   }
@@ -13903,7 +14098,7 @@ const DOT_KINDS = new Set(['burn', 'poison', 'bleed', 'leech']);
 // v0.23: lifesteal + qi-on-hit-style triggers fired after a successful hit.
 function applyPostHitTriggers(p, res, tgt) {
   if ((p.mods.lifestealPct || 0) > 0 && (res.hpDamage + res.qiAbsorbed) > 0) {
-    const heal = Math.round((res.hpDamage + res.qiAbsorbed) * p.mods.lifestealPct);
+    const heal = Math.round((res.hpDamage + res.qiAbsorbed) * p.mods.lifestealPct * tribHealMult());
     if (heal > 0) {
       const before = p.hp;
       p.hp = Math.min(p.hpMax, p.hp + heal);
@@ -13971,7 +14166,7 @@ function playerStrike(opts) {
     if (broke) pushLog('posture', `${e.name}'s stance shatters! Qi damage doubled for ${e.broken} turns.`);
     if (p.mods.strikeHeal > 0 && res.qiAbsorbed + res.hpDamage > 0) {
       const before = p.hp;
-      p.hp = Math.min(p.hpMax, p.hp + p.mods.strikeHeal);
+      p.hp = Math.min(p.hpMax, p.hp + p.mods.strikeHeal * tribHealMult());
       if (p.hp > before) pushLog('heal', `  → +${p.hp - before} Body (Bloodbond)`);
     }
   }
@@ -14111,7 +14306,7 @@ function playerTechnique(techId) {
     // v1.8: demon_heart technique payoffs — Devourer's Crown drinks +10% per hellfire stack; Soul-Devouring Palm siphons the barrier.
     if (isDemonHeart(state) && !isAoe) {
       if (techId === 'demon_ascendant' && dhHellStacks > 0) {
-        const extra = Math.round((dhHpDealt + dhQiDrained) * 0.10 * dhHellStacks);
+        const extra = Math.round((dhHpDealt + dhQiDrained) * 0.10 * dhHellStacks * tribHealMult());
         if (extra > 0) { const b = p.hp; p.hp = Math.min(p.hpMax, p.hp + extra); if (p.hp > b) pushLog('heal', `  → +${p.hp - b} Body — the Crown feeds on ${dhHellStacks} hellfire.`); }
       } else if (techId === 'demon_devour' && dhQiDrained > 0) {
         const b = p.qi; p.qi = Math.min(p.qiMax, p.qi + dhQiDrained); if (p.qi > b) pushLog('heal', `  → +${p.qi - b} qi siphoned from the barrier.`);
@@ -14775,6 +14970,7 @@ function applyPlayerReflect(e, res) {
   }
 }
 function enemyUseTech(e, p, techId) {
+  e._medStreak = 0;   // v1.27: offensive action — reset the anti-meditate-lock streak
   const tech = e.techniques[techId];
   // v0.45 safety: some per-enemy AIs call enemyUseTech directly — a silenced enemy
   // falls back to a plain strike instead.
@@ -14836,6 +15032,12 @@ function enemyMeditate(e) {
     pushLog('line', `The ${e.name} tries to gather qi — the entangling glyphs drink everything it draws.`);
     return;
   }
+  // v1.27: ANTI-MEDITATE-LOCK — a foe whose qi is drained below its technique threshold can't
+  // gather qi forever (the exploit that made high-realm enemies, esp. tribulations, never attack:
+  // a qi-draining build kept them perpetually meditating). After ONE charge turn it strikes
+  // instead — so an enemy attacks at least every other round regardless of qi.
+  if ((e._medStreak || 0) >= 1) { e._medStreak = 0; return enemyBasicStrike(e, combat.player); }
+  e._medStreak = (e._medStreak || 0) + 1;
   const regen = Math.ceil(e.qiMax * 0.4);
   const before = e.qi;
   e.qi = Math.min(e.qiMax, e.qi + regen);
@@ -14844,6 +15046,7 @@ function enemyMeditate(e) {
   pushLog('heal', `  → +${e.qi - before} qi (vulnerable)`);
 }
 function enemyBasicStrike(e, p) {
+  e._medStreak = 0;   // v1.27: it acted offensively — reset the anti-meditate-lock streak
   // v0.18 Phase 2: before falling through to a plain strike, try any usable technique.
   // This lets new techs added to techIds actually get used by the existing per-enemy AIs
   // (which only hard-code their original tech names). Specific AI logic that prefers
@@ -15022,7 +15225,7 @@ function endOfRound() {
   }
   if (regen0 > 0 && p.hp > 0 && p.hp < p.hpMax) {
     const before = p.hp;
-    p.hp = Math.min(p.hpMax, p.hp + regen0);
+    p.hp = Math.min(p.hpMax, p.hp + Math.round(regen0 * tribHealMult()));
     if (p.hp > before) pushLog('heal', `  → +${p.hp - before} Body (regrowth)`);
   }
 
@@ -17230,9 +17433,9 @@ function renderCharSheet() {
   bossP.className = 'panel';
   bossP.innerHTML = `<h3>Bosses <span style="font-weight:normal;color:var(--ink-soft);font-size:0.85rem">魁首</span></h3>
     <p style="font-size:0.85rem;color:var(--ink-soft);margin:0 0 0.6rem">Named terrors of each realm. They hit harder than anything else at their tier, and <strong style="color:var(--crimson)">losing to a boss costs DOUBLE lifespan</strong>. First kill grants a bonus material cache; they can be re-fought for their drops.</p>`;
-  bossP.appendChild(realmTabChips('bossesRealm', t => Object.values(BOSSES).filter(b => b.tier === t).length));
+  bossP.appendChild(realmTabChips('bossesRealm', t => Object.values(BOSSES).filter(b => b.tier === t && !b.hard).length));
   const bRealm = selectedRealmTab('bossesRealm');
-  Object.entries(BOSSES).filter(([, b]) => realmTabShows('bossesRealm', b.tier)).forEach(([bid, meta]) => {
+  Object.entries(BOSSES).filter(([, b]) => !b.hard && realmTabShows('bossesRealm', b.tier)).forEach(([bid, meta]) => {
     const en = ENEMIES[bid];
     if (!en) return;
     const kills = bossKillCount(bid);
@@ -17267,6 +17470,20 @@ function renderCharSheet() {
         cn.textContent = `${charges}/${BOSS_CHARGE_MAX} charges · next +1 in ${Math.ceil(bossNextChargeMs(bid) / 60000)}m`;
         card.querySelector('.location-actions').appendChild(cn);
       }
+      // v1.27: HARD-mode (Heavenscourge) — a stretch fight (~bottom of the next realm) for the upgraded set.
+      const hid = bid + HARD_BOSS_SUFFIX;
+      const hKills = bossKillCount(hid), hCharges = bossChargeCount(hid);
+      const hb = document.createElement('button');
+      hb.className = 'small ' + (hCharges >= 1 ? 'gold' : 'ghost');
+      hb.style.cssText = 'margin-top:0.25rem;border-color:var(--crimson)';
+      if (hCharges < 1) {
+        hb.textContent = `Heavenscourge — recharging (${Math.ceil(bossNextChargeMs(hid) / 60000)}m)`;
+        hb.disabled = true;
+      } else {
+        hb.textContent = `Heavenscourge (Hard)${hKills > 0 ? ` · bested ×${hKills}` : ''}`;
+        hb.onclick = () => startBossFight(hid);
+      }
+      card.querySelector('.location-actions').appendChild(hb);
     } else {
       card.querySelector('.location-actions').innerHTML = `<span style="font-size:0.78rem;color:var(--crimson)">Requires ${REALMS[meta.tier].name}.</span>`;
     }
@@ -17297,26 +17514,53 @@ function renderCharSheet() {
         setRow.appendChild(sb);
       }
       card.appendChild(setRow);
+      // v1.27: Ascendant (upgraded) set — unlocked once you've bested this boss's Heavenscourge.
+      const hid2 = bid + HARD_BOSS_SUFFIX;
+      if (bossKillCount(hid2) > 0) {
+        const hRow = document.createElement('div');
+        hRow.style.cssText = 'margin-top:0.35rem;font-size:0.8rem';
+        const hOwned = BOSS_SET_SLOTS.filter(([slot]) => (state.armor.owned || []).includes(hardSetId(bid, slot))).length;
+        const hNext = nextHardSetSlot(bid);
+        const hCostStr = Object.entries(hardSetCost(bid)).map(([m, n]) => {
+          const has = (state.base.materials[m] || 0) >= n;
+          return `<span style="color:${has ? 'var(--ink)' : 'var(--crimson)'}">${n}x ${(MATERIALS[m] && MATERIALS[m].name) || m}</span>`;
+        }).join(', ');
+        hRow.innerHTML = `<strong style="color:var(--gold)">Ascendant ${L.setName}</strong> <span style="color:var(--ink-soft)">${hOwned}/4 · +40% theme & flat DR</span>
+          ${hNext ? `<div style="color:var(--ink-soft);margin-top:0.1rem">Next piece: ${hCostStr}</div>` : '<div style="color:var(--gold);margin-top:0.1rem">Ascendant set complete.</div>'}`;
+        if (hNext) {
+          const hsb = document.createElement('button');
+          hsb.className = 'small ' + (canCraftHardSetPiece(bid) ? 'gold' : 'ghost');
+          hsb.style.marginTop = '0.25rem';
+          hsb.textContent = `Forge Ascendant ${(BOSS_SET_SLOTS.find(s => s[0] === hNext) || [, 'Piece'])[1]}`;
+          hsb.disabled = !canCraftHardSetPiece(bid);
+          hsb.onclick = () => { craftHardSetPiece(bid); render(); };
+          hRow.appendChild(hsb);
+        }
+        card.appendChild(hRow);
+      }
       // weapon refinement track on the equipped primary
       const refRow = document.createElement('div');
       refRow.style.cssText = 'margin-top:0.3rem;font-size:0.8rem';
       const pw = state.weapon, pwName = (WEAPONS[pw] && WEAPONS[pw].name) || 'no weapon';
       const lvl = pw ? weaponBossRefineLevel(pw, bid) : 0;
+      const totUsed = pw ? weaponBossRefineTotal(pw) : 0;
       let refHTML = `<strong>${L.refName}</strong> <span style="color:var(--ink-soft)">— ${L.refBlurb}</span>`;
       if (!pw) {
         refHTML += `<div style="color:var(--crimson);margin-top:0.1rem">Equip a weapon to inscribe this refinement.</div>`;
       } else if (lvl >= BOSS_REFINE_CAP) {
-        refHTML += `<div style="color:var(--gold);margin-top:0.1rem">${pwName}: Lv ${lvl}/${BOSS_REFINE_CAP} (maxed).</div>`;
+        refHTML += `<div style="color:var(--gold);margin-top:0.1rem">${pwName}: Lv ${lvl}/${BOSS_REFINE_CAP} (track maxed) · ${totUsed}/${WEAPON_REFINE_TOTAL_CAP} upgrades used.</div>`;
+      } else if (totUsed >= WEAPON_REFINE_TOTAL_CAP) {
+        refHTML += `<div style="color:var(--crimson);margin-top:0.1rem">${pwName}: ${totUsed}/${WEAPON_REFINE_TOTAL_CAP} upgrades used — refund one to free a slot.</div>`;
       } else {
         const rc = bossRefineCost(bid, lvl + 1);
         const rcStr = Object.entries(rc).map(([m, n]) => {
           const has = (state.base.materials[m] || 0) >= n;
           return `<span style="color:${has ? 'var(--ink)' : 'var(--crimson)'}">${n}x ${(MATERIALS[m] && MATERIALS[m].name) || m}</span>`;
         }).join(', ');
-        refHTML += `<div style="color:var(--ink-soft);margin-top:0.1rem">${pwName}: Lv ${lvl}/${BOSS_REFINE_CAP} · next: ${rcStr}</div>`;
+        refHTML += `<div style="color:var(--ink-soft);margin-top:0.1rem">${pwName}: Lv ${lvl}/${BOSS_REFINE_CAP} · ${totUsed}/${WEAPON_REFINE_TOTAL_CAP} used · next: ${rcStr}</div>`;
       }
       refRow.innerHTML = refHTML;
-      if (pw && lvl < BOSS_REFINE_CAP) {
+      if (pw && lvl < BOSS_REFINE_CAP && totUsed < WEAPON_REFINE_TOTAL_CAP) {
         const rb = document.createElement('button');
         rb.className = 'small ' + (canApplyBossRefine(pw, bid) ? 'gold' : 'ghost');
         rb.style.marginTop = '0.25rem';
@@ -17324,6 +17568,14 @@ function renderCharSheet() {
         rb.disabled = !canApplyBossRefine(pw, bid);
         rb.onclick = () => { applyBossRefine(pw, bid); render(); };
         refRow.appendChild(rb);
+      }
+      if (pw && lvl > 0) {   // v1.27: refundable — reclaim this step's mats and free the budget slot
+        const fb = document.createElement('button');
+        fb.className = 'small ghost';
+        fb.style.cssText = 'margin-top:0.25rem;margin-left:0.3rem';
+        fb.textContent = `Refund (Lv ${lvl})`;
+        fb.onclick = () => { refundBossRefine(pw, bid); render(); };
+        refRow.appendChild(fb);
       }
       card.appendChild(refRow);
     }
