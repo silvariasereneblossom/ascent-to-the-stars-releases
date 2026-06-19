@@ -541,11 +541,11 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v1.27.1';
+const GAME_VERSION = 'v1.27.2';
 // v0.78: CI injects the build's short sha here; the APK shell reads it FROM THE RUNNING
 // PAGE (window.BUILD_SHA) and compares against the repo head — staleness detection that
-// cannot be fooled by cached metadata. 'accd33e' = local/dev build (shell falls back).
-const BUILD_SHA = 'accd33e';
+// cannot be fooled by cached metadata. '8b8b14a' = local/dev build (shell falls back).
+const BUILD_SHA = '8b8b14a';
 if (typeof window !== 'undefined') window.BUILD_SHA = BUILD_SHA;
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
@@ -3424,8 +3424,9 @@ const SCHOOL_KITS = {
   },
   whispering_array: {
     passiveName: 'Lingering Glyphs', passiveZh: '余纹',
-    passiveDesc: 'Every status effect you inflict lasts +1 turn.',
+    passiveDesc: 'Every status effect you inflict lasts +1 turn; your binding glyphs drain 4% of a foe\'s qi on each hit.',
     debuffTurnsBonus: 1,
+    qiDrainBonus: 0.04,   // v1.27.2: entangle/qi-drain theme
   },
   crimson_flame: {
     passiveName: 'Everburn', passiveZh: '不熄',
@@ -3434,8 +3435,9 @@ const SCHOOL_KITS = {
   },
   moonlit_water: {
     passiveName: 'Deep Cold', passiveZh: '深寒',
-    passiveDesc: 'Technique hits Chill the target: -20% outgoing damage for 2 turns.',
+    passiveDesc: 'Technique hits Chill the target: -20% outgoing damage for 2 turns. The deep cold also presses +35% harder against their qi barrier.',
     onTechHit: { kind: 'chill', value: 0.20, turns: 2 },
+    qiPressureBonus: 0.35,   // v1.27.2: cold-attrition anti-caster
   },
   silent_daggers: {
     passiveName: 'Coated Blades', passiveZh: '淬刃',
@@ -3474,14 +3476,16 @@ const SCHOOL_KITS = {
   },
   jade_inkwell: {
     passiveName: 'Red-Ink Authority', passiveZh: '朱批',
-    passiveDesc: '+15% damage to enemies under any of your status effects.',
+    passiveDesc: '+15% damage to enemies under any of your status effects; every hit TAXES 6% of their qi — starving their techniques and thinning their qi barrier.',
     ampVsDebuffed: 0.15,
+    qiDrainBonus: 0.06,   // v1.27.2: the signature qi-drain school
   },
   dragonforge: {
     passiveName: 'Moltenwake', passiveZh: '熔迹',
-    passiveDesc: 'EVERY hit — strikes included — Sunders: +6% damage taken AND +10% posture damage taken per stack (max 5), and Sundered armor stops counting.',
+    passiveDesc: 'EVERY hit — strikes included — Sunders: +6% damage taken AND +10% posture damage taken per stack (max 5), and Sundered armor stops counting. Moltenwake also bites +45% harder into a foe\'s qi barrier.',
     onTechHit: { kind: 'sunder', value: 0.06, turns: 3 },
     strikeAppliesOnHit: true,   // v0.68: basic strikes sunder too (operator)
+    qiPressureBonus: 0.45,   // v1.27.2: barrier-shred specialist (complements sunder)
   },
   chain_saint: {
     passiveName: 'Oathbrand', passiveZh: '誓烙',
@@ -3898,6 +3902,39 @@ const INSCRIPTIONS = {
     desc: '+2 qi regenerated per turn. An old glyph for quieting the dantian.',
     apply: m => { m.qiRegenBonus += 2; },
   },
+  // v1.27.2: QI-PRESSURE inscriptions — bonus damage to a foe's qi barrier (break it faster -> full
+  // damage + their techniques choke). An anti-caster gear specialization, not a default.
+  barrier_breaker: {
+    name: 'Barrier-Breaker Sigil', zh: '破障符', rarity: 'rare',
+    desc: '+25% damage to enemy qi barriers. Etched to find the seam in any guard.',
+    apply: m => { m.qiDamageMult *= 1.25; },
+  },
+  shatterpoint_seal: {
+    name: 'Shatterpoint Seal', zh: '碎点印', rarity: 'legendary',
+    desc: '+50% damage to enemy qi barriers. The shell cracks where you strike.',
+    apply: m => { m.qiDamageMult *= 1.5; },
+  },
+  riftfang_brand: {
+    name: 'Riftfang Brand', zh: '裂牙烙', rarity: 'divine',
+    desc: '+85% damage to enemy qi barriers. A focused heretic shatters guards in a blow.',
+    apply: m => { m.qiDamageMult *= 1.85; },
+  },
+  // v1.27.2: QI-DRAIN inscriptions — sap a % of the foe's max qi on every hit (starve casting, thin the barrier).
+  siphon_glyph: {
+    name: 'Siphon Glyph', zh: '汲灵纹', rarity: 'rare',
+    desc: 'Each hit drains 4% of the foe\'s qi. A leech-script for the dantian.',
+    apply: m => { m.qiDrainPct += 0.04; },
+  },
+  hollow_dantian_seal: {
+    name: 'Hollow-Dantian Seal', zh: '空丹印', rarity: 'legendary',
+    desc: 'Each hit drains 7% of the foe\'s qi. Their well runs dry as you press.',
+    apply: m => { m.qiDrainPct += 0.07; },
+  },
+  void_meridian_brand: {
+    name: 'Void-Meridian Brand', zh: '虚脉烙', rarity: 'divine',
+    desc: 'Each hit drains 11% of the foe\'s qi. The meridians empty into nothing.',
+    apply: m => { m.qiDrainPct += 0.11; },
+  },
   pill_nurtured: {
     name: 'Pill-Nurtured', zh: '丹养', rarity: 'common',
     desc: 'Meditate recovers 30% more qi. A residue of alchemical heat.',
@@ -4130,6 +4167,8 @@ const INSCRIPTIONS = {
 // v1.1: each inscription's HOME realm tier (0 Mortal .. 6 Spirit Severing). Drives realm-scaled
 // drops + craft gating. Kept as a side table so the 60+ defs above stay readable. Default 0.
 const INSCRIPTION_REALM = {
+  // v1.27.2: qi-pressure / qi-drain specialization inscriptions (anti-caster gear)
+  barrier_breaker: 2, siphon_glyph: 2, shatterpoint_seal: 3, hollow_dantian_seal: 4, riftfang_brand: 5, void_meridian_brand: 5,
   // mixed early set
   thousand_tempered: 1, jade_heart: 1, bloodbond: 0, meridian_clearing: 1, pill_nurtured: 1,
   searing_rune: 2, heaven_listening: 3,
@@ -4279,6 +4318,7 @@ function baseInscriptionMods() {
     hpBonus: 0,
     hpMult: 1,               // v0.89: multiplicative max-Body bonus (Body%), defensive-style stat
     qiDamageMult: 1,         // v1.27: bonus damage to a foe's QI BARRIER — anti-caster focus builds drain/break it faster
+    qiDrainPct: 0,           // v1.27.2: on every hit, drain this % of the foe's MAX qi (starves casting; shrinks the barrier). Gear/class specialization, not a default.
     qiBonus: 0,
     spiritBonus: 0,
     incomingMult: 1,
@@ -4369,6 +4409,9 @@ function applySchoolKitToMods(mods, char) {
     const t = (char.realm && char.realm.tierIdx) || 0;
     mods.flatDR = (mods.flatDR || 0) + kit.flatDRBase + (kit.flatDRPerTier || 0) * t;
   }
+  // v1.27.2: anti-caster school passives — qi-pressure (break barriers) and qi-drain (starve casting).
+  if (kit.qiPressureBonus) mods.qiDamageMult = (mods.qiDamageMult || 1) * (1 + kit.qiPressureBonus);
+  if (kit.qiDrainBonus)    mods.qiDrainPct = (mods.qiDrainPct || 0) + kit.qiDrainBonus;
 }
 
 // v0.23: each WEAPONS entry can carry an apply(m, ctx) hook. The primary weapon's
@@ -5949,13 +5992,16 @@ function mkEnemy(id, d) {
 ].forEach(([id, d]) => mkEnemy(id, d));
 const DEMON_TRIBS = { 1: 'heavens_first_glare', 2: 'thunder_brand_envoy', 3: 'heaven_chain_warden',
                       4: 'karmic_fire_judge', 5: 'silence_decree_lord', 6: 'annihilation_chooser' };
-// v1.27: DEMONIC tribulation difficulty curve, indexed by TARGET tier (1..6 = the breakthrough you
+// v1.27.2: DEMONIC tribulation difficulty curve, indexed by TARGET tier (1..6 = the breakthrough you
 // are attempting). Multiplies the trib enemy's Body / damage ON TOP of the base trib scaling
-// (1.8 / 0.75), ONLY for demonic breakthrough tribs (the heresy's escalating price). Operator
-// target: moderate-gear ~50/40/20/20/20/20, high-gear ~100/90/75/60/50/40 (scaling down by realm,
-// with headroom for super-investment above "high"). Tuned against tools/trib_sim.js. [0] unused.
-const DEMON_TRIB_HP_CURVE  = [1, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00];
-const DEMON_TRIB_DMG_CURVE = [1, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00];
+// (1.8 / 0.75), ONLY for demonic breakthrough tribs (the heresy's escalating price). After the v1.27
+// qi-barrier overhaul made the player KILLABLE, the old (neutral 1.0) tribs crushed everyone (0% from
+// Foundation up even at high gear), so the curve is now heavily eased. Measured shape (tools/trib_sim.js,
+// clean gear): moderate ~58/30/17/17/12/20 (a cliff after Qi Condensation, plateau ~20%); high ~80/60/45/
+// 45/65/55 (clearly stronger, declining-ish). The operator's exact high targets (76-88% mid-realm) aren't
+// reachable — the real gear-gap is ~25-35 pts, not the ~50 the target implies — but the shape holds. [0] unused.
+const DEMON_TRIB_HP_CURVE  = [1, 1.00, 0.13, 0.16, 0.17, 0.20, 0.28];
+const DEMON_TRIB_DMG_CURVE = [1, 1.00, 0.13, 0.16, 0.17, 0.20, 0.28];
 // v1.27: QI-BARRIER PIERCE for demonic tribulations. The heavens' judgment bypasses the
 // cultivation qi-shield that otherwise makes a high-investment heretic unkillable: this
 // fraction of a demonic trib's damage hits Body directly. Object (not bare number) so it can
@@ -9938,13 +9984,14 @@ function modSummary(mods) {
   const pcts = {   // v0.72: fraction channels rendered as percentages
     critChance: 'crit', lifestealPct: 'lifesteal', dodgeChance: 'dodge',
     firstStrikeBonus: 'opener', lowHpBonus: 'bloodied dmg', elementBoostAll: 'element overcome',
-    perTurnRamp: 'dmg per turn',
+    perTurnRamp: 'dmg per turn', qiDrainPct: 'qi drain',
   };
   const mults = {
     postureMult: 'posture', techDamageMult: 'tech dmg', strikeDamageMult: 'strike dmg',
     incomingMult: 'incoming', insightMult: 'insight', meditateMult: 'meditate',
     weaponMultFlat: 'wpn', cultMult: 'cultivation', spiritDamageMult: 'spirit dmg',
     dotMult: 'DOT', bossCdMult: 'boss cooldown', hpMult: 'max Body', critMult: 'crit dmg',
+    qiDamageMult: 'qi-barrier dmg',
   };
   Object.entries(mods).forEach(([k, v]) => {
     if (labels[k] && v) {
@@ -9994,6 +10041,8 @@ function statSheetHTML(char, mods) {
     pct(mods.lowHpBonus, 'damage while bloodied'),
     pct(mods.lifestealPct, 'lifesteal'),
     mul(mods.dotMult, 'damage-over-time'),
+    mul(mods.qiDamageMult, 'qi-barrier damage'),
+    pct(mods.qiDrainPct, 'qi drained per hit'),
     pct(mods.perTurnRamp, 'damage per turn (ramp)'),
     pct(mods.lateBonus, 'damage from turn 4+'),
     mul(mods.spiritDamageMult, 'spirit damage'),
@@ -14175,6 +14224,13 @@ function applyPostHitTriggers(p, res, tgt) {
       p.hp = Math.min(p.hpMax, p.hp + heal);
       if (p.hp > before) pushLog('heal', `  → +${p.hp - before} Body (lifesteal)`);
     }
+  }
+  // v1.27.2: QI-DRAIN on hit — gear/class anti-caster specialization. Saps a % of the foe's MAX qi,
+  // starving its casting (drops it below enemyCanUse's threshold) and shrinking its qi barrier so
+  // your next hits break through to Body sooner. Only the player drains (foes don't carry this mod).
+  if ((p.mods.qiDrainPct || 0) > 0 && tgt && tgt !== p && tgt.qi > 0) {
+    const drained = Math.min(tgt.qi, Math.round((tgt.qiMax || 0) * p.mods.qiDrainPct));
+    if (drained > 0) { tgt.qi -= drained; pushLog('hurt', `  → ${tgt.name} loses ${drained} qi (drained).`); }
   }
   // v1.10: demon_heart — at MAX hellfire, every hit rends a share of its damage into the target's SPIRIT
   // (15%, or 20% at Golden Core+) — the soul-break engine. Stacks with Devourer's Crown's own spirit damage.
