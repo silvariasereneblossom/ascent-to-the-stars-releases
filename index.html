@@ -541,11 +541,11 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v1.27.5';
+const GAME_VERSION = 'v1.27.6';
 // v0.78: CI injects the build's short sha here; the APK shell reads it FROM THE RUNNING
 // PAGE (window.BUILD_SHA) and compares against the repo head — staleness detection that
-// cannot be fooled by cached metadata. '08be130' = local/dev build (shell falls back).
-const BUILD_SHA = '08be130';
+// cannot be fooled by cached metadata. '7d969f6' = local/dev build (shell falls back).
+const BUILD_SHA = '7d969f6';
 if (typeof window !== 'undefined') window.BUILD_SHA = BUILD_SHA;
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
@@ -913,27 +913,32 @@ const RIVAL_ENEMY_IDS = new Set([
 // ============================================================
 // Realms
 // ============================================================
+// v1.27.6: PROGRESSION RE-GATE. Every cultivation realm now has 9 LAYERS (Mortal stays 1 — the tutorial).
+// insightPerLayer/Step are the COST curve (smooth, monotonic, ~4.7x the old cumulative grind = "meatier").
+// insightCap is the DECOUPLED per-kill income reference (kept at the OLD insightPerLayer values, so combat
+// income — and the anti-runaway cap — are unchanged while costs rise; see grantEnemyDefeatRewards). Foundation's
+// realm bonus is ~1.7x for a bigger Qi-Condensation -> Foundation power jump (paired with a breakthrough boon).
 const REALMS = [
-  { name: 'Mortal', zh: '凡人', layers: 1, insightPerLayer: 0, insightPerLayerStep: 0,
+  { name: 'Mortal', zh: '凡人', layers: 1, insightPerLayer: 0, insightPerLayerStep: 0, insightCap: 0,
     hpBonus: 0, qiBonus: 0, weaponBonus: 0,
     flavor: 'Common clay. The dao is a rumor told in temple courtyards.' },
-  { name: 'Qi Condensation', zh: '炼气', layers: 9, insightPerLayer: 1200, insightPerLayerStep: 600,
+  { name: 'Qi Condensation', zh: '炼气', layers: 9, insightPerLayer: 3550, insightPerLayerStep: 1420, insightCap: 1200,
     hpBonus: 8, qiBonus: 5, weaponBonus: 1,
     flavor: 'Qi enters the dantian. You are no longer mortal. You are not yet great.' },
-  { name: 'Foundation Establishment', zh: '筑基', layers: 3, insightPerLayer: 10000, insightPerLayerStep: 4000,
-    hpBonus: 25, qiBonus: 18, weaponBonus: 3,
+  { name: 'Foundation Establishment', zh: '筑基', layers: 9, insightPerLayer: 9200, insightPerLayerStep: 3680, insightCap: 10000,
+    hpBonus: 15, qiBonus: 10, weaponBonus: 2,   // v1.27.6: per-layer recal for 9 layers; ~1.8x the old Foundation contribution (the QC->FE jump) without inflating power
     flavor: 'The dantian sings. Your foundation is laid in cold stone and golden wind.' },
-  { name: 'Core Formation', zh: '结丹', layers: 5, insightPerLayer: 24000, insightPerLayerStep: 6000,
-    hpBonus: 45, qiBonus: 30, weaponBonus: 4,
+  { name: 'Core Formation', zh: '结丹', layers: 9, insightPerLayer: 21150, insightPerLayerStep: 8460, insightCap: 24000,
+    hpBonus: 24, qiBonus: 16, weaponBonus: 3,   // v1.27.6: per-layer recal (was 45/30/4 over 5 layers)
     flavor: 'Qi condenses in the dantian into a core of hot starlight. Its shape is yours alone.' },
-  { name: 'Golden Core', zh: '金丹', layers: 9, insightPerLayer: 52000, insightPerLayerStep: 7000,
+  { name: 'Golden Core', zh: '金丹', layers: 9, insightPerLayer: 46700, insightPerLayerStep: 18680, insightCap: 52000,
     hpBonus: 70, qiBonus: 50, weaponBonus: 6,
     flavor: 'The core hardens to gold. Every breath polishes it; every breakthrough re-tempers its facets.' },
-  { name: 'Nascent Soul', zh: '元婴', layers: 5, insightPerLayer: 120000, insightPerLayerStep: 16000,
-    hpBonus: 110, qiBonus: 80, weaponBonus: 10,
+  { name: 'Nascent Soul', zh: '元婴', layers: 9, insightPerLayer: 104250, insightPerLayerStep: 41700, insightCap: 120000,
+    hpBonus: 73, qiBonus: 53, weaponBonus: 7,   // v1.27.6: per-layer recal (was 110/80/10 over 5 layers)
     flavor: 'A second you-shaped soul sits cross-legged within your core. It opens its eyes and you remember things you never saw.' },
-  { name: 'Spirit Severing', zh: '化神', layers: 3, insightPerLayer: 220000, insightPerLayerStep: 44000,
-    hpBonus: 170, qiBonus: 120, weaponBonus: 15,
+  { name: 'Spirit Severing', zh: '化神', layers: 9, insightPerLayer: 230100, insightPerLayerStep: 92040, insightCap: 220000,
+    hpBonus: 85, qiBonus: 60, weaponBonus: 9,   // v1.27.6: per-layer recal (was 170/120/15 over 3 layers)
     flavor: 'You sever the last mortal ties of your spirit. What remains is something the heavens were not prepared to see.' },
 ];
 
@@ -12900,7 +12905,9 @@ function tryAdvanceRealm() {
     // Better prep (over-cultivating past the cost, a cultivation buff active, a fine spirit
     // root) yields a higher foundation; a rushed breakthrough is NEVER penalized (floor 1.0).
     // Stored as a running max so it only ever improves — the opposite of ACS's brutal gate.
-    const surplusRatio = info.cost > 0 ? Math.min(1, (preInsight - info.cost) / info.cost) : 0;
+    // v1.27.6: surplus is measured against a FRACTION of the cost (x0.7 denom) so the meatier progression
+    // costs don't quietly tank breakthrough quality — same relative over-prep earns the same grade.
+    const surplusRatio = info.cost > 0 ? Math.min(1, (preInsight - info.cost) / (info.cost * 0.7)) : 0;
     const buffBonus = activeBuffValue('cultivation_mult', 1) > 1 ? 0.05 : 0;
     const rootBonus = (((state.spiritRoot && state.spiritRoot.grade) || 1) - 1) * 0.5;
     let q = 1.0 + surplusRatio * 0.20 + buffBonus + rootBonus;
@@ -12909,6 +12916,8 @@ function tryAdvanceRealm() {
     state.lastFoundationRoll = q;
     // Wave 1b: award reserve stat points on each tier breakthrough.
     state.freePoints = (state.freePoints || 0) + REALM_FREE_POINTS;
+    // v1.27.6: Foundation Establishment is a milestone — a bigger Qi-Condensation -> Foundation step.
+    if (state.realm.tierIdx === 2) state.freePoints = (state.freePoints || 0) + 3;
     // Recompute finalStats in case a heritage latent bonus kicks in at this tier.
     if (state.confirmed) state.finalStats = finalStats(state);
   }
@@ -13005,7 +13014,7 @@ function goldenCoreScore(preInsight, threshold) {
   const insightBoost = boonInsightMult() * skillCombatInsightMult() * (computeMods(state).insightMult || 1) * metaInsightMult();
   const B = Math.max(0, (cultBoost - 1) + (insightBoost - 1));
   const insightCultScore = 6 * B;   // 3% per 50% combined boost (so ~15% at +250%)
-  const overcapScore = (threshold > 0) ? Math.min(10, 10 * Math.max(0, (preInsight - threshold) / threshold)) : 0;   // up to +10%
+  const overcapScore = (threshold > 0) ? Math.min(10, 10 * Math.max(0, (preInsight - threshold) / (threshold * 0.7))) : 0;   // up to +10%; v1.27.6: x0.7 denom so meatier costs don't tank GC grade
   return mightScore + insightCultScore + overcapScore;
 }
 function goldenCoreQualityFromScore(score) { return Math.max(1, Math.min(10, Math.ceil(score / 10))); }   // ~10%/grade, I at 100% (75% -> III)
@@ -14636,7 +14645,10 @@ function grantEnemyDefeatRewards(e) {
   // reference, NOT the compounding layer cost): modest play stays under it untouched, only the over-geared snowball
   // clamps down. Heavy cult investment still pays off in PASSIVE cultivation (cultivationBoostMult feeds the
   // cultivation tick), so the build choice still matters — combat just can't snowball into millions per fight.
-  const _capRef = (REALMS[state.realm.tierIdx] || {}).insightPerLayer || (REALMS[(state.realm.tierIdx || 0) + 1] || {}).insightPerLayer || 5000;
+  // v1.27.6: income cap reads the DECOUPLED insightCap (old insightPerLayer values), so the progression-cost
+  // tripling doesn't inflate per-kill income or weaken the anti-runaway clamp. Falls back to insightPerLayer.
+  const _r = REALMS[state.realm.tierIdx] || {};
+  const _capRef = _r.insightCap || _r.insightPerLayer || (REALMS[(state.realm.tierIdx || 0) + 1] || {}).insightCap || 5000;
   const insightCap = Math.round(_capRef * 1.25);
   const insight = Math.min(rawInsight, insightCap);
   addInsight(insight);
@@ -14761,7 +14773,7 @@ function grantEnemyDefeatRewards(e) {
       pushLog('reward', `Herbs gathered: ${herbN}× ${HERBS[herbId].name}.`);
     }
   }
-  if (luck > 20 && Math.random() < 0.12) {
+  if (luck > 20 && Math.random() < 0.025) {   // v1.27.6: cursed stat draughts now a LOT rarer (was 0.12)
     const cursedId = combat.bossFight ? 'cursed_draught_greater' : 'cursed_draught_lesser';
     state.base.consumables[cursedId] = (state.base.consumables[cursedId] || 0) + 1;
     pushLog('reward', `A ${CONSUMABLES[cursedId].name} is left among the remains — power, at a price.`);
