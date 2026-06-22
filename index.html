@@ -541,11 +541,11 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v1.27.7';
+const GAME_VERSION = 'v1.27.8';
 // v0.78: CI injects the build's short sha here; the APK shell reads it FROM THE RUNNING
 // PAGE (window.BUILD_SHA) and compares against the repo head — staleness detection that
-// cannot be fooled by cached metadata. '4e62cf0' = local/dev build (shell falls back).
-const BUILD_SHA = '4e62cf0';
+// cannot be fooled by cached metadata. '1406e91' = local/dev build (shell falls back).
+const BUILD_SHA = '1406e91';
 if (typeof window !== 'undefined') window.BUILD_SHA = BUILD_SHA;
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
@@ -8255,6 +8255,56 @@ Object.assign(MATERIALS, {
     desc: 'A flake of an elder sun. Kept in a lead box, which is slowly becoming gold.' },
 });
 
+// v1.27.8 PHASE 2: VENTURE REAGENTS — a signature ingredient for every venture, so there's a reason to
+// touch them all. Three reagents per realm; each LOCATION deterministically yields one of its realm's
+// three (by a hash of its id), so different ventures in the same realm drop different reagents and you
+// must roam to collect a realm's full set. They SINK into that realm's gear-crafting basket (below) + alchemy.
+Object.assign(MATERIALS, {
+  // Qi Condensation (t1)
+  qi_dew:          { name: 'Condensed Qi Dew', zh: '凝灵露', rarity: 'common', desc: 'Dew that beaded on a leaf at the exact moment qi entered the world that morning. It has not evaporated since.' },
+  spirit_moss:     { name: 'Spirit Moss',      zh: '灵苔',  rarity: 'common', desc: 'Moss that grows only where qi pools and lingers. Greener on the side facing the dao.' },
+  whisperbark_sap: { name: 'Whisperbark Sap',  zh: '语皮脂', rarity: 'common', desc: 'Sap from a tree that listens. Tap it at dawn or it goes quiet for a year.' },
+  // Foundation Establishment (t2)
+  foundation_clay: { name: 'Foundation Clay',  zh: '筑基泥', rarity: 'common', desc: 'Cold river-clay that holds a shape forever once fired. Foundations are laid in it for a reason.' },
+  stoneheart_root: { name: 'Stoneheart Root',  zh: '石心根', rarity: 'rare',   desc: 'A root that grew through bedrock and learned its patience. Heavy out of all proportion.' },
+  goldwind_pollen: { name: 'Goldwind Pollen',  zh: '金风粉', rarity: 'rare',   desc: 'Pollen that rides the autumn qi-winds. Settles only on the worthy, or the unlucky.' },
+  // Core Formation (t3)
+  core_cinnabar:   { name: 'Core Cinnabar',    zh: '丹砂',  rarity: 'rare',   desc: 'Red mineral that condenses where a core almost formed and failed. The failure is the useful part.' },
+  starlit_ore:     { name: 'Starlit Ore',      zh: '星纹矿', rarity: 'rare',   desc: 'Ore veined with light that only shows at night. Cold to the touch even in a forge.' },
+  hollow_jade:     { name: 'Hollow Jade',      zh: '空玉',  rarity: 'legendary', desc: 'Jade with a perfectly empty center. Ring it and a core somewhere answers.' },
+  // Golden Core (t4)
+  goldcore_resin:  { name: 'Goldcore Resin',   zh: '金丹脂', rarity: 'legendary', desc: 'Resin that weeps from trees rooted over a buried golden core. Sets to amber-gold.' },
+  sunwell_salt:    { name: 'Sunwell Salt',     zh: '日泉盐', rarity: 'legendary', desc: 'Salt crusted at the lip of a spring that runs warm at midnight. Stings the dao awake.' },
+  dragonvein_chalk:{ name: 'Dragonvein Chalk', zh: '龙脉垩', rarity: 'legendary', desc: 'Soft white stone from a dragon-vein wall. Draw an array with it and the lines hum.' },
+  // Nascent Soul (t5)
+  soulsilk_floss:  { name: 'Soulsilk Floss',   zh: '魂绵', rarity: 'legendary', desc: 'Floss spun by spirits that nested too close to a Nascent Soul. Weighs nothing; warms the spirit.' },
+  nascent_pearl:   { name: 'Nascent Pearl',    zh: '婴珠', rarity: 'divine',    desc: 'A pearl that grew a faint second pearl inside it. Both of them are watching.' },
+  voidbloom_petal: { name: 'Voidbloom Petal',  zh: '虚花瓣', rarity: 'divine',  desc: 'A petal from a flower that blooms in the gap a severed thought leaves behind.' },
+  // Spirit Severing (t6)
+  severing_frost:  { name: 'Severing Frost',   zh: '化神霜', rarity: 'divine', desc: 'Frost that forms on a blade the instant it cuts something immaterial. Does not melt; forgets to.' },
+  spirit_amber:    { name: 'Spirit Amber',     zh: '神魄珀', rarity: 'divine', desc: 'Amber that trapped a mortal tie at the moment it was severed. Still faintly struggling.' },
+  heavenscar_dust: { name: 'Heavenscar Dust',  zh: '天痕尘', rarity: 'divine', desc: 'Dust scraped from the place the heavens looked away. Best not to ask what made the scar.' },
+});
+// Realm-tier -> its three signature reagents. Index 0 (Mortal) intentionally empty (the tutorial).
+const REALM_REAGENTS = [
+  [],
+  ['qi_dew', 'spirit_moss', 'whisperbark_sap'],
+  ['foundation_clay', 'stoneheart_root', 'goldwind_pollen'],
+  ['core_cinnabar', 'starlit_ore', 'hollow_jade'],
+  ['goldcore_resin', 'sunwell_salt', 'dragonvein_chalk'],
+  ['soulsilk_floss', 'nascent_pearl', 'voidbloom_petal'],
+  ['severing_frost', 'spirit_amber', 'heavenscar_dust'],
+];
+// A location's signature reagent — deterministic per location id, varied across a realm's three.
+function locationReagent(loc) {
+  if (!loc) return null;
+  const pool = REALM_REAGENTS[loc.minTier || 0];
+  if (!pool || !pool.length) return null;
+  let h = 0; const s = loc.id || '';
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) & 0x7fffffff;
+  return pool[h % pool.length];
+}
+
 // ============================================================
 // Artifact recipes — forge your own weapons
 // ============================================================
@@ -8570,6 +8620,9 @@ const WEAPON_GEN_TIER = [
   { power: 49, rarity: 'legendary', pfx: [['World-Severing', '断世'], ['Heaven-Quenched', '天淬']],
     mats: { sun_fragment: 1, heaven_silver: 1, primordial_stone: 1, spirit_stone: 12 } },
 ];
+// v1.27.8 PHASE 2: every realm's crafting basket also wants that realm's three venture reagents (1 each) —
+// the SINK that makes roaming all of a realm's ventures worthwhile (you gather the set to forge its gear).
+WEAPON_GEN_TIER.forEach((row, t) => { (REALM_REAGENTS[t] || []).forEach(rg => { row.mats[rg] = (row.mats[rg] || 0) + 1; }); });
 const ELEMENT_GEN_PFX = {
   metal: ['White-Gold', '白金'], wood: ['Verdant-Vein', '翠脉'], water: ['Riptide', '逆潮'],
   fire: ['Cinderheart', '烬心'], earth: ['Loess-Bound', '黄土'],
@@ -14758,6 +14811,16 @@ function grantEnemyDefeatRewards(e) {
       materialDrops[d.id] = (materialDrops[d.id] || 0) + n;
     }
   });
+  // v1.27.8 PHASE 2: this venture's signature reagent drops here (and only the ventures it's tied to).
+  if (combat.ventureLocId) {
+    const _loc = LOCATIONS.find(l => l.id === combat.ventureLocId);
+    const reagent = locationReagent(_loc);
+    if (reagent && Math.random() < 0.45) {
+      const rn = 1 + Math.floor(Math.random() * 2);
+      state.base.materials[reagent] = (state.base.materials[reagent] || 0) + rn;
+      materialDrops[reagent] = (materialDrops[reagent] || 0) + rn;
+    }
+  }
   // v0.21: spirit stones drop on every kill, alongside insight. sqrt scaling so weak mooks give 1,
   // mid-tier give a handful, bosses give meaningfully more without flooding the economy. Funnels
   // into the same materialDrops dict so it appears in the combat log + post-combat panel.
@@ -17550,6 +17613,7 @@ function renderCharSheet() {
       <div class="location-name">${loc.name} <span style="color:var(--ink-soft);font-weight:normal;font-size:0.85rem">${loc.zh}</span>${loc.demonOnly ? ' <span class="rarity-tag rarity-legendary" style="color:#c06">demonic ground</span>' : ''}${isCult ? ' <span class="rarity-tag rarity-rare">cultivating here</span>' : ''}</div>
       <div class="location-desc">${loc.desc}</div>
       <div style="font-size:0.8rem;color:var(--ink-soft);margin-top:0.3rem">You may meet: ${enemies}</div>
+      ${(() => { const rg = locationReagent(loc); return rg && MATERIALS[rg] ? `<div style="font-size:0.78rem;color:var(--jade);margin-top:0.15rem">Signature reagent: ${MATERIALS[rg].name}</div>` : ''; })()}
       <div style="font-size:0.78rem;color:var(--ink-soft);margin-top:0.15rem">Cultivation multiplier: ×${cultMult.toFixed(1)}</div>
       ${loc.demonOnly ? `<div style="font-size:0.78rem;color:#c06;margin-top:0.15rem"><strong>Demonic Qi venture:</strong> foes +50%, insight +50%, no tribulation/hunter ambush — but a defeat costs 10% of this realm's insight.</div>` : ''}
       ${reqHTML}
