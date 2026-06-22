@@ -541,11 +541,11 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v1.27.9';
+const GAME_VERSION = 'v1.27.10';
 // v0.78: CI injects the build's short sha here; the APK shell reads it FROM THE RUNNING
 // PAGE (window.BUILD_SHA) and compares against the repo head — staleness detection that
-// cannot be fooled by cached metadata. '142b482' = local/dev build (shell falls back).
-const BUILD_SHA = '142b482';
+// cannot be fooled by cached metadata. 'fe5eb37' = local/dev build (shell falls back).
+const BUILD_SHA = 'fe5eb37';
 if (typeof window !== 'undefined') window.BUILD_SHA = BUILD_SHA;
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
@@ -5938,6 +5938,133 @@ function mkEnemy(id, d) {
     defeat: 'You are illuminated, in the way of things caught at midnight doing wrong.' }],
 ].forEach(([id, d]) => mkEnemy(id, d));
 
+// ---- v1.27.10 PHASE 3: 36 new regular enemies (6 per realm, tiers 1-6) — venture variety. ----
+[
+  // Qi Condensation (t1)
+  ['reed_strangler', { name: 'Reed-Marsh Strangler', zh: '苇缢', tier: 1, arch: 'controller', kind: 'spirit', element: 'water',
+    techIds: ['ghost_binding', 'array_binding'], materialDrops: [{ id: 'qi_dew', chance: 0.6, count: [1, 2] }, { id: 'spirit_moss', chance: 0.4, count: [1, 1] }],
+    intro: 'The reeds part where no wind blows. A drowned thing of woven rushes rises, dripping and patient.', victory: 'The strangler unravels into wet reeds and floats off downstream, defeated.', defeat: 'You come to with reed-marks at your throat and your boots full of marsh-water.' }],
+  ['thicket_boar', { name: 'Bristle-Thicket Boar', zh: '棘鬃野猪', tier: 1, arch: 'brawler', kind: 'beast', element: 'wood',
+    techIds: ['pig_charge', 'frenzied_bite'], materialDrops: [{ id: 'spirit_moss', chance: 0.6, count: [1, 2] }, { id: 'beast_sinew', chance: 0.3, count: [1, 1] }],
+    intro: 'A boar with a hide of woody bristles bursts from the thornbrake, lowering tusks the size of sickles.', victory: 'The boar wheels off into the thicket, snorting injured dignity.', defeat: 'It rolls you down the slope and trots away, honor satisfied.' }],
+  ['copper_vermin', { name: 'Copper-Vein Vermin', zh: '铜脉鼠', tier: 1, arch: 'assassin', kind: 'beast', element: 'metal',
+    techIds: ['rat_swarm', 'serpent_fang'], materialDrops: [{ id: 'whisperbark_sap', chance: 0.5, count: [1, 1] }, { id: 'spirit_iron', chance: 0.4, count: [1, 2] }],
+    intro: 'The mine-tunnel floor moves — rats with copper-bright fur and a single shared, glittering intent.', victory: 'The swarm scatters into the dark, leaving a few coins of bright metal behind.', defeat: 'You are nibbled into unconsciousness and wake missing several buttons.' }],
+  ['kindling_sprite', { name: 'Kindling Hearth-Sprite', zh: '薪灶灵', tier: 1, arch: 'caster', kind: 'spirit', element: 'fire',
+    techIds: ['fox_fire', 'ember_bite'], materialDrops: [{ id: 'qi_dew', chance: 0.5, count: [1, 2] }, { id: 'flame_marrow', chance: 0.25, count: [1, 1] }],
+    intro: 'A scrap of living hearth-fire hops off the cold stove and grins with a mouth of embers.', victory: 'The sprite gutters down to a sulking coal and rolls under the stove.', defeat: 'It singes your eyebrows clean off and cackles back into the ashes.' }],
+  ['stoneface_initiate', { name: 'Stone-Faced Initiate', zh: '石面弟子', tier: 1, arch: 'tank', kind: 'human', element: 'earth',
+    techIds: ['iron_stone', 'staggering_palm'], materialDrops: [{ id: 'whisperbark_sap', chance: 0.5, count: [1, 1] }, { id: 'qi_wood', chance: 0.4, count: [1, 2] }],
+    intro: 'A young disciple plants his feet on the practice yard and refuses, on principle, to move.', victory: 'He topples like a felled post and admits, flatly, that you may pass.', defeat: 'You bounce off him three times and decide the path around is fine.' }],
+  ['paper_charm_acolyte', { name: 'Paper-Charm Acolyte', zh: '纸符道徒', tier: 1, arch: 'caster', kind: 'human', element: 'wood',
+    techIds: ['parchment_storm', 'array_severing'], materialDrops: [{ id: 'spirit_moss', chance: 0.5, count: [1, 2] }, { id: 'ghost_bone', chance: 0.3, count: [1, 1] }],
+    intro: 'A roadside talisman-seller stops haggling, flips a fan of paper charms, and means business.', victory: 'His charms flutter down spent. He sweeps them up, muttering about overhead.', defeat: 'A charm sticks to your forehead and you obey it for an embarrassing hour.' }],
+  // Foundation Establishment (t2)
+  ['mire_leviathan_pup', { name: 'Mire-Born Whelp', zh: '沼生幼螭', tier: 2, arch: 'brawler', kind: 'beast', element: 'water',
+    techIds: ['fen_beast_bite', 'tide_drag'], materialDrops: [{ id: 'foundation_clay', chance: 0.6, count: [1, 2] }, { id: 'beast_sinew', chance: 0.4, count: [1, 2] }],
+    intro: 'A young river-wyrm, all jaw and no judgement, heaves itself out of the mire to meet you.', victory: 'The whelp sulks back beneath the silt, trailing wounded pride.', defeat: 'It drags you halfway under before deciding you taste of disappointment.' }],
+  ['quarry_revenant', { name: 'Quarry Stone-Revenant', zh: '采石亡魂', tier: 2, arch: 'tank', kind: 'construct', element: 'earth',
+    techIds: ['boulder_fall', 'iron_stone'], materialDrops: [{ id: 'stoneheart_root', chance: 0.45, count: [1, 1] }, { id: 'foundation_clay', chance: 0.5, count: [1, 2] }],
+    intro: 'The quarry rubble assembles itself around the grudge of a crushed laborer and stands.', victory: 'The revenant collapses back into honest gravel, finally off the clock.', defeat: 'It buries you to the waist in scree and lets the dust settle.' }],
+  ['windcutter_disciple', { name: 'Goldwind Sword-Disciple', zh: '金风剑徒', tier: 2, arch: 'assassin', kind: 'human', element: 'metal',
+    techIds: ['wind_slash', 'lacerating_wind'], materialDrops: [{ id: 'goldwind_pollen', chance: 0.45, count: [1, 1] }, { id: 'spirit_iron', chance: 0.4, count: [1, 2] }],
+    intro: 'A swordsman in autumn-gold robes lets the wind off the terraces carry his blade ahead of him.', victory: 'He sheathes with a flourish, concedes the bout, and asks for your name.', defeat: 'The wind takes your footing; his blade takes the rest. Politely.' }],
+  ['marsh_chime_monk', { name: 'Marsh-Chime Monk', zh: '沼磬僧', tier: 2, arch: 'controller', kind: 'human', element: 'water',
+    techIds: ['soul_bell', 'hanging_smog'], materialDrops: [{ id: 'foundation_clay', chance: 0.5, count: [1, 2] }, { id: 'ghost_bone', chance: 0.3, count: [1, 1] }],
+    intro: 'A wandering monk wades the shallows, striking a wet bronze chime that fogs the air with each note.', victory: 'He bows over the chime and wades off, the marsh clearer in his wake.', defeat: 'The chime keeps ringing somewhere behind your eyes for the rest of the day.' }],
+  ['ironbark_warden', { name: 'Ironbark Grove-Warden', zh: '铁皮林卫', tier: 2, arch: 'tank', kind: 'beast', element: 'wood',
+    techIds: ['briar_lash', 'ravenous_gash'], materialDrops: [{ id: 'stoneheart_root', chance: 0.4, count: [1, 1] }, { id: 'verdant_bark', chance: 0.45, count: [1, 2] }],
+    intro: 'A grove-beast armored in iron-hard bark unfolds from what you took for a fallen log.', victory: 'The warden roots itself again and goes back to being scenery.', defeat: 'It pins you under one bark-clad limb until you stop struggling, then releases you.' }],
+  ['cinder_arrayist', { name: 'Cinder-Field Arrayist', zh: '烬野阵师', tier: 2, arch: 'caster', kind: 'human', element: 'fire',
+    techIds: ['array_anchor', 'flame_halo'], materialDrops: [{ id: 'goldwind_pollen', chance: 0.4, count: [1, 1] }, { id: 'flame_marrow', chance: 0.3, count: [1, 1] }],
+    intro: 'An arrayist kneels in a scorched circle of glyphs, feeding the lines with slow-burning cinder.', victory: 'Her array sputters out. She scuffs the glyphs flat and admits a flaw in the third gate.', defeat: 'The circle closes around you and the heat does the rest.' }],
+  // Core Formation (t3)
+  ['cinnabar_alchemist', { name: 'Cinnabar Furnace-Alchemist', zh: '丹砂炉师', tier: 3, arch: 'caster', kind: 'human', element: 'fire',
+    techIds: ['core_flash', 'flame_halo'], materialDrops: [{ id: 'core_cinnabar', chance: 0.45, count: [1, 2] }, { id: 'soul_ember', chance: 0.3, count: [1, 1] }],
+    intro: 'An alchemist looks up from a furnace of failed cores, decides you are a promising reagent, and rises.', victory: 'He grumbles, jots a note in a stained ledger, and lets the furnace cool.', defeat: 'You wake labeled and shelved among his jars of half-formed cores.' }],
+  ['starlit_revenant', { name: 'Starlit Ore-Revenant', zh: '星纹矿魂', tier: 3, arch: 'tank', kind: 'construct', element: 'metal',
+    techIds: ['mountain_press', 'core_sunder'], materialDrops: [{ id: 'starlit_ore', chance: 0.45, count: [1, 2] }, { id: 'star_iron', chance: 0.3, count: [1, 1] }],
+    intro: 'A miner of the night-veins, ore-fused and grave-cold, hauls itself upright in the star-lit shaft.', victory: 'The revenant sloughs its ore-plating and settles, at last, into the dark.', defeat: 'It presses you flat as ore between two slabs and walks the tunnel alone again.' }],
+  ['hollow_jade_dancer', { name: 'Hollow-Jade Sword-Dancer', zh: '空玉剑姬', tier: 3, arch: 'assassin', kind: 'spirit', element: 'wood',
+    techIds: ['crescent_soul', 'heartline_cut'], materialDrops: [{ id: 'hollow_jade', chance: 0.35, count: [1, 1] }, { id: 'core_cinnabar', chance: 0.4, count: [1, 2] }],
+    intro: 'A spirit poured into a hollow jade body steps off its pedestal, two thin blades already singing.', victory: 'She returns to her pedestal mid-pose and goes still, the dance unfinished by choice.', defeat: 'The dance ends. You are the part of it that does not get up.' }],
+  ['nether_chanter', { name: 'Nether-Cavern Chanter', zh: '幽窟诵者', tier: 3, arch: 'controller', kind: 'spirit', element: 'water',
+    techIds: ['nether_breath', 'dao_net'], materialDrops: [{ id: 'starlit_ore', chance: 0.4, count: [1, 2] }, { id: 'ghost_bone', chance: 0.35, count: [1, 1] }],
+    intro: 'From the cavern dark comes a chant in a tongue your meridians understand better than you do.', victory: 'The chanter falls silent and the cavern, for once, lets you hear yourself think.', defeat: 'You crawl out humming a song you do not know and cannot stop.' }],
+  ['ironcore_arhat', { name: 'Iron-Core Arhat', zh: '铁丹罗汉', tier: 3, arch: 'brawler', kind: 'human', element: 'earth',
+    techIds: ['iron_monk_strike', 'ascending_qi'], materialDrops: [{ id: 'core_cinnabar', chance: 0.45, count: [1, 2] }, { id: 'stoneheart_root', chance: 0.3, count: [1, 1] }],
+    intro: 'A bare-armed arhat finishes a thousandth push-up, stands, and cracks knuckles like splitting stone.', victory: 'He nods once — approval, almost — and returns to the floor for push-up one thousand and one.', defeat: 'He sets you down gently in the courtyard and counts your failings on his fingers.' }],
+  ['ghostmarket_clerk', { name: 'Ghost-Market Tally-Clerk', zh: '鬼市账佐', tier: 3, arch: 'caster', kind: 'spirit', element: 'metal',
+    techIds: ['array_soul', 'withering_curse'], materialDrops: [{ id: 'hollow_jade', chance: 0.3, count: [1, 1] }, { id: 'ancient_rust', chance: 0.35, count: [1, 2] }],
+    intro: 'A clerk in a paper mask totals your remaining years on a soul-abacus and finds the sum wanting.', victory: 'The clerk dissolves into receipts; the figures, you note, were rounded against you.', defeat: 'You wake owing a debt in a currency you cannot name and cannot refuse.' }],
+  // Golden Core (t4)
+  ['goldvein_drake', { name: 'Goldvein Resin-Drake', zh: '金脉脂蛟', tier: 4, arch: 'brawler', kind: 'beast', element: 'earth',
+    techIds: ['dragon_tail', 'dragon_breath'], materialDrops: [{ id: 'goldcore_resin', chance: 0.4, count: [1, 2] }, { id: 'beast_sinew', chance: 0.4, count: [1, 2] }],
+    intro: 'A lesser drake, amber-gold and resin-slick, uncoils from the buried core it has been gnawing.', victory: 'The drake submits, dripping gold, and slinks back down into the vein.', defeat: 'It pins you, sniffs, and decides you are not worth the gold it would cost to eat you.' }],
+  ['sunwell_oracle', { name: 'Sunwell Salt-Oracle', zh: '日泉盐巫', tier: 4, arch: 'caster', kind: 'human', element: 'fire',
+    techIds: ['flame_halo', 'sky_gaze'], materialDrops: [{ id: 'sunwell_salt', chance: 0.4, count: [1, 2] }, { id: 'phoenix_feather', chance: 0.25, count: [1, 1] }],
+    intro: 'An oracle crusted in glittering salt reads your fortune in the steam of the midnight-warm well and frowns.', victory: 'She wipes the well clear and revises your fortune upward, grudgingly.', defeat: 'You wake at the well-lip, salted, with a prophecy you would rather not have heard.' }],
+  ['dragonchalk_scribe', { name: 'Dragonvein Array-Scribe', zh: '龙脉阵书', tier: 4, arch: 'controller', kind: 'human', element: 'metal',
+    techIds: ['dao_net', 'array_anchor'], materialDrops: [{ id: 'dragonvein_chalk', chance: 0.4, count: [1, 2] }, { id: 'star_iron', chance: 0.3, count: [1, 1] }],
+    intro: 'A scribe draws a humming array in pale chalk across the dragon-vein wall and seals the corridor behind you.', victory: 'He smudges a single line and the whole array sighs apart. He concedes the corridor.', defeat: 'The array tightens until moving costs more qi than you have to spare.' }],
+  ['mirage_revenant', { name: 'Mirage-City Sword-Revenant', zh: '蜃城剑魂', tier: 4, arch: 'assassin', kind: 'spirit', element: 'fire',
+    techIds: ['immortal_cut', 'twin_strike'], materialDrops: [{ id: 'goldcore_resin', chance: 0.35, count: [1, 1] }, { id: 'sunwell_salt', chance: 0.35, count: [1, 2] }],
+    intro: 'In the city that is not there, a dead duelist who may not be remembers exactly how to kill you.', victory: 'He dissolves into heat-shimmer, leaving a sword that insists, against all odds, on being real.', defeat: 'You wake outside a city that never was, outfought by a man it merely imagined.' }],
+  ['drowned_court_warden', { name: 'Drowned-Court Warden', zh: '沉庭卫', tier: 4, arch: 'tank', kind: 'spirit', element: 'water',
+    techIds: ['void_tide', 'tide_drag'], materialDrops: [{ id: 'dragonvein_chalk', chance: 0.3, count: [1, 1] }, { id: 'glacial_core', chance: 0.35, count: [1, 1] }],
+    intro: 'A coral-crusted warden of the sunken court bars the flooded hall, halberd already lowered.', victory: 'The warden steps aside with a creak of verdigris. Court will see you now.', defeat: 'The tide hauls you out by the ankle and the doors boom shut.' }],
+  ['thunderfeather_spirit', { name: 'Thunderfeather Crane-Spirit', zh: '雷羽鹤灵', tier: 4, arch: 'elite', kind: 'beast', element: 'metal',
+    techIds: ['lacerating_wind', 'sky_gaze'], materialDrops: [{ id: 'sunwell_salt', chance: 0.35, count: [1, 2] }, { id: 'thunder_shard', chance: 0.3, count: [1, 1] }],
+    intro: 'A crane wreathed in slow lightning descends the storm-glass cliff, each feather a drawn blade.', victory: 'The crane folds its lightning back into its wings and takes the sky, satisfied.', defeat: 'It strikes you from a height and is gone before the thunder catches up.' }],
+  // Nascent Soul (t5)
+  ['soulsilk_weaver', { name: 'Soulsilk Loom-Spirit', zh: '魂绵织灵', tier: 5, arch: 'controller', kind: 'spirit', element: 'wood',
+    techIds: ['nine_gate_array', 'ancestor_curse'], materialDrops: [{ id: 'soulsilk_floss', chance: 0.4, count: [1, 2] }, { id: 'void_silk', chance: 0.25, count: [1, 1] }],
+    intro: 'A loom of nine gates turns by itself; the spirit at its bench is weaving your name into the warp.', victory: 'The loom stills. The spirit unpicks your name from the cloth and lets you keep it.', defeat: 'You are woven a little way into the pattern and must tear yourself loose to flee.' }],
+  ['nascent_pearl_serpent', { name: 'Pearl-Eyed Lake Serpent', zh: '珠目湖蟒', tier: 5, arch: 'tank', kind: 'beast', element: 'water',
+    techIds: ['void_tide', 'tide_drag'], materialDrops: [{ id: 'nascent_pearl', chance: 0.3, count: [1, 1] }, { id: 'soulsilk_floss', chance: 0.4, count: [1, 2] }],
+    intro: 'A vast serpent surfaces, a nascent pearl set in each eye, and considers you with both of them.', victory: 'The serpent sinks, both pearls dimming, conceding the lake for now.', defeat: 'It drags you under, decides you are inedible, and leaves you bobbing.' }],
+  ['voidbloom_ascetic', { name: 'Voidbloom Ascetic', zh: '虚花苦修', tier: 5, arch: 'caster', kind: 'human', element: 'metal',
+    techIds: ['soul_cleave', 'sky_shatter'], materialDrops: [{ id: 'voidbloom_petal', chance: 0.3, count: [1, 1] }, { id: 'nascent_pearl', chance: 0.3, count: [1, 1] }],
+    intro: 'An ascetic sits in the gap a severed thought left behind, a void-flower blooming from each open palm.', victory: 'He closes both flowers, bows from his cushion, and resumes severing the next thought.', defeat: 'He cleaves something loose in you and you spend a week looking for it.' }],
+  ['floating_court_bailiff', { name: 'Floating-Court Bailiff', zh: '浮庭差役', tier: 5, arch: 'brawler', kind: 'construct', element: 'metal',
+    techIds: ['grand_bell', 'mountain_press'], materialDrops: [{ id: 'soulsilk_floss', chance: 0.4, count: [1, 2] }, { id: 'storm_crystal', chance: 0.2, count: [1, 1] }],
+    intro: 'A bailiff of cast bronze descends from the war-court, ringing the bell that means: remain where you are.', victory: 'The bailiff rings a softer note — dismissed — and ascends back to its docket.', defeat: 'It rings the heavy note. The next thing you hear is birdsong, much later.' }],
+  ['scarwound_horror', { name: 'Scar-Wound Crawler', zh: '痕伤爬魔', tier: 5, arch: 'assassin', kind: 'demonic', element: 'earth',
+    techIds: ['weeping_earth', 'ravenous_gash'], materialDrops: [{ id: 'voidbloom_petal', chance: 0.25, count: [1, 1] }, { id: 'abyssal_ash', chance: 0.35, count: [1, 2] }],
+    intro: 'Something crawled in through the seam in the sky and is still deciding what shape to finish in.', victory: 'The crawler retreats up the wound and pulls the seam shut behind it like a curtain.', defeat: 'It opens a long shallow wound that weeps for a season and lets you run.' }],
+  ['quiet_thunder_envoy', { name: 'Citadel Quiet-Thunder Envoy', zh: '静雷使', tier: 5, arch: 'elite', kind: 'heaven', element: 'fire',
+    techIds: ['grand_bell', 'phoenix_down'], materialDrops: [{ id: 'nascent_pearl', chance: 0.3, count: [1, 1] }, { id: 'storm_crystal', chance: 0.2, count: [1, 1] }],
+    intro: 'An envoy of the silent citadel arrives wearing thunder the way a sheath wears a sword: quietly.', victory: 'The envoy inclines its head, the thunder still sheathed, and grants you passage.', defeat: 'The thunder leaves the sheath exactly once. That is sufficient.' }],
+  // Spirit Severing (t6)
+  ['frostsever_swordsage', { name: 'Frost-Severing Swordsage', zh: '化神霜剑客', tier: 6, arch: 'assassin', kind: 'human', element: 'metal',
+    techIds: ['immortal_cut', 'dao_spear'], materialDrops: [{ id: 'severing_frost', chance: 0.35, count: [1, 2] }, { id: 'void_silk', chance: 0.25, count: [1, 1] }],
+    intro: 'A swordsage stands at the peak; where her blade has passed, the air wears a fringe of frost that will not melt.', victory: 'She sheathes, and the frost-fringe sublimes away. She names you worth remembering.', defeat: 'Her cut leaves frost on something inside you that was never meant to be cold.' }],
+  ['amber_tie_keeper', { name: 'Keeper of Severed Ties', zh: '断缘守', tier: 6, arch: 'controller', kind: 'spirit', element: 'water',
+    techIds: ['world_seal', 'silent_verdict'], materialDrops: [{ id: 'spirit_amber', chance: 0.3, count: [1, 1] }, { id: 'severing_frost', chance: 0.3, count: [1, 1] }],
+    intro: 'A keeper sorts a shelf of amber, each drop a mortal tie caught mid-severing, and adds yours to the queue.', victory: 'The keeper sets your amber aside, unsealed, and waves you on. The tie holds, for now.', defeat: 'It seals one of your ties in amber. You feel the absence before you can name it.' }],
+  ['heavenscar_leviathan', { name: 'Heavenscar Star-Leviathan', zh: '天痕星鲲', tier: 6, arch: 'tank', kind: 'beast', element: 'water',
+    techIds: ['void_tide', 'star_wrath'], materialDrops: [{ id: 'heavenscar_dust', chance: 0.3, count: [1, 1] }, { id: 'spirit_amber', chance: 0.3, count: [1, 1] }],
+    intro: 'The sea of unborn stars heaves, and something the size of a coming constellation turns one eye toward you.', victory: 'The leviathan sounds, scattering proto-stars; one cools in your collar as it goes.', defeat: 'It swallows you, finds you insufficiently bright, and spits you at the shore.' }],
+  ['final_abbot', { name: 'Abbot of the Severed Path', zh: '断道方丈', tier: 6, arch: 'brawler', kind: 'human', element: 'earth',
+    techIds: ['iron_monk_strike', 'immortal_pressure'], materialDrops: [{ id: 'severing_frost', chance: 0.3, count: [1, 1] }, { id: 'heavenscar_dust', chance: 0.3, count: [1, 1] }],
+    intro: 'The last abbot of a severed lineage sets down his broom and meets you as mountains meet weather.', victory: 'He bows, finally outfought, and takes up the broom to sweep the courtyard for a successor.', defeat: 'He tends your wounds himself, patiently, which is far worse than the loss.' }],
+  ['dawnscar_herald', { name: 'Herald of the Scarred Dawn', zh: '痕晓使', tier: 6, arch: 'caster', kind: 'heaven', element: 'fire',
+    techIds: ['star_wrath', 'heaven_word'], materialDrops: [{ id: 'heavenscar_dust', chance: 0.3, count: [1, 1] }, { id: 'spirit_amber', chance: 0.25, count: [1, 1] }],
+    intro: 'Light older than the sun descends the throne-hall steps wearing a person the way one wears a borrowed coat.', victory: 'The herald gutters out respectfully, leaving a warmth in the stones that lingers for days.', defeat: 'You are illuminated, in the manner of things caught at midnight doing something wrong.' }],
+  ['void_arbiter_clerk', { name: 'Void-Court Sealing-Clerk', zh: '虚庭封吏', tier: 6, arch: 'elite', kind: 'spirit', element: 'metal',
+    techIds: ['world_seal', 'soul_cleave'], materialDrops: [{ id: 'spirit_amber', chance: 0.3, count: [1, 1] }, { id: 'void_silk', chance: 0.25, count: [1, 1] }],
+    intro: 'A clerk of the void-court unrolls a sealing-script the size of a province and begins, unhurried, to read it onto you.', victory: 'The clerk rolls the script back up, stamps a refund, and lets the seal lift.', defeat: 'The seal settles. For a long moment you are a closed case, filed and quiet.' }],
+].forEach(([id, d]) => mkEnemy(id, d));
+const NEW_ENEMIES_BY_TIER = [
+  [],
+  ['reed_strangler', 'thicket_boar', 'copper_vermin', 'kindling_sprite', 'stoneface_initiate', 'paper_charm_acolyte'],
+  ['mire_leviathan_pup', 'quarry_revenant', 'windcutter_disciple', 'marsh_chime_monk', 'ironbark_warden', 'cinder_arrayist'],
+  ['cinnabar_alchemist', 'starlit_revenant', 'hollow_jade_dancer', 'nether_chanter', 'ironcore_arhat', 'ghostmarket_clerk'],
+  ['goldvein_drake', 'sunwell_oracle', 'dragonchalk_scribe', 'mirage_revenant', 'drowned_court_warden', 'thunderfeather_spirit'],
+  ['soulsilk_weaver', 'nascent_pearl_serpent', 'voidbloom_ascetic', 'floating_court_bailiff', 'scarwound_horror', 'quiet_thunder_envoy'],
+  ['frostsever_swordsage', 'amber_tie_keeper', 'heavenscar_leviathan', 'final_abbot', 'dawnscar_herald', 'void_arbiter_clerk'],
+];
+
 // ---- 14 bosses, 2 per realm. Elite-scaled on top of the boss stat row;
 // defeat toll DOUBLED; first kill grants a material cache. ----
 [
@@ -6663,6 +6790,17 @@ LOCATIONS.push(
   { id: 'heavens_blind_spot', name: "The Heavens' Blind Spot", zh: '天盲处', desc: 'One place the sky cannot see. The qi is fat, lawless, and entirely unjudged. Every demonic road ends here.',
     minTier: 6, minLayer: 2, cultivationMult: 13.5, demonOnly: true, enemyPool: ['severed_immortal', 'names_gatekeeper', 'scar_horror'] }
 );
+// v1.27.10 PHASE 3: seed every venture's enemyPool with two realm-appropriate NEW enemies, chosen by a hash
+// of the location id so different ventures get a different pair — variety specific to each venture, no hand-mapping.
+LOCATIONS.forEach(loc => {
+  const pool = NEW_ENEMIES_BY_TIER[loc.minTier || 0];
+  if (!pool || !pool.length || !Array.isArray(loc.enemyPool)) return;
+  let h = 0; const s = (loc.id || '') + '#e';
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) & 0x7fffffff;
+  const ai = h % pool.length;
+  const bi = (ai + 1 + (Math.floor(h / pool.length) % (pool.length - 1))) % pool.length;
+  [pool[ai], pool[bi]].forEach(id => { if (id && ENEMIES[id] && !loc.enemyPool.includes(id)) loc.enemyPool.push(id); });
+});
 
 function locationUnlocked(loc) {
   if (loc.demonOnly && !state.demonic) return false;  // v0.61: demon-path grounds
