@@ -541,11 +541,11 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v1.27.8';
+const GAME_VERSION = 'v1.27.9';
 // v0.78: CI injects the build's short sha here; the APK shell reads it FROM THE RUNNING
 // PAGE (window.BUILD_SHA) and compares against the repo head — staleness detection that
-// cannot be fooled by cached metadata. '1406e91' = local/dev build (shell falls back).
-const BUILD_SHA = '1406e91';
+// cannot be fooled by cached metadata. '142b482' = local/dev build (shell falls back).
+const BUILD_SHA = '142b482';
 if (typeof window !== 'undefined') window.BUILD_SHA = BUILD_SHA;
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
@@ -3940,6 +3940,52 @@ const INSCRIPTIONS = {
     desc: 'Each hit drains 11% of the foe\'s qi. The meridians empty into nothing.',
     apply: m => { m.qiDrainPct += 0.11; },
   },
+  // ========== v1.27.9: 45 themed inscriptions across the realm ladder (insc_ scheme; magnitude auto-derived) ==========
+  insc_sparrowsong_edge:   { name: 'Sparrowsong Edge',     zh: '雀歌锋', rarity: 'common', desc: 'Weapon power up. A fledgling blade that still hums.', apply: m => { m.weaponBonus += 2; } },
+  insc_clayward_glyph:     { name: 'Clayward Glyph',       zh: '泥护符', rarity: 'common', desc: 'Max Body up. A potter\'s seal pressed into the grip.', apply: m => { m.hpBonus += 12; } },
+  insc_riverstone_skin:    { name: 'Riverstone Skin',      zh: '溪石肤', rarity: 'common', desc: 'Damage taken down. Smooth as a stone in the shallows.', apply: m => { m.hpBonus += 8; } },
+  insc_dewdrop_channel:    { name: 'Dewdrop Channel',      zh: '露渠', rarity: 'common', desc: 'Qi recovered up. A morning-dew meridian mark.', apply: m => { m.qiRegenBonus += 1; } },
+  insc_warmblood_seed:     { name: 'Warmblood Seed',       zh: '温血种', rarity: 'common', desc: 'Lifesteal up. A small warm sigil in the hilt wood.', apply: m => { m.strikeHeal += 3; } },
+  insc_willow_stance:      { name: 'Willow Stance Mark',   zh: '柳势印', rarity: 'rare',   desc: 'Posture damage up. The stroke bends, never breaks.', apply: m => { m.postureMult *= 1.1; } },
+  insc_first_form_rune:    { name: 'First-Form Rune',      zh: '初式符', rarity: 'common', desc: 'Technique damage up. The opening kata, etched.', apply: m => { m.techDamageMult *= 1.05; } },
+  insc_quickdraw_notch:    { name: 'Quickdraw Notch',      zh: '速拔刻', rarity: 'rare',   desc: 'Strike damage up. A draw-cut groove along the spine.', apply: m => { m.strikeDamageMult *= 1.1; } },
+  insc_clear_eye_glyph:    { name: 'Clear-Eye Glyph',      zh: '明目符', rarity: 'common', desc: 'Combat insight up. A novice\'s focusing mark.', apply: m => { m.insightMult *= 1.05; } },
+  insc_thin_soul_thread:   { name: 'Thin-Soul Thread',     zh: '细魂丝', rarity: 'common', desc: 'Spirit damage up. A single thread of divine sense.', apply: m => { m.spiritBonus += 1; } },
+  insc_keenfold_brand:     { name: 'Keenfold Brand',       zh: '锐叠烙', rarity: 'rare',   desc: 'Weapon power up. Folded steel, brand-marked.', apply: m => { m.weaponBonus += 4; } },
+  insc_bastion_weave:      { name: 'Bastion Weave',        zh: '堡织', rarity: 'rare',   desc: 'Max Body up. A fortress-pattern braid on the grip.', apply: m => { m.hpBonus += 50; } },
+  insc_turtleshell_seal:   { name: 'Turtleshell Seal',     zh: '龟甲印', rarity: 'rare',   desc: 'Damage taken down. A layered carapace ward.', apply: m => { m.hpBonus += 20; } },
+  insc_spring_meridian:    { name: 'Spring Meridian',      zh: '泉脉', rarity: 'rare',   desc: 'Qi recovered up. A welling channel mark.', apply: m => { m.qiRegenBonus += 2; } },
+  insc_crimson_leech:      { name: 'Crimson Leech Glyph',  zh: '赤蛭符', rarity: 'rare',   desc: 'Lifesteal up. A blood-drinking sigil.', apply: m => { m.strikeHeal += 5; } },
+  insc_stonebreak_array:   { name: 'Stonebreak Array',     zh: '碎石阵', rarity: 'common', desc: 'Posture damage up. A small wedge-formation of jade.', apply: m => { m.postureMult *= 1.08; } },
+  insc_flowing_form:       { name: 'Flowing-Form Rune',    zh: '流式符', rarity: 'rare',   desc: 'Technique damage up. The form runs like water.', apply: m => { m.techDamageMult *= 1.1; } },
+  insc_falcon_dive:        { name: 'Falcon Dive Notch',    zh: '隼扑刻', rarity: 'common', desc: 'Strike damage up. A stooping-hawk groove.', apply: m => { m.strikeDamageMult *= 1.06; } },
+  insc_jade_lens:          { name: 'Jade Lens',            zh: '玉镜', rarity: 'rare',   desc: 'Combat insight up. A polished jade chip that recalls each fight.', apply: m => { m.insightMult *= 1.1; } },
+  insc_ghostlight_thread:  { name: 'Ghostlight Thread',    zh: '鬼火丝', rarity: 'rare',   desc: 'Spirit damage up. A faint luminous filament.', apply: m => { m.spiritBonus += 1; } },
+  insc_corefang_inlay:     { name: 'Corefang Inlay',       zh: '核牙嵌', rarity: 'legendary', desc: 'Weapon power up. A fang of condensed core-qi.', apply: m => { m.weaponBonus += 8; } },
+  insc_ironheart_array:    { name: 'Ironheart Array',      zh: '铁心阵', rarity: 'rare',      desc: 'Max Body up. A formation that hardens the dantian wall.', apply: m => { m.hpBonus += 90; } },
+  insc_obsidian_ward:      { name: 'Obsidian Ward',        zh: '黑曜障', rarity: 'legendary', desc: 'Damage taken down. A glassy ward that turns blows aside.', apply: m => { m.hpBonus += 30; } },
+  insc_deepwell_array:     { name: 'Deepwell Array',       zh: '深井阵', rarity: 'rare',      desc: 'Qi recovered up. A formation that draws from a deep well.', apply: m => { m.qiRegenBonus += 4; } },
+  insc_vampire_lotus:      { name: 'Vampire Lotus Seal',   zh: '血莲印', rarity: 'legendary', desc: 'Lifesteal up. A lotus that blooms on spilled blood.', apply: m => { m.strikeHeal += 8; } },
+  insc_shatterstance:      { name: 'Shatterstance Seal',   zh: '裂势印', rarity: 'legendary', desc: 'Posture damage up. A seal that unmakes a guard.', apply: m => { m.postureMult *= 1.18; } },
+  insc_thunderform_rune:   { name: 'Thunderform Rune',     zh: '雷式符', rarity: 'rare',      desc: 'Technique damage up. Each form lands with a crack.', apply: m => { m.techDamageMult *= 1.12; } },
+  insc_reaver_groove:      { name: 'Reaver Groove',        zh: '掠刻', rarity: 'legendary', desc: 'Strike damage up. A deep reaving channel.', apply: m => { m.strikeDamageMult *= 1.15; } },
+  insc_oracle_mirror:      { name: 'Oracle Mirror',        zh: '卜镜', rarity: 'rare',      desc: 'Combat insight up. A mirror that shows the next stroke.', apply: m => { m.insightMult *= 1.12; } },
+  insc_wraithedge_brand:   { name: 'Wraithedge Brand',     zh: '魂刃烙', rarity: 'legendary', desc: 'Spirit damage up. An edge that cuts the soul before the flesh.', apply: m => { m.spiritBonus += 2; } },
+  insc_goldcore_edge:      { name: 'Goldcore Edge',        zh: '金核锋', rarity: 'legendary', desc: 'Weapon power up. A blade fed by a golden core.', apply: m => { m.weaponBonus += 9; } },
+  insc_adamant_bastion:    { name: 'Adamant Bastion',      zh: '金刚堡', rarity: 'rare',      desc: 'Max Body up. An unyielding bulwark seal.', apply: m => { m.hpBonus += 110; } },
+  insc_eclipse_ward:       { name: 'Eclipse Ward',         zh: '蚀障', rarity: 'legendary', desc: 'Damage taken down. A shadow that swallows incoming force.', apply: m => { m.hpBonus += 35; } },
+  insc_goldspring_array:   { name: 'Goldspring Array',     zh: '金泉阵', rarity: 'legendary', desc: 'Qi recovered up. A spring that runs gold.', apply: m => { m.qiRegenBonus += 5; } },
+  insc_corona_form:        { name: 'Corona-Form Rune',     zh: '冕式符', rarity: 'rare',      desc: 'Technique damage up. Each form crowned in light.', apply: m => { m.techDamageMult *= 1.15; } },
+  insc_soulrend_edge:      { name: 'Soulrend Edge',        zh: '裂魂锋', rarity: 'divine',    desc: 'Weapon power up. An edge that frays the spirit it strikes.', apply: m => { m.weaponBonus += 14; } },
+  insc_undying_carapace:   { name: 'Undying Carapace',     zh: '不死甲', rarity: 'legendary', desc: 'Max Body up. A shell that refuses the grave.', apply: m => { m.hpBonus += 170; } },
+  insc_nascent_aegis:      { name: 'Nascent Aegis',        zh: '元婴盾', rarity: 'divine',    desc: 'Damage taken down. A soul-infant\'s instinctive ward.', apply: m => { m.hpBonus += 45; } },
+  insc_soulflame_form:     { name: 'Soulflame-Form Rune',  zh: '魂焰式', rarity: 'legendary', desc: 'Technique damage up. Forms wreathed in soul-fire.', apply: m => { m.techDamageMult *= 1.2; } },
+  insc_phantom_severance:  { name: 'Phantom Severance',    zh: '幻断', rarity: 'divine',    desc: 'Spirit damage up. A cut that the soul cannot survive.', apply: m => { m.spiritBonus += 3; } },
+  insc_worldcleaver_edge:  { name: 'Worldcleaver Edge',    zh: '裂世锋', rarity: 'divine',    desc: 'Weapon power up. An edge that parts the world itself.', apply: m => { m.weaponBonus += 16; } },
+  insc_eternal_rampart:    { name: 'Eternal Rampart',      zh: '永垒', rarity: 'divine',    desc: 'Max Body up. A wall that outlasts the heavens.', apply: m => { m.hpBonus += 350; } },
+  insc_severance_lotus:    { name: 'Severance Lotus',      zh: '断莲', rarity: 'legendary', desc: 'Lifesteal up. A lotus fed on severed fate.', apply: m => { m.strikeHeal += 11; } },
+  insc_dao_oracle_seal:    { name: 'Dao-Oracle Seal',      zh: '道卜印', rarity: 'divine',    desc: 'Combat insight up. The dao itself answers your gaze.', apply: m => { m.insightMult *= 1.32; } },
+  insc_soulsever_brand:    { name: 'Soul-Sever Brand',     zh: '断魂烙', rarity: 'divine',    desc: 'Spirit damage up. A brand burned by severing one\'s own soul.', apply: m => { m.spiritBonus += 4; } },
   pill_nurtured: {
     name: 'Pill-Nurtured', zh: '丹养', rarity: 'common',
     desc: 'Meditate recovers 30% more qi. A residue of alchemical heat.',
@@ -4174,6 +4220,16 @@ const INSCRIPTIONS = {
 const INSCRIPTION_REALM = {
   // v1.27.2: qi-pressure / qi-drain specialization inscriptions (anti-caster gear)
   barrier_breaker: 2, siphon_glyph: 2, shatterpoint_seal: 3, hollow_dantian_seal: 4, riftfang_brand: 5, void_meridian_brand: 5,
+  // v1.27.9: 45 themed inscriptions
+  insc_sparrowsong_edge: 1, insc_clayward_glyph: 1, insc_riverstone_skin: 1, insc_dewdrop_channel: 1, insc_warmblood_seed: 1,
+  insc_willow_stance: 1, insc_first_form_rune: 1, insc_quickdraw_notch: 1, insc_clear_eye_glyph: 1, insc_thin_soul_thread: 1,
+  insc_keenfold_brand: 2, insc_bastion_weave: 2, insc_turtleshell_seal: 2, insc_spring_meridian: 2, insc_crimson_leech: 2,
+  insc_stonebreak_array: 2, insc_flowing_form: 2, insc_falcon_dive: 2, insc_jade_lens: 2, insc_ghostlight_thread: 2,
+  insc_corefang_inlay: 3, insc_ironheart_array: 3, insc_obsidian_ward: 3, insc_deepwell_array: 3, insc_vampire_lotus: 3,
+  insc_shatterstance: 3, insc_thunderform_rune: 3, insc_reaver_groove: 3, insc_oracle_mirror: 3, insc_wraithedge_brand: 3,
+  insc_goldcore_edge: 4, insc_adamant_bastion: 4, insc_eclipse_ward: 4, insc_goldspring_array: 4, insc_corona_form: 4,
+  insc_soulrend_edge: 5, insc_undying_carapace: 5, insc_nascent_aegis: 5, insc_soulflame_form: 5, insc_phantom_severance: 5,
+  insc_worldcleaver_edge: 6, insc_eternal_rampart: 6, insc_severance_lotus: 6, insc_dao_oracle_seal: 6, insc_soulsever_brand: 6,
   // mixed early set
   thousand_tempered: 1, jade_heart: 1, bloodbond: 0, meridian_clearing: 1, pill_nurtured: 1,
   searing_rune: 2, heaven_listening: 3,
@@ -4240,6 +4296,16 @@ const INSCR_RIDERS = {
   late:        { apply: (m, r, s = 1) => { m.lateBonus += 0.06 * s; }, label: '+late-fight damage' },
 };
 const INSCRIPTION_THEME = {
+  // v1.27.9: 45 themed inscriptions
+  insc_sparrowsong_edge: 'weapon', insc_clayward_glyph: 'guard', insc_riverstone_skin: 'bulwark', insc_dewdrop_channel: 'qi', insc_warmblood_seed: 'sustain',
+  insc_willow_stance: 'posture', insc_first_form_rune: 'technique', insc_quickdraw_notch: 'strike', insc_clear_eye_glyph: 'insight', insc_thin_soul_thread: 'spirit',
+  insc_keenfold_brand: 'weapon', insc_bastion_weave: 'guard', insc_turtleshell_seal: 'bulwark', insc_spring_meridian: 'qi', insc_crimson_leech: 'sustain',
+  insc_stonebreak_array: 'posture', insc_flowing_form: 'technique', insc_falcon_dive: 'strike', insc_jade_lens: 'insight', insc_ghostlight_thread: 'spirit',
+  insc_corefang_inlay: 'weapon', insc_ironheart_array: 'guard', insc_obsidian_ward: 'bulwark', insc_deepwell_array: 'qi', insc_vampire_lotus: 'sustain',
+  insc_shatterstance: 'posture', insc_thunderform_rune: 'technique', insc_reaver_groove: 'strike', insc_oracle_mirror: 'insight', insc_wraithedge_brand: 'spirit',
+  insc_goldcore_edge: 'weapon', insc_adamant_bastion: 'guard', insc_eclipse_ward: 'bulwark', insc_goldspring_array: 'qi', insc_corona_form: 'technique',
+  insc_soulrend_edge: 'weapon', insc_undying_carapace: 'guard', insc_nascent_aegis: 'bulwark', insc_soulflame_form: 'technique', insc_phantom_severance: 'spirit',
+  insc_worldcleaver_edge: 'weapon', insc_eternal_rampart: 'guard', insc_severance_lotus: 'sustain', insc_dao_oracle_seal: 'insight', insc_soulsever_brand: 'spirit',
   // weapon (16)
   thousand_tempered: 'weapon', flint_temper: 'weapon', narrow_edge: 'weapon', sun_kissed: 'weapon',
   dawnline: 'weapon', bright_inlay: 'weapon', scorched_line: 'weapon', steady_flame: 'weapon',
@@ -6957,6 +7023,39 @@ const SKILLS = [
 // Skill Books — random loot that unlocks bonus skills
 // ============================================================
 const SKILL_BOOKS = {
+  // ---- v1.27.9: new skill books across the realm ladder ----
+  book_crane_step: { name: 'Crane-Step Treatise', zh: '鹤步论', rarity: 'rare', cost: 9000, minTier: 1,
+    effect: { kind: 'mods', mods: { dodgeChance: 0.05 } }, desc: '+5% dodge. The crane lifts before the water knows it stirred.' },
+  book_ember_focus: { name: 'Ember-Focus Manual', zh: '聚烬诀', rarity: 'rare', cost: 11000, minTier: 1,
+    effect: { kind: 'mods', mods: { techDamageMult: 1.06 } }, desc: '+6% technique damage. Bank the fire small and let it burn precise.' },
+  book_wandering_insight: { name: 'Wandering-Insight Scroll', zh: '游识卷', rarity: 'common', cost: 1400, minTier: 0,
+    effect: { kind: 'combat_insight_mult', value: 1.12 }, desc: '+12% insight from combat. A travelling scholar\'s loose notes.' },
+  book_jade_circulation: { name: 'Jade-Circulation Canon', zh: '玉运典', rarity: 'rare', cost: 26000, minTier: 2,
+    effect: { kind: 'cultivation_mult', value: 1.24 }, desc: '+24% cultivation rate. The qi runs a smoother, fuller loop.' },
+  book_tigerbone_method: { name: 'Tigerbone Forging Method', zh: '虎骨锻法', rarity: 'rare', cost: 30000, minTier: 2,
+    effect: { kind: 'hp_add', value: 900 }, desc: '+900 max Body. The marrow is hardened until it rings like struck bronze.' },
+  book_unyielding_will: { name: 'Unyielding-Will Litany', zh: '不屈祷', rarity: 'rare', cost: 34000, minTier: 2,
+    effect: { kind: 'stat_add', statKey: 'will', value: 2 }, desc: '+2 Dao Heart. Say it through the breaking and keep saying it.' },
+  book_thunder_tendon: { name: 'Thunder-Tendon Scripture', zh: '雷筋经', rarity: 'legendary', cost: 100000, minTier: 3,
+    effect: { kind: 'weapon_add', value: 28 }, desc: '+28 weapon power. The sinew snaps shut with a sound like distant storm.' },
+  book_clear_pond_mind: { name: 'Clear-Pond Mind Sutra', zh: '澄潭心经', rarity: 'legendary', cost: 115000, minTier: 3,
+    effect: { kind: 'stat_add', statKey: 'mind', value: 3 }, desc: '+3 Perception. Still the pond and the moon shows you everything.' },
+  book_warded_heart: { name: 'Warded-Heart Scripture', zh: '护心经', rarity: 'legendary', cost: 130000, minTier: 3,
+    effect: { kind: 'incoming_mult_perm', value: 0.85 }, desc: '-15% incoming damage permanently. A sigil set over the heart-meridian itself.' },
+  book_golden_furnace: { name: 'Golden-Furnace Canon', zh: '金炉典', rarity: 'legendary', cost: 200000, minTier: 4,
+    effect: { kind: 'cultivation_mult', value: 1.7 }, desc: '+70% cultivation rate. The core itself becomes the cauldron.' },
+  book_riven_sky_palm: { name: 'Riven-Sky Palm Fragment', zh: '裂霄掌残', rarity: 'divine', cost: 480000, minTier: 4,
+    effect: { kind: 'mods', mods: { strikeDamageMult: 1.18, critChance: 0.06 } }, desc: '+18% strike damage, +6% crit. The open hand learns to split what it touches.' },
+  book_soul_lantern: { name: 'Soul-Lantern Scripture', zh: '魂灯经', rarity: 'divine', cost: 600000, minTier: 5,
+    effect: { kind: 'stat_add_all', value: 3 }, desc: '+3 to every stat permanently. The nascent soul is hung like a lamp and the whole self brightens.' },
+  book_abyss_gaze: { name: 'Abyss-Gaze Fragment', zh: '渊视残页', rarity: 'divine', cost: 720000, minTier: 5,
+    effect: { kind: 'mods', mods: { critMult: 1.5, lifestealPct: 0.08 } }, desc: '+50% crit damage, +8% lifesteal. Stare long enough and the abyss returns what you spend.' },
+  book_severed_thread_dao: { name: 'Severed-Thread Dao Scroll', zh: '断丝道卷', rarity: 'divine', cost: 1300000, minTier: 6,
+    effect: { kind: 'weapon_add', value: 90 }, desc: '+90 weapon power. Cut the thread that bound your hand to mercy.' },
+  book_heaven_defying: { name: 'Heaven-Defying Scripture', zh: '逆天经', rarity: 'divine', cost: 1600000, minTier: 6,
+    effect: { kind: 'mods', mods: { incomingMult: 0.85, techDamageMult: 1.2, cultMult: 1.3 } }, desc: '-15% incoming, +20% technique damage, +30% cultivation. A manual the heavens tried, and failed, to unwrite.' },
+  book_origin_severing: { name: 'Origin-Severing Dao Fragment', zh: '断源道残', rarity: 'divine', cost: 2200000, minTier: 6,
+    effect: { kind: 'stat_add_all', value: 4 }, desc: '+4 to every stat permanently. To sever the spirit you must first know every thread of the self.' },
   // Common
   book_jade_breathing: {
     name: 'Jade Breathing Manual', zh: '玉息诀', rarity: 'common', cost: 800,
