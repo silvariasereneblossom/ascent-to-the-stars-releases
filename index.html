@@ -541,11 +541,11 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v1.27.4';
+const GAME_VERSION = 'v1.27.5';
 // v0.78: CI injects the build's short sha here; the APK shell reads it FROM THE RUNNING
 // PAGE (window.BUILD_SHA) and compares against the repo head — staleness detection that
-// cannot be fooled by cached metadata. '4e2cdea' = local/dev build (shell falls back).
-const BUILD_SHA = '4e2cdea';
+// cannot be fooled by cached metadata. '08be130' = local/dev build (shell falls back).
+const BUILD_SHA = '08be130';
 if (typeof window !== 'undefined') window.BUILD_SHA = BUILD_SHA;
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
@@ -1579,7 +1579,7 @@ const TECHNIQUES = {
     logHit: (a,t) => `${a}'s claws taste ${t} first; the skin opens after.` },
   demon_devour: {
     name: 'Soul-Devouring Palm', zh: '噬魂掌', school: 'demon_heart',
-    qi: 12, cd: 2, damage: 2.2, directHP: 10, postureBuild: 16,
+    qi: 12, cd: 4, damage: 2.2, directHP: 10, postureBuild: 16,
     desc: "A pressing palm that tears a piece of the enemy's life into your own.",
     logHit: (a,t) => `${a}'s palm settles on ${t}, and a warm thread leaves them for good.` },
   demon_seal: {
@@ -1590,7 +1590,7 @@ const TECHNIQUES = {
     logHit: (a,t) => `${a}'s fingers dig into a meridian-knot; ${t}'s qi recoils.` },
   demon_ascendant: {
     name: "Devourer's Crown", zh: '噬冕', school: 'demon_heart',
-    qi: 22, hpCost: 10, cd: 3, damage: 5.4, directHP: 12, postureBuild: 14,
+    qi: 22, hpCost: 10, cd: 5, damage: 5.4, directHP: 12, postureBuild: 14,
     desc: "A devouring-fist finisher that feeds on the enemy's life and, quietly, your own.",
     logHit: (a,t) => `${a} closes a clawed fist around ${t} and feeds.` },
 
@@ -2226,7 +2226,7 @@ const SCHOOLS = {
     name: 'Demon Heart Palace', zh: '魔心殿',
     weapon: 'demon_claws',   // v1.6: unarmed demon-claw moveset
     techniques: ['demon_reap','demon_devour','demon_seal','demon_ascendant','demon_parasite'],
-    specialty: 'You do not merely walk the demonic path — you BECOME a demon. No cultivation at all (insight comes only from battle and the rift-gate) and no lifespan to spend, but 1.5x the demonic bonuses, a Hungry-Dao lifesteal on every hit (40%, rising to 50% at Golden Core), and hellfire that burns 1% of MAX health per stack. At FULL hellfire every hit also rends a share of its damage straight into the foe\'s spirit (15%, 20% at Golden Core) — soul-break them for +30% damage taken. Hellfire burns twice per turn at Nascent Soul. The price: tribulations that hit 25% softer but mend themselves and drag on, sect hunters always a realm above you (rarely two), and a mounting hunt that ends you if their defeats stack to the realm cap. Purge the hunt at your sect — at the cost of falling to the bottom of your realm.',
+    specialty: 'You do not merely walk the demonic path — you BECOME a demon. No cultivation at all (insight comes only from battle and the rift-gate) and no lifespan to spend, but 1.5x the demonic bonuses, a Hungry-Dao lifesteal on every hit (25%, rising to 30% at Golden Core), and hellfire that burns 1% of MAX health per stack. At FULL hellfire every hit also rends a share of its damage straight into the foe\'s spirit (15%, 20% at Golden Core) — soul-break them for +30% damage taken. Hellfire burns twice per turn at Nascent Soul. The price: tribulations that hit 25% softer but mend themselves and drag on, sect hunters always a realm above you (rarely two), and a mounting hunt that ends you if their defeats stack to the realm cap. Purge the hunt at your sect — at the cost of falling to the bottom of your realm.',
     bestStats: ['spirit','will'],
     flavor: 'High on a black stone plateau where no birds fly. The palace has no doors. Students arrive by conviction.',
     isDemon: true,
@@ -3447,7 +3447,7 @@ const SCHOOL_KITS = {
   demon_heart: {
     passiveName: 'Hungry Dao', passiveZh: '饥道',
     passiveDesc: 'A share of all damage you deal returns as Body. You take +10% damage and burn 5% of your Body each turn — but you strike 15% harder while bloodied. Live on the edge; drink your way back to full.',
-    lifestealBonus: 0.15,
+    lifestealBonus: 0.10,
   },
   starfall: {
     passiveName: 'Celestial Sight', passiveZh: '天目',
@@ -3502,7 +3502,7 @@ const DEMONIC_TWISTS = {
   crimson_flame:     { onTechHit: { kind: 'burn', power: 0.18, turns: 3 }, twistDesc: 'Burns tick half again harder.' },
   moonlit_water:     { onTechHit: { kind: 'chill', value: 0.30, turns: 2 }, twistDesc: 'Chill saps -30% damage.' },
   silent_daggers:    { critBonus: 0.15, onTechHit: { kind: 'poison', power: 0.12, turns: 4 }, twistDesc: '+15% crit; deadlier venom.' },
-  demon_heart:       { lifestealBonus: 0.40,                      twistDesc: 'Hungry Dao drinks 40% (50% at Golden Core).' },
+  demon_heart:       { lifestealBonus: 0.25,                      twistDesc: 'Hungry Dao drinks 25% (30% at Golden Core).' },
   starfall:          { critBonus: 0.05,                           twistDesc: '+5% crit on top of Celestial Sight.' },
   verdant_monastery: { regenPct: 0.05,                            twistDesc: 'Regrow 5% max Body per round.' },
   thunder_hammer:    { postureBonus: 0.40,                        twistDesc: '+40% posture damage.' },
@@ -3689,7 +3689,7 @@ const SCHOOL_KIT_REALM_SCALE = {
   moonlit_water:     (k, s) => { if (k.onTechHit) k.onTechHit = Object.assign({}, k.onTechHit, { value: k.onTechHit.value + 0.05 * s }); },
   silent_daggers:    (k, s) => { k.critBonus = (k.critBonus || 0) + 0.02 * s;
                                  k.stackCapBonus = Object.assign({}, k.stackCapBonus, { poison: ((k.stackCapBonus || {}).poison || 0) + s }); },
-  demon_heart:       (k, s) => { k.lifestealBonus = (k.lifestealBonus || 0) + (s >= 1 ? 0.10 : 0); },   // v1.10: +10% at Golden Core+ -> 50% (the spirit-conv 15%->20% is in applyPostHitTriggers)
+  demon_heart:       (k, s) => { k.lifestealBonus = (k.lifestealBonus || 0) + (s >= 1 ? 0.05 : 0); },   // v1.27.5: +5% at Golden Core+ -> 30% (was +10%->50%; lifesteal nerf). spirit-conv stays in applyPostHitTriggers.
   starfall:          (k, s) => {},   // ALREADY realm-scaled in the crit pipeline — v0.51 operator canon
   verdant_monastery: (k, s) => { k.regenPct = (k.regenPct || 0) + 0.01 * s; },
   thunder_hammer:    (k, s) => { k.postureBonus = (k.postureBonus || 0) + 0.05 * s; },
@@ -13041,7 +13041,11 @@ function computeMaxQi(char) {
 }
 function computeMaxSpirit(char) {
   const mods = computeMods(char);
-  return Math.round((12 + char.finalStats.sense * 2 + (mods.spiritBonus || 0)) * (1 + 0.10 * (char.goldenCoreQuality || 0)));   // v1.18: +10% Spirit/GC level
+  // v1.27.5: the spirit RESOURCE now scales with REALM (it used to be flat ~50-75 forever, so as enemy
+  // spirit damage grew each realm you were soul-broken on turn 1-2). Scaled by SQRT of the cultivation pool
+  // multiplier qi uses — dampened, because enemy spirit damage is mostly flat tech values that grow ~3x by
+  // Spirit Severing, NOT the ~24x the raw qi pool grows. Soul-break is now sustained pressure, not instant.
+  return Math.round((12 + char.finalStats.sense * 2 + (mods.spiritBonus || 0)) * Math.sqrt(cultPowerMults(char).qiPool) * (1 + 0.10 * (char.goldenCoreQuality || 0)));   // v1.18: +10% Spirit/GC level
 }
 
 // ============================================================
