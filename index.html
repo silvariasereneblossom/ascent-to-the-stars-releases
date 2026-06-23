@@ -541,11 +541,11 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v1.27.10';
+const GAME_VERSION = 'v1.27.11';
 // v0.78: CI injects the build's short sha here; the APK shell reads it FROM THE RUNNING
 // PAGE (window.BUILD_SHA) and compares against the repo head — staleness detection that
-// cannot be fooled by cached metadata. 'fe5eb37' = local/dev build (shell falls back).
-const BUILD_SHA = 'fe5eb37';
+// cannot be fooled by cached metadata. '07606f3' = local/dev build (shell falls back).
+const BUILD_SHA = '07606f3';
 if (typeof window !== 'undefined') window.BUILD_SHA = BUILD_SHA;
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
@@ -6229,7 +6229,7 @@ const ENEMY_HP_SCALE = [1, 1.3, 1.4, 1.4, 1.2, 1.4, 1.4];   // v1.27.7: raised s
 // DEFENSIVE build (huge DR) is COMPENSATED-FOR (foes hit hard enough to still threaten it) rather
 // than becoming unkillable, while glass builds feel the danger. Tuned with ENEMY_HP_SCALE so high
 // realms are "die fast, but the foe hits hard" (operator). [tierIdx 0..6]. 1.0 = unchanged.
-const ENEMY_DMG_SCALE = [1, 2.5, 2.5, 2.5, 3, 3, 3];   // v1.27.7: universal damage bump so normals threaten at all realms (paired with ENEMY_BARRIER_PIERCE for high-cultivation players). Low realms 2.5x (were 1x), GC+ 3x.
+const ENEMY_DMG_SCALE = [1, 2, 2, 2, 2, 2.2, 2.2];   // v1.27.11: flattened — realm THREAT now escalates via MOB SIZE (rollEncounter) + group dampening, not per-foe damage. Low realms gentle (small packs); GC+ threatening (big packs, real death risk). Paired with ENEMY_BARRIER_PIERCE.
 // v1.27.7: in NORMAL fights only, enemy hits pierce extra of the player's qi barrier straight to Body, so
 // normals stay "somewhat threatening at all realms" even against a high-cultivation barrier that would
 // otherwise shrug them off (the player's qiShieldMult grows ~1.04^layer). Bosses/tribs are excluded — they're
@@ -6655,12 +6655,25 @@ function consumeBossCharge(bossId) {
   rec.c--;
   if (wasFull) rec.t = Date.now();   // start the recharge clock from this spend
 }
+// v1.27.11: Golden-Core-and-up bosses bring SUPPORTING ADDS matched to their playstyle (control adds for a
+// bruiser, glass strikers behind a tank, etc.). Heavenscourge (_hard) variants inherit the base boss's adds.
+// Adds are ordinary realm enemies (normal scaling), so they pressure you without out-shining the boss.
+const BOSS_ADDS = {
+  vein_matriarch:       ['dragonchalk_scribe', 'goldvein_drake'],      // earth tank + a binder to pin you while she grinds
+  mirage_emperor:       ['mirage_revenant', 'mirage_revenant'],        // illusion duelists that burst from the haze
+  war_court_lord:       ['floating_court_bailiff', 'quiet_thunder_envoy'], // a bailiff to hold you for the court's sentence
+  moon_eater:           ['voidbloom_ascetic', 'scarwound_horror'],     // void-casters feeding the eclipse
+  heavenly_executioner: ['void_arbiter_clerk', 'frostsever_swordsage'], // a sealer + an executioner's second
+  dawn_sovereign:       ['dawnscar_herald', 'amber_tie_keeper'],       // heralds of the scarred dawn
+};
 function startBossFight(bossId) {
   const meta = BOSSES[bossId];
   if (!meta || !ENEMIES[bossId]) return;
   if ((state.realm.tierIdx || 0) < meta.tier) return;
   if (bossChargeCount(bossId) < 1) return;   // need a charge to attempt; the KILL spends it
-  initCombat([bossId], 1);
+  const baseBoss = bossId.replace(HARD_BOSS_SUFFIX, '');
+  const adds = (meta.tier >= 4 && BOSS_ADDS[baseBoss]) ? BOSS_ADDS[baseBoss].filter(a => ENEMIES[a]) : [];
+  initCombat([bossId].concat(adds), 1);
   if (combat) combat.bossFight = true;
   render();
 }
@@ -13929,14 +13942,21 @@ function rollEncounter(loc) {
   const pick = arr => arr[Math.floor(Math.random() * arr.length)];
   const elites = pool.filter(id => ENEMIES[id] && ENEMIES[id].archetype === 'elite');
   const mooks = pool.filter(id => ENEMIES[id] && ENEMIES[id].archetype !== 'elite');
+  // v1.27.11: mob SIZE swells as you climb — low realms 1-2, Golden Core 2-4, Nascent Soul 3-5, Spirit
+  // Severing 4-6 (the occasional 6). Bigger packs are what make high-realm trash THREATENING (more foes
+  // acting + more Body to chew through than you can one-shot), so the lonely-mook problem fixes itself.
+  const t = state.realm.tierIdx || 0;
   const r = Math.random();
-  // 40% single, 25% two mooks, 20% solo elite, 15% elite + two mooks.
-  if (r < 0.40)             return [pick(pool)];
-  if (r < 0.65 && mooks.length) return [pick(mooks), pick(mooks)];
-  if (r < 0.85 && elites.length) return [pick(elites)];
-  if (elites.length && mooks.length) return [pick(elites), pick(mooks), pick(mooks)];
-  // Fallback when pool is too thin: single enemy.
-  return [pick(pool)];
+  let size;
+  if (t <= 2)        size = r < 0.55 ? 1 : 2;
+  else if (t === 3)  size = r < 0.40 ? 1 : (r < 0.80 ? 2 : 3);
+  else if (t === 4)  size = r < 0.30 ? 2 : (r < 0.75 ? 3 : 4);
+  else if (t === 5)  size = r < 0.30 ? 3 : (r < 0.75 ? 4 : 5);
+  else               size = r < 0.30 ? 4 : (r < 0.65 ? 5 : (r < 0.90 ? 5 : 6));
+  const group = [];
+  if (elites.length && size >= 2 && Math.random() < 0.25 + 0.08 * t) group.push(pick(elites));   // a lone elite may lead the pack
+  while (group.length < size) group.push(pick(mooks.length ? mooks : pool));
+  return group;
 }
 
 function buildEnemyCombat(enemyId) {
@@ -14082,6 +14102,14 @@ function initCombat(enemyIdOrIds, areaCultMult) {
   const ids = Array.isArray(enemyIdOrIds) ? enemyIdOrIds.slice() : [enemyIdOrIds];
   const enemies = ids.map(buildEnemyCombat).filter(Boolean);
   if (!enemies.length) return;
+  // v1.27.11: GROUP damage-dampening — a pack of N doesn't hit N times as hard (that's instant death for
+  // single-target builds, while AoE shrugs it off). Each NON-boss foe in a group of N deals 1/(1+0.30*(N-1)),
+  // so a 5-pack's total is ~2.5x a lone foe — threatening, survivable, and not an AoE-only check. Bosses keep
+  // full damage; their adds are dampened as part of the group.
+  if (enemies.length > 1) {
+    const gm = 1 / (1 + 0.30 * (enemies.length - 1));
+    enemies.forEach(e => { const src = ENEMIES[e.id]; if (!(src && src.isBoss)) e.weaponPower = Math.max(1, Math.round(e.weaponPower * gm)); });
+  }
   const weapon = WEAPONS[state.weapon];
   const school = SCHOOLS[state.selectedSchool];
   const loadout = activeSkillsList(state);  // Wave 1d: combat uses the slotted active set (was school.techniques)
