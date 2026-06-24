@@ -541,11 +541,11 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v1.27.13';
+const GAME_VERSION = 'v1.27.14';
 // v0.78: CI injects the build's short sha here; the APK shell reads it FROM THE RUNNING
 // PAGE (window.BUILD_SHA) and compares against the repo head — staleness detection that
-// cannot be fooled by cached metadata. '076cd47' = local/dev build (shell falls back).
-const BUILD_SHA = '076cd47';
+// cannot be fooled by cached metadata. 'fe83a0b' = local/dev build (shell falls back).
+const BUILD_SHA = 'fe83a0b';
 if (typeof window !== 'undefined') window.BUILD_SHA = BUILD_SHA;
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
@@ -6623,10 +6623,12 @@ Object.keys(BOSSES).forEach(bid => {
 // v0.62: fixed difficulty anchor — the layer-scale a player faces at the MIDPOINT of the
 // boss's realm, times the difficulty knob. Single tuning number: BOSS_DIFFICULTY_MULT.
 const BOSS_DIFFICULTY_MULT = 2.25;   // v1.27.13: 1.5 -> 2.25 — bosses are meaningfully harder (the gear sink for the flattened gear ramp).
-// v1.27.13: per-boss ESCALATION — every prior kill of a boss makes the next encounter this much harder
-// (HP + weapon, compounding). The endgame loop: a beaten boss returns stronger, indefinitely, until it
-// outpaces you. Steep by design; tune here. Applied in startBossFight (kill count via bossKillCount).
-const BOSS_KILL_RAMP = 2.0;
+// v1.27.13: per-boss ESCALATION — each kill RAMPS the boss UP TO a 2x-base ceiling (HP + weapon), via a FRESH
+// per-boss counter (state.bossRampKills) so existing saves start at base and build from here.
+// v1.27.13a HOTFIX: the first cut misread the intent as 2x PER kill and compounded 2^(LIFETIME kills) uncapped
+// -> an established save instantly saw 2^(many) = absurd boss HP. Intended: ramp toward a 2x cap, not per-kill.
+const BOSS_RAMP_MAX = 2.0;          // ceiling: a farmed boss tops out at 2x its base HP/weapon
+const BOSS_RAMP_PER_KILL = 0.5;     // each post-feature kill ramps +50% toward the ceiling (reaches 2x in ~2 kills)
 const REALM_ENEMY_BUFF = [1, 1.10, 1.15, 1.20, 1.25, 1.30, 1.35];   // v0.64: by realm tier (elites/bosses keep this gentle curve)
 // v1.17: NORMAL encounters get a sharper per-realm curve — steeper acceleration from Foundation (tier 2).
 // v1.25: the v1.17 high-realm magnitudes OVERSHOT (measured: a Golden Core normal had ~182k Body, ~1.9x a
@@ -6700,9 +6702,9 @@ function startBossFight(bossId) {
   initCombat([bossId].concat(adds), 1);
   if (combat) {
     combat.bossFight = true;
-    // v1.27.13: per-boss ESCALATION — each prior kill of this boss makes it BOSS_KILL_RAMP^kills harder
-    // (HP + weapon). Adds ramp with it. Fresh boss (0 kills) = base. A beaten boss returns stronger.
-    const ramp = Math.pow(BOSS_KILL_RAMP, bossKillCount(bossId));
+    // v1.27.13: per-boss ESCALATION — fresh counter (state.bossRampKills), linear ramp UP TO 2x base.
+    const rampKills = (state.bossRampKills && state.bossRampKills[bossId]) || 0;
+    const ramp = Math.min(1 + BOSS_RAMP_PER_KILL * rampKills, BOSS_RAMP_MAX);
     if (ramp > 1) combat.enemies.forEach(e => { e.hpMax = Math.round(e.hpMax * ramp); e.hp = e.hpMax; e.weaponPower = Math.max(1, Math.round((e.weaponPower || 0) * ramp)); });
   }
   render();
@@ -15071,6 +15073,10 @@ function grantEnemyDefeatRewards(e) {
   if (enemyData.isBoss) {
     if (!state.bossKills) state.bossKills = {};
     state.bossKills[e.id] = (state.bossKills[e.id] || 0) + 1;
+    // v1.27.13: FRESH per-boss escalation counter (separate from lifetime bossKills) — drives BOSS_RAMP toward
+    // the 2x cap. Absent on existing saves -> they start at base; resets with the character on ascension/death.
+    if (!state.bossRampKills) state.bossRampKills = {};
+    state.bossRampKills[e.id] = (state.bossRampKills[e.id] || 0) + 1;
     // v0.83: a kill spends a boss charge (defeats are free).
     consumeBossCharge(e.id);
     // v0.60: the sect honors boss kills — automatic contribution bounty.
