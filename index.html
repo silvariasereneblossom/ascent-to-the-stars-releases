@@ -541,11 +541,11 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v1.27.15';
+const GAME_VERSION = 'v1.27.16';
 // v0.78: CI injects the build's short sha here; the APK shell reads it FROM THE RUNNING
 // PAGE (window.BUILD_SHA) and compares against the repo head — staleness detection that
-// cannot be fooled by cached metadata. 'dcebf28' = local/dev build (shell falls back).
-const BUILD_SHA = 'dcebf28';
+// cannot be fooled by cached metadata. '3711e4c' = local/dev build (shell falls back).
+const BUILD_SHA = '3711e4c';
 if (typeof window !== 'undefined') window.BUILD_SHA = BUILD_SHA;
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
@@ -6627,8 +6627,12 @@ const BOSS_DIFFICULTY_MULT = 2.25;   // v1.27.13: 1.5 -> 2.25 — bosses are mea
 // per-boss counter (state.bossRampKills) so existing saves start at base and build from here.
 // v1.27.13a HOTFIX: the first cut misread the intent as 2x PER kill and compounded 2^(LIFETIME kills) uncapped
 // -> an established save instantly saw 2^(many) = absurd boss HP. Intended: ramp toward a 2x cap, not per-kill.
-const BOSS_RAMP_MAX = 2.0;          // ceiling: a farmed boss tops out at 2x its base HP/weapon
+const BOSS_RAMP_MAX = 2.0;          // ceiling: a farmed normal boss tops out at 2x its base HP/weapon
 const BOSS_RAMP_PER_KILL = 0.1;     // each post-feature kill ramps +10% toward the ceiling (reaches the 2x cap in 10 kills)
+// v1.27.15: Heavenscourge (_hard) bosses ramp FURTHER — +10%/kill to 2x for the first 10 kills (same as normal),
+// then +20%/kill to a 4x ceiling over the next 10. So: 10 kills -> 2x, 20 kills -> 4x, capped.
+const HEAVENSCOURGE_RAMP_MAX = 4.0;
+const HEAVENSCOURGE_RAMP_PER_KILL2 = 0.2;
 const REALM_ENEMY_BUFF = [1, 1.10, 1.15, 1.20, 1.25, 1.30, 1.35];   // v0.64: by realm tier (elites/bosses keep this gentle curve)
 // v1.17: NORMAL encounters get a sharper per-realm curve — steeper acceleration from Foundation (tier 2).
 // v1.25: the v1.17 high-realm magnitudes OVERSHOT (measured: a Golden Core normal had ~182k Body, ~1.9x a
@@ -6702,9 +6706,17 @@ function startBossFight(bossId) {
   initCombat([bossId].concat(adds), 1);
   if (combat) {
     combat.bossFight = true;
-    // v1.27.13: per-boss ESCALATION — fresh counter (state.bossRampKills), linear ramp UP TO 2x base.
+    // v1.27.13: per-boss ESCALATION — fresh counter (state.bossRampKills), linear ramp UP TO the cap.
+    // v1.27.15: Heavenscourge (_hard) ramps further: +10%/kill to 2x (first 10 kills), then +20%/kill to 4x.
     const rampKills = (state.bossRampKills && state.bossRampKills[bossId]) || 0;
-    const ramp = Math.min(1 + BOSS_RAMP_PER_KILL * rampKills, BOSS_RAMP_MAX);
+    let ramp;
+    if (bossId !== baseBoss) {   // Heavenscourge variant
+      ramp = rampKills <= 10
+        ? 1 + BOSS_RAMP_PER_KILL * rampKills
+        : Math.min(BOSS_RAMP_MAX + HEAVENSCOURGE_RAMP_PER_KILL2 * (rampKills - 10), HEAVENSCOURGE_RAMP_MAX);
+    } else {
+      ramp = Math.min(1 + BOSS_RAMP_PER_KILL * rampKills, BOSS_RAMP_MAX);
+    }
     if (ramp > 1) combat.enemies.forEach(e => { e.hpMax = Math.round(e.hpMax * ramp); e.hp = e.hpMax; e.weaponPower = Math.max(1, Math.round((e.weaponPower || 0) * ramp)); });
   }
   render();
