@@ -541,11 +541,11 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v1.27.17';
+const GAME_VERSION = 'v1.27.18';
 // v0.78: CI injects the build's short sha here; the APK shell reads it FROM THE RUNNING
 // PAGE (window.BUILD_SHA) and compares against the repo head — staleness detection that
-// cannot be fooled by cached metadata. '786e225' = local/dev build (shell falls back).
-const BUILD_SHA = '786e225';
+// cannot be fooled by cached metadata. 'ed5df9d' = local/dev build (shell falls back).
+const BUILD_SHA = 'ed5df9d';
 if (typeof window !== 'undefined') window.BUILD_SHA = BUILD_SHA;
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
@@ -9182,7 +9182,7 @@ function realmGearFlavor(tier, slot, rarity, noun) {
         if (rar !== 'common') w.apply = fx;
         WEAPONS[wid] = w;
         const mats = {};
-        const costMult = [1, 1.5, 2, 3][ri];
+        const costMult = [1, 2, 3, 4][ri] * Math.pow(1.1, t);   // v1.27.18 (#3): rare 2x / leg 3x / divine 4x the common cost (was 1.5/2/3), +10% per realm — top-rarity weapons were too cheap
         Object.entries(row.mats).forEach(([m, n]) => { mats[m] = Math.max(1, Math.round(n * costMult)); });
         if (rar === 'divine' && t < 6) {
           const nextFirst = Object.keys(WEAPON_GEN_TIER[t + 1].mats)[0];
@@ -9224,7 +9224,7 @@ const ARMOR_Body_BASE = [15, 34, 75, 165, 360, 700, 1300, 2000];
       };
       ARMOR[aid].genArmor = true;   // v0.72: marks ladder pieces for rarity enrichment
       const mats = {};
-      const costMult = [1.5, 2, 3][ri];
+      const costMult = [2, 3, 4][ri] * Math.pow(1.1, t);   // v1.27.18 (#3): rare 2x / leg 3x / divine 4x the common cost (was 1.5/2/3), +10% per realm — matches the weapon ladder; ri = rare/leg/divine
       Object.entries(WEAPON_GEN_TIER[t].mats).forEach(([m, n]) => { mats[m] = Math.max(1, Math.round(n * costMult)); });
       if (rar === 'divine' && t < 6) {
         const nextFirst = Object.keys(WEAPON_GEN_TIER[t + 1].mats)[0];
@@ -9336,7 +9336,7 @@ ARMOR_RECIPES.push(
           : `A ${rar} ${noun.toLowerCase()} of this realm.`,
       };
       const mats = {};
-      const costMult = [1.5, 2, 3][ri];
+      const costMult = [2, 3, 4][ri] * Math.pow(1.1, t);   // v1.27.18 (#3): rare 2x / leg 3x / divine 4x the common cost (was 1.5/2/3), +10% per realm — matches the weapon/armor ladders; ri = rare/leg/divine
       Object.entries(WEAPON_GEN_TIER[t].mats).forEach(([m, n]) => { mats[m] = Math.max(1, Math.round(n * costMult)); });
       if (rar === 'divine' && t < 6) {
         const nextFirst = Object.keys(WEAPON_GEN_TIER[t + 1].mats)[0];
@@ -9414,12 +9414,18 @@ const BOSS_UNIQUE_MATS = {
 Object.values(BOSS_UNIQUE_MATS).forEach(([id, name, zh, desc]) => {
   MATERIALS[id] = { name, zh, rarity: 'legendary', desc };
 });
-// Guaranteed unique drop (plus a 35% second) on every kill of that boss.
+// v1.27.18 (#2): the Heavenscourge prestige material — a SINGLE shared currency dropped only by Heavenscourge
+// (hard) bosses, gating the Ascendant set upgrade (5 per small piece, 10 for the chest). Drop chance rises
+// asymptotically with Fortune toward (never to) 100% — see the roll in grantEnemyDefeatRewards.
+const RISEN_CINDER = 'risen_cinder';
+MATERIALS[RISEN_CINDER] = { name: 'Risen Cinder', zh: '复燃烬', rarity: 'divine',
+  desc: "An ember raked from a Heavenscourge's pyre. It refuses to cool; the forge drinks it to lift mortal work into the ascendant." };
+// v1.27.18 (#1): exactly ONE guaranteed unique drop per kill here; the Fortune-scaled 2nd is rolled in
+// grantEnemyDefeatRewards (a flat 2nd would ignore Fortune). 1.0/kill at 0 Fortune -> ~1.6 at >=20 Fortune.
 Object.entries(BOSS_UNIQUE_MATS).forEach(([bossId, [matId]]) => {
   if (ENEMIES[bossId]) {
     ENEMIES[bossId].materialDrops = [
       { id: matId, chance: 1.0, count: [1, 1] },
-      { id: matId, chance: 0.35, count: [1, 1] },
     ].concat(ENEMIES[bossId].materialDrops || []);
   }
 });
@@ -9739,7 +9745,9 @@ const BOSS_LOOT = {
     refName: 'Rehearsed-Sun Tempering', refZh: '演日淬', refine: { elementBoostAll: 0.08, techDamageMult: 1.05 },
     refBlurb: 'element-overcome + technique damage' },
 };
-const BOSS_SET_SLOTS = [['helmet', 'Helm', '盔'], ['chest', 'Chest', '甲'], ['gloves', 'Gauntlets', '护手'], ['boots', 'Greaves', '胫甲']];
+// v1.27.18 (#1): chest is ordered LAST so the auto-crafter forges it after the three smaller pieces — the
+// most expensive slot is also the final one.
+const BOSS_SET_SLOTS = [['helmet', 'Helm', '盔'], ['gloves', 'Gauntlets', '护手'], ['boots', 'Greaves', '胫甲'], ['chest', 'Chest', '甲']];
 function bossSetRarity(tier) { return tier <= 1 ? 'rare' : tier <= 4 ? 'legendary' : 'divine'; }
 function bossSetId(bossId, slot) { return `bset_${bossId}_${slot}`; }
 // Register the 56 set pieces (4 per boss) + the set bonuses into ARMOR_SETS.
@@ -9770,7 +9778,11 @@ Object.entries(BOSS_LOOT).forEach(([bossId, L]) => {
 function bossSetCost(bossId) {
   const tier = BOSSES[bossId].tier;
   const cost = {};
-  cost[BOSS_UNIQUE_MATS[bossId][0]] = 1;
+  // v1.27.18 (#1): real unique-mat gate. Small pieces cost 5, the chest 7. Combined with the drop
+  // (1 guaranteed/kill + a Fortune-scaled 2nd, 1.0->1.6/kill at >=20 Fortune) this is ~3-5 kills per
+  // small piece and ~4-7 for the chest, with high Fortune pulling toward the LOW end of each band.
+  const slot = nextBossSetSlot(bossId);
+  cost[BOSS_UNIQUE_MATS[bossId][0]] = (slot === 'chest') ? 7 : 5;
   Object.entries(WEAPON_GEN_TIER[tier].mats).forEach(([m, n]) => { cost[m] = (cost[m] || 0) + n; });
   return cost;
 }
@@ -9828,7 +9840,11 @@ Object.entries(BOSS_LOOT).forEach(([bossId, L]) => {
 function hardSetCost(bossId) {
   const tier = BOSSES[bossId].tier;
   const cost = {};
-  cost[BOSS_UNIQUE_MATS[bossId][0]] = 2;   // costlier than the base set (1 unique)
+  // v1.27.18 (#2): the Ascendant upgrade is gated by Risen Cinder (the Heavenscourge prestige mat), 5 per
+  // small piece and 10 for the chest — on top of a doubled realm basket. (Replaces the old 2 base-unique mats:
+  // those were already sunk into the lesser piece this upgrade consumes.)
+  const slot = nextHardSetSlot(bossId);
+  cost[RISEN_CINDER] = (slot === 'chest') ? 10 : 5;
   Object.entries(WEAPON_GEN_TIER[tier].mats).forEach(([m, n]) => { cost[m] = (cost[m] || 0) + n * 2; });
   return cost;
 }
@@ -10762,6 +10778,24 @@ Object.entries(SECT_ARTS).forEach(([id, t]) => {
   t.sect = true;  // v0.65: counts as a technique of YOUR school (bonuses + kit synergy apply)
   t.desc += ' Counts as a technique of YOUR school: school bonuses apply, and your passive (Everburn, Sword Intent, Oathbrand...) rides on its hits.';
   TECHNIQUES[id] = t;
+});
+
+// ============================================================
+// v1.27.18: SCHOOL-ABILITY COOLDOWN PASS. Runs HERE — after every table merge (base + EXPANSION_TECHS +
+// DEMONIC_SIGNATURE_TECHS + SECT_ARTS) so it catches the whole player technique set. Every active technique
+// moves onto a real 4-6 turn cooldown scaled by impact, so combat weaves WEAPON STRIKES between periodic
+// high-impact plays instead of spamming the best technique every turn — the Demon-Heart strike-focus
+// principle, generalized to all schools. Impact is read from the authored cd (which already encodes it):
+// 1->4, 2->5, 3+->6. DEMONIC techniques (Demon-Heart school + the heresy ladder + the demonic signatures)
+// run +2 longer still (6/7/8). Free actions (instant) and passives are left alone — a free action doesn't
+// compete with a strike for the turn, and passives have no cd.
+// NOTE: a few "sect elder" enemies borrow player techniques via TECHNIQUES fallback (buildEnemyCombat), so
+// they inherit these cooldowns too — intended (they fight with a player kit, strikes and all).
+Object.entries(TECHNIQUES).forEach(([id, t]) => {
+  if (!t || t.instant || t.passive || t.cd == null) return;
+  const impact = t.cd <= 1 ? 4 : (t.cd === 2 ? 5 : 6);
+  const demonic = t.school === 'demon_heart' || t.demonicOnly || /^dem_sig_/.test(id);
+  t.cd = impact + (demonic ? 2 : 0);
 });
 function buySectArt(techId) {
   const t = SECT_ARTS[techId];
@@ -11909,7 +11943,7 @@ function guaranteeMatFor(rarity, t) {
   const bossMats = new Set(Object.values(BOSS_UNIQUE_MATS).map(x => x[0]));
   let best = null, bestD = 99;
   Object.entries(MATERIALS).forEach(([mid, mat]) => {
-    if (mat.rarity !== rarity || mid === 'spirit_stone' || bossMats.has(mid)) return;
+    if (mat.rarity !== rarity || mid === 'spirit_stone' || mid === RISEN_CINDER || bossMats.has(mid)) return;   // v1.27.18 (#2): never hand out the Heavenscourge prestige mat as a disassembly guarantee
     const mt = matTier(mid);
     const d = Math.abs(mt - t) + (mt > t + 1 ? 2 : 0);   // reaching far above the item's realm costs extra
     if (d < bestD) { bestD = d; best = mid; }
@@ -13765,6 +13799,22 @@ function craft(recipeId) {
   saveChar();
 }
 
+// v1.27.18: stat-potion SOFT CAP. A permanent stat-pill's gain diminishes as the EFFECTIVE stat climbs —
+// halved at 40+, cut to 25% at 50+ (same soft-cap principle as combat insight). The fractional shortfall is
+// carried in state.statCarry so small +1 pills still add up over many drinks instead of rounding to nothing.
+// Reads finalStats (what the player sees: base + allocation + heritage + demon + Golden Core), not raw baseStats.
+function statPotionMult(effectiveStat) {
+  return effectiveStat >= 50 ? 0.25 : (effectiveStat >= 40 ? 0.5 : 1);
+}
+function applyStatPotionGain(statKey, nominal) {
+  if (!STAT_KEYS.includes(statKey) || nominal <= 0) return;
+  const eff = (state.finalStats && state.finalStats[statKey] != null) ? state.finalStats[statKey] : (state.baseStats[statKey] || 10);
+  if (!state.statCarry) state.statCarry = {};
+  const raw = nominal * statPotionMult(eff) + (state.statCarry[statKey] || 0);
+  const whole = Math.floor(raw);
+  state.statCarry[statKey] = raw - whole;       // keep the remainder for the next pill
+  state.baseStats[statKey] = (state.baseStats[statKey] || 10) + whole;
+}
 function consume(recipeId) {
   if (!state.base.consumables[recipeId]) return;
   state.base.consumables[recipeId]--;
@@ -13776,16 +13826,16 @@ function consume(recipeId) {
     // Previously they wrote to state.finalStats, which the next finalStats() recompute WIPED — so perm
     // pills/draughts silently did nothing across a recompute. baseStats survives. (recompute below.)
     if (ef.kind === 'stat_perm') {
-      state.baseStats[ef.statKey] = (state.baseStats[ef.statKey] || 10) + ef.value;
+      applyStatPotionGain(ef.statKey, ef.value);   // v1.27.18: soft-capped past 40/50
       return;
     }
     if (ef.kind === 'stat_perm_all') {
-      STAT_KEYS.forEach(k => { state.baseStats[k] = (state.baseStats[k] || 10) + ef.value; });
+      STAT_KEYS.forEach(k => applyStatPotionGain(k, ef.value));   // v1.27.18: each stat capped independently
       return;
     }
     if (ef.kind === 'stat_perm_random') {   // v1.23: cursed/elixir potions — +value to a random stat
       const rk = STAT_KEYS[Math.floor(Math.random() * STAT_KEYS.length)];
-      state.baseStats[rk] = (state.baseStats[rk] || 10) + ef.value;
+      applyStatPotionGain(rk, ef.value);   // v1.27.18: soft-capped past 40/50
       return;
     }
     if (ef.kind === 'lifespan_add') {            // extend the lifespan cap by N years
@@ -13793,7 +13843,7 @@ function consume(recipeId) {
       if (isDemonHeart(state)) {
         addInsight(20000);
         const k = STAT_KEYS[Math.floor(Math.random() * STAT_KEYS.length)];
-        state.baseStats[k] = (state.baseStats[k] || 10) + 1;
+        applyStatPotionGain(k, 1);   // v1.27.18: soft-capped too, so longevity pills can't pump stats past the cap
         return;
       }
       state.lifespanBonus = (state.lifespanBonus || 0) + ef.value;
@@ -15062,6 +15112,16 @@ function softCapInsight(raw, cap) {
   if (over > 0) result += over * 0.05;       // beyond 4x: keep trickling at 5%
   return Math.round(result);
 }
+// v1.27.18 (#4): roll a random GENERATED weapon (genr_*) of a rarity at a realm tier (boss high-rarity drops).
+function rollBossGenWeapon(rarity, tier) {
+  const pool = Object.keys(WEAPONS).filter(id => {
+    const m = id.match(/^genr?_[a-z]+_(\d+)_/);   // gen_ (base rarities) OR genr_ (rarity ladder)
+    if (!m) return false;
+    const w = WEAPONS[id];
+    return w && w.rarity === rarity && parseInt(m[1], 10) === tier;
+  });
+  return pool.length ? pool[Math.floor(Math.random() * pool.length)] : null;
+}
 function grantEnemyDefeatRewards(e) {
   const enemyData = ENEMIES[e.id];
   const hmVictory = heritageMech();
@@ -15136,6 +15196,22 @@ function grantEnemyDefeatRewards(e) {
     combat.rewards = combat.rewards || { insight: 0, drops: [], weaponDrops: [], bookDrops: [], armorDrops: [], artifactDrops: [], materialDrops: {} };
     if (!combat.rewards.bookDrops) combat.rewards.bookDrops = [];
     bossBooks.forEach(id => combat.rewards.bookDrops.push(id));
+    // v1.27.18 (#4): bosses can drop a GENERATED high-rarity weapon at their realm — 1.5% legendary AND
+    // 1.5% divine, rolled INDEPENDENTLY (Heavenscourge 4.5% each). A rare shortcut past the pricier forge.
+    {
+      const _wRate = (String(e.id).indexOf(HARD_BOSS_SUFFIX) >= 0) ? 0.045 : 0.015;
+      ['legendary', 'divine'].forEach(rar => {
+        if (Math.random() >= _wRate) return;
+        const wid = rollBossGenWeapon(rar, bossTierIns);
+        if (wid && !(state.weapons.owned || []).includes(wid) && state.weapon !== wid) {
+          state.weapons.owned = state.weapons.owned || [];
+          state.weapons.owned.push(wid);
+          combat.rewards.weaponDrops = combat.rewards.weaponDrops || [];
+          combat.rewards.weaponDrops.push(wid);
+          pushLog('reward', `A ${rar} weapon falls from the slain: ${WEAPONS[wid].name}!`);
+        }
+      });
+    }
     const meta = BOSSES[e.id];
     if (meta && meta.firstKill && state.bossKills[e.id] === 1) {
       Object.entries(meta.firstKill).forEach(([mid, n]) => {
@@ -15185,6 +15261,31 @@ function grantEnemyDefeatRewards(e) {
       materialDrops[d.id] = (materialDrops[d.id] || 0) + n;
     }
   });
+  // v1.27.18 (#1): Fortune adds a chance at a SECOND boss-unique mat (base bosses only — the unique mat
+  // gates the armour set). 3% per Fortune, capping at 60% by ~20 Fortune, so heavy Fortune pulls the
+  // ~5-kills-per-piece gate down toward 3 (and the chest's ~7 toward ~4). Heavenscourge uses its own mat (#2).
+  if (enemyData.isBoss && BOSS_UNIQUE_MATS[e.id]) {
+    const _umat = BOSS_UNIQUE_MATS[e.id][0];
+    const _uluck = (state.finalStats && state.finalStats.luck) || 0;
+    if (Math.random() < Math.min(0.60, _uluck * 0.03)) {
+      state.base.materials[_umat] = (state.base.materials[_umat] || 0) + 1;
+      materialDrops[_umat] = (materialDrops[_umat] || 0) + 1;
+    }
+  }
+  // v1.27.18 (#2): Heavenscourge bosses drop Risen Cinder. Fortune drives the chance asymptotically toward
+  // (but never to) 100% via 1 - e^(-F/9.5): ~35% floor at 0 Fortune, ~92% at 20, ~97% at 30. Above 30 Fortune
+  // a small, Fortune-scaled chance at a 2nd cinder.
+  if (enemyData.isHardBoss) {
+    const _cl = (state.finalStats && state.finalStats.luck) || 0;
+    const _cinderChance = 0.35 + 0.65 * (1 - Math.exp(-_cl / 9.5));   // floor 0.35, asymptote < 1
+    let _cinders = 0;
+    if (Math.random() < _cinderChance) _cinders++;
+    if (_cl > 30 && Math.random() < Math.min(0.25, (_cl - 30) * 0.01)) _cinders++;
+    if (_cinders > 0) {
+      state.base.materials[RISEN_CINDER] = (state.base.materials[RISEN_CINDER] || 0) + _cinders;
+      materialDrops[RISEN_CINDER] = (materialDrops[RISEN_CINDER] || 0) + _cinders;
+    }
+  }
   // v1.27.8 PHASE 2: this venture's signature reagent drops here (and only the ventures it's tied to).
   if (combat.ventureLocId) {
     const _loc = LOCATIONS.find(l => l.id === combat.ventureLocId);
@@ -15635,18 +15736,16 @@ function enemyMeditate(e) {
     pushLog('line', `The ${e.name} tries to gather qi — the entangling glyphs drink everything it draws.`);
     return;
   }
-  // v1.27: ANTI-MEDITATE-LOCK — a foe whose qi is drained below its technique threshold can't
-  // gather qi forever (the exploit that made high-realm enemies, esp. tribulations, never attack:
-  // a qi-draining build kept them perpetually meditating). After ONE charge turn it strikes
-  // instead — so an enemy attacks at least every other round regardless of qi.
-  if ((e._medStreak || 0) >= 1) { e._medStreak = 0; return enemyBasicStrike(e, combat.player); }
-  e._medStreak = (e._medStreak || 0) + 1;
+  // v1.27.18: meditation is now a FREE action for ALL foes — it gathers qi and the enemy STILL acts this
+  // turn. This permanently closes the qi-lock exploit (a qi-draining build used to keep high-realm foes and
+  // tribulations perpetually meditating, so they never attacked). The old one-charge streak gate and the
+  // "vulnerable" tell are retired: a drained foe simply refuels and then strikes (enemyBasicStrike fires the
+  // strongest tech it can now afford, else a plain hit). No recursion — enemyBasicStrike never meditates.
   const regen = Math.ceil(e.qiMax * 0.4);
   const before = e.qi;
   e.qi = Math.min(e.qiMax, e.qi + regen);
-  e.buffs.incomingMult = 1.5;
-  pushLog('line', `The ${e.name} gathers itself, drawing qi inward.`);
-  pushLog('heal', `  → +${e.qi - before} qi (vulnerable)`);
+  if (e.qi > before) pushLog('heal', `The ${e.name} draws qi inward (+${e.qi - before}) and presses on.`);
+  return enemyBasicStrike(e, combat.player);
 }
 function enemyBasicStrike(e, p) {
   e._medStreak = 0;   // v1.27: it acted offensively — reset the anti-meditate-lock streak
@@ -18146,7 +18245,7 @@ function renderCharSheet() {
           : hNext
             ? `<div style="color:var(--ink-soft);margin-top:0.1rem">Upgrade your ${(BOSS_SET_SLOTS.find(s => s[0] === hNext) || [, 'piece'])[1]} (consumes the base piece): ${hCostStr}</div>`
             : '<div style="color:var(--ink-soft);margin-top:0.1rem">Forge the base set pieces first — the Ascendant upgrades them.</div>';
-        hRow.innerHTML = `<strong style="color:var(--gold)">Ascendant ${L.setName}</strong> <span style="color:var(--ink-soft)">${hOwned}/4 · stronger pieces & set effects</span>${hStatus}`;
+        hRow.innerHTML = `<strong style="color:var(--gold)">Ascendant ${L.setName}</strong> <span style="color:var(--ink-soft)">${hOwned}/4 · stronger pieces & set effects · ${MATERIALS[RISEN_CINDER].name}: ${state.base.materials[RISEN_CINDER] || 0}</span>${hStatus}`;
         if (hNext) {
           const hsb = document.createElement('button');
           hsb.className = 'small ' + (canCraftHardSetPiece(bid) ? 'gold' : 'ghost');
