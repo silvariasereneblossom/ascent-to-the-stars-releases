@@ -541,11 +541,11 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v1.27.22';
+const GAME_VERSION = 'v1.27.23';
 // v0.78: CI injects the build's short sha here; the APK shell reads it FROM THE RUNNING
 // PAGE (window.BUILD_SHA) and compares against the repo head — staleness detection that
-// cannot be fooled by cached metadata. '586ed47' = local/dev build (shell falls back).
-const BUILD_SHA = '586ed47';
+// cannot be fooled by cached metadata. 'e04b7bd' = local/dev build (shell falls back).
+const BUILD_SHA = 'e04b7bd';
 if (typeof window !== 'undefined') window.BUILD_SHA = BUILD_SHA;
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
@@ -2005,7 +2005,7 @@ const TECHNIQUES = {
   // ---- Foundation Establishment (tier 2) ----
   azure_thread: {
     name: 'Azure-Thread Severing', zh: '青缕断', school: 'azure_sword', minRealmTier: 2, cost: 50,
-    qi: 16, cd: 2, damage: 1.7, postureBuild: 18,
+    qi: 16, cd: 2, damage: 0.9, hits: 2, postureBuild: 18,   // v1.27.22b: "between two strikes" -> 2 hits
     effect: 'bleed', effectValue: 4, effectTurns: 3,
     desc: 'A thread of qi between two strikes; the wound traces it home. (FE+)',
     logHit: (a,t) => `${a} cuts a thin line that does not heal — and steps inside the line.` },
@@ -2023,15 +2023,15 @@ const TECHNIQUES = {
     logHit: (a,t) => `${a}'s blade enters where the shield does not yet know to be.` },
   starfall_rain: {
     name: 'Starfall Rain', zh: '星雨', school: 'starfall', minRealmTier: 3, cost: 150, target: 'aoe',
-    qi: 22, cd: 3, damage: 1.6, postureBuild: 18,
-    desc: 'A volley pierces the heavens — and arrives at every standing target. (CF+)',
+    qi: 22, cd: 3, damage: 0.6, hits: 3, postureBuild: 18,   // v1.27.22b: "a single arrow that arrives as many" -> 3 hits/foe
+    desc: 'A volley pierces the heavens — and arrives at every standing target, three times over. (CF+)',
     logHit: (a,t) => `${a} looses a single arrow that arrives as many.` },
 
   // ---- Golden Core (tier 4) ----
   void_strike: {
     name: 'Void-Stride Strike', zh: '空步斩', school: 'azure_sword', minRealmTier: 4, cost: 400,
-    qi: 30, cd: 3, damage: 3.5, postureBuild: 24,
-    desc: 'A strike that crosses the gap before the gap exists. (GC+)',
+    qi: 30, cd: 3, damage: 1.8, hits: 2, postureBuild: 24,   // v1.27.22b: step + cut -> 2 hits
+    desc: 'A strike that crosses the gap before the gap exists — a step and the cut that follows it. (GC+)',
     logHit: (a,t) => `${a} steps once — and the next step lands as the cut.` },
   dragon_pivot: {
     name: 'Dragon-Pivot Cleave', zh: '龙转劈', school: 'dragonforge', minRealmTier: 4, cost: 400,
@@ -3345,10 +3345,10 @@ const EXPANSION_TECHS = {
   // deals with anyone) only while state.demonic; invisible to the righteous.
   dem_bloodprice_edge: {
     name: 'Bloodprice Edge', zh: '血价锋', minRealmTier: 1, demonicOnly: true,
-    qi: 2, hpCost: 8, cd: 1, damage: 2.6, postureBuild: 14,
+    qi: 4, hpCost: 8, cd: 2, damage: 0.95, hits: 3, postureBuild: 14, noCdScale: true,   // v1.27.22b: the BUYABLE demonic hellfire engine — any school's demonic path can stack hellfire fast (cd-2 3-hit flurry, exempt from the long-CD pass)
     effect: 'bleed', effectPower: 0.10, effectTurns: 3,
-    desc: 'Pay 8 Body, cut far above your station, and leave the wound open. The heavens take notes.',
-    logHit: (a,t) => `${a} pays in advance; ${t} covers the remainder, in installments.` },
+    desc: 'Pay 8 Body for a three-cut flurry far above your station. Each cut lands your on-hit riders (hellfire stacks fast) — the demonic path\'s buyable hellfire engine, in any school. Leaves an open wound.',
+    logHit: (a,t) => `${a} pays in advance; ${t} covers the remainder thrice over, in installments.` },
   dem_p1_scar_ledger: {
     name: 'Scar Ledger', zh: '疤账', minRealmTier: 1, demonicOnly: true, passive: true,
     applyMods: m => { m.lowHpBonus += 0.10; },
@@ -3365,7 +3365,7 @@ const EXPANSION_TECHS = {
     desc: 'PASSIVE (demonic). What heaven rejects, the body keeps: +90 Body.' },
   dem_devour_falling: {
     name: 'Devour the Falling', zh: '噬坠者', minRealmTier: 3, demonicOnly: true,
-    qi: 14, cd: 2, damage: 3.8, postureBuild: 16,
+    qi: 14, cd: 2, damage: 1.3, hits: 3, postureBuild: 16,   // v1.27.22b: three devouring grasps (each lands hellfire/on-hit)
     effect: 'leech', effectPower: 0.30, effectTurns: 2,
     desc: 'Strike hardest at what is already failing: heavy damage and a deep Leech.',
     logHit: (a,t) => `${a} takes from ${t} the way gravity takes — impersonally, and all the way down.` },
@@ -3396,7 +3396,7 @@ const EXPANSION_TECHS = {
     desc: 'PASSIVE (demonic). The core hardens around the heresy: Hellfire stacks +1 higher, +60 max qi.' },
   dem_eat_the_heavens: {
     name: 'Eat the Heavens', zh: '吞天', minRealmTier: 6, demonicOnly: true,
-    qi: 36, hpCost: 26, cd: 4, damage: 8.4, postureBuild: 22, target: 'aoe',
+    qi: 36, hpCost: 26, cd: 4, damage: 2.85, hits: 3, postureBuild: 22, target: 'aoe',   // v1.27.22b: three devouring passes/foe (stacks hellfire on a boss while it AOEs)
     effect: 'leech', effectPower: 0.35, effectTurns: 3,
     desc: 'The path\'s destination, rehearsed: pay 26 Body for enormous AOE and leeches in everything standing.',
     logHit: (a,t) => `${a} opens wide. The sky, sensibly, backs up a span.` },
