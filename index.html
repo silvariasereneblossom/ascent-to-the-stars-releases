@@ -541,11 +541,11 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v1.27.18';
+const GAME_VERSION = 'v1.27.19';
 // v0.78: CI injects the build's short sha here; the APK shell reads it FROM THE RUNNING
 // PAGE (window.BUILD_SHA) and compares against the repo head — staleness detection that
-// cannot be fooled by cached metadata. 'ed5df9d' = local/dev build (shell falls back).
-const BUILD_SHA = 'ed5df9d';
+// cannot be fooled by cached metadata. '4db9304' = local/dev build (shell falls back).
+const BUILD_SHA = '4db9304';
 if (typeof window !== 'undefined') window.BUILD_SHA = BUILD_SHA;
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
@@ -6202,14 +6202,17 @@ const DEMON_TRIBS = { 1: 'heavens_first_glare', 2: 'thunder_brand_envoy', 3: 'he
 // Damage-weighted (kill pressure = lethality); HP raised more gently (tankier trib = longer fight = more
 // self-burn / break exposure for the demon). Tuned in tools/trib_sim.js toward: base dies, moderate sweats
 // (~20-40%, mostly must purify), high a real fight (~55-75%). Re-tune the arrays here, re-run the sim.
-const DEMON_TRIB_HP_CURVE  = [1, 1.00, 0.38, 0.55, 0.85, 1.70, 1.90];
-const DEMON_TRIB_DMG_CURVE = [1, 1.00, 0.40, 0.46, 0.50, 0.58, 0.72];
+// v1.27.18: NS/SS (idx 5/6) eased — the free-meditation + 4-6t ability cooldowns of v1.27.18 lengthened player
+// TTK and raised incoming hits, cratering high-investment NS/SS tribs (14%/0%). Lower trib HP at 5/6 so a
+// CD-throttled offense still kills it before the %-Body judgment piles up. Target: ~30-40% at HIGH investment.
+const DEMON_TRIB_HP_CURVE  = [1, 1.00, 0.38, 0.55, 0.85, 1.60, 1.45];
+const DEMON_TRIB_DMG_CURVE = [1, 1.00, 0.40, 0.46, 0.50, 0.57, 0.58];
 // v1.27: QI-BARRIER PIERCE for demonic tribulations. The heavens' judgment bypasses the
 // cultivation qi-shield that otherwise makes a high-investment heretic unkillable: this
 // fraction of a demonic trib's damage hits Body directly. Object (not bare number) so it can
 // be tuned at runtime by the sim. `.v` is the pierce fraction (0 = off, 0.5 = half). Tuned per
 // the operator's "high scales 100->40 by realm" target.
-const DEMON_TRIB_QI_PIERCE = { v: 0.30, byTier: [0, 0.20, 0.25, 0.30, 0.35, 0.55, 0.70] };   // v1.27.13: ENABLED + REALM-SCALED by target tier (was flat 0). The high-realm qi-barrier (qiShieldMult ~1.04^layer) soaks trib damage, so NS/SS pierce hard (0.55/0.70) to bypass it; lower realms gentler. byTier[targetTier]; .v is the flat fallback.
+const DEMON_TRIB_QI_PIERCE = { v: 0.30, byTier: [0, 0.20, 0.25, 0.30, 0.35, 0.53, 0.52] };   // v1.27.13: ENABLED + REALM-SCALED by target tier (was flat 0). The high-realm qi-barrier (qiShieldMult ~1.04^layer) soaks trib damage, so NS/SS pierce hard (0.55/0.70) to bypass it; lower realms gentler. byTier[targetTier]; .v is the flat fallback.
 // v1.27: at high realms the pierced damage ALSO bites the qi pool (drains casting fuel), so the
 // pierce can't backfire by preserving the player's qi-for-casting. Fraction of the pierced
 // amount additionally drained from qi, by TARGET tier: NS (5) = 0.5, SS (6) = 1.0. [0] unused.
@@ -6217,13 +6220,13 @@ const DEMON_TRIB_QI_BITE = [1, 0, 0, 0, 0, 0, 0];
 // v1.27: at the highest realms the heavens DENY the heretic mercy — self-mending (lifesteal,
 // regen, strike-heal) is suppressed during the trib, so the build's sustain can no longer out-tank
 // the judgment. Heal x this fraction, by TARGET tier: NS (5) 0.5 (-50%), SS (6) 0.25 (-75%). [0] unused.
-const DEMON_TRIB_HEAL_MULT = [1, 1, 0.60, 0.45, 0.25, 0.08, 0.08];  // v1.27.13: ENABLED (was all 1) — self-mending (lifesteal/regen/strike-heal) suppressed during demonic tribs, ramping by target realm, so sustain builds (esp. demon_heart) can't out-tank the judgment
+const DEMON_TRIB_HEAL_MULT = [1, 1, 0.60, 0.45, 0.25, 0.12, 0.21];  // v1.27.13: ENABLED (was all 1); v1.27.18: NS/SS un-suppressed a touch (0.08->0.12/0.21) so sustain survives the longer CD-throttled fights — self-mending (lifesteal/regen/strike-heal) suppressed during demonic tribs, ramping by target realm, so sustain builds (esp. demon_heart) can't out-tank the judgment
 // v1.27.13: %-of-MAX-BODY judgment — the un-out-gearable spine of high-realm trib pressure. Each demonic-trib
 // hit ALSO deals this fraction of the player's MAX Body straight to Body (bypasses barrier AND DR). A near-max
 // build's flat EHP out-scales any fixed number, but it can't shrink a % of its OWN Body — so this is what
 // brings HIGH investment down from ~100% to ~60-70%. The true ceiling (faster kills + more sustain = fewer of
 // these hits taken) still climbs back toward ~100%. By TARGET tier; Core Formation up. Tune in trib_sim.
-const DEMON_TRIB_PCT_HP = [0, 0, 0, 0.032, 0.045, 0.055, 0.060];
+const DEMON_TRIB_PCT_HP = [0, 0, 0, 0.032, 0.045, 0.052, 0.044];   // v1.27.18: NS/SS retuned (0.055/0.060 -> 0.052/0.044) — the high-investment spine, eased to target ~30-40% at high (was 14%/0% after the v1.27.18 combat changes)
 // v1.27: HIGH-REALM ENEMY QI SCALING — enemy qi pools scale with the enemy's base × layer, but the
 // PLAYER's qi-drain (leech / qi-damage) compounds with cultivation, so by the high realms a geared
 // player empties any foe's qi instantly and it goes passive (meditates forever / can't fuel its
