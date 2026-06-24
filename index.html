@@ -541,11 +541,11 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v1.27.16';
+const GAME_VERSION = 'v1.27.17';
 // v0.78: CI injects the build's short sha here; the APK shell reads it FROM THE RUNNING
 // PAGE (window.BUILD_SHA) and compares against the repo head — staleness detection that
-// cannot be fooled by cached metadata. '3711e4c' = local/dev build (shell falls back).
-const BUILD_SHA = '3711e4c';
+// cannot be fooled by cached metadata. '786e225' = local/dev build (shell falls back).
+const BUILD_SHA = '786e225';
 if (typeof window !== 'undefined') window.BUILD_SHA = BUILD_SHA;
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
@@ -7431,6 +7431,7 @@ function rollBookAtTier(maxTier, opts) {
     if (hasSkill(id) || (state.foundBooks || []).includes(id)) return false;
     if ((b.minTier || 0) > maxTier) return false;
     if (RARITY_ORDER[b.rarity] < minR) return false;
+    if (opts.rarity && b.rarity !== opts.rarity) return false;   // v1.27.16: exact-rarity roll (boss book drops)
     return true;
   });
   if (!pool.length) return null;
@@ -15049,11 +15050,23 @@ function endPlayerAction() {
 
 // Per-enemy loot + insight grant. Called once per enemy as they fall. Accumulates into
 // combat.rewards (multi-enemy aware: arrays of drops, summed insight + materials).
+// v1.27.16: per-combat insight is now SOFT-capped (was a hard Math.min cliff). Full value up to the per-realm
+// cap; each further band of `cap` width pays less — after 1x cap each point is reduced 70% (x0.30), after 2x
+// reduced 80% (x0.20), after 3x reduced 90% (x0.10), after 4x+ reduced 95% (x0.05). Heavy snowball still
+// earns a trickle past the cap instead of slamming into a wall.
+function softCapInsight(raw, cap) {
+  if (cap <= 0 || raw <= cap) return Math.round(raw);
+  let result = cap, over = raw - cap;
+  const rates = [0.30, 0.20, 0.10, 0.05];   // bands after 1x / 2x / 3x / 4x the cap
+  for (let i = 0; i < rates.length && over > 0; i++) { const inBand = Math.min(over, cap); result += inBand * rates[i]; over -= inBand; }
+  if (over > 0) result += over * 0.05;       // beyond 4x: keep trickling at 5%
+  return Math.round(result);
+}
 function grantEnemyDefeatRewards(e) {
   const enemyData = ENEMIES[e.id];
   const hmVictory = heritageMech();
   const rewardScale = (e.scale && e.scale.reward) || 1;
-  const rawInsight = Math.round(enemyData.insightReward * rewardScale * boonInsightMult() * skillCombatInsightMult() * (combat.player.mods.insightMult || 1) * ((SCHOOLS[state.selectedSchool] && SCHOOLS[state.selectedSchool].insightFromKillsMult) || 1) * (hmVictory.combatInsightMult || 1) * combatInsightMult(combat) * metaInsightMult() * (isDemonHeart(state) ? 2 : (state.demonic ? 1.5 : 1)) * 1.5 * ((combat && combat.demonicQiVenture) ? 1.5 : 1) * (state.demonic ? cultivationBoostMult() : 1) * (1 + 0.20 * goldenCoreLevel()));   // v1.6: demon-heart 2x; demonic-qi venture +50%; v0.97 +50% base; v1.16: demonic cult->insight 1:1; v1.18: +20% insight/GC level
+  const rawInsight = Math.round(enemyData.insightReward * rewardScale * boonInsightMult() * skillCombatInsightMult() * (combat.player.mods.insightMult || 1) * ((SCHOOLS[state.selectedSchool] && SCHOOLS[state.selectedSchool].insightFromKillsMult) || 1) * (hmVictory.combatInsightMult || 1) * combatInsightMult(combat) * metaInsightMult() * (isDemonHeart(state) ? 2 : (state.demonic ? 1.5 : 1)) * 1.5 * ((combat && combat.demonicQiVenture) ? 1.5 : 1) * (state.demonic ? (isDemonHeart(state) ? 1 + (cultivationBoostMult() - 1) * 0.5 : cultivationBoostMult()) : 1) * (1 + 0.20 * goldenCoreLevel()));   // v1.6: demon-heart 2x; v0.97 +50% base; v1.18: +20% insight/GC; v1.27.16: Heart-Demon cult->insight 0.5:1 (was 1:1)
   // v1.25: the demonic mult stack (cult x GC x demon x base) compounds MULTIPLICATIVELY — measured ~42k/kill at
   // modest Golden Core investment, and "millions per battle" once geared (cultBoost 8x -> 208k, 15x+ -> 1M+).
   // Operator wants it kept big but the runaway capped. Cap = ~1.25x the realm's BASE layer cost (a stable per-realm
@@ -15065,7 +15078,7 @@ function grantEnemyDefeatRewards(e) {
   const _r = REALMS[state.realm.tierIdx] || {};
   const _capRef = _r.insightCap || _r.insightPerLayer || (REALMS[(state.realm.tierIdx || 0) + 1] || {}).insightCap || 5000;
   const insightCap = Math.round(_capRef * 1.25);
-  const insight = Math.min(rawInsight, insightCap);
+  const insight = softCapInsight(rawInsight, insightCap);   // v1.27.16: soft cap (was a hard Math.min)
   addInsight(insight);
   state.sectKills = (state.sectKills || 0) + 1;  // Wave 2b: progress toward the sect hunt bounty
   // v0.92: slaying a cultivator of the OPPOSING path earns sect contribution (operator) — a demonic
@@ -15105,13 +15118,17 @@ function grantEnemyDefeatRewards(e) {
     // boss's realm tier). foundBooks is pushed as we go, so rollBookAtTier never repeats.
     if (!state.foundBooks) state.foundBooks = [];
     const bossBooks = [];
-    const guaranteed = rollBookAtTier(bossTierIns, { minRarity: 'rare' });
-    if (guaranteed) { state.foundBooks.push(guaranteed); bossBooks.push(guaranteed); }
-    const extraN = 1 + Math.floor(Math.random() * 3);   // 1-3
-    for (let i = 0; i < extraN; i++) {
-      const b = rollBookAtTier(bossTierIns, {});
-      if (b) { state.foundBooks.push(b); bossBooks.push(b); }
-    }
+    // v1.27.16: bosses no longer GUARANTEE books (was rare-or-better + 1-3 random = 2-4/kill). Now per-rarity
+    // drop CHANCES — a real gate on farmable passive power. Normal: rare 25% / leg 12.5% / divine 6.25%.
+    // Heavenscourge (_hard): 1.5x -> 37.5% / 18.75% / 9.375%.
+    const _hardBk = String(e.id).indexOf(HARD_BOSS_SUFFIX) >= 0;
+    const bookRates = _hardBk ? { rare: 0.375, legendary: 0.1875, divine: 0.09375 } : { rare: 0.25, legendary: 0.125, divine: 0.0625 };
+    ['rare', 'legendary', 'divine'].forEach(rar => {
+      if (Math.random() < bookRates[rar]) {
+        const b = rollBookAtTier(bossTierIns, { rarity: rar });
+        if (b) { state.foundBooks.push(b); bossBooks.push(b); }
+      }
+    });
     bossBooks.forEach(id => {
       const bk = SKILL_BOOKS[id];
       if (bk) pushLog('reward', `Skill book recovered: ${bk.name} (${bk.rarity}).`);
