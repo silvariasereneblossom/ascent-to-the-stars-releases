@@ -541,11 +541,11 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v1.27.11';
+const GAME_VERSION = 'v1.27.13';
 // v0.78: CI injects the build's short sha here; the APK shell reads it FROM THE RUNNING
 // PAGE (window.BUILD_SHA) and compares against the repo head — staleness detection that
-// cannot be fooled by cached metadata. '07606f3' = local/dev build (shell falls back).
-const BUILD_SHA = '07606f3';
+// cannot be fooled by cached metadata. '076cd47' = local/dev build (shell falls back).
+const BUILD_SHA = '076cd47';
 if (typeof window !== 'undefined') window.BUILD_SHA = BUILD_SHA;
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
@@ -4440,7 +4440,7 @@ function computeMods(char) {
   applyOriginPassivesToMods(mods, char);      // v1.7: heritage + childhood life-origin passives
   // v1.8: the demon body trades defense for hunger — takes 10% more damage, deals 10% less posture.
   // v1.8: trades defense for hunger (-10% DR, -10% posture); v1.9: living on the edge = +15% damage while bloodied (glass-cannon payoff).
-  if (isDemonHeart(char)) { mods.incomingMult *= 1.10; mods.postureMult *= 0.90; mods.lowHpBonus += 0.15; }
+  if (isDemonHeart(char)) { mods.incomingMult *= 1.25; mods.postureMult *= 0.90; mods.lowHpBonus += 0.15; }   // v1.27.13: +25% incoming (was +10%), paired with removing the demon_heart HP bonus
   return mods;
 }
 
@@ -6198,14 +6198,18 @@ const DEMON_TRIBS = { 1: 'heavens_first_glare', 2: 'thunder_brand_envoy', 3: 'he
 // clean gear): moderate ~58/30/17/17/12/20 (a cliff after Qi Condensation, plateau ~20%); high ~80/60/45/
 // 45/65/55 (clearly stronger, declining-ish). The operator's exact high targets (76-88% mid-realm) aren't
 // reachable — the real gear-gap is ~25-35 pts, not the ~50 the target implies — but the shape holds. [0] unused.
-const DEMON_TRIB_HP_CURVE  = [1, 1.00, 0.13, 0.16, 0.17, 0.20, 0.28];
-const DEMON_TRIB_DMG_CURVE = [1, 1.00, 0.13, 0.16, 0.17, 0.20, 0.28];
+// v1.27.13: raised for real KILL PRESSURE — tribs were a non-event at moderate+ investment (~100% win).
+// Damage-weighted (kill pressure = lethality); HP raised more gently (tankier trib = longer fight = more
+// self-burn / break exposure for the demon). Tuned in tools/trib_sim.js toward: base dies, moderate sweats
+// (~20-40%, mostly must purify), high a real fight (~55-75%). Re-tune the arrays here, re-run the sim.
+const DEMON_TRIB_HP_CURVE  = [1, 1.00, 0.38, 0.55, 0.85, 1.70, 1.90];
+const DEMON_TRIB_DMG_CURVE = [1, 1.00, 0.40, 0.46, 0.50, 0.58, 0.72];
 // v1.27: QI-BARRIER PIERCE for demonic tribulations. The heavens' judgment bypasses the
 // cultivation qi-shield that otherwise makes a high-investment heretic unkillable: this
 // fraction of a demonic trib's damage hits Body directly. Object (not bare number) so it can
 // be tuned at runtime by the sim. `.v` is the pierce fraction (0 = off, 0.5 = half). Tuned per
 // the operator's "high scales 100->40 by realm" target.
-const DEMON_TRIB_QI_PIERCE = { v: 0 };
+const DEMON_TRIB_QI_PIERCE = { v: 0.30, byTier: [0, 0.20, 0.25, 0.30, 0.35, 0.55, 0.70] };   // v1.27.13: ENABLED + REALM-SCALED by target tier (was flat 0). The high-realm qi-barrier (qiShieldMult ~1.04^layer) soaks trib damage, so NS/SS pierce hard (0.55/0.70) to bypass it; lower realms gentler. byTier[targetTier]; .v is the flat fallback.
 // v1.27: at high realms the pierced damage ALSO bites the qi pool (drains casting fuel), so the
 // pierce can't backfire by preserving the player's qi-for-casting. Fraction of the pierced
 // amount additionally drained from qi, by TARGET tier: NS (5) = 0.5, SS (6) = 1.0. [0] unused.
@@ -6213,7 +6217,13 @@ const DEMON_TRIB_QI_BITE = [1, 0, 0, 0, 0, 0, 0];
 // v1.27: at the highest realms the heavens DENY the heretic mercy — self-mending (lifesteal,
 // regen, strike-heal) is suppressed during the trib, so the build's sustain can no longer out-tank
 // the judgment. Heal x this fraction, by TARGET tier: NS (5) 0.5 (-50%), SS (6) 0.25 (-75%). [0] unused.
-const DEMON_TRIB_HEAL_MULT = [1, 1, 1, 1, 1, 1, 1];
+const DEMON_TRIB_HEAL_MULT = [1, 1, 0.60, 0.45, 0.25, 0.08, 0.08];  // v1.27.13: ENABLED (was all 1) — self-mending (lifesteal/regen/strike-heal) suppressed during demonic tribs, ramping by target realm, so sustain builds (esp. demon_heart) can't out-tank the judgment
+// v1.27.13: %-of-MAX-BODY judgment — the un-out-gearable spine of high-realm trib pressure. Each demonic-trib
+// hit ALSO deals this fraction of the player's MAX Body straight to Body (bypasses barrier AND DR). A near-max
+// build's flat EHP out-scales any fixed number, but it can't shrink a % of its OWN Body — so this is what
+// brings HIGH investment down from ~100% to ~60-70%. The true ceiling (faster kills + more sustain = fewer of
+// these hits taken) still climbs back toward ~100%. By TARGET tier; Core Formation up. Tune in trib_sim.
+const DEMON_TRIB_PCT_HP = [0, 0, 0, 0.032, 0.045, 0.055, 0.060];
 // v1.27: HIGH-REALM ENEMY QI SCALING — enemy qi pools scale with the enemy's base × layer, but the
 // PLAYER's qi-drain (leech / qi-damage) compounds with cultivation, so by the high realms a geared
 // player empties any foe's qi instantly and it goes passive (meditates forever / can't fuel its
@@ -6233,12 +6243,22 @@ const ENEMY_DMG_SCALE = [1, 2, 2, 2, 2, 2.2, 2.2];   // v1.27.11: flattened — 
 // v1.27.7: in NORMAL fights only, enemy hits pierce extra of the player's qi barrier straight to Body, so
 // normals stay "somewhat threatening at all realms" even against a high-cultivation barrier that would
 // otherwise shrug them off (the player's qiShieldMult grows ~1.04^layer). Bosses/tribs are excluded — they're
-// separately tuned. 0.25 here = enemy hits land ~50% to Body through a standing barrier (vs the default ~25%).
-const ENEMY_BARRIER_PIERCE = 0.25;
+// separately tuned. The value adds to the default 0.25 "through" fraction (0.25 here -> ~50% lands to Body).
+// v1.27.12: flat 0.25 -> 0 (it doubled body-throughput vs ALL packs; a mid-DR SS cultivator was deleted in
+// 1-2 rounds regardless of pack size or the v1.27.11 weapon dampening — per-foe damage dominated).
+// v1.27.13: now REALM-SCALED [tier 0-6] instead of flat. Gear-grounded sim (real armorDrFloor DR: practical
+// ~55 / high ~98) showed flat-0 left the top-end INVESTMENT GATE too soft — moderate gear cleared SS packs at
+// ~34% HP every time, so high investment wasn't mandatory. Because pierced damage routes to Body (which DR
+// reduces), a realm-scaled pierce squeezes LOW-DR (under-invested) builds far harder than high-DR ones — an
+// investment gate, not a flat nerf. 0 through Core Formation keeps low realms gentle; the GC/NS/SS ramp makes
+// high investment ~mandatory by Spirit Severing (moderate gear -> coin-flip) while a divine-geared build still
+// clears (~77-81% HP), and it does NOT re-open the single-target-vs-AoE slaughter at high investment.
+const ENEMY_BARRIER_PIERCE = [0, 0, 0, 0, 0.06, 0.12, 0.20];   // by player realm tier (M/QC/FE/CF/GC/NS/SS)
 function tribHealMult() {
   if (typeof combat === 'undefined' || !combat || !combat.tribulation) return 1;
   if (!state || !state.demonic || typeof pendingTribulation === 'undefined' || !pendingTribulation || !pendingTribulation.targetTier) return 1;
-  return DEMON_TRIB_HEAL_MULT[pendingTribulation.targetTier] || 1;
+  const m = DEMON_TRIB_HEAL_MULT[pendingTribulation.targetTier];   // v1.27.13: was `|| 1` — which turned a 0.0 (total heal LOCKOUT) into 1.0 (no suppression). Handle 0 explicitly.
+  return (m == null) ? 1 : m;
 }
 
 // v0.68: RIGHTEOUS HUNTERS — demonic cultivators are ambushed on ordinary ventures by
@@ -6602,7 +6622,11 @@ Object.keys(BOSSES).forEach(bid => {
 // a bonus material cache.
 // v0.62: fixed difficulty anchor — the layer-scale a player faces at the MIDPOINT of the
 // boss's realm, times the difficulty knob. Single tuning number: BOSS_DIFFICULTY_MULT.
-const BOSS_DIFFICULTY_MULT = 1.5;
+const BOSS_DIFFICULTY_MULT = 2.25;   // v1.27.13: 1.5 -> 2.25 — bosses are meaningfully harder (the gear sink for the flattened gear ramp).
+// v1.27.13: per-boss ESCALATION — every prior kill of a boss makes the next encounter this much harder
+// (HP + weapon, compounding). The endgame loop: a beaten boss returns stronger, indefinitely, until it
+// outpaces you. Steep by design; tune here. Applied in startBossFight (kill count via bossKillCount).
+const BOSS_KILL_RAMP = 2.0;
 const REALM_ENEMY_BUFF = [1, 1.10, 1.15, 1.20, 1.25, 1.30, 1.35];   // v0.64: by realm tier (elites/bosses keep this gentle curve)
 // v1.17: NORMAL encounters get a sharper per-realm curve — steeper acceleration from Foundation (tier 2).
 // v1.25: the v1.17 high-realm magnitudes OVERSHOT (measured: a Golden Core normal had ~182k Body, ~1.9x a
@@ -6674,7 +6698,13 @@ function startBossFight(bossId) {
   const baseBoss = bossId.replace(HARD_BOSS_SUFFIX, '');
   const adds = (meta.tier >= 4 && BOSS_ADDS[baseBoss]) ? BOSS_ADDS[baseBoss].filter(a => ENEMIES[a]) : [];
   initCombat([bossId].concat(adds), 1);
-  if (combat) combat.bossFight = true;
+  if (combat) {
+    combat.bossFight = true;
+    // v1.27.13: per-boss ESCALATION — each prior kill of this boss makes it BOSS_KILL_RAMP^kills harder
+    // (HP + weapon). Adds ramp with it. Fresh boss (0 kills) = base. A beaten boss returns stronger.
+    const ramp = Math.pow(BOSS_KILL_RAMP, bossKillCount(bossId));
+    if (ramp > 1) combat.enemies.forEach(e => { e.hpMax = Math.round(e.hpMax * ramp); e.hp = e.hpMax; e.weaponPower = Math.max(1, Math.round((e.weaponPower || 0) * ramp)); });
+  }
   render();
 }
 function bossKillCount(bossId) { return (state.bossKills && state.bossKills[bossId]) || 0; }
@@ -9962,16 +9992,23 @@ const ARMOR_SLOT_WEIGHT = { chest: 1.0, helmet: 0.8, boots: 0.8, gloves: 0.7, ac
 function armorHpFloor(t, rarity, slot) {
   const base = ARMOR_Body_BASE[Math.min(6, t)];
   const next = ARMOR_Body_BASE[Math.min(7, t + 1)];
-  const frac = { common: 0, rare: 0.33, legendary: 0.66, divine: 1 }[rarity] || 0;
+  // v1.27.13 GEAR-CLIFF FLATTEN: compress the Body range — raise the bottom (common 0 -> 0.32, rare 0.33 ->
+  // 0.50) and trim the top (divine 1 -> 0.86), so boss-tier gear is no longer an EHP cliff over style/legendary
+  // (it was making tribs/packs an all-or-nothing gear check). Smoother ramp -> a "high but not maxed" band exists.
+  const frac = { common: 0.32, rare: 0.50, legendary: 0.70, divine: 0.86 }[rarity] || 0.32;
   return Math.round((base + (next - base) * frac) * (ARMOR_SLOT_WEIGHT[slot] || 0.5));
 }
 function armorDrFloor(t, rarity) {
   // v1.27: DR is a LOG stat on a 1-200 scale (200 -> 99% reduction; see dealDamage). Rescaled so a
   // PRACTICAL late-game build lands ~50-60 DR, a defensively-geared HIGH build ~100, and an EXTREME
   // DR-stack (defensive set + DR inscriptions + iron kit) ~130 (operator targets).
-  if (rarity === 'divine')    return Math.round(2 + 1.4 * t);   // SS ~10, GC ~7, FE ~5
-  if (rarity === 'legendary') return Math.round(1.3 + 0.9 * t); // SS ~7, GC ~5
-  return 0;
+  // v1.27.13 GEAR-CLIFF FLATTEN: compress the DR range — give rare/common real DR (were 0) and trim divine,
+  // so defense isn't an all-or-nothing boss-gear check. SS/pc: divine ~6.5 (was 10), legendary ~5.5 (was 7),
+  // rare ~3.4 (was 0), common ~1.9 (was 0). A full set now spans ~25 (rare) -> ~40 (divine) instead of 0 -> 62.
+  if (rarity === 'divine')    return Math.round(1.4 + 0.85 * t);
+  if (rarity === 'legendary') return Math.round(1.2 + 0.72 * t);
+  if (rarity === 'rare')      return Math.round(0.7 + 0.45 * t);
+  return Math.round(0.4 + 0.25 * t);
 }
 // ============================================================
 // v0.89/v0.90 STYLE LINES — craftable build-identity gear at every realm, three axes the
@@ -13185,11 +13222,21 @@ function tryAdvanceRealm() {
     if (trib) {
       pendingTribulation = { targetTier: toTier, cost: info.cost };
       initCombat(trib.enemyId);
-      if (isDemonHeart(state) && combat.enemies && combat.enemies[0]) {   // v1.5: demon-heart breakthroughs are judged harder (Body still 2x — the endurance trial)
+      if (isDemonHeart(state) && combat.enemies && combat.enemies[0]) {   // v1.5: demon-heart breakthroughs are judged harder — an ENDURANCE trial
         const te = combat.enemies[0];
-        te.hpMax = Math.round(te.hpMax * 2); te.hp = te.hpMax;
-        // v1.13: damage boost cut 2x -> 1.5x. With the v1.10 -25% incoming softener (dealDamage), net trib damage is ~1.125x of baseline (down from ~1.5x).
-        te.weaponPower = Math.round((te.weaponPower || 0) * 1.5);
+        // v1.27.13: Body multiplier is now REALM-SCALED (was flat 2x). demon_heart's 2x-strike BURST was
+        // killing the trib before its damage (now qi-pierced + heal-suppressed) could threaten — so it breezed
+        // the DPS-race tribs (NS/SS ~100% at moderate) while other demonic schools sweated them (42-71%). Its
+        // burst scales hard with realm, so the trib's Body pool has to scale harder at NS/SS to outlast the
+        // opener and let the heal-suppressed pressure land. demon_heart-only — doesn't touch other schools' tribs.
+        const dhTribHp = [1, 2, 2.5, 4, 3, 5.5, 7][toTier] || 3;
+        te.hpMax = Math.round(te.hpMax * dhTribHp); te.hp = te.hpMax;
+        // v1.13: damage boost cut 2x -> 1.5x. v1.27.13: now REALM-SCALED and the v1.10 -25% softener is gone.
+        // At NS/SS demon_heart's huge EHP out-tanks the trib regardless of its Body/HP, so the trib's WEAPON
+        // has to scale up there to actually threaten it (it was winning NS/SS at 100% on moderate gear). Lower
+        // realms keep 1.5x (already lethal via the curve + pierce). demon_heart-only.
+        const dhTribWpn = [1, 1.5, 1.5, 1.5, 1.5, 2.6, 3.3][toTier] || 1.5;
+        te.weaponPower = Math.round((te.weaponPower || 0) * dhTribWpn);
       }
       combat.tribulation = { kind: trib.kind, turns: trib.turns || 0 };
       if (trib.kind === 'survival') {
@@ -13335,7 +13382,7 @@ function computeMaxHP(char) {
   const total = base + activeBuffValue('hp_max_add', 0) + boonHPAdd() + skillHPAdd() + (mods.hpBonus || 0) + metaHPAdd() + bodyQuenchHPAdd();
   // v0.89: hpMult (Body%) scales the whole pool — flat +Body and Body% on the same defensive
   // piece compound, the intended bulwark synergy. Demonic x1.2 stacks on top.
-  return Math.round(total * (mods.hpMult || 1) * cultPowerMults(char).hp * (1 + 0.05 * (char.goldenCoreQuality || 0)) * (isDemonHeart(char) ? 1.3 : (char.demonic ? 1.2 : 1)));   // v1.5 demon x1.3; v1.16 per-layer Body; v1.18 +5% Body/GC level
+  return Math.round(total * (mods.hpMult || 1) * cultPowerMults(char).hp * (1 + 0.05 * (char.goldenCoreQuality || 0)) * (char.demonic ? 1.2 : 1));   // v1.16 per-layer Body; v1.18 +5%/GC; v1.27.13 removed demon_heart x1.3 (now plain demonic x1.2) — traded for +25% incoming
 }
 // v0.98: ascension alone stops being enough — cultivation compounds per layer into qi (pool + barrier)
 // and a little damage. Survival becomes a qi-tank spine (~25% of the curve); GEAR carries the rest,
@@ -14106,9 +14153,13 @@ function initCombat(enemyIdOrIds, areaCultMult) {
   // single-target builds, while AoE shrugs it off). Each NON-boss foe in a group of N deals 1/(1+0.30*(N-1)),
   // so a 5-pack's total is ~2.5x a lone foe — threatening, survivable, and not an AoE-only check. Bosses keep
   // full damage; their adds are dampened as part of the group.
+  // v1.27.12: the same factor is now CACHED on each foe (e.groupDamp) and reused to dampen the foe's
+  // posture-build (see enemyUseTech). Un-dampened posture was the residual single-target killer — a sim showed
+  // a 5-pack re-shattered a single-target stance every round (each break doubles incoming) while AoE cleared
+  // before it mattered. Self-scaling: N=2 -> x0.77 (mild), N=5 -> x0.30 (strong) — big packs stagger softest.
   if (enemies.length > 1) {
     const gm = 1 / (1 + 0.30 * (enemies.length - 1));
-    enemies.forEach(e => { const src = ENEMIES[e.id]; if (!(src && src.isBoss)) e.weaponPower = Math.max(1, Math.round(e.weaponPower * gm)); });
+    enemies.forEach(e => { const src = ENEMIES[e.id]; if (!(src && src.isBoss)) { e.weaponPower = Math.max(1, Math.round(e.weaponPower * gm)); e.groupDamp = gm; } });
   }
   const weapon = WEAPONS[state.weapon];
   const school = SCHOOLS[state.selectedSchool];
@@ -14145,7 +14196,11 @@ function initCombat(enemyIdOrIds, areaCultMult) {
     turn: 1,
     // v0.64: cultivator might quietly feeds damage (+might/1000 as a fraction).
     // Cached here — cultivatorMight() runs computeMods and is too heavy per-hit.
-    mightDamageBonus: cultivatorMight() / 1000 + 0.03 * goldenCoreLevel(),   // v1.18: +1.5% -> v1.27: +3% global damage/GC level (gear/quality weight)
+    // v1.27.13: rekeyed off cultivatorMight (which is HP/15-dominated -> it gave a ~x8-15 multiplier that
+    // dominated AND compounded the whole damage chain) to 5% PER 100 STAT POINTS — a modest, genuinely
+    // stat-scaling Cultivation-bucket bonus (~+20% at maxed, ~+12% moderate). The +3%/GC-level stays (also
+    // Cultivation). cultivatorMight() itself is unchanged (still used for rift difficulty + the Might readout).
+    mightDamageBonus: (Object.values(state.finalStats || {}).reduce((a, b) => a + b, 0)) * 0.0005 + 0.03 * goldenCoreLevel(),
     cultDmgMult: cultPowerMults(state).dmg,   // v0.98: small per-layer damage growth (gear carries the bulk)
     enemyId: enemies[0].id,  // legacy single-enemy ID used by victory-reward / insight scaling
     log: [],
@@ -14199,12 +14254,15 @@ function dealDamage(target, amount, opts) {
     }
   }
 
-  if (target.broken > 0 && !opts.ignorePostureBreak) qiDmg *= 2;
+  // v1.27.13: a demon_heart cultivator suffers DOUBLE the break penalties (the marginal bonus is doubled):
+  // posture-break x2 -> x3, soul-break +30% -> +60%. Being broken is catastrophic for the glass demon.
+  const demonSelf = combat && target === combat.player && isDemonHeart(state);
+  if (target.broken > 0 && !opts.ignorePostureBreak) qiDmg *= demonSelf ? 3 : 2;
   // v0.45 Sunder: melted armor — bonus damage taken, and flat DR is negated below.
   const sunderEf = (target.effects || []).find(ef => ef.kind === 'sunder');
   if (sunderEf) { qiDmg *= 1 + sunderEf.value; hpDmg *= 1 + sunderEf.value; }
   // v0.45 soul-break: a combatant whose spirit pool is empty takes +30% from everything.
-  if (target.spiritMax > 0 && target.spirit <= 0) { qiDmg *= 1.3; hpDmg *= 1.3; }
+  if (target.spiritMax > 0 && target.spirit <= 0) { const sbm = demonSelf ? 1.6 : 1.3; qiDmg *= sbm; hpDmg *= sbm; }
   let incoming = (target.buffs.incomingMult || 1) * (target.baseIncoming || 1);
   // Player-only heritage mitigations
   if (combat && target === combat.player) {
@@ -14212,7 +14270,9 @@ function dealDamage(target, amount, opts) {
     if (combat.tribulation && hm.tribulationIncomingMult) incoming *= hm.tribulationIncomingMult;
     if (combat.tribulation) incoming *= boonTribulationIncomingMult();
     // v1.10: a Demon Heart's tribulations hit 25% softer but last longer (the trib enemy self-heals each round, see endOfRound).
-    if (combat.tribulation && isDemonHeart(state)) incoming *= 0.75;
+    // v1.27.13: REMOVED the 0.75 softener — it made the supposedly-RISKIEST school the SAFEST in its own
+    // tribs (surviving NS/SS at 100% on moderate gear while other demonic schools sweated them at 42-71%).
+    // The trib still self-heals + drags (the endurance trial stays), but the demon now takes the full judgment.
     // v0.64: Dao Heart (will) steadies the soul under heaven's pressure — -0.5%/point, cap 40%.
     if (combat.tribulation) incoming *= 1 - Math.min(0.40, ((state.finalStats && state.finalStats.will) || 0) * 0.005);
     if (spiritDmg && hm.spiritIncomingMult) spiritDmg *= hm.spiritIncomingMult;
@@ -14229,16 +14289,19 @@ function dealDamage(target, amount, opts) {
   // v1.27: demonic tribulations pierce the cultivation qi-shield (Body-direct), on top of any
   // technique pierceQi — this is what lets a trib actually threaten a fully-geared heretic.
   const demonTribDmg = combat && target === combat.player && combat.tribulation && state && state.demonic;
+  const dtt = (demonTribDmg && pendingTribulation && pendingTribulation.targetTier) || 0;   // v1.27.13: target tier for realm-scaled pierce
   let pierceFrac = opts.pierceQi || 0;
-  if (demonTribDmg && DEMON_TRIB_QI_PIERCE.v > 0) pierceFrac = Math.max(pierceFrac, DEMON_TRIB_QI_PIERCE.v);
+  if (demonTribDmg) {
+    const dp = (DEMON_TRIB_QI_PIERCE.byTier && DEMON_TRIB_QI_PIERCE.byTier[dtt]) || DEMON_TRIB_QI_PIERCE.v || 0;
+    if (dp > 0) pierceFrac = Math.max(pierceFrac, dp);
+  }
   if (pierceFrac) {
     const pierced = qiDmg * pierceFrac;
     hpDmg += pierced;
     qiDmg -= pierced;
     // v1.27: high-realm demonic tribs ALSO drain casting qi by a fraction of the pierced amount
     // (NS 0.5 / SS 1.0) — denies the qi-for-casting that otherwise lets pierce backfire.
-    const tt = (demonTribDmg && pendingTribulation && pendingTribulation.targetTier) || 0;
-    if (tt && DEMON_TRIB_QI_BITE[tt]) target.qi = Math.max(0, target.qi - pierced * DEMON_TRIB_QI_BITE[tt]);
+    if (dtt && DEMON_TRIB_QI_BITE[dtt]) target.qi = Math.max(0, target.qi - pierced * DEMON_TRIB_QI_BITE[dtt]);
   }
 
   // v0.23 flatDR — applied after multipliers, capped at 40% of incoming.
@@ -14261,6 +14324,11 @@ function dealDamage(target, amount, opts) {
     }
   }
 
+  // v1.27.13: %-of-max-Body judgment (un-out-gearable) — see DEMON_TRIB_PCT_HP. Added to Body AFTER DR, so a
+  // maxed build's gear can't shrink it; it scales with the player's own Body. This is the lever that finally
+  // threatens HIGH investment at the high-realm tribs (flat damage/HP/pierce left them at ~100%).
+  if (demonTribDmg && DEMON_TRIB_PCT_HP[dtt]) hpDmg += (target.hpMax || 0) * DEMON_TRIB_PCT_HP[dtt];
+
   // v1.27 QI-BARRIER REDESIGN (operator): while a combatant has a qi barrier, qi-damage SPLITS —
   // half drains the barrier, half hits Body at HALF rate (~25% of the hit reaches Body while the
   // barrier holds). BREAK the barrier (qi -> 0) and the hit lands FULL on Body, and a foe with no qi
@@ -14278,8 +14346,9 @@ function dealDamage(target, amount, opts) {
     const broke = qiPortion >= barrierCap;          // this hit emptied the barrier -> full damage lands
     // v1.27.7: enemy hits in a NORMAL fight pierce more of the barrier to Body (so mooks still threaten a
     // high-cultivation player); bosses/tribs keep the default ~25% (separately tuned).
+    // v1.27.13: the pierce is realm-scaled by the player's tier (0 through Core Formation, ramping to SS).
     const through = (combat && combat.player && target === combat.player && !combat.bossFight && !combat.tribulation)
-      ? Math.min(1, 0.25 + ENEMY_BARRIER_PIERCE) : 0.25;
+      ? Math.min(1, 0.25 + (ENEMY_BARRIER_PIERCE[(state.realm && state.realm.tierIdx) || 0] || 0)) : 0.25;
     totalHp = qiDmg * through + (broke ? qiDmg * (1 - through) : 0) + hpDmg;
   } else {
     absorbed = 0;
@@ -14558,9 +14627,10 @@ function playerStatusValue(p, tech) {
 const DOT_KINDS = new Set(['burn', 'poison', 'bleed', 'leech']);
 
 // v0.23: lifesteal + qi-on-hit-style triggers fired after a successful hit.
-function applyPostHitTriggers(p, res, tgt) {
+function applyPostHitTriggers(p, res, tgt, lifestealScale) {
+  lifestealScale = (lifestealScale == null) ? 1 : lifestealScale;   // v1.27.13: demon_heart 2nd strike halves lifesteal
   if ((p.mods.lifestealPct || 0) > 0 && (res.hpDamage + res.qiAbsorbed) > 0) {
-    const heal = Math.round((res.hpDamage + res.qiAbsorbed) * p.mods.lifestealPct * tribHealMult());
+    const heal = Math.round((res.hpDamage + res.qiAbsorbed) * p.mods.lifestealPct * tribHealMult() * lifestealScale);
     if (heal > 0) {
       const before = p.hp;
       p.hp = Math.min(p.hpMax, p.hp + heal);
@@ -14608,18 +14678,22 @@ function playerStrike(opts) {
     pushLog('posture', `The waiting edge falls.`);
   }
   // v1.8: demon-heart strikes TWICE per turn, each hit draining 15% of the target's current qi.
+  // v1.27.13: the 2nd strike scales with how HURT you START the turn — 40% damage at full Body, ramping to
+  // 100% at <=25% Body — and it lifesteals at HALF rate. Rewards living on the edge without free full sustain.
   const strikes = isDemonHeart(state) ? 2 : 1;
+  const hpFrac0 = p.hpMax > 0 ? p.hp / p.hpMax : 1;
+  const secondStrikeMult = 0.40 + 0.60 * Math.max(0, Math.min(1, (1 - hpFrac0) / 0.75));
   for (let si = 0; si < strikes; si++) {
     if (combat.over || e.hp <= 0) break;
     const ctx = {};
-    const dmg = applyPlayerOutgoingMods(p, baseDmg, e, ctx);
+    const dmg = applyPlayerOutgoingMods(p, baseDmg * (si === 0 ? 1 : secondStrikeMult), e, ctx);
     const res = dealDamage(e, dmg, {});
     pushLog('line', ctx.crit
       ? `${p.name} strikes — the blade finds the seam, and the air opens.`
       : (isAuto ? `${p.name} strikes — a measured, half-mindful blow.`
                 : `${p.name} strikes — a clean, disciplined blow.`));
     pushLog('hurt', damageLogLine(res, e));
-    applyPostHitTriggers(p, res, e);
+    applyPostHitTriggers(p, res, e, si === 0 ? 1 : 0.5);   // v1.27.13: 2nd strike lifesteals at half rate
     if (!res.dodged) {
       applyDemonicHellfire(e);   // v0.68: demonic hellfire brands every landed blow
       // v0.68: schools with strikeAppliesOnHit (Dragonforge's Moltenwake) sunder on STRIKES too.
@@ -15492,7 +15566,16 @@ function enemyUseTech(e, p, techId) {
     if (res.dodged) return;  // evaded entirely: no posture, no rider effects
   }
   if (tech.postureBuild || tech.postureBreak) {
-    const broke = applyPosture(p, tech.postureBuild || 0, tech.postureBreak, 3);
+    // v1.27.12: group dampening blunts posture chip (e.groupDamp set in initCombat for packs) — a pack
+    // shouldn't stagger N times as hard.
+    const gd = e.groupDamp || 1;
+    const postureBuild = Math.round((tech.postureBuild || 0) * gd);
+    // v1.27.12: a GUARANTEED stance-break (postureBreak, e.g. star_wrath) is also gated inside a pack — it
+    // lands with probability gd, so a break-heavy group no longer re-shatters a single-target stance every
+    // round (each break doubles ALL incoming). It still chips dampened posture on the off-rolls. Lone foes
+    // (gd=1) always break, exactly as before.
+    const breaker = tech.postureBreak && (gd >= 1 || Math.random() < gd);
+    const broke = applyPosture(p, postureBuild, breaker, 3);
     if (broke) pushLog('posture', `${p.name}'s stance shatters! Qi damage doubled for ${p.broken} turns.`);
   }
   if (tech.effect) {
@@ -15680,10 +15763,14 @@ function endOfRound() {
   // v0.45: player-side statuses tick through the same engine as enemies (bleed, drains,
   // and any future enemy-applied DOT kinds all handled in one place).
   tickCombatantEffects(p);
-  // v1.8: the demon body consumes itself — 5% of CURRENT Body per turn (its lifesteal engine repays it;
-  // asymptotes toward 1 Body and never self-kills — the kill must come from the enemy).
+  // v1.8: the demon body consumes itself each turn (its lifesteal engine repays it; floored at 1 Body so the
+  // kill comes from the enemy, not the burn).
+  // v1.27.13: now 7.5% of MAX Body (was 5% of current) — DOUBLED to 15% while posture-broken, TRIPLED to
+  // 22.5% while BOTH posture- and soul-broken. Being broken is a death spiral the lifesteal must outrun.
   if (isDemonHeart(state) && p.hp > 1) {
-    const selfBurn = Math.max(1, Math.round(p.hp * 0.05));
+    const postureBroken = p.broken > 0, spiritBroken = (p.spiritMax > 0 && p.spirit <= 0);
+    const burnPct = (postureBroken && spiritBroken) ? 0.225 : (postureBroken ? 0.15 : 0.075);
+    const selfBurn = Math.max(1, Math.round(p.hpMax * burnPct));
     p.hp = Math.max(1, p.hp - selfBurn);
     pushLog('hurt', `  → ${selfBurn} Body consumed by the demon within.`);
   }
@@ -15737,6 +15824,14 @@ function endOfRound() {
 
   combat.turn++;
   pushLog('turn', `— Turn ${combat.turn} —`);
+
+  // v1.27.13: TRIBULATION auto-meditation — the heavens never run dry. Every 3rd turn the trib restores
+  // 75% of its qi for FREE (no turn spent), so a qi-draining build can no longer starve it into skipping
+  // attacks. This was the hidden control vector that let maxed builds stagger/qi-lock the judgment and take
+  // no damage; with it closed, the trib keeps casting and its (player-Body-scaled) damage actually lands.
+  if (combat.tribulation && combat.turn % 3 === 0) {
+    combat.enemies.forEach(e => { if (e.hp > 0) { const before = e.qi; e.qi = Math.min(e.qiMax, e.qi + Math.round(e.qiMax * 0.75)); if (e.qi > before) pushLog('flavor', `The tribulation gathers itself — heaven-qi floods back.`); } });
+  }
 
   // Survival tribulation: win when turn count exceeds threshold (kill all enemies, normally one)
   if (combat.tribulation && combat.tribulation.kind === 'survival' && combat.turn > combat.tribulation.turns) {
@@ -18432,22 +18527,36 @@ function renderCharSheet() {
     const hunters = state.demonHeartHunterDefeats || 0;
     const cap = demonHeartHunterCap();
     const tribStreak = Math.max(0, ...Object.values(state.tribulationFails || {}));
+    // v1.27.13: the purge ("purify") is capped at 3 per realm (keyed by realm tier), resetting every ascension
+    // (finalizeAscension builds a fresh character, so purgeUses drops). Once spent, a 3rd failed tribulation in
+    // this realm ends the run — the heresy's escape valve is finite.
+    const PURGE_CAP = 3;
+    const purgeTier = state.realm.tierIdx || 0;
+    const purgesLeft = Math.max(0, PURGE_CAP - ((state.purgeUses && state.purgeUses[purgeTier]) || 0));
     dh.innerHTML = `<div style="font-size:0.85rem"><strong style="color:var(--crimson)">The Hunt</strong> <span style="color:var(--ink-soft);font-size:0.8rem">魔劫</span></div>
       <div style="font-size:0.8rem;color:var(--ink-soft);margin:0.15rem 0">Sect-hunter defeats this realm: <strong style="color:${hunters >= cap - 3 ? 'var(--crimson)' : 'var(--gold)'}">${hunters}/${cap}</strong> — death at the cap; slay a hunter to drop it by 2. Tribulation streak: <strong>${tribStreak}/3</strong>.</div>`;
     const pBtns = document.createElement('div'); pBtns.className = 'consumable-buttons';
     const pb = document.createElement('button'); pb.className = 'ghost small';
     // v1.13: renamed Purify the Heart -> Reinforce Demonic Qi (a demon does not cleanse — it doubles down);
     // and fixed the broken confirm() (window.confirm never fires in the WebView) via the two-tap arm.
-    pb.textContent = 'Reinforce Demonic Qi — reset the hunt + streak (lose half your layers)';
-    armDestructiveButton(pb, "Tap again — fall back half this realm's layers (insight reset)", () => {
-      state.demonHeartHunterDefeats = 0;
-      state.tribulationFails = {};
-      state.realm.layer = Math.max(1, (state.realm.layer || 1) - Math.floor((state.realm.layer || 1) / 2));   // v1.6: lose half the layers, not all the way to 1
-      state.realm.insight = 0;
-      if (state.confirmed) state.finalStats = finalStats(state);
-      saveChar();
-      render();
-    });
+    // v1.27.13: gated to PURGE_CAP (3) uses per realm.
+    if (purgesLeft <= 0) {
+      pb.textContent = 'Reinforce Demonic Qi — spent (no purifies left this realm)';
+      pb.disabled = true; pb.style.opacity = '0.5'; pb.style.cursor = 'not-allowed';
+    } else {
+      pb.textContent = `Reinforce Demonic Qi — reset the hunt + streak, lose half your layers (${purgesLeft}/${PURGE_CAP} left)`;
+      armDestructiveButton(pb, "Tap again — fall back half this realm's layers (insight reset)", () => {
+        if (!state.purgeUses) state.purgeUses = {};
+        state.purgeUses[purgeTier] = (state.purgeUses[purgeTier] || 0) + 1;
+        state.demonHeartHunterDefeats = 0;
+        state.tribulationFails = {};
+        state.realm.layer = Math.max(1, (state.realm.layer || 1) - Math.floor((state.realm.layer || 1) / 2));   // v1.6: lose half the layers, not all the way to 1
+        state.realm.insight = 0;
+        if (state.confirmed) state.finalStats = finalStats(state);
+        saveChar();
+        render();
+      });
+    }
     pBtns.appendChild(pb); dh.appendChild(pBtns); sectP.appendChild(dh);
   }
   appendPanel(sectP, 'sect');
