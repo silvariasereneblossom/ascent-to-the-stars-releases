@@ -541,11 +541,11 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v1.27.19';
+const GAME_VERSION = 'v1.27.20';
 // v0.78: CI injects the build's short sha here; the APK shell reads it FROM THE RUNNING
 // PAGE (window.BUILD_SHA) and compares against the repo head — staleness detection that
-// cannot be fooled by cached metadata. '4db9304' = local/dev build (shell falls back).
-const BUILD_SHA = '4db9304';
+// cannot be fooled by cached metadata. 'cee54bb' = local/dev build (shell falls back).
+const BUILD_SHA = 'cee54bb';
 if (typeof window !== 'undefined') window.BUILD_SHA = BUILD_SHA;
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
@@ -6206,7 +6206,7 @@ const DEMON_TRIBS = { 1: 'heavens_first_glare', 2: 'thunder_brand_envoy', 3: 'he
 // TTK and raised incoming hits, cratering high-investment NS/SS tribs (14%/0%). Lower trib HP at 5/6 so a
 // CD-throttled offense still kills it before the %-Body judgment piles up. Target: ~30-40% at HIGH investment.
 const DEMON_TRIB_HP_CURVE  = [1, 1.00, 0.38, 0.55, 0.85, 1.60, 1.45];
-const DEMON_TRIB_DMG_CURVE = [1, 1.00, 0.40, 0.46, 0.50, 0.57, 0.58];
+const DEMON_TRIB_DMG_CURVE = [1, 1.00, 0.40, 0.28, 0.36, 0.38, 0.37];
 // v1.27: QI-BARRIER PIERCE for demonic tribulations. The heavens' judgment bypasses the
 // cultivation qi-shield that otherwise makes a high-investment heretic unkillable: this
 // fraction of a demonic trib's damage hits Body directly. Object (not bare number) so it can
@@ -6220,13 +6220,13 @@ const DEMON_TRIB_QI_BITE = [1, 0, 0, 0, 0, 0, 0];
 // v1.27: at the highest realms the heavens DENY the heretic mercy — self-mending (lifesteal,
 // regen, strike-heal) is suppressed during the trib, so the build's sustain can no longer out-tank
 // the judgment. Heal x this fraction, by TARGET tier: NS (5) 0.5 (-50%), SS (6) 0.25 (-75%). [0] unused.
-const DEMON_TRIB_HEAL_MULT = [1, 1, 0.60, 0.45, 0.25, 0.12, 0.21];  // v1.27.13: ENABLED (was all 1); v1.27.18: NS/SS un-suppressed a touch (0.08->0.12/0.21) so sustain survives the longer CD-throttled fights — self-mending (lifesteal/regen/strike-heal) suppressed during demonic tribs, ramping by target realm, so sustain builds (esp. demon_heart) can't out-tank the judgment
+const DEMON_TRIB_HEAL_MULT = [1, 1, 0.60, 0.45, 0.25, 0.15, 0.15];  // v1.27.13: ENABLED; v1.27.20: NS/SS suppressed to 0.15 — the per-hit lifesteal cap (10% max Body) limits the ceiling's sustain, so heal-mult stays high enough that HIGH still sustains
 // v1.27.13: %-of-MAX-BODY judgment — the un-out-gearable spine of high-realm trib pressure. Each demonic-trib
 // hit ALSO deals this fraction of the player's MAX Body straight to Body (bypasses barrier AND DR). A near-max
 // build's flat EHP out-scales any fixed number, but it can't shrink a % of its OWN Body — so this is what
 // brings HIGH investment down from ~100% to ~60-70%. The true ceiling (faster kills + more sustain = fewer of
 // these hits taken) still climbs back toward ~100%. By TARGET tier; Core Formation up. Tune in trib_sim.
-const DEMON_TRIB_PCT_HP = [0, 0, 0, 0.032, 0.045, 0.052, 0.044];   // v1.27.18: NS/SS retuned (0.055/0.060 -> 0.052/0.044) — the high-investment spine, eased to target ~30-40% at high (was 14%/0% after the v1.27.18 combat changes)
+const DEMON_TRIB_PCT_HP = [0, 0, 0, 0.009, 0.013, 0.030, 0.011];   // v1.27.20: undodgeable %-Body judgment over ~11 capped rounds; per-tier leveled so maxed-high lands ~30-40%
 // v1.27: HIGH-REALM ENEMY QI SCALING — enemy qi pools scale with the enemy's base × layer, but the
 // PLAYER's qi-drain (leech / qi-damage) compounds with cultivation, so by the high realms a geared
 // player empties any foe's qi instantly and it goes passive (meditates forever / can't fuel its
@@ -13445,6 +13445,28 @@ function cultLayers(char) {
   for (let i = 0; i < (char.realm.tierIdx || 0); i++) n += REALMS[i].layers;
   return n + ((char.realm.layer || 1) - 1);
 }
+// v1.27.20: SOFT CAPS on player DEFENSIVE power. Investment toward the "ceiling" (every skill+book, piled
+// stats) stacked five defensive layers — lifesteal, qi-shield, dodge, incoming-reduction, HP — into literal
+// invincibility (surviving even capped, heal-suppressed, undodgeable tribulations at 100%). Each layer now
+// gives diminishing returns past a threshold (same principle as the stat & insight soft caps): reaching for
+// the ceiling still HELPS, but no single layer — and the PRODUCT of them — can stack into unkillable.
+// Generic banded cap: full up to `start`, then each band [width, rate] counts at `rate`, remainder at `tail`.
+function bandedSoftCap(raw, start, bands, tail) {
+  if (!(raw > start)) return raw;
+  let eff = start, over = raw - start;
+  for (const [w, rate] of bands) { const x = Math.min(over, w); eff += x * rate; over -= x; if (over <= 0) return eff; }
+  return eff + over * tail;
+}
+const DEF_BANDS = [[0.10, 0.50], [0.10, 0.25]];   // shared shape: +10% band at 50%/pt, +10% at 25%/pt
+function softCapLifesteal(raw) { return bandedSoftCap(raw || 0, 0.30, DEF_BANDS, 0.125); }   // leech MOVES bypass (own heal)
+function softCapDodge(raw)     { return bandedSoftCap(raw || 0, 0.15, DEF_BANDS, 0.125); }
+function softCapQiBarrier(raw) { return bandedSoftCap(raw || 1, 2.5,  [[1.0, 0.50]], 0.25); }   // no 12.5% tail (per spec)
+// incoming-damage REDUCTION (1 - mult). Only the persistent REDUCTION is capped; amplification (demon_heart's
+// +25%, mult>1) passes through untouched.
+function softCapIncoming(mult) {
+  if (!(mult < 1)) return mult;
+  return 1 - bandedSoftCap(1 - mult, 0.15, DEF_BANDS, 0.125);
+}
 function cultPowerMults(char) {
   const L = cultLayers(char);
   return { qiPool: Math.pow(1.08, L), qiBarrier: Math.pow(1.04, L), dmg: Math.pow(1.015, L), hp: Math.pow(1.04, L) };   // v1.16: Body now compounds per layer too (breakthroughs grow Body % not just flat)
@@ -14235,13 +14257,13 @@ function initCombat(enemyIdOrIds, areaCultMult) {
   const mods = computeMods(state);
   const rb = realmBonusFor(state);
   const weaponMult = activeBuffValue('weapon_mult', 1);
-  const baseIncoming = activeBuffValue('incoming_mult', 1) * boonIncomingMult() * skillIncomingMultPerm() * (mods.incomingMult || 1);
+  const baseIncoming = softCapIncoming(activeBuffValue('incoming_mult', 1) * boonIncomingMult() * skillIncomingMultPerm() * (mods.incomingMult || 1));   // v1.27.20: persistent incoming-reduction soft-capped past 15%
 
   const p = {
     name: state.name,
     hpMax: computeMaxHP(state), hp: computeMaxHP(state),
     qiMax: computeMaxQi(state), qi: computeMaxQi(state),
-    qiShieldMult: cultPowerMults(state).qiBarrier,   // v0.98: qi barrier — qi soaks >1:1 before Body
+    qiShieldMult: softCapQiBarrier(cultPowerMults(state).qiBarrier),   // v0.98: qi barrier — qi soaks >1:1 before Body; v1.27.20: soft-capped
     spiritMax: computeMaxSpirit(state), spirit: computeMaxSpirit(state),
     // v0.64: Dao Heart (will) hardens the stance — posture max scales with it.
     postureMax: 60 + 2 * ((state.finalStats && state.finalStats.will) || 0), posture: 0, broken: 0,
@@ -14317,6 +14339,16 @@ function dealDamage(target, amount, opts) {
         const cres = dealDamage(opts.attacker, counterDmg, {});
         pushLog('line', `  → ${target.name} answers from the wind!`);
         pushLog('hurt', damageLogLine(cres, opts.attacker));
+      }
+      // v1.27.20: you cannot DODGE the heavens' verdict — a demonic tribulation's %-of-max-Body judgment lands
+      // even on an evade. (The over-dodge ceiling was slipping the very pressure meant to threaten it.)
+      if (combat.tribulation && state && state.demonic && pendingTribulation && pendingTribulation.targetTier && DEMON_TRIB_PCT_HP[pendingTribulation.targetTier]) {
+        const jd = Math.round((target.hpMax || 0) * DEMON_TRIB_PCT_HP[pendingTribulation.targetTier]);
+        if (jd > 0) {
+          target.hp = Math.max(0, target.hp - jd);
+          pushLog('hurt', `  → the judgment finds you regardless: ${jd} Body.`);
+          return { qiAbsorbed: 0, hpDamage: jd, spiritDamage: 0, dodged: true };
+        }
       }
       return { qiAbsorbed: 0, hpDamage: 0, spiritDamage: 0, dodged: true };
     }
@@ -14422,6 +14454,15 @@ function dealDamage(target, amount, opts) {
     absorbed = 0;
     totalHp = qiDmg + hpDmg;                         // no barrier -> full damage to Body
   }
+  // v1.27.20: PER-ROUND DAMAGE CAP enforced AT THE BLOW — a boss/trib can't drop below this round's floor
+  // even from a would-be killing hit. (The endOfRound net-loss clamp alone was bypassed: endPlayerAction
+  // runs checkDeath BEFORE endOfRound, so a one-shot skipped the clamp and let a maxed build delete the foe
+  // the moment it fell within one hit. Clamping totalHp here closes that — forcing the full ~11-round endure.)
+  if (combat && target !== combat.player && isBossOrTribTarget(target)) {
+    if (target._capStartHp == null) target._capStartHp = target.hpMax;
+    const capFloor = Math.max(0, target._capStartHp - roundDamageCapPct() * target.hpMax);
+    if (target.hp - totalHp < capFloor) totalHp = Math.max(0, target.hp - capFloor);
+  }
   target.hp -= totalHp;
   target.spirit -= spiritDmg;
   if (target.hp < 0) target.hp = 0;
@@ -14484,7 +14525,7 @@ function playerDodgeChance(p) {
   let c = schoolKit().dodgeChance || 0;
   if (p.buffs && p.buffs.dodgeTurns > 0) c += p.buffs.dodgeChance || 0;
   c += (p.mods && p.mods.dodgeChance) || 0;  // v0.57: gear/skill dodge channel
-  return Math.min(0.75, c);
+  return Math.min(0.75, softCapDodge(c));   // v1.27.20: dodge soft-capped past 15%
 }
 
 // ============================================================
@@ -14698,7 +14739,11 @@ const DOT_KINDS = new Set(['burn', 'poison', 'bleed', 'leech']);
 function applyPostHitTriggers(p, res, tgt, lifestealScale) {
   lifestealScale = (lifestealScale == null) ? 1 : lifestealScale;   // v1.27.13: demon_heart 2nd strike halves lifesteal
   if ((p.mods.lifestealPct || 0) > 0 && (res.hpDamage + res.qiAbsorbed) > 0) {
-    const heal = Math.round((res.hpDamage + res.qiAbsorbed) * p.mods.lifestealPct * tribHealMult() * lifestealScale);
+    // v1.27.20: soft-capped passive lifesteal %, AND the heal per hit is capped at 8% of max Body — lifesteal
+    // scaled with damage DEALT, so against a huge-HP boss/trib it healed for absurd absolute amounts. Caps the
+    // unkillable-vs-big-HP exploit; barely touches normal fights (small hits never approach the cap).
+    const rawHeal = (res.hpDamage + res.qiAbsorbed) * softCapLifesteal(p.mods.lifestealPct) * tribHealMult() * lifestealScale;
+    const heal = Math.round(Math.min(rawHeal, p.hpMax * 0.10));
     if (heal > 0) {
       const before = p.hp;
       p.hp = Math.min(p.hpMax, p.hp + heal);
@@ -15093,8 +15138,10 @@ function playerMeditate() {
 // Turn flow
 // ============================================================
 function endPlayerAction() {
+  capBossTribToFloor();   // v1.27.20: enforce the per-round damage cap before the kill check (player blow)
   if (checkDeath()) return;
   enemyTurn();
+  capBossTribToFloor();   // v1.27.20: ...and again after enemy DOTs/reflect tick
   if (checkDeath()) return;
   endOfRound();
   if (checkDeath()) return;
@@ -15674,7 +15721,7 @@ function enemyUseTech(e, p, techId) {
   // falls back to a plain strike instead.
   if (e.effects.some(ef => ef.kind === 'silence')) {
     pushLog('flavor', `${e.name} reaches for a technique — the seal holds. It lashes out plainly instead.`);
-    const res = dealDamage(p, e.weaponPower * chillMult(e), { attacker: e, attackerElement: e.element });
+    const res = dealDamage(p, e.weaponPower * chillMult(e) * enemyEnrageMult(e), { attacker: e, attackerElement: e.element });
     pushLog('hurt', damageLogLine(res, p));
     applyPlayerReflect(e, res);
     return;
@@ -15690,10 +15737,11 @@ function enemyUseTech(e, p, techId) {
     pushLog('hurt', `  → ${e.name} takes ${oath.value} backlash — the oath collects (${oath.name}).`);
     if (e.hp <= 0) { pushLog('posture', `${e.name} is undone by its own vow.`); return; }
   }
-  const dmg = e.weaponPower * (tech.damage || 0) * chillMult(e);
+  const enr = enemyEnrageMult(e);   // v1.27.20: boss/trib enrage at 50%/25% Body
+  const dmg = e.weaponPower * (tech.damage || 0) * chillMult(e) * enr;
   pushLog('line', tech.logHit(e.name, p.name));
   if (dmg > 0 || tech.directHP || tech.directSpirit) {
-    const cm = chillMult(e);
+    const cm = chillMult(e) * enr;
     const res = dealDamage(p, dmg, {
       directHP: (tech.directHP || 0) * cm,
       directSpirit: (tech.directSpirit || 0) * cm,
@@ -15732,6 +15780,56 @@ function enemyUseTech(e, p, techId) {
     if (tech.effect === 'bleed') pushLog('flavor', `The wound will not close on its own.`);
   }
 }
+// ============================================================
+// v1.27.20: BOSS & TRIBULATION endurance mechanics — make them fights you SURVIVE, not bursts you skip.
+//  (1) per-round DAMAGE CAP: the target loses at most capPct of max Body per round, rising 5%->15% over the
+//      first 11 rounds (a net-loss clamp in endOfRound). Forces a ~11-round minimum so even a maxed, fast-
+//      killing build must endure the heavens' judgment / the boss's enrage instead of deleting it.
+//  (2) every 3rd meditation the target mends 25% of its MISSING Body — a sustain/DPS check.
+//  (3) ENRAGE at 50% Body (x1.25 outgoing) and 25% (x1.5) — the fight turns meaner as it bleeds out.
+// Applies to the primary boss enemy and any tribulation foe; trash adds in a boss pack are exempt.
+function isBossOrTribTarget(en) {
+  if (!en || typeof combat === 'undefined' || !combat) return false;
+  if (combat.tribulation) return en === combat.enemy || !!en.isTribFoe;   // tribs: all tiers
+  // v1.27.20: the boss damage-cap/heal/enrage is gated to Golden Core+ (tier 4) — the realm where the Golden
+  // Core HP/sustain bonus first lets a player endure the ~11-round fight, AND where gear scaling makes the
+  // one-shot problem real. Below GC, bosses stay quick fights (forcing the endurance fight there just let the
+  // boss grind down the still-fragile early player — it broke Mortal through Core Formation bosses outright).
+  if (combat.bossFight) {
+    const ed = ENEMIES[en.id];
+    return !!(ed && ed.isBoss && BOSSES[en.id] && (BOSSES[en.id].tier || 0) >= 4);
+  }
+  return false;
+}
+function roundDamageCapPct() {   // turn 1 -> 5%, +1%/turn, capped at 15% (turn 11+); combat.turn is 1-indexed
+  return Math.min(0.15, 0.05 + 0.01 * Math.max(0, ((combat && combat.turn) || 1) - 1));
+}
+function enemyEnrageMult(e) {
+  if (!isBossOrTribTarget(e) || !e.hpMax) return 1;
+  const frac = e.hp / e.hpMax;
+  const stage = frac <= 0.25 ? 2 : (frac <= 0.50 ? 1 : 0);
+  if (stage > (e._enrageStage || 0)) {
+    e._enrageStage = stage;
+    pushLog('posture', stage === 2
+      ? `${e.name} is cornered — its aura turns desperate and lethal.`
+      : `${e.name} sheds restraint; the fight turns vicious.`);
+  }
+  return stage === 2 ? 1.5 : (stage === 1 ? 1.25 : 1);
+}
+// v1.27.20: clamp every boss/trib back up to this round's damage-cap floor. Called in endPlayerAction BEFORE
+// each checkDeath so a would-be-fatal blow OR DOT tick can't slip the kill past the cap (endPlayerAction runs
+// checkDeath before endOfRound, so the round-end clamp alone was bypassed). When the floor reaches 0 — i.e.
+// the target was already within one cap-step at round start — the kill is allowed through.
+function capBossTribToFloor() {
+  if (typeof combat === 'undefined' || !combat) return;
+  const capPct = roundDamageCapPct();
+  combat.enemies.forEach(en => {
+    if (!isBossOrTribTarget(en)) return;
+    if (en._capStartHp == null) en._capStartHp = en.hpMax;
+    const floor = Math.max(0, en._capStartHp - capPct * en.hpMax);
+    if (en.hp < floor) en.hp = floor;   // restore even from 0 when floor>0 — the heavens refuse the kill
+  });
+}
 function enemyMeditate(e) {
   // v0.45 Entangle: meditation is sealed — the turn is spent, nothing is gathered.
   if (e.effects.some(ef => ef.kind === 'entangle')) {
@@ -15748,6 +15846,12 @@ function enemyMeditate(e) {
   const before = e.qi;
   e.qi = Math.min(e.qiMax, e.qi + regen);
   if (e.qi > before) pushLog('heal', `The ${e.name} draws qi inward (+${e.qi - before}) and presses on.`);
+  // v1.27.20: a boss/tribulation knits 25% of its MISSING Body on every 3rd meditation — sustain/DPS check.
+  e._medCount = (e._medCount || 0) + 1;
+  if (e._medCount % 3 === 0 && isBossOrTribTarget(e) && e.hp > 0 && e.hp < e.hpMax) {
+    const mend = Math.round((e.hpMax - e.hp) * 0.25);
+    if (mend > 0) { e.hp = Math.min(e.hpMax, e.hp + mend); pushLog('heal', `  → ${e.name} gathers itself and mends ${mend} Body.`); }
+  }
   return enemyBasicStrike(e, combat.player);
 }
 function enemyBasicStrike(e, p) {
@@ -15760,7 +15864,7 @@ function enemyBasicStrike(e, p) {
   for (const techId of Object.keys(e.techniques || {})) {
     if (enemyCanUse(e, techId)) return enemyUseTech(e, p, techId);
   }
-  const res = dealDamage(p, e.weaponPower * chillMult(e), { attacker: e, attackerElement: e.element });
+  const res = dealDamage(p, e.weaponPower * chillMult(e) * enemyEnrageMult(e), { attacker: e, attackerElement: e.element });   // v1.27.20: enrage
   pushLog('line', `The ${e.name} attacks ${p.name}.`);
   pushLog('hurt', damageLogLine(res, p));
   applyPlayerReflect(e, res);
@@ -15974,6 +16078,8 @@ function endOfRound() {
   if (combat.tribulation && combat.tribulation.kind === 'survival' && combat.turn > combat.tribulation.turns) {
     combat.enemies.forEach(en => { en.hp = 0; });
   }
+  // v1.27.20: rebase each capped target's reference Body for next round (AFTER all end-of-round heals).
+  combat.enemies.forEach(en => { if (isBossOrTribTarget(en)) en._capStartHp = en.hp; });
 }
 
 // ============================================================
