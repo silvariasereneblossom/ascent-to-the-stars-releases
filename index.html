@@ -541,11 +541,11 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v1.27.24';
+const GAME_VERSION = 'v1.27.25';
 // v0.78: CI injects the build's short sha here; the APK shell reads it FROM THE RUNNING
 // PAGE (window.BUILD_SHA) and compares against the repo head — staleness detection that
-// cannot be fooled by cached metadata. '21fa8c2' = local/dev build (shell falls back).
-const BUILD_SHA = '21fa8c2';
+// cannot be fooled by cached metadata. '16186e5' = local/dev build (shell falls back).
+const BUILD_SHA = '16186e5';
 if (typeof window !== 'undefined') window.BUILD_SHA = BUILD_SHA;
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
@@ -6226,7 +6226,7 @@ const DEMON_TRIB_HEAL_MULT = [1, 1, 0.60, 0.45, 0.25, 0.15, 0.15];  // v1.27.13:
 // build's flat EHP out-scales any fixed number, but it can't shrink a % of its OWN Body — so this is what
 // brings HIGH investment down from ~100% to ~60-70%. The true ceiling (faster kills + more sustain = fewer of
 // these hits taken) still climbs back toward ~100%. By TARGET tier; Core Formation up. Tune in trib_sim.
-const DEMON_TRIB_PCT_HP = [0, 0, 0, 0.006, 0.007, 0.015, 0.009];   // v1.27.20/.21: undodgeable %-Body judgment over ~11 capped rounds; re-eased after the hellfire DOT nerf so maxed-high lands ~30-40%
+const DEMON_TRIB_PCT_HP = [0, 0, 0, 0.0073, 0.0086, 0.015, 0.0112];   // v1.27.20/.21: undodgeable %-Body judgment over ~11 capped rounds; v1.27.25: CF/GC/SS nudged +~20% to offset the posture-break buff (player breaks trib posture now) and recenter maxed-high on ~30-40%
 // v1.27: HIGH-REALM ENEMY QI SCALING — enemy qi pools scale with the enemy's base × layer, but the
 // PLAYER's qi-drain (leech / qi-damage) compounds with cultivation, so by the high realms a geared
 // player empties any foe's qi instantly and it goes passive (meditates forever / can't fuel its
@@ -13219,6 +13219,11 @@ const DIFFICULTY_TICK = 1.22;
 // v0.83: double the player's posture damage (operator: bosses too hard to stagger even w/ the
 // v0.81 boss-posture cut). If 2.0 overshoots, drop to 1.25 — single knob.
 const PLAYER_POSTURE_MULT = 1.25;   // v0.84: 2.0 overshot (operator); 1.25 is the keep-value
+// v1.27.25: enemy postureMax grows ~23x Mortal->SS (ENEMY_TIER_BASE.posture 48->1100), but player posture
+// damage was FLAT (postureBuild x const) — so breaking high-realm posture was impossible. Scale player posture
+// damage by the player's realm, tracking that growth, so casts-to-break stays roughly constant at every realm.
+const POSTURE_REALM_SCALE = [1, 3.7, 13.7, 22.8, 39.8, 73.3, 130];   // indexed by player realm tier; tracks the ACTUAL in-combat enemy postureMax growth (72->9393) so casts-to-break stays ~constant
+function playerPostureRealmScale() { return POSTURE_REALM_SCALE[Math.min(6, (state.realm && state.realm.tierIdx) || 0)] || 1; }
 function playerLayerScale(char) {
   const tier = REALMS[char.realm.tierIdx];
   if (!tier || tier.layers <= 1) return { stats: 1.0, reward: 1.0 };
@@ -13245,7 +13250,14 @@ function advanceInfo(char) {
   const next = REALMS[char.realm.tierIdx + 1];
   if (next) {
     const icm = Math.max(1.5, 4 - (2.5 / 6) * (char.realm.tierIdx || 0));
-    return { kind: 'breakthrough', cost: Math.round(next.insightPerLayer * icm), label: `Break into ${next.name}` };
+    // v1.27.25: breakthrough now costs 2x the realm's LAST layer (was next.insightPerLayer x icm — a trivial
+    // step after the compounding layer grind). Same layer-cost formula, at the final within-realm layer.
+    const lastLayer = Math.max(1, tier.layers - 1);
+    const linearLast = tier.insightPerLayer + lastLayer * (tier.insightPerLayerStep || 0);
+    const compounding = tier.layers >= 9 ? 1.2 : tier.layers >= 5 ? 1.3 : 1.4;
+    const lastLayerCost = linearLast * Math.pow(compounding, lastLayer - 1) * icm;
+    const cost = Math.max(Math.round(lastLayerCost * 2), Math.round(next.insightPerLayer * icm));   // floor keeps Mortal->QC sane
+    return { kind: 'breakthrough', cost, label: `Break into ${next.name}` };
   }
   return null;
 }
@@ -14141,11 +14153,15 @@ function buildEnemyCombat(enemyId) {
   const normalHpMult  = isNormalFoe ? 1.15 : 1;   // v1.25: +15% Body base (was +40% in v1.17 — fixed the Mortal-tank slog)
   const normalDmgMult = isNormalFoe ? 1.05 : 1;   // v1.25: +5% damage base (was +10%)
   // v1.17: inquisitors (righteous hunters) must threaten even a well-built demon — Core (t3) especially.
+  // v1.27.25: heavily rescaled from a farmable elite joke to a BOSS-PLUS fight (between boss and trib). hp ~3.2x
+  // makes it tankier than a same-realm boss (~12-round grind at SS vs a boss's ~6); dmg ~1.5x keeps it winnable
+  // for a geared demon but a real threat (moderate investment loses, same as it loses to bosses). Per-realm
+  // bimodality prevents a precise win% target, so it's tuned as a tanky boss-tier fight, not a coin flip.
   let inqHpMult = 1, inqDmgMult = 1;
   if (String(enemyId).startsWith('righteous_hunter_t')) {
     const ht = parseInt(String(enemyId).slice('righteous_hunter_t'.length), 10) || 0;
-    inqHpMult  = (ht === 3) ? 2.0 : 1.5;
-    inqDmgMult = (ht === 3) ? 1.2 : 1.15;
+    inqHpMult  = 3.2;
+    inqDmgMult = 1.5;
   }
   // v0.84: GENTLE back-half bump restored (midpoint of v0.83's none and v0.81's 1.2-1.4):
   // 1.1 at the realm midpoint ramping to 1.2 at the top layer. Bosses exempt.
@@ -14818,7 +14834,7 @@ function playerStrike(opts) {
       }
     }
     const hmStrike = heritageMech();
-    const postureAmt = Math.round(10 * PLAYER_POSTURE_MULT * p.mods.postureMult * (hmStrike.postureDamageMult || 1) * ((p.buffs.postureBoostTurns > 0) ? (p.buffs.postureBoost || 1) : 1));
+    const postureAmt = Math.round(10 * PLAYER_POSTURE_MULT * playerPostureRealmScale() * p.mods.postureMult * (hmStrike.postureDamageMult || 1) * ((p.buffs.postureBoostTurns > 0) ? (p.buffs.postureBoost || 1) : 1));
     const broke = applyPosture(e, postureAmt, false, 3 + p.mods.postureBreakBonus);
     if (broke) pushLog('posture', `${e.name}'s stance shatters! Qi damage doubled for ${e.broken} turns.`);
     if (p.mods.strikeHeal > 0 && res.qiAbsorbed + res.hpDamage > 0) {
@@ -14914,7 +14930,7 @@ function playerTechnique(techId) {
     }
   }
   const postureBoostMult = (p.buffs && p.buffs.postureBoostTurns > 0) ? (p.buffs.postureBoost || 1) : 1;  // v0.57 Stormcall
-  const postureAmtBase = Math.round((tech.postureBuild || 0) * PLAYER_POSTURE_MULT * p.mods.postureMult * (hm0.postureDamageMult || 1) * postureBoostMult);
+  const postureAmtBase = Math.round((tech.postureBuild || 0) * PLAYER_POSTURE_MULT * playerPostureRealmScale() * p.mods.postureMult * (hm0.postureDamageMult || 1) * postureBoostMult);
 
   const kit = schoolKit();
   // v0.51: instance count. tech.hits (e.g. Starfall Volley) = N full instances per target; Celestial
