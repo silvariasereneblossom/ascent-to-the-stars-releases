@@ -541,11 +541,11 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v1.27.25';
+const GAME_VERSION = 'v1.27.26';
 // v0.78: CI injects the build's short sha here; the APK shell reads it FROM THE RUNNING
 // PAGE (window.BUILD_SHA) and compares against the repo head — staleness detection that
-// cannot be fooled by cached metadata. '16186e5' = local/dev build (shell falls back).
-const BUILD_SHA = '16186e5';
+// cannot be fooled by cached metadata. 'e74532e' = local/dev build (shell falls back).
+const BUILD_SHA = 'e74532e';
 if (typeof window !== 'undefined') window.BUILD_SHA = BUILD_SHA;
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
@@ -6226,7 +6226,7 @@ const DEMON_TRIB_HEAL_MULT = [1, 1, 0.60, 0.45, 0.25, 0.15, 0.15];  // v1.27.13:
 // build's flat EHP out-scales any fixed number, but it can't shrink a % of its OWN Body — so this is what
 // brings HIGH investment down from ~100% to ~60-70%. The true ceiling (faster kills + more sustain = fewer of
 // these hits taken) still climbs back toward ~100%. By TARGET tier; Core Formation up. Tune in trib_sim.
-const DEMON_TRIB_PCT_HP = [0, 0, 0, 0.0073, 0.0086, 0.015, 0.0112];   // v1.27.20/.21: undodgeable %-Body judgment over ~11 capped rounds; v1.27.25: CF/GC/SS nudged +~20% to offset the posture-break buff (player breaks trib posture now) and recenter maxed-high on ~30-40%
+const DEMON_TRIB_PCT_HP = [0, 0, 0, 0.0073, 0.0086, 0.011, 0.0112];   // v1.27.20/.21: undodgeable %-Body judgment over ~11 capped rounds; v1.27.25: nudged +~20% to offset the posture-break buff; v1.27.26: NS eased 0.015->0.011 (it sat on a bimodal cliff and the over-invest overscale cratered it)
 // v1.27: HIGH-REALM ENEMY QI SCALING — enemy qi pools scale with the enemy's base × layer, but the
 // PLAYER's qi-drain (leech / qi-damage) compounds with cultivation, so by the high realms a geared
 // player empties any foe's qi instantly and it goes passive (meditates forever / can't fuel its
@@ -14108,6 +14108,33 @@ function rollEncounter(loc) {
   return group;
 }
 
+// v1.27.26: OVER-INVESTMENT enemy scaling. A maxed cultivator (finalStats sum well past the realm's ~70%
+// baseline) faces scaled-up enemy RAW Body/weapon, so even a max build has to actually play its kit. The
+// multiplier scales with how far ABOVE the baseline you are, VERY aggressively for trash and gently for
+// boss / tribulation / inquisitor (already hard). At/below baseline = no scaling (normal & moderate untouched).
+const ENEMY_OVERSCALE_BASELINE = [238, 240, 242, 245, 287, 289, 291];   // ~0.70 x a maxed finalStats sum, per realm tier
+// HP scales aggressively (the fight gets LONG, forcing real ability rotation); damage scales gently (a threat,
+// not instant death — over-investing must never make you LOSE to trash, just work for it). Very aggressive for
+// normals, gentle for boss/trib/inquisitor (already hard).
+// normal HP factor DECREASES by realm tier — the player's burst relative to enemy Body drops at high realms, so
+// a flat factor made a Spirit Severing trash fight a 12-round slog. This keeps maxed normal fights ~4-7 rounds
+// at EVERY realm. Other enemy types use scalar factors.
+const ENEMY_OVERSCALE_HP_NORMAL  = [3.5, 3.5, 3.3, 3.3, 2.5, 2.1, 1.8];
+const ENEMY_OVERSCALE_HP_FACTOR  = { elite: 1.8, boss: 0.7, inquisitor: 0.7, trib: 0.12 };   // trib barely scales — it's bimodal AND already tuned to challenge maxed players via its own curves
+const ENEMY_OVERSCALE_DMG_FACTOR = { normal: 2.0, elite: 1.2, boss: 0.5, inquisitor: 0.5, trib: 0.1 };
+const ENEMY_OVERSCALE_CAP = 1.2;   // clamp overInvest so a hyper-stacked build doesn't run away
+function enemyOverInvestScale(enemyData, enemyId, isTribFight, isElite) {
+  const tier = Math.min(6, (state.realm && state.realm.tierIdx) || 0);
+  const baseline = ENEMY_OVERSCALE_BASELINE[tier] || 240;
+  const statSum = STAT_KEYS.reduce((a, k) => a + ((state.finalStats && state.finalStats[k]) || 0), 0);
+  const over = Math.min(ENEMY_OVERSCALE_CAP, Math.max(0, statSum / baseline - 1));
+  if (over <= 0) return { hp: 1, dmg: 1 };
+  const type = isTribFight ? 'trib'
+    : String(enemyId).startsWith('righteous_hunter_t') ? 'inquisitor'
+    : enemyData.isBoss ? 'boss' : isElite ? 'elite' : 'normal';
+  const hpF = type === 'normal' ? ENEMY_OVERSCALE_HP_NORMAL[tier] : ENEMY_OVERSCALE_HP_FACTOR[type];
+  return { hp: 1 + over * hpF, dmg: 1 + over * ENEMY_OVERSCALE_DMG_FACTOR[type] };
+}
 function buildEnemyCombat(enemyId) {
   const enemyData = ENEMIES[enemyId];
   if (!enemyData) return null;
@@ -14180,7 +14207,8 @@ function buildEnemyCombat(enemyId) {
   const demonTribTier = (isTribFight && state.demonic && pendingTribulation && pendingTribulation.targetTier && DEMON_TRIB_HP_CURVE[pendingTribulation.targetTier]) ? pendingTribulation.targetTier : 0;
   const tribHpMult  = isTribFight ? 1.8 * (demonTribTier ? DEMON_TRIB_HP_CURVE[demonTribTier] : 1) : 1;
   const tribDmgMult = isTribFight ? 0.75 * (demonTribTier ? DEMON_TRIB_DMG_CURVE[demonTribTier] : 1) : 1;
-  const scaledHpMax = Math.round(enemyData.hpMax * scale.stats * 2.5 * hpBoost * eliteHpExtra * realmHpBuff * normalHpMult * inqHpMult * tribHpMult * backHalf * DIFFICULTY_TICK * mortalBossMult * (ENEMY_HP_SCALE[state.realm.tierIdx || 0] || 1));
+  const overScale = enemyOverInvestScale(enemyData, enemyId, isTribFight, isElite);   // v1.27.26: scale RAW stats vs over-investment
+  const scaledHpMax = Math.round(enemyData.hpMax * scale.stats * 2.5 * hpBoost * eliteHpExtra * realmHpBuff * normalHpMult * inqHpMult * tribHpMult * backHalf * DIFFICULTY_TICK * mortalBossMult * overScale.hp * (ENEMY_HP_SCALE[state.realm.tierIdx || 0] || 1));
   const scaledQiMax = Math.round(enemyData.qiMax * scale.stats * 2 * qiBoost * (ENEMY_QI_SCALE[state.realm.tierIdx || 0] || 1));
   const scaledSpiritMax = Math.round(enemyData.spiritMax * scale.stats * 2 * qiBoost);
   // v0.81: enemy posture pools were too deep to break — normals x0.75, bosses x0.40 (even
@@ -14188,7 +14216,7 @@ function buildEnemyCombat(enemyId) {
   // Body clone; it should be reachable.
   const posMult = enemyData.isBoss ? 0.40 : 0.75;
   const scaledPostureMax = Math.round(enemyData.postureMax * scale.stats * 2 * postureBoost * posMult);
-  const scaledWeaponPower = Math.max(1, Math.round(enemyData.weaponPower * scale.stats * 2 * wpnBoost * realmDmgBuff * normalDmgMult * inqDmgMult * tribDmgMult * backHalf * DIFFICULTY_TICK * mortalBossMult * (ENEMY_DMG_SCALE[state.realm.tierIdx || 0] || 1)));
+  const scaledWeaponPower = Math.max(1, Math.round(enemyData.weaponPower * scale.stats * 2 * wpnBoost * realmDmgBuff * normalDmgMult * inqDmgMult * tribDmgMult * backHalf * DIFFICULTY_TICK * mortalBossMult * overScale.dmg * (ENEMY_DMG_SCALE[state.realm.tierIdx || 0] || 1)));
   // Flat damage reduction. Elites get a thicker pad; normals get a small one (v0.23.2)
   // that scales gently by tier. Both blunt chip-damage / multi-hit AOE strategies.
   const tierIdx = state.realm.tierIdx || 0;
