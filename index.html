@@ -541,11 +541,11 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v1.27.23';
+const GAME_VERSION = 'v1.27.24';
 // v0.78: CI injects the build's short sha here; the APK shell reads it FROM THE RUNNING
 // PAGE (window.BUILD_SHA) and compares against the repo head — staleness detection that
-// cannot be fooled by cached metadata. 'e04b7bd' = local/dev build (shell falls back).
-const BUILD_SHA = 'e04b7bd';
+// cannot be fooled by cached metadata. '21fa8c2' = local/dev build (shell falls back).
+const BUILD_SHA = '21fa8c2';
 if (typeof window !== 'undefined') window.BUILD_SHA = BUILD_SHA;
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
@@ -15151,16 +15151,23 @@ function endPlayerAction() {
 
 // Per-enemy loot + insight grant. Called once per enemy as they fall. Accumulates into
 // combat.rewards (multi-enemy aware: arrays of drops, summed insight + materials).
-// v1.27.16: per-combat insight is now SOFT-capped (was a hard Math.min cliff). Full value up to the per-realm
-// cap; each further band of `cap` width pays less — after 1x cap each point is reduced 70% (x0.30), after 2x
-// reduced 80% (x0.20), after 3x reduced 90% (x0.10), after 4x+ reduced 95% (x0.05). Heavy snowball still
-// earns a trickle past the cap instead of slamming into a wall.
-function softCapInsight(raw, cap) {
-  if (cap <= 0 || raw <= cap) return Math.round(raw);
-  let result = cap, over = raw - cap;
-  const rates = [0.30, 0.20, 0.10, 0.05];   // bands after 1x / 2x / 3x / 4x the cap
-  for (let i = 0; i < rates.length && over > 0; i++) { const inBand = Math.min(over, cap); result += inBand * rates[i]; over -= inBand; }
-  if (over > 0) result += over * 0.05;       // beyond 4x: keep trickling at 5%
+// Total insight to advance through a whole realm (sum of every layer cost). The per-combat insight soft cap
+// is keyed to a small % of THIS, so per-kill income is a fixed slice of realm progress at every tier.
+function realmTotalInsight(tierIdx) {
+  const r = REALMS[tierIdx]; if (!r) return 0;
+  const L = r.layers || 1, per = r.insightPerLayer || 0, step = r.insightPerLayerStep || 0;
+  return L * per + step * (L * (L - 1) / 2);
+}
+// v1.27.16: per-combat insight is SOFT-capped (not a hard cliff). v1.27.24: the baseline is now 0.5% of the
+// realm's TOTAL insight per normal kill (1.5% for bosses) — combat at Core Formation+ was paying far too much.
+// Full value up to the baseline, then a GENTLE curve through 4x the baseline (60% / 45% / 30% per band), and
+// NOTICEABLY harsher beyond 4x (8%/point). A heavy snowball still earns a trickle, never a wall.
+function softCapInsight(raw, baseline) {
+  if (baseline <= 0 || raw <= baseline) return Math.round(raw);
+  let result = baseline, over = raw - baseline;
+  const softRates = [0.60, 0.45, 0.30];   // 1x-2x, 2x-3x, 3x-4x baseline: gentle diminishing
+  for (let i = 0; i < softRates.length && over > 0; i++) { const inBand = Math.min(over, baseline); result += inBand * softRates[i]; over -= inBand; }
+  if (over > 0) result += over * 0.08;     // beyond 4x baseline: noticeably harsher
   return Math.round(result);
 }
 // v1.27.18 (#4): roll a random GENERATED weapon (genr_*) of a rarity at a realm tier (boss high-rarity drops).
@@ -15184,12 +15191,11 @@ function grantEnemyDefeatRewards(e) {
   // reference, NOT the compounding layer cost): modest play stays under it untouched, only the over-geared snowball
   // clamps down. Heavy cult investment still pays off in PASSIVE cultivation (cultivationBoostMult feeds the
   // cultivation tick), so the build choice still matters — combat just can't snowball into millions per fight.
-  // v1.27.6: income cap reads the DECOUPLED insightCap (old insightPerLayer values), so the progression-cost
-  // tripling doesn't inflate per-kill income or weaken the anti-runaway clamp. Falls back to insightPerLayer.
-  const _r = REALMS[state.realm.tierIdx] || {};
-  const _capRef = _r.insightCap || _r.insightPerLayer || (REALMS[(state.realm.tierIdx || 0) + 1] || {}).insightCap || 5000;
-  const insightCap = Math.round(_capRef * 1.25);
-  const insight = softCapInsight(rawInsight, insightCap);   // v1.27.16: soft cap (was a hard Math.min)
+  // v1.27.24: per-combat insight baseline = 0.5% of the realm's TOTAL insight per normal kill, 1.5% for bosses
+  // (was insightCap x1.25 — far too generous, normal kills at CF+ paid "way too much"). The soft curve lets a
+  // big-multiplier kill earn up to ~2.35x the baseline before the harsh band, so investment still pays.
+  const _insightBaseline = Math.round(realmTotalInsight(state.realm.tierIdx || 0) * (enemyData.isBoss ? 0.015 : 0.005));
+  const insight = softCapInsight(rawInsight, _insightBaseline);   // v1.27.16: soft cap (was a hard Math.min); v1.27.24: realm-% baseline
   addInsight(insight);
   state.sectKills = (state.sectKills || 0) + 1;  // Wave 2b: progress toward the sect hunt bounty
   // v0.92: slaying a cultivator of the OPPOSING path earns sect contribution (operator) — a demonic
