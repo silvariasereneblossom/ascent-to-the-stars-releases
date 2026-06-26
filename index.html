@@ -541,11 +541,11 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v1.27.26';
+const GAME_VERSION = 'v1.27.27';
 // v0.78: CI injects the build's short sha here; the APK shell reads it FROM THE RUNNING
 // PAGE (window.BUILD_SHA) and compares against the repo head — staleness detection that
-// cannot be fooled by cached metadata. 'e74532e' = local/dev build (shell falls back).
-const BUILD_SHA = 'e74532e';
+// cannot be fooled by cached metadata. '645b6e0' = local/dev build (shell falls back).
+const BUILD_SHA = '645b6e0';
 if (typeof window !== 'undefined') window.BUILD_SHA = BUILD_SHA;
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
@@ -6226,7 +6226,7 @@ const DEMON_TRIB_HEAL_MULT = [1, 1, 0.60, 0.45, 0.25, 0.15, 0.15];  // v1.27.13:
 // build's flat EHP out-scales any fixed number, but it can't shrink a % of its OWN Body — so this is what
 // brings HIGH investment down from ~100% to ~60-70%. The true ceiling (faster kills + more sustain = fewer of
 // these hits taken) still climbs back toward ~100%. By TARGET tier; Core Formation up. Tune in trib_sim.
-const DEMON_TRIB_PCT_HP = [0, 0, 0, 0.0073, 0.0086, 0.011, 0.0112];   // v1.27.20/.21: undodgeable %-Body judgment over ~11 capped rounds; v1.27.25: nudged +~20% to offset the posture-break buff; v1.27.26: NS eased 0.015->0.011 (it sat on a bimodal cliff and the over-invest overscale cratered it)
+const DEMON_TRIB_PCT_HP = [0, 0, 0, 0.0073, 0.0086, 0.009, 0.0105];   // v1.27.20/.21: undodgeable %-Body judgment over ~11 capped rounds; v1.27.25/.26 tuned maxed-high to 30-40; v1.27.27: NS/SS eased a touch for the (dampened) trib HP-cost residual. The %-Body technique HP costs are DAMPENED in tribs (see effectiveHpCost) so the judgment stays the trib's challenge.
 // v1.27: HIGH-REALM ENEMY QI SCALING — enemy qi pools scale with the enemy's base × layer, but the
 // PLAYER's qi-drain (leech / qi-damage) compounds with cultivation, so by the high realms a geared
 // player empties any foe's qi instantly and it goes passive (meditates forever / can't fuel its
@@ -14891,9 +14891,23 @@ function effectiveQiCost(p, tech) {
   if (qiUp) cost *= qiUp.value;
   return Math.ceil(cost);
 }
+// v1.27.27: HP costs are a PERCENTAGE of MAX Body, not flat — tech.hpCost is read as 0.4%/point — so they stay
+// meaningful as Body balloons across realms (a flat 8-30 went trivial by Golden Core). Heart-Demon pays 1.5x
+// (its high-risk identity leans HP-hungry). demon_ascendant keeps its own 20%-of-CURRENT-Body rule (set in
+// playerTechnique, after this).
+const HP_COST_PER_POINT = 0.004;   // 0.4% of max Body per hpCost point
+const TRIB_HP_COST_MULT = 0.2;     // v1.27.27: HP costs are DAMPENED during tribulations — heal is already
+                                   // suppressed there, so full %-Body costs + suppressed heal was a death spiral
+                                   // that cratered demonic tribs. The judgment stays the trib's challenge, not your kit.
+function hpCostPct(tech, hpCostMult) {
+  const tribMult = (typeof combat !== 'undefined' && combat && combat.tribulation) ? TRIB_HP_COST_MULT : 1;
+  return (tech.hpCost || 0) * HP_COST_PER_POINT * (isDemonHeart(state) ? 1.5 : 1) * tribMult * (hpCostMult != null ? hpCostMult : 1);
+}
 function effectiveHpCost(p, tech) {
   if (!tech.hpCost) return 0;
-  return Math.ceil(tech.hpCost * p.mods.hpCostMult);
+  const maxHp = (p && p.hpMax) || computeMaxHP(state);
+  const mult = (p && p.mods && p.mods.hpCostMult != null) ? p.mods.hpCostMult : 1;
+  return Math.max(1, Math.round(maxHp * hpCostPct(tech, mult)));
 }
 
 function playerTechnique(techId) {
@@ -18090,10 +18104,10 @@ function renderCharSheet() {
       return;
     }
     const effQi = Math.ceil(t.qi * (mods.schoolQiMult[t.school] || 1));
-    const effHp = t.hpCost ? Math.ceil(t.hpCost * mods.hpCostMult) : 0;
+    const effHp = t.hpCost ? +(hpCostPct(t, mods.hpCostMult) * 100).toFixed(1) : 0;   // v1.27.27: % of max Body
     // v0.45: ST/AOE + status badges on every technique row.
     const meta = [t.target === 'aoe' ? 'AOE' : 'ST', `${effQi} qi`, `${t.cd} turn cd`];
-    if (effHp) meta.push(`${effHp} Body cost`);
+    if (effHp) meta.push(`${effHp}% Body`);
     if (t.effect && STATUS_INFO[t.effect]) meta.push(STATUS_INFO[t.effect].label);
     const isActive = state.activeSkills.includes(tid);
     const full = !isActive && activeCount >= activeCap;
