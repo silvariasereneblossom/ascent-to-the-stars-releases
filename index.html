@@ -541,11 +541,11 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v1.27.29';
+const GAME_VERSION = 'v1.27.30';
 // v0.78: CI injects the build's short sha here; the APK shell reads it FROM THE RUNNING
 // PAGE (window.BUILD_SHA) and compares against the repo head — staleness detection that
-// cannot be fooled by cached metadata. 'cc43a09' = local/dev build (shell falls back).
-const BUILD_SHA = 'cc43a09';
+// cannot be fooled by cached metadata. 'f0708e6' = local/dev build (shell falls back).
+const BUILD_SHA = 'f0708e6';
 if (typeof window !== 'undefined') window.BUILD_SHA = BUILD_SHA;
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
@@ -4440,7 +4440,14 @@ function computeMods(char) {
   applyOriginPassivesToMods(mods, char);      // v1.7: heritage + childhood life-origin passives
   // v1.8: the demon body trades defense for hunger — takes 10% more damage, deals 10% less posture.
   // v1.8: trades defense for hunger (-10% DR, -10% posture); v1.9: living on the edge = +15% damage while bloodied (glass-cannon payoff).
-  if (isDemonHeart(char)) { mods.incomingMult *= 1.25; mods.postureMult *= 0.90; mods.lowHpBonus += 0.15; }   // v1.27.13: +25% incoming (was +10%), paired with removing the demon_heart HP bonus
+  // v1.27.13: +25% incoming. v1.27.30: the demon is SQUISHY by design — its DR (flat AND %) is HALF as effective,
+  // so it can't tank; it lives or dies by lifesteal + aggression. (Body mult also cut to 1.15, see computeMaxHP.)
+  if (isDemonHeart(char)) {
+    mods.flatDR = (mods.flatDR || 0) * 0.5;                                            // half flat-DR benefit
+    if (mods.incomingMult < 1) mods.incomingMult = 1 - (1 - mods.incomingMult) * 0.5;  // half %DR (incoming-reduction) benefit
+    mods.incomingMult *= 1.25;                                                         // +25% damage received
+    mods.postureMult *= 0.90; mods.lowHpBonus += 0.15;
+  }
   return mods;
 }
 
@@ -6648,7 +6655,7 @@ function bossAnchorScale(bossTier) {
   let stats = 1.0;
   if (tier && tier.layers > 1) {
     const t = (Math.ceil(tier.layers / 2) - 1) / (tier.layers - 1);
-    const tierBoost = 1 + 0.25 * Math.max(0, bossTier - 2);
+    const tierBoost = 1 + 0.25 * Math.max(0, bossTier - 3);   // v1.27.30: ramp starts at Golden Core (t4), not Core Formation (t3) — it was one realm AHEAD of the player's GC stat/damage bonus, making CF bosses an un-winnable valley for the weaker-killing (righteous) paths. CF now matches Foundation difficulty; GC+ ramp unchanged in shape, just shifted to align with GC power.
     stats = 1.0 + 3.0 * t * tierBoost;
   }
   return { stats: stats * BOSS_DIFFICULTY_MULT, reward: 1.5 };
@@ -10462,7 +10469,7 @@ function statSheetHTML(char, mods) {
   const kit = SCHOOL_KITS[char.selectedSchool];
   const chips = [];
   if (kit) chips.push(`<span class="buff-chip" style="border-color:var(--gold)">Passive: ${kit.passiveName}</span>`);
-  if (isDemonHeart(char)) chips.push(`<span class="buff-chip" style="background:rgba(160,40,40,0.18);border-color:var(--crimson)">Demon-Heart (×1.3 Body, +15% bloodied, +10% taken, −10% posture)</span>`);
+  if (isDemonHeart(char)) chips.push(`<span class="buff-chip" style="background:rgba(160,40,40,0.18);border-color:var(--crimson)">Demon-Heart (×1.15 Body, +15% bloodied, +25% taken, −10% posture, ½ DR)</span>`);
   else if (char.demonic) chips.push(`<span class="buff-chip" style="background:rgba(160,40,40,0.15);border-color:var(--crimson)">Demonic path (×1.2 Body, +4 stats)</span>`);
   const gcl = (typeof goldenCoreLevel === 'function') ? goldenCoreLevel() : (char.goldenCoreQuality || 0);
   if (gcl > 0) chips.push(`<span class="buff-chip" style="border-color:var(--gold)">Golden Core ${goldenCoreGradeLabel(gcl)} (qual ${gcl})</span>`);
@@ -13448,7 +13455,7 @@ function computeMaxHP(char) {
   const total = base + activeBuffValue('hp_max_add', 0) + boonHPAdd() + skillHPAdd() + (mods.hpBonus || 0) + metaHPAdd() + bodyQuenchHPAdd();
   // v0.89: hpMult (Body%) scales the whole pool — flat +Body and Body% on the same defensive
   // piece compound, the intended bulwark synergy. Demonic x1.2 stacks on top.
-  return Math.round(total * (mods.hpMult || 1) * cultPowerMults(char).hp * (1 + 0.05 * (char.goldenCoreQuality || 0)) * (char.demonic ? 1.2 : 1));   // v1.16 per-layer Body; v1.18 +5%/GC; v1.27.13 removed demon_heart x1.3 (now plain demonic x1.2) — traded for +25% incoming
+  return Math.round(total * (mods.hpMult || 1) * cultPowerMults(char).hp * (1 + 0.05 * (char.goldenCoreQuality || 0)) * (isDemonHeart(char) ? 1.15 : (char.demonic ? 1.2 : 1)));   // v1.16 per-layer Body; v1.18 +5%/GC; v1.27.30 demon_heart x1.15 (below demonic x1.2 — squishy by design)
 }
 // v0.98: ascension alone stops being enough — cultivation compounds per layer into qi (pool + barrier)
 // and a little damage. Survival becomes a qi-tank spine (~25% of the curve); GEAR carries the rest,
