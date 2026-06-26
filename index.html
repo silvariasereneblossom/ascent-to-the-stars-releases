@@ -541,11 +541,11 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v1.27.28';
+const GAME_VERSION = 'v1.27.29';
 // v0.78: CI injects the build's short sha here; the APK shell reads it FROM THE RUNNING
 // PAGE (window.BUILD_SHA) and compares against the repo head — staleness detection that
-// cannot be fooled by cached metadata. '636834b' = local/dev build (shell falls back).
-const BUILD_SHA = '636834b';
+// cannot be fooled by cached metadata. 'cc43a09' = local/dev build (shell falls back).
+const BUILD_SHA = 'cc43a09';
 if (typeof window !== 'undefined') window.BUILD_SHA = BUILD_SHA;
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
@@ -14902,10 +14902,17 @@ const TRIB_HP_COST_MULT = 0.2;     // v1.27.27: HP costs are DAMPENED during tri
                                    // suppressed there, so full %-Body costs + suppressed heal was a death spiral
                                    // that cratered demonic tribs. The judgment stays the trib's challenge, not your kit.
 function hpCostPct(tech, hpCostMult) {
+  if (tech === TECHNIQUES.demon_ascendant && isDemonHeart(state)) return 0.20;   // v1.27.29: 10% max + 10% current Body (~20% at full) — display only; combat uses effectiveHpCost for the live value
   const tribMult = (typeof combat !== 'undefined' && combat && combat.tribulation) ? TRIB_HP_COST_MULT : 1;
   return (tech.hpCost || 0) * HP_COST_PER_POINT * (isDemonHeart(state) ? 1.5 : 1) * tribMult * (hpCostMult != null ? hpCostMult : 1);
 }
 function effectiveHpCost(p, tech) {
+  // v1.27.29: Devourer's Crown is a special slab — 10% of MAX Body + 10% of CURRENT Body (out of combat: full Body).
+  if (tech === TECHNIQUES.demon_ascendant && isDemonHeart(state)) {
+    const mhp = (p && p.hpMax) || computeMaxHP(state);
+    const chp = (p && p.hp != null) ? p.hp : mhp;
+    return Math.max(1, Math.round(mhp * 0.10 + chp * 0.10));
+  }
   if (!tech.hpCost) return 0;
   const maxHp = (p && p.hpMax) || computeMaxHP(state);
   const mult = (p && p.mods && p.mods.hpCostMult != null) ? p.mods.hpCostMult : 1;
@@ -14919,8 +14926,7 @@ function playerTechnique(techId) {
   if (p.cooldowns[techId] > 0) return;
   if (playerSilenced() || isTechLocked(techId)) return;   // v1.14: tribulation silence/chains (buttons are also disabled)
   const qiCost = effectiveQiCost(p, tech);
-  let hpCost = effectiveHpCost(p, tech);
-  if (isDemonHeart(state) && techId === 'demon_ascendant') hpCost = Math.round(p.hp * 0.20);   // v1.8: Devourer's Crown costs 20% of current Body
+  const hpCost = effectiveHpCost(p, tech);   // v1.27.29: Devourer's Crown's 10%-max + 10%-current slab is handled inside effectiveHpCost now
   if (p.qi < qiCost) return;
   if (hpCost && p.hp <= hpCost) return;
 
