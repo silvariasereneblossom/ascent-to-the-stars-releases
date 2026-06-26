@@ -541,11 +541,11 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v1.27.27';
+const GAME_VERSION = 'v1.27.28';
 // v0.78: CI injects the build's short sha here; the APK shell reads it FROM THE RUNNING
 // PAGE (window.BUILD_SHA) and compares against the repo head — staleness detection that
-// cannot be fooled by cached metadata. '645b6e0' = local/dev build (shell falls back).
-const BUILD_SHA = '645b6e0';
+// cannot be fooled by cached metadata. '636834b' = local/dev build (shell falls back).
+const BUILD_SHA = '636834b';
 if (typeof window !== 'undefined') window.BUILD_SHA = BUILD_SHA;
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
@@ -11657,10 +11657,12 @@ const MARKET_OFFERS = {
   iron_bone_pill:      { price: 8,   minTier: 0, kind: 'consumable' },
   fire_tincture:       { price: 12,  minTier: 1, kind: 'consumable' },
   foundation_pill:     { price: 28,  minTier: 1, kind: 'consumable' },
-  longevity_pill:      { price: 55,  minTier: 2, kind: 'consumable' },
-  blood_forging_pill:  { price: 90,  minTier: 3, kind: 'consumable' },
+  // v1.27.28: permanent stat / longevity pills are HIGH-COST + 1-per-12h supply-gated (like the stat elixirs)
+  // — they were a cheap, unlimited market source of permanent power/lifespan. (Still craftable; see recipes.)
+  longevity_pill:      { price: 6000,  minTier: 2, kind: 'consumable', supplyMs: 12 * 3600 * 1000 },
+  blood_forging_pill:  { price: 8000,  minTier: 3, kind: 'consumable', supplyMs: 12 * 3600 * 1000 },
   heaven_defying_pill: { price: 160, minTier: 4, kind: 'consumable' },
-  millennium_peach:    { price: 420, minTier: 5, kind: 'consumable' },
+  millennium_peach:    { price: 20000, minTier: 5, kind: 'consumable', supplyMs: 12 * 3600 * 1000 },
   // v1.27: random-stat elixirs — each on its OWN 12h supply timer (supplyMs), outside the daily cap.
   // Tiers gate at start / Foundation Establishment (t2) / Nascent Soul (t5); 5000 / 10000 / 20000 stones.
   essence_elixir_minor:   { price: 5000,  minTier: 0, kind: 'consumable', supplyMs: 12 * 3600 * 1000 },
@@ -15242,7 +15244,7 @@ function grantEnemyDefeatRewards(e) {
   const enemyData = ENEMIES[e.id];
   const hmVictory = heritageMech();
   const rewardScale = (e.scale && e.scale.reward) || 1;
-  const rawInsight = Math.round(enemyData.insightReward * rewardScale * boonInsightMult() * skillCombatInsightMult() * (combat.player.mods.insightMult || 1) * ((SCHOOLS[state.selectedSchool] && SCHOOLS[state.selectedSchool].insightFromKillsMult) || 1) * (hmVictory.combatInsightMult || 1) * combatInsightMult(combat) * metaInsightMult() * (isDemonHeart(state) ? 2 : (state.demonic ? 1.5 : 1)) * 1.5 * ((combat && combat.demonicQiVenture) ? 1.5 : 1) * (state.demonic ? (isDemonHeart(state) ? 1 + (cultivationBoostMult() - 1) * 0.5 : cultivationBoostMult()) : 1) * (1 + 0.20 * goldenCoreLevel()));   // v1.6: demon-heart 2x; v0.97 +50% base; v1.18: +20% insight/GC; v1.27.16: Heart-Demon cult->insight 0.5:1 (was 1:1)
+  const rawInsight = Math.round(0.25 * enemyData.insightReward * rewardScale * boonInsightMult() * skillCombatInsightMult() * (combat.player.mods.insightMult || 1) * ((SCHOOLS[state.selectedSchool] && SCHOOLS[state.selectedSchool].insightFromKillsMult) || 1) * (hmVictory.combatInsightMult || 1) * combatInsightMult(combat) * metaInsightMult() * (isDemonHeart(state) ? 2 : (state.demonic ? 1.5 : 1)) * 1.5 * ((combat && combat.demonicQiVenture) ? 1.5 : 1) * (state.demonic ? (isDemonHeart(state) ? 1 + (cultivationBoostMult() - 1) * 0.5 : cultivationBoostMult()) : 1) * (1 + 0.20 * goldenCoreLevel()));   // v1.6: demon-heart 2x; v0.97 +50% base; v1.18: +20% insight/GC; v1.27.16: Heart-Demon cult->insight 0.5:1; v1.27.28: BASE x0.25 — demonic mults (incl. cultBoost) + the soft cap carry the demonic path; righteous (no mults) drops to ~25% combat insight and leans on its FULL-pace cultivation (demonic cultivates at half, demon-heart not at all)
   // v1.25: the demonic mult stack (cult x GC x demon x base) compounds MULTIPLICATIVELY — measured ~42k/kill at
   // modest Golden Core investment, and "millions per battle" once geared (cultBoost 8x -> 208k, 15x+ -> 1M+).
   // Operator wants it kept big but the runaway capped. Cap = ~1.25x the realm's BASE layer cost (a stable per-realm
