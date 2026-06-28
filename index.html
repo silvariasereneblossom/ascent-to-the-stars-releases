@@ -541,11 +541,11 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v1.27.31';
+const GAME_VERSION = 'v1.27.32';
 // v0.78: CI injects the build's short sha here; the APK shell reads it FROM THE RUNNING
 // PAGE (window.BUILD_SHA) and compares against the repo head — staleness detection that
-// cannot be fooled by cached metadata. '32c213c' = local/dev build (shell falls back).
-const BUILD_SHA = '32c213c';
+// cannot be fooled by cached metadata. '18c0f92' = local/dev build (shell falls back).
+const BUILD_SHA = '18c0f92';
 if (typeof window !== 'undefined') window.BUILD_SHA = BUILD_SHA;
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
@@ -3475,9 +3475,12 @@ const SCHOOL_KITS = {
     dodgeChance: 0.15,
   },
   bone_reed: {
-    passiveName: 'Hollow Resonance', passiveZh: '空鸣',
-    passiveDesc: 'All your spirit damage +30%. Enemies whose spirit you empty are soul-broken: +30% damage taken from everything.',
-    spiritDamageBonus: 0.30,
+    passiveName: 'Marrow Reckoning', passiveZh: '髓裁',
+    passiveDesc: 'Spirit damage +50% AND posture damage +50%; every hit also RENDS 15% of the target\'s MAX spirit, and breaking a stance Shocks it (loses its next action). EXECUTE: your hits land massive bonus Body damage vs a soul-broken OR posture-broken foe — break both and it is devastating.',
+    spiritDamageBonus: 0.50,
+    postureBonus: 0.50,
+    shockOnBreak: true,
+    spiritRendPct: 0.15,   // v1.27.32: % of target MAX spirit drained per hit — lets bone soul-break boss-sized pools
   },
   jade_inkwell: {
     passiveName: 'Red-Ink Authority', passiveZh: '朱批',
@@ -14518,6 +14521,11 @@ function dealDamage(target, amount, opts) {
   }
   target.hp -= totalHp;
   target.spirit -= spiritDmg;
+  // v1.27.32: Bone Reed RENDS a % of the target's MAX spirit on every one of its hits (player -> enemy; enemy
+  // hits carry opts.attacker) — the only way to soul-break boss-sized spirit pools, which sets up its execute.
+  if (combat && target !== combat.player && !opts.attacker && target.spiritMax > 0 && state.selectedSchool === 'bone_reed') {
+    target.spirit -= target.spiritMax * (schoolKit().spiritRendPct || 0);
+  }
   if (target.hp < 0) target.hp = 0;
   if (target.spirit < 0) target.spirit = 0;
 
@@ -14717,12 +14725,15 @@ function applyPlayerOutgoingMods(p, dmg, target, ctx) {
     dmg *= 1 + _dsRate * Math.min(12, target.effects.reduce((a, ef) => a + (ef.stacks || 1), 0));
   }
   if (state.selectedSchool === 'verdant_monastery') dmg *= 1.30;   // regen tank: bulk pays for offense
-  // bone_reed (soul-break): near-zero Body damage by design + boss spirit pools too deep to ever empty. Give it
-  // a flat lift AND ramp its Body damage with the target's MISSING spirit (full payoff once soul-broken) so its
-  // spirit pressure finally converts to kills.
-  if (state.selectedSchool === 'bone_reed') {
-    dmg *= 1.5;
-    if (target && target.spiritMax > 0) dmg *= 1 + 0.9 * (1 - Math.max(0, target.spirit) / target.spiritMax);
+  // bone_reed (break & EXECUTE): its kit shreds Spirit + Posture; the payoff is massive Body damage the moment a
+  // break lands. Stacks ON TOP of the universal soul-break (+30% taken) and posture-break (x2) — breaking BOTH
+  // is the devastating execute. Before any break, Body damage ramps with the spirit it has already torn down.
+  if (state.selectedSchool === 'bone_reed' && target) {
+    const soulBroken = target.spiritMax > 0 && target.spirit <= 0;
+    const postureBroken = (target.broken || 0) > 0;
+    if (soulBroken)    dmg *= 2.0;   // soul-break execute (x universal +30% taken)
+    if (postureBroken) dmg *= 1.7;   // posture-break execute (x universal x2)
+    if (!soulBroken && target.spiritMax > 0) dmg *= 1 + 0.6 * (1 - Math.max(0, target.spirit) / target.spiritMax);   // ramp toward the break
   }
   // v0.64: chill now works ON the player too (enemies can inflict it).
   const pChill = (p.effects || []).find(ef => ef.kind === 'chill');
