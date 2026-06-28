@@ -541,11 +541,11 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v1.27.30';
+const GAME_VERSION = 'v1.27.31';
 // v0.78: CI injects the build's short sha here; the APK shell reads it FROM THE RUNNING
 // PAGE (window.BUILD_SHA) and compares against the repo head — staleness detection that
-// cannot be fooled by cached metadata. 'f0708e6' = local/dev build (shell falls back).
-const BUILD_SHA = 'f0708e6';
+// cannot be fooled by cached metadata. '32c213c' = local/dev build (shell falls back).
+const BUILD_SHA = '32c213c';
 if (typeof window !== 'undefined') window.BUILD_SHA = BUILD_SHA;
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
@@ -2087,9 +2087,9 @@ const TECHNIQUES = {
     logHit: (a,t) => `Five glyphs ignite in a ring; every direction ${t} considers is already written against.` },
   flame_ashfall: {
     name: 'Ashfall', zh: '灰落', school: 'crimson_flame', target: 'aoe',
-    qi: 13, cd: 2, damage: 1.5, postureBuild: 12,
+    qi: 13, cd: 2, damage: 2.2, postureBuild: 12, effectScale: { perEffect: 0.35, max: 10 },
     effect: 'burn', effectPower: 0.18, effectTurns: 3, effectStacks: 2,
-    desc: 'The air itself catches. AOE. Applies 2 Burn stacks — fire that ticks past qi shields.',
+    desc: 'The air itself catches. AOE; +35% damage per debuff stack already on the target (detonates your Burn). Applies 2 Burn stacks — fire that ticks past qi shields.',
     logHit: (a,t) => `Ash falls upward around ${a}; everything it touches begins, politely, to burn.` },
   water_undertow: {
     name: 'Undertow', zh: '暗潮', school: 'moonlit_water', target: 'aoe',
@@ -2117,9 +2117,9 @@ const TECHNIQUES = {
     logHit: (a,t) => `${a}'s arrow lodges shallow — a small wound, and a fixed address.` },
   grove_bloom: {
     name: 'Verdant Communion', zh: '翠林同息', school: 'verdant_monastery', target: 'aoe',
-    qi: 11, cd: 3, damage: 1.0, postureBuild: 12,
+    qi: 11, cd: 3, damage: 2.0, postureBuild: 12, effectScale: { perEffect: 0.35, max: 10 },
     selfBuff: { regrowthPct: 0.06, turns: 3 },
-    desc: 'Borrow the patience of trees. AOE strike, and you regrow 6% max Body per turn for 3 turns.',
+    desc: 'Borrow the patience of trees. AOE strike (+35% damage per debuff stack on the target), and you regrow 6% max Body per turn for 3 turns.',
     logHit: (a,t) => `Green light moves through ${a} like sap rising; the staff falls on ${t} almost as an afterthought.` },
   thunder_roll: {
     name: 'Rolling Thunder', zh: '滚雷', school: 'thunder_hammer', target: 'aoe',
@@ -2135,15 +2135,15 @@ const TECHNIQUES = {
     logHit: (a,t) => `${a} is somewhere in the mist. The mist is everywhere.` },
   reed_chorus: {
     name: 'Marrow Chorus', zh: '髓合唱', school: 'bone_reed', target: 'aoe',
-    qi: 12, cd: 2, damage: 0.7, directSpirit: 12, postureBuild: 10,
+    qi: 12, cd: 2, damage: 1.8, directSpirit: 12, postureBuild: 10, effectScale: { perEffect: 0.35, max: 10 },
     effect: 'resonance', effectValue: 8, effectTurns: 3,
-    desc: 'Every bone hums the same note. AOE spirit damage; Resonance drains spirit each turn. Empty spirit = soul-broken (+30% damage taken).',
+    desc: 'Every bone hums the same note. AOE spirit damage (+35% Body damage per debuff stack on the target); Resonance drains spirit each turn. Empty spirit = soul-broken (+30% damage taken).',
     logHit: (a,t) => `${a} plays a chord no single flute should manage; ${t}'s skeleton joins in against its will.` },
   ink_silence: {
     name: 'Character of Silence', zh: '默字', school: 'jade_inkwell',
-    qi: 13, cd: 3, damage: 1.1, postureBuild: 10,
+    qi: 13, cd: 3, damage: 2.2, postureBuild: 10, effectScale: { perEffect: 0.35, max: 10 },
     effect: 'silence', effectValue: 0, effectTurns: 2,
-    desc: 'One character, perfectly drawn. ST. Silenced: the enemy cannot use techniques for 2 turns.',
+    desc: 'One character, perfectly drawn. ST; +35% damage per debuff stack already on the target. Silenced: the enemy cannot use techniques for 2 turns.',
     logHit: (a,t) => `${a} writes "hush" in the air between them; ${t} opens their mouth and nothing arrives.` },
   forge_slag: {
     name: 'Slagrender', zh: '熔渣裂', school: 'dragonforge',
@@ -14709,6 +14709,21 @@ function applyPlayerOutgoingMods(p, dmg, target, ctx) {
   if (combat && combat.cultDmgMult) dmg *= combat.cultDmgMult;   // v0.98: cultivation damage growth (small)
   // v0.68: the demonic path hits 20% harder, full stop.
   if (isDemonHeart(state)) dmg *= 1.3; else if (state.demonic) dmg *= 1.2;   // v1.5: demon-heart x1.3
+  // v1.27.31: low-burst righteous DOT/control schools' boss-race answer — EVERY hit (strike or technique) scales
+  // with the debuff stacks they've piled on the target. They stack, then everything bites. (Verdant doesn't
+  // stack — it's a regen tank — so its bulk pays for offense instead, letting attrition actually finish a boss.)
+  const _dsRate = { crimson_flame: 0.06, jade_inkwell: 0.06 }[state.selectedSchool];
+  if (_dsRate && target && target.effects && target.effects.length) {
+    dmg *= 1 + _dsRate * Math.min(12, target.effects.reduce((a, ef) => a + (ef.stacks || 1), 0));
+  }
+  if (state.selectedSchool === 'verdant_monastery') dmg *= 1.30;   // regen tank: bulk pays for offense
+  // bone_reed (soul-break): near-zero Body damage by design + boss spirit pools too deep to ever empty. Give it
+  // a flat lift AND ramp its Body damage with the target's MISSING spirit (full payoff once soul-broken) so its
+  // spirit pressure finally converts to kills.
+  if (state.selectedSchool === 'bone_reed') {
+    dmg *= 1.5;
+    if (target && target.spiritMax > 0) dmg *= 1 + 0.9 * (1 - Math.max(0, target.spirit) / target.spiritMax);
+  }
   // v0.64: chill now works ON the player too (enemies can inflict it).
   const pChill = (p.effects || []).find(ef => ef.kind === 'chill');
   if (pChill) dmg *= Math.max(0, 1 - pChill.value);
@@ -15013,10 +15028,18 @@ function playerTechnique(techId) {
         pushLog('posture', `  → ${tgt.name}'s ${STATUS_INFO[tech.consumeBonus.kind] ? STATUS_INFO[tech.consumeBonus.kind].label : tech.consumeBonus.kind} ×${stacks} is consumed — +${Math.round((consumeMult - 1) * 100)}% damage!`);
       }
     }
+    // v1.27.31: effectScale — damage scales with the COUNT of debuff stacks on the target (NOT consumed). The
+    // boss-race payoff for the stacking DOT/control schools (crimson/verdant/bone/ink): pile on effects, then
+    // detonate. Sums stacks across all effects, capped so it can't run away.
+    let effectMult = 1;
+    if (tech.effectScale && tgt.effects && tgt.effects.length) {
+      const stacks = tgt.effects.reduce((a, ef) => a + (ef.stacks || 1), 0);
+      effectMult = 1 + (tech.effectScale.perEffect || 0.25) * Math.min(tech.effectScale.max || 10, stacks);
+    }
     let dhHpDealt = 0, dhQiDrained = 0;   // v1.8: track damage for demon_heart technique payoffs
     for (let h = 0; h < instances; h++) {
       if (tgt.hp <= 0) break;
-      let tdmg = dmg * targetDmgMult * perInstanceMult * consumeMult;
+      let tdmg = dmg * targetDmgMult * perInstanceMult * consumeMult * effectMult;
       const ctx = { instant: tech.instant };
       tdmg = applyPlayerOutgoingMods(p, tdmg, tgt, ctx);
       if (tdmg > 0 || (h === 0 && (tech.directHP || tech.directSpirit || directSpiritAmt))) {
