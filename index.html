@@ -541,11 +541,11 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v1.27.32';
+const GAME_VERSION = 'v1.27.33';
 // v0.78: CI injects the build's short sha here; the APK shell reads it FROM THE RUNNING
 // PAGE (window.BUILD_SHA) and compares against the repo head — staleness detection that
-// cannot be fooled by cached metadata. 'ad5505a' = local/dev build (shell falls back).
-const BUILD_SHA = 'ad5505a';
+// cannot be fooled by cached metadata. '52a826e' = local/dev build (shell falls back).
+const BUILD_SHA = '52a826e';
 if (typeof window !== 'undefined') window.BUILD_SHA = BUILD_SHA;
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
@@ -3510,7 +3510,7 @@ const DEMONIC_TWISTS = {
   crimson_flame:     { onTechHit: { kind: 'burn', power: 0.18, turns: 3 }, twistDesc: 'Burns tick half again harder.' },
   moonlit_water:     { onTechHit: { kind: 'chill', value: 0.30, turns: 2 }, twistDesc: 'Chill saps -30% damage.' },
   silent_daggers:    { critBonus: 0.15, onTechHit: { kind: 'poison', power: 0.12, turns: 4 }, twistDesc: '+15% crit; deadlier venom.' },
-  demon_heart:       { lifestealBonus: 0.25,                      twistDesc: 'Hungry Dao drinks 25% (30% at Golden Core).' },
+  demon_heart:       { lifestealBonus: 0.30,                      twistDesc: 'Hungry Dao drinks 30% (35% at Golden Core).' },   // v1.27.33: small early buff (+5%)
   starfall:          { critBonus: 0.05,                           twistDesc: '+5% crit on top of Celestial Sight.' },
   verdant_monastery: { regenPct: 0.05,                            twistDesc: 'Regrow 5% max Body per round.' },
   thunder_hammer:    { postureBonus: 0.40,                        twistDesc: '+40% posture damage.' },
@@ -3678,9 +3678,8 @@ function isDemonic(char) { return !!((char || state) && (char || state).demonic)
 // rules: no aging/lifespan cost, no passive cultivation, 1.5x demonic bonuses, hellfire off MAX hp,
 // 2x tribulations, +1-realm sect hunters with a lethal defeat counter, venture tribulation ambushes.
 function isDemonHeart(char) { const c = char || state; return !!(c && c.selectedSchool === 'demon_heart'); }
-// v1.5: per-realm cap on sect-hunter defeats before the hunt ends you (Demon Heart only).
-const DEMON_HEART_HUNTER_CAP = [30, 25, 20, 15, 10, 5, 1];   // v1.10: -10 across the board (Spirit Severing floored 0->1 = die on first hunter loss)
-function demonHeartHunterCap() { return DEMON_HEART_HUNTER_CAP[Math.min(6, (state.realm && state.realm.tierIdx) || 0)] || 10; }
+// v1.27.33: the Demon-Heart sect-hunter defeat COUNTER was removed — inquisitor defeats now cost lifespan
+// (5-25%, scaled by damage dealt), handled in checkDeath. See the realm DEATH CAP (realmDeathCap) for combat.
 // v0.71: EVERY school's passive deepens with realm — the Starfall pattern (v0.51)
 // generalized. Steps: +1 at Golden Core, +1 at Nascent Soul. Demonic twists scale too
 // (they merge first, then the realm scaling applies on top).
@@ -6293,7 +6292,9 @@ for (let ht = 0; ht <= 6; ht++) {
   });
   ENEMIES['righteous_hunter_t' + ht].insightReward *= 3;   // triple insight (operator)
 }
-const HUNTER_AMBUSH_CHANCE = 0.20;
+// v1.27.33: inquisitor (righteous hunter) ambush chance scales linearly with realm — Mortal..Spirit Severing.
+const HUNTER_AMBUSH_CHANCE = [0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35];        // per encounter, by tierIdx
+const INQUISITOR_TWO_UP_CHANCE = [0.00, 0.01, 0.02, 0.03, 0.04, 0.05, 0.06];    // chance the hunter is +2 realms (much deadlier), by tierIdx
 
 // ============================================================
 // v0.71 CONQUEST OF HEAVEN — demonic cultivators cannot "ascend" by invitation. At the
@@ -9427,6 +9428,29 @@ const BOSS_UNIQUE_MATS = {
 Object.values(BOSS_UNIQUE_MATS).forEach(([id, name, zh, desc]) => {
   MATERIALS[id] = { name, zh, rarity: 'legendary', desc };
 });
+// v1.27.33 (items 4/5): realm DEATH-CAP economy. Revealing your hidden death tally costs spirit stones (rising
+// per realm); the Soul-Anchor Array raises the cap (+1 each, max +3) for boss-unique materials from every realm.
+const DEATH_REVEAL_COST = [50, 100, 200, 400, 800, 1600, 3200];   // spirit stones, by realm tierIdx
+let _tierBossMat = null;
+function tierBossMat() {   // lazy: BOSSES is defined further down, so build this on first runtime use
+  if (_tierBossMat) return _tierBossMat;
+  _tierBossMat = {};
+  Object.keys(BOSS_UNIQUE_MATS).forEach(bid => {
+    const tier = (typeof BOSSES !== 'undefined' && BOSSES[bid]) ? BOSSES[bid].tier : null;
+    if (tier != null && _tierBossMat[tier] == null) _tierBossMat[tier] = BOSS_UNIQUE_MATS[bid][0];
+  });
+  return _tierBossMat;
+}
+// Each Soul-Anchor upgrade (level 1..3) costs `level` of a boss-unique mat from EVERY realm tier you've reached.
+function soulAnchorCost(level) {
+  const out = {}; const map = tierBossMat();
+  const top = Math.min(6, (state.realm && state.realm.tierIdx) || 0);
+  for (let t = 0; t <= top; t++) { const m = map[t]; if (m) out[m] = level; }
+  return out;
+}
+function canPaySoulAnchor(level) {
+  return Object.entries(soulAnchorCost(level)).every(([m, n]) => ((state.base.materials[m] || 0) >= n));
+}
 // v1.27.18 (#2): the Heavenscourge prestige material — a SINGLE shared currency dropped only by Heavenscourge
 // (hard) bosses, gating the Ascendant set upgrade (5 per small piece, 10 for the chest). Drop chance rises
 // asymptotically with Fortune toward (never to) 100% — see the roll in grantEnemyDefeatRewards.
@@ -10891,6 +10915,14 @@ Object.keys(SCHOOLS).forEach(sid => {
 function sectWeaponsForSchool(sid) {
   return Object.entries(SECT_WEAPONS).filter(([, w]) => w.school === sid);
 }
+// v1.27.33: a random school weapon's name, for the "Inquisitor's <weapon>" trophy (flavor only — the
+// trophy is disassemble-fodder, never equipped).
+function randomSchoolWeaponName() {
+  const ids = Object.keys(SECT_WEAPONS || {});
+  if (!ids.length) return 'Blade';
+  const id = ids[Math.floor(Math.random() * ids.length)];
+  return (WEAPONS[id] && WEAPONS[id].name) || 'Blade';
+}
 
 // ============================================================
 // v0.68 WEAPON POWER FLOOR (operator): NO weapon — junk, mortal craftables, drops —
@@ -11872,6 +11904,20 @@ function collectSellableItems(char) {
       },
       dyield: disassembleYield(a.rarity, artifactTierOf(id)),
       disassemble: () => disassembleArtifact(id),
+    });
+  });
+  // v1.27.33 (item 2): Inquisitor's <weapon> trophies — un-equippable, disassemble for 2x a scrap (common)
+  // weapon of that realm. Held in inquisitorTrophies, never in weapons.owned.
+  (char.inquisitorTrophies || []).forEach(tr => {
+    const tier = Math.min(6, tr.tier || 0);
+    const base = disassembleYield('common', tier);
+    const dyield = {}; Object.entries(base).forEach(([m, n]) => { dyield[m] = n * 2; });
+    const remove = () => { const i = char.inquisitorTrophies.indexOf(tr); if (i >= 0) char.inquisitorTrophies.splice(i, 1); };
+    out.push({
+      name: `Inquisitor's ${tr.wname}`, kindLabel: 'trophy', rarity: 'common', price: MARKET_SELL_PRICE.common || 5, tier,
+      sell: () => { remove(); char.base.materials.spirit_stone = (char.base.materials.spirit_stone || 0) + (MARKET_SELL_PRICE.common || 5); saveChar(); },
+      dyield,
+      disassemble: () => { remove(); grantYield(dyield); },
     });
   });
   // v1.1: sort everything by realm tier then rarity (consistent with the rest of the UI).
@@ -12961,9 +13007,9 @@ function newCharacter(seed, childhood = null) {
     artifacts: { owned: [] },
     ui: { forgeTab: 'weapons' },
     autoCombat: { active: false, dailyMinutes: 0, lastReset: Date.now() },
-    // v0.25: realmDefeats resets on breakthrough; first 5 defeats per realm are free,
-    // each subsequent defeat adds 2.5% perma-death chance. lifetimeInsight tracks
-    // every insight gain — feeds the reincarnation bonus (15% of lifetime).
+    // v0.25/v1.27.33: realmDefeats resets on breakthrough; it now counts toward a HARD per-realm DEATH CAP
+    // (realmDeathCap: base 3, +array). lifetimeInsight tracks every insight gain — feeds the reincarnation
+    // bonus (15% of lifetime).
     realmDefeats: 0,
     lifetimeInsight: 0,
     // Wave 1: spirit root (element drives combat counters; grade is a gentle cult mult)
@@ -14093,9 +14139,11 @@ function rollEncounter(loc) {
   // v0.68: demonic cultivators are hunted — ordinary grounds can spawn a righteous
   // enforcer of the player's realm instead (worth 3x insight). Demon grounds are safe;
   // the righteous do not venture there.
-  if (state.demonic && !loc.demonOnly && Math.random() < HUNTER_AMBUSH_CHANCE) {
+  const _ambushTier = Math.min(6, state.realm.tierIdx || 0);
+  if (state.demonic && !loc.demonOnly && Math.random() < HUNTER_AMBUSH_CHANCE[_ambushTier]) {
     let ht = state.realm.tierIdx || 0;
-    if (isDemonHeart(state)) { ht += 1; if (Math.random() < 0.02) ht += 1; }   // v1.5: demon-heart hunters are always +1 realm (2% chance +2)
+    if (isDemonHeart(state)) ht += 1;                                            // v1.5: demon-heart is hunted one realm harder (identity)
+    if (Math.random() < INQUISITOR_TWO_UP_CHANCE[_ambushTier]) ht += 2;          // v1.27.33: the rare +2-realm inquisitor
     return ['righteous_hunter_t' + Math.min(6, ht)];
   }
   const pool = loc.enemyPool || [];
@@ -14815,6 +14863,17 @@ function playerStatusValue(p, tech) {
 const DOT_KINDS = new Set(['burn', 'poison', 'bleed', 'leech']);
 
 // v0.23: lifesteal + qi-on-hit-style triggers fired after a successful hit.
+// v1.27.33 (item 9): Heart-Demon also draws Qi from every drop of Body it drains (lifesteal + leech), scaling
+// 3% -> 21% by realm. Feeds the demon-heart qi economy so early-game casting isn't starved.
+const DEMON_HEART_QI_FROM_DRAIN = [0.03, 0.06, 0.09, 0.12, 0.15, 0.18, 0.21];
+function demonHeartQiFromBody(p, bodyDrained) {
+  if (!bodyDrained || bodyDrained <= 0 || !p || !isDemonHeart(state)) return;
+  const pct = DEMON_HEART_QI_FROM_DRAIN[Math.min(6, (state.realm && state.realm.tierIdx) || 0)] || 0;
+  const gain = Math.round(bodyDrained * pct);
+  if (gain <= 0 || p.qi >= p.qiMax) return;
+  const before = p.qi; p.qi = Math.min(p.qiMax, p.qi + gain);
+  if (p.qi > before) pushLog('heal', `  → +${p.qi - before} qi (the Hungry Dao drinks for the meridians too)`);
+}
 function applyPostHitTriggers(p, res, tgt, lifestealScale) {
   lifestealScale = (lifestealScale == null) ? 1 : lifestealScale;   // v1.27.13: demon_heart 2nd strike halves lifesteal
   if ((p.mods.lifestealPct || 0) > 0 && (res.hpDamage + res.qiAbsorbed) > 0) {
@@ -14828,6 +14887,7 @@ function applyPostHitTriggers(p, res, tgt, lifestealScale) {
       p.hp = Math.min(p.hpMax, p.hp + heal);
       if (p.hp > before) pushLog('heal', `  → +${p.hp - before} Body (lifesteal)`);
     }
+    demonHeartQiFromBody(p, heal);   // v1.27.33 (item 9): a share of drained Body also feeds Qi
   }
   // v1.27.2: QI-DRAIN on hit — gear/class anti-caster specialization. Saps a % of the foe's MAX qi,
   // starving its casting (drops it below enemyCanUse's threshold) and shrinking its qi barrier so
@@ -15466,9 +15526,19 @@ function grantEnemyDefeatRewards(e) {
   const stoneAmount = Math.max(1, Math.floor(Math.sqrt(enemyData.insightReward || 1) * rewardScale * 0.5));
   state.base.materials.spirit_stone = (state.base.materials.spirit_stone || 0) + stoneAmount;
   materialDrops.spirit_stone = (materialDrops.spirit_stone || 0) + stoneAmount;
-  const bookChance = enemyData.bookDropChance != null ? enemyData.bookDropChance : 0.08;
+  const _isInquisitor = String(e.id || '').startsWith('righteous_hunter_t');
+  const bookChance = _isInquisitor ? 0.20 : (enemyData.bookDropChance != null ? enemyData.bookDropChance : 0.08);   // v1.27.33: inquisitors drop a skill book 20% of the time
   const bookDrop = rollBookDrop(bookChance);
   if (bookDrop) state.foundBooks.push(bookDrop);
+  // v1.27.33 (item 2): inquisitors drop an "Inquisitor's <weapon>" — un-equippable, but disassembles for
+  // 2x a scrap weapon of that realm. Held as a trophy (NOT in weapons.owned), so it never shows up as gear.
+  if (_isInquisitor) {
+    const _inqTier = Math.min(6, parseInt(String(e.id).slice('righteous_hunter_t'.length), 10) || 0);
+    state.inquisitorTrophies = state.inquisitorTrophies || [];
+    state.inquisitorTrophies.push({ wname: randomSchoolWeaponName(), tier: _inqTier });
+    const _t = state.inquisitorTrophies[state.inquisitorTrophies.length - 1];
+    pushLog('reward', `Inquisitor's ${_t.wname} claimed — it cannot be wielded, but breaks down for rich scrap.`);
+  }
 
   // v1.23: random encounters sometimes drop market-available herbs (qty scales 1.5x/realm; Fortune up to a 50%
   // chance to double), and above 20 Fortune can drop a CURSED stat potion (random stat at a lifespan cost).
@@ -15529,11 +15599,6 @@ function checkDeath() {
     if (e.hp <= 0 && !e.defeated) {
       e.defeated = true;
       grantEnemyDefeatRewards(e);
-      // v1.5: a demon that kills its hunter pushes the hunt back (-2 on the lethal defeat counter).
-      if (isDemonHeart(state) && String(e.id || '').startsWith('righteous_hunter_t') && (state.demonHeartHunterDefeats || 0) > 0) {
-        state.demonHeartHunterDefeats = Math.max(0, state.demonHeartHunterDefeats - 2);
-        pushLog('reward', `  → The hunt recedes — hunter-defeats now ${state.demonHeartHunterDefeats}/${demonHeartHunterCap()}.`);
-      }
     }
   });
   // If primary target fell, advance to next alive enemy.
@@ -15603,21 +15668,32 @@ function checkDeath() {
     pushLog('defeat', `${p.name} collapses.`);
     pushLog('flavor', enemyData.defeatText);
     if (combat.tribulation && (pendingTribulation || combat.ventureTrib)) {   // v1.5: roadside tribs count toward the 3-strike streak too
+      // v1.27.33 (item 7): a tribulation defeat ALWAYS burns 33% of total lifespan, on top of the 3-strike streak.
+      const tribLoss = 0.33 * lifespanMax();
+      state.age = (state.age || 16) + tribLoss;
+      pushLog('defeat', `The heavens scour away a third of your lifespan — ${Math.round(tribLoss)} years gone.`);
+      if (state.age >= lifespanMax() && !noAgeDeathOn()) {
+        saveChar();
+        setTimeout(() => dieRun('the weight of years', `The tribulation aged ${p.name} past the end of their span.`, p.name), 0);
+        render(); return true;
+      }
       handleTribulationFailure(combat.enemyId, p.name, enemyData);
       return true;
     }
-    // v1.5: demon-heart sect-hunter defeats are lethal by ACCUMULATION (per-realm cap), not the normal death roll.
+    // v1.27.33 (item 6): a Heart-Demon that loses to an inquisitor pays in LIFESPAN — 5-25% of total, scaled by how
+    // much damage it dealt the inquisitor first (more damage dealt -> less lifespan lost). REPLACES the old hunt counter.
     if (isDemonHeart(state) && String(combat.enemyId || '').startsWith('righteous_hunter_t')) {
-      state.demonHeartHunterDefeats = (state.demonHeartHunterDefeats || 0) + 1;
-      const cap = demonHeartHunterCap();
-      if (state.demonHeartHunterDefeats >= cap) {
-        pushLog('defeat', `The hunt ends. Too many defeats this realm — the sects' blades finally find the heart.`);
+      const inq = combat.enemies.find(en => String(en.id || '').startsWith('righteous_hunter_t')) || combat.enemy;
+      const frac = (inq && inq.hpMax > 0) ? Math.max(0, Math.min(1, 1 - (inq.hp / inq.hpMax))) : 0;
+      const pct = 0.25 - 0.20 * frac;                      // 25% at no damage dealt -> 5% at a near-kill
+      const loss = pct * lifespanMax();
+      state.age = (state.age || 16) + loss;
+      pushLog('defeat', `The inquisitor's blade drinks your years: ${Math.round(pct * 100)}% of your lifespan (${Math.round(loss)} years) for landing ${Math.round(frac * 100)}% of its bane.`);
+      if (state.age >= lifespanMax() && !noAgeDeathOn()) {
         saveChar();
-        setTimeout(() => dieRun('Run down by the righteous', `A demon is hunted until it is dead. ${p.name}'s defeats stacked past ${cap}, and the hunt closed for good.`, p.name), 0);
-        render();
-        return true;
+        setTimeout(() => dieRun('Bled of years by the righteous', `${p.name} spent the last of their stolen span defying the inquisition.`, p.name), 0);
+        render(); return true;
       }
-      pushLog('defeat', `You escape the hunter, branded. Hunter-defeats this realm: ${state.demonHeartHunterDefeats}/${cap} — slay them to push it back, or purify at your sect.`);
       saveChar();
       render();
       return true;
@@ -15665,14 +15741,18 @@ function combatDefeatLifespanCost(areaCultMult) {
   const base = 1 + Math.random() * 14;            // 1..15 years
   return Math.min(cap, base * (areaCultMult || 1));
 }
+// v1.27.33 (items 4/5): the per-realm DEATH CAP. Base 3, +1 per Soul-Anchor Array upgrade (max +3 -> 6).
+function realmDeathCap() { return 3 + Math.min(3, state.deathCapArray || 0); }
 function rollCombatDeath(combat, p) {
+  // v1.27.33: REPLACES the old chance-ramp with a HARD cap — every (non-tribulation) combat defeat counts,
+  // and hitting the cap is lethal. Tribulation defeats still use their own 3-strike streak (unchanged).
   state.realmDefeats = (state.realmDefeats || 0) + 1;
   const defeats = state.realmDefeats;
-  const chance = Math.max(0, (defeats - 5) * 0.025);
-  const died = Math.random() < chance;
+  const cap = realmDeathCap();
+  const died = defeats >= cap;
   return {
-    died, chance,
-    reasons: died ? [`${defeats} defeats this realm — the dao thins, and the body remembers each loss`] : [],
+    died, chance: died ? 1 : 0,
+    reasons: died ? [`${defeats}/${cap} realm defeats — the body has no returns left in it`] : [],
     defeats,
   };
 }
@@ -15737,6 +15817,7 @@ function tickCombatantEffects(c, opts) {
           const beforeHeal = ht.hp;
           ht.hp = Math.min(ht.hpMax, ht.hp + lost);
           if (ht.hp > beforeHeal) pushLog('heal', `  → +${ht.hp - beforeHeal} Body drained through ${ef.name}.`);
+          if (combat && ht === combat.player) demonHeartQiFromBody(ht, ht.hp - beforeHeal);   // v1.27.33 (item 9): leech Body also feeds Qi
         }
       }
       // v1.0.1: a burn carrying pctQi ALSO melts the qi shield itself — the dedicated anti-qi-tank
@@ -18887,45 +18968,65 @@ function renderCharSheet() {
     else { b.textContent = `Claim (${sw.contribCost.toLocaleString()})`; b.onclick = () => { buySectWeapon(wid); render(); }; }
     btns.appendChild(b); row.appendChild(btns); sectP.appendChild(row);
   });
-  // v1.5: Demon Heart — surface the lethal hunt + tribulation streak, and let the player PURGE both
-  // at the cost of falling to the bottom of the current realm (layer 1, this realm's insight reset).
-  if (isDemonHeart(state)) {
+  // v1.27.33 (items 4/5/8): the Soul-Anchor — the realm DEATH CAP surfaced for ALL paths (the cap + the
+  // tribulation lifespan toll touch everyone now). Reveal your hidden death tally for stones; reinforce the
+  // cap with boss materials; and buy back lifespan via the renewal rite (a layer of progress for 10% of span).
+  {
     const dh = document.createElement('div');
     dh.style.cssText = 'margin-top:0.6rem;border-top:1px solid rgba(192,96,96,0.3);padding-top:0.4rem';
-    const hunters = state.demonHeartHunterDefeats || 0;
-    const cap = demonHeartHunterCap();
+    const tier = Math.min(6, state.realm.tierIdx || 0);
+    const cap = realmDeathCap();
+    const deaths = state.realmDefeats || 0;
     const tribStreak = Math.max(0, ...Object.values(state.tribulationFails || {}));
-    // v1.27.13: the purge ("purify") is capped at 3 per realm (keyed by realm tier), resetting every ascension
-    // (finalizeAscension builds a fresh character, so purgeUses drops). Once spent, a 3rd failed tribulation in
-    // this realm ends the run — the heresy's escape valve is finite.
-    const PURGE_CAP = 3;
-    const purgeTier = state.realm.tierIdx || 0;
-    const purgesLeft = Math.max(0, PURGE_CAP - ((state.purgeUses && state.purgeUses[purgeTier]) || 0));
-    dh.innerHTML = `<div style="font-size:0.85rem"><strong style="color:var(--crimson)">The Hunt</strong> <span style="color:var(--ink-soft);font-size:0.8rem">魔劫</span></div>
-      <div style="font-size:0.8rem;color:var(--ink-soft);margin:0.15rem 0">Sect-hunter defeats this realm: <strong style="color:${hunters >= cap - 3 ? 'var(--crimson)' : 'var(--gold)'}">${hunters}/${cap}</strong> — death at the cap; slay a hunter to drop it by 2. Tribulation streak: <strong>${tribStreak}/3</strong>.</div>`;
+    const revealed = !!(state.deathRevealed && state.deathRevealed[tier]);
+    const revealCost = DEATH_REVEAL_COST[tier] || 50;
+    const stones = state.base.materials.spirit_stone || 0;
+    const arrayLvl = Math.min(3, state.deathCapArray || 0);
+    dh.innerHTML = `<div style="font-size:0.85rem"><strong style="color:var(--crimson)">The Soul-Anchor</strong> <span style="color:var(--ink-soft);font-size:0.8rem">镇魂阵</span></div>
+      <div style="font-size:0.8rem;color:var(--ink-soft);margin:0.15rem 0">Realm deaths: <strong style="color:var(--gold)">${revealed ? `${deaths}/${cap}` : `??/${cap}`}</strong>${revealed ? '' : ` <span style="opacity:0.8">(sealed — reveal for ${revealCost} stones)</span>`}. Tribulation streak: <strong>${tribStreak}/3</strong>. Anchor array: <strong>${arrayLvl}/3</strong> (+${arrayLvl} cap).</div>`;
     const pBtns = document.createElement('div'); pBtns.className = 'consumable-buttons';
-    const pb = document.createElement('button'); pb.className = 'ghost small';
-    // v1.13: renamed Purify the Heart -> Reinforce Demonic Qi (a demon does not cleanse — it doubles down);
-    // and fixed the broken confirm() (window.confirm never fires in the WebView) via the two-tap arm.
-    // v1.27.13: gated to PURGE_CAP (3) uses per realm.
-    if (purgesLeft <= 0) {
-      pb.textContent = 'Reinforce Demonic Qi — spent (no purifies left this realm)';
-      pb.disabled = true; pb.style.opacity = '0.5'; pb.style.cursor = 'not-allowed';
-    } else {
-      pb.textContent = `Reinforce Demonic Qi — reset the hunt + streak, lose half your layers (${purgesLeft}/${PURGE_CAP} left)`;
-      armDestructiveButton(pb, "Tap again — fall back half this realm's layers (insight reset)", () => {
-        if (!state.purgeUses) state.purgeUses = {};
-        state.purgeUses[purgeTier] = (state.purgeUses[purgeTier] || 0) + 1;
-        state.demonHeartHunterDefeats = 0;
-        state.tribulationFails = {};
-        state.realm.layer = Math.max(1, (state.realm.layer || 1) - Math.floor((state.realm.layer || 1) / 2));   // v1.6: lose half the layers, not all the way to 1
+    // (4) reveal the realm death count for this realm (per-tier, resets when you ascend)
+    if (!revealed) {
+      const rb = document.createElement('button'); rb.className = 'ghost small';
+      if (stones < revealCost) { rb.textContent = `Reveal deaths — need ${revealCost} stones`; rb.disabled = true; rb.style.opacity = '0.6'; }
+      else { rb.textContent = `Reveal realm deaths (${revealCost} stones)`; rb.onclick = () => {
+        state.base.materials.spirit_stone -= revealCost;
+        state.deathRevealed = state.deathRevealed || {}; state.deathRevealed[tier] = true;
+        saveChar(); render();
+      }; }
+      pBtns.appendChild(rb);
+    }
+    // (5) reinforce the Soul-Anchor Array: +1 death cap (max 3) for boss-unique mats from every realm reached
+    if (arrayLvl < 3) {
+      const nextLvl = arrayLvl + 1;
+      const cost = soulAnchorCost(nextLvl);
+      const costStr = Object.entries(cost).map(([m, n]) => `${n}× ${(MATERIALS[m] && MATERIALS[m].name) || m}`).join(', ') || '—';
+      const ub = document.createElement('button'); ub.className = 'ghost small';
+      if (!canPaySoulAnchor(nextLvl)) { ub.textContent = `Reinforce Anchor (+1 cap) — need ${costStr}`; ub.disabled = true; ub.style.opacity = '0.6'; }
+      else { ub.textContent = `Reinforce the Soul-Anchor (+1 cap) — ${costStr}`; ub.onclick = () => {
+        Object.entries(cost).forEach(([m, n]) => { state.base.materials[m] = (state.base.materials[m] || 0) - n; });
+        state.deathCapArray = nextLvl;
+        saveChar(); render();
+      }; }
+      pBtns.appendChild(ub);
+    }
+    // (8) renewal rite: drop 1 layer + this layer's insight, regain 10% of total lifespan
+    const layer = state.realm.layer || 1;
+    const rrb = document.createElement('button'); rrb.className = 'ghost small';
+    if (layer < 2) { rrb.textContent = 'Renewal Rite — needs layer 2+'; rrb.disabled = true; rrb.style.opacity = '0.6'; }
+    else {
+      const back = Math.round(0.10 * lifespanMax());
+      rrb.textContent = `Renewal Rite — drop 1 layer + its insight, regain 10% lifespan (~${back.toLocaleString()} yrs)`;
+      armDestructiveButton(rrb, 'Tap again — fall back a layer to buy back years', () => {
+        state.realm.layer = Math.max(1, (state.realm.layer || 1) - 1);
         state.realm.insight = 0;
+        state.age = Math.max(16, (state.age || 16) - 0.10 * lifespanMax());
         if (state.confirmed) state.finalStats = finalStats(state);
-        saveChar();
-        render();
+        saveChar(); render();
       });
     }
-    pBtns.appendChild(pb); dh.appendChild(pBtns); sectP.appendChild(dh);
+    pBtns.appendChild(rrb);
+    dh.appendChild(pBtns); sectP.appendChild(dh);
   }
   appendPanel(sectP, 'sect');
 
