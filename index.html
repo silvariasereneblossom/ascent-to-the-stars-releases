@@ -544,8 +544,8 @@ const STAT_KEYS = STATS.map(s => s.key);
 const GAME_VERSION = 'v1.27.33';
 // v0.78: CI injects the build's short sha here; the APK shell reads it FROM THE RUNNING
 // PAGE (window.BUILD_SHA) and compares against the repo head — staleness detection that
-// cannot be fooled by cached metadata. 'cbb1703' = local/dev build (shell falls back).
-const BUILD_SHA = 'cbb1703';
+// cannot be fooled by cached metadata. '92759f7' = local/dev build (shell falls back).
+const BUILD_SHA = '92759f7';
 if (typeof window !== 'undefined') window.BUILD_SHA = BUILD_SHA;
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
@@ -9441,9 +9441,9 @@ function tierBossMat() {   // lazy: BOSSES is defined further down, so build thi
   });
   return _tierBossMat;
 }
-// Each glyph upgrade (1..3) adds +1 to the death cap; the material cost RISES with the realm you buy it in, and
-// each upgrade is gated behind a higher realm so the cap can't be maxed cheaply early.
-const DEATH_GLYPH_MIN_TIER = [1, 3, 5];   // upgrade 1/2/3 unlock at Foundation / Core Formation / Nascent Soul
+// Each glyph upgrade (1..7) adds +1 to the death cap; ONE upgrade unlocks per realm (upgrade N at realm tier N-1),
+// and the material cost RISES with the realm you carve it in (increasing material requirements per realm).
+const DEATH_GLYPH_MIN_TIER = [0, 1, 2, 3, 4, 5, 6];   // upgrade N unlocks at realm tier N-1 — one per realm, +7 max
 function deathGlyphCost(nextLvl) {
   const tier = Math.min(6, (state.realm && state.realm.tierIdx) || 0);
   const out = {};
@@ -15745,8 +15745,9 @@ function combatDefeatLifespanCost(areaCultMult) {
   const base = 1 + Math.random() * 14;            // 1..15 years
   return Math.min(cap, base * (areaCultMult || 1));
 }
-// v1.27.33 (items 4/5): the per-realm DEATH CAP. Base 15 at every realm, +1 per Soul-Anchor glyph upgrade (max +3 -> 18).
-function realmDeathCap() { return 15 + Math.min(3, state.deathCapArray || 0); }
+// v1.27.33 (items 4/5): the per-realm DEATH CAP. Base 15 at every realm, +1 per Soul-Anchor glyph upgrade — one
+// unlocks per realm, so up to +7 (cap 22) once you've carved it in every realm.
+function realmDeathCap() { return 15 + Math.min(7, state.deathCapArray || 0); }
 function rollCombatDeath(combat, p) {
   // v1.27.33: REPLACES the old chance-ramp with a HARD cap — every (non-tribulation) combat defeat counts,
   // and hitting the cap is lethal. Tribulation defeats still use their own 3-strike streak (unchanged).
@@ -18985,9 +18986,9 @@ function renderCharSheet() {
     const revealed = !!(state.deathRevealed && state.deathRevealed[tier]);
     const revealCost = DEATH_REVEAL_COST[tier] || 50;
     const stones = state.base.materials.spirit_stone || 0;
-    const arrayLvl = Math.min(3, state.deathCapArray || 0);
+    const arrayLvl = Math.min(7, state.deathCapArray || 0);
     dh.innerHTML = `<div style="font-size:0.85rem"><strong style="color:var(--crimson)">The Soul-Anchor</strong> <span style="color:var(--ink-soft);font-size:0.8rem">镇魂阵</span></div>
-      <div style="font-size:0.8rem;color:var(--ink-soft);margin:0.15rem 0">Realm deaths: <strong style="color:var(--gold)">${revealed ? `${deaths}/${cap}` : `??/${cap}`}</strong>${revealed ? '' : ` <span style="opacity:0.8">(sealed — reveal for ${revealCost} stones)</span>`}. Tribulation streak: <strong>${tribStreak}/3</strong>. Soul-Anchor glyph: <strong>${arrayLvl}/3</strong> (+${arrayLvl} cap).</div>`;
+      <div style="font-size:0.8rem;color:var(--ink-soft);margin:0.15rem 0">Realm deaths: <strong style="color:var(--gold)">${revealed ? `${deaths}/${cap}` : `??/${cap}`}</strong>${revealed ? '' : ` <span style="opacity:0.8">(sealed — reveal for ${revealCost} stones)</span>`}. Tribulation streak: <strong>${tribStreak}/3</strong>. Soul-Anchor glyph: <strong>${arrayLvl}/7</strong> (+${arrayLvl} cap).</div>`;
     const pBtns = document.createElement('div'); pBtns.className = 'consumable-buttons';
     // (4) reveal the realm death count for this realm (per-tier, resets when you ascend)
     if (!revealed) {
@@ -19000,9 +19001,9 @@ function renderCharSheet() {
       }; }
       pBtns.appendChild(rb);
     }
-    // (5) carve the Soul-Anchor glyph: +1 death cap (max 3). Each upgrade unlocks at a higher realm and costs
-    // more the higher the realm you carve it in (increasing material requirements per realm).
-    if (arrayLvl < 3) {
+    // (5) carve the Soul-Anchor glyph: +1 death cap, ONE per realm (up to +7). Each upgrade unlocks at the next
+    // realm and costs more the higher the realm you carve it in (increasing material requirements per realm).
+    if (arrayLvl < 7) {
       const nextLvl = arrayLvl + 1;
       const minTier = DEATH_GLYPH_MIN_TIER[nextLvl - 1] || 0;
       const gb = document.createElement('button'); gb.className = 'ghost small';
