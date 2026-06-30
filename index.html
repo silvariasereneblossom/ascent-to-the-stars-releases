@@ -544,8 +544,8 @@ const STAT_KEYS = STATS.map(s => s.key);
 const GAME_VERSION = 'v1.27.33';
 // v0.78: CI injects the build's short sha here; the APK shell reads it FROM THE RUNNING
 // PAGE (window.BUILD_SHA) and compares against the repo head — staleness detection that
-// cannot be fooled by cached metadata. '52a826e' = local/dev build (shell falls back).
-const BUILD_SHA = '52a826e';
+// cannot be fooled by cached metadata. 'cbb1703' = local/dev build (shell falls back).
+const BUILD_SHA = 'cbb1703';
 if (typeof window !== 'undefined') window.BUILD_SHA = BUILD_SHA;
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
@@ -9441,15 +9441,19 @@ function tierBossMat() {   // lazy: BOSSES is defined further down, so build thi
   });
   return _tierBossMat;
 }
-// Each Soul-Anchor upgrade (level 1..3) costs `level` of a boss-unique mat from EVERY realm tier you've reached.
-function soulAnchorCost(level) {
-  const out = {}; const map = tierBossMat();
-  const top = Math.min(6, (state.realm && state.realm.tierIdx) || 0);
-  for (let t = 0; t <= top; t++) { const m = map[t]; if (m) out[m] = level; }
+// Each glyph upgrade (1..3) adds +1 to the death cap; the material cost RISES with the realm you buy it in, and
+// each upgrade is gated behind a higher realm so the cap can't be maxed cheaply early.
+const DEATH_GLYPH_MIN_TIER = [1, 3, 5];   // upgrade 1/2/3 unlock at Foundation / Core Formation / Nascent Soul
+function deathGlyphCost(nextLvl) {
+  const tier = Math.min(6, (state.realm && state.realm.tierIdx) || 0);
+  const out = {};
+  const mat = tierBossMat()[tier];                  // the CURRENT realm's boss-unique mat — rarer the higher you are
+  if (mat) out[mat] = 2 + nextLvl;                  // 3 / 4 / 5 of it
+  out.spirit_stone = 2000 * (tier + 1) * nextLvl;   // rises with realm AND upgrade level
   return out;
 }
-function canPaySoulAnchor(level) {
-  return Object.entries(soulAnchorCost(level)).every(([m, n]) => ((state.base.materials[m] || 0) >= n));
+function canPayDeathGlyph(nextLvl) {
+  return Object.entries(deathGlyphCost(nextLvl)).every(([m, n]) => ((state.base.materials[m] || 0) >= n));
 }
 // v1.27.18 (#2): the Heavenscourge prestige material — a SINGLE shared currency dropped only by Heavenscourge
 // (hard) bosses, gating the Ascendant set upgrade (5 per small piece, 10 for the chest). Drop chance rises
@@ -15741,8 +15745,8 @@ function combatDefeatLifespanCost(areaCultMult) {
   const base = 1 + Math.random() * 14;            // 1..15 years
   return Math.min(cap, base * (areaCultMult || 1));
 }
-// v1.27.33 (items 4/5): the per-realm DEATH CAP. Base 3, +1 per Soul-Anchor Array upgrade (max +3 -> 6).
-function realmDeathCap() { return 3 + Math.min(3, state.deathCapArray || 0); }
+// v1.27.33 (items 4/5): the per-realm DEATH CAP. Base 15 at every realm, +1 per Soul-Anchor glyph upgrade (max +3 -> 18).
+function realmDeathCap() { return 15 + Math.min(3, state.deathCapArray || 0); }
 function rollCombatDeath(combat, p) {
   // v1.27.33: REPLACES the old chance-ramp with a HARD cap — every (non-tribulation) combat defeat counts,
   // and hitting the cap is lethal. Tribulation defeats still use their own 3-strike streak (unchanged).
@@ -18968,9 +18972,9 @@ function renderCharSheet() {
     else { b.textContent = `Claim (${sw.contribCost.toLocaleString()})`; b.onclick = () => { buySectWeapon(wid); render(); }; }
     btns.appendChild(b); row.appendChild(btns); sectP.appendChild(row);
   });
-  // v1.27.33 (items 4/5/8): the Soul-Anchor — the realm DEATH CAP surfaced for ALL paths (the cap + the
-  // tribulation lifespan toll touch everyone now). Reveal your hidden death tally for stones; reinforce the
-  // cap with boss materials; and buy back lifespan via the renewal rite (a layer of progress for 10% of span).
+  // v1.27.33 (items 4/5/8): the Soul-Anchor — the realm DEATH CAP (base 15) surfaced for ALL paths (the cap + the
+  // tribulation lifespan toll touch everyone now). Reveal your hidden death tally for stones; carve the glyph to
+  // raise the cap (+1 each, rising cost per realm); and buy back lifespan via the renewal rite (3 per realm).
   {
     const dh = document.createElement('div');
     dh.style.cssText = 'margin-top:0.6rem;border-top:1px solid rgba(192,96,96,0.3);padding-top:0.4rem';
@@ -18983,7 +18987,7 @@ function renderCharSheet() {
     const stones = state.base.materials.spirit_stone || 0;
     const arrayLvl = Math.min(3, state.deathCapArray || 0);
     dh.innerHTML = `<div style="font-size:0.85rem"><strong style="color:var(--crimson)">The Soul-Anchor</strong> <span style="color:var(--ink-soft);font-size:0.8rem">镇魂阵</span></div>
-      <div style="font-size:0.8rem;color:var(--ink-soft);margin:0.15rem 0">Realm deaths: <strong style="color:var(--gold)">${revealed ? `${deaths}/${cap}` : `??/${cap}`}</strong>${revealed ? '' : ` <span style="opacity:0.8">(sealed — reveal for ${revealCost} stones)</span>`}. Tribulation streak: <strong>${tribStreak}/3</strong>. Anchor array: <strong>${arrayLvl}/3</strong> (+${arrayLvl} cap).</div>`;
+      <div style="font-size:0.8rem;color:var(--ink-soft);margin:0.15rem 0">Realm deaths: <strong style="color:var(--gold)">${revealed ? `${deaths}/${cap}` : `??/${cap}`}</strong>${revealed ? '' : ` <span style="opacity:0.8">(sealed — reveal for ${revealCost} stones)</span>`}. Tribulation streak: <strong>${tribStreak}/3</strong>. Soul-Anchor glyph: <strong>${arrayLvl}/3</strong> (+${arrayLvl} cap).</div>`;
     const pBtns = document.createElement('div'); pBtns.className = 'consumable-buttons';
     // (4) reveal the realm death count for this realm (per-tier, resets when you ascend)
     if (!revealed) {
@@ -18996,28 +19000,40 @@ function renderCharSheet() {
       }; }
       pBtns.appendChild(rb);
     }
-    // (5) reinforce the Soul-Anchor Array: +1 death cap (max 3) for boss-unique mats from every realm reached
+    // (5) carve the Soul-Anchor glyph: +1 death cap (max 3). Each upgrade unlocks at a higher realm and costs
+    // more the higher the realm you carve it in (increasing material requirements per realm).
     if (arrayLvl < 3) {
       const nextLvl = arrayLvl + 1;
-      const cost = soulAnchorCost(nextLvl);
-      const costStr = Object.entries(cost).map(([m, n]) => `${n}× ${(MATERIALS[m] && MATERIALS[m].name) || m}`).join(', ') || '—';
-      const ub = document.createElement('button'); ub.className = 'ghost small';
-      if (!canPaySoulAnchor(nextLvl)) { ub.textContent = `Reinforce Anchor (+1 cap) — need ${costStr}`; ub.disabled = true; ub.style.opacity = '0.6'; }
-      else { ub.textContent = `Reinforce the Soul-Anchor (+1 cap) — ${costStr}`; ub.onclick = () => {
-        Object.entries(cost).forEach(([m, n]) => { state.base.materials[m] = (state.base.materials[m] || 0) - n; });
-        state.deathCapArray = nextLvl;
-        saveChar(); render();
-      }; }
-      pBtns.appendChild(ub);
+      const minTier = DEATH_GLYPH_MIN_TIER[nextLvl - 1] || 0;
+      const gb = document.createElement('button'); gb.className = 'ghost small';
+      if (tier < minTier) {
+        gb.textContent = `Carve glyph (+1 cap) — locked until ${(REALMS[minTier] || {}).name || 'a higher realm'}`;
+        gb.disabled = true; gb.style.opacity = '0.6';
+      } else {
+        const cost = deathGlyphCost(nextLvl);
+        const costStr = Object.entries(cost).map(([m, n]) => `${n.toLocaleString()}× ${(MATERIALS[m] && MATERIALS[m].name) || m}`).join(', ');
+        if (!canPayDeathGlyph(nextLvl)) { gb.textContent = `Carve glyph (+1 cap) — need ${costStr}`; gb.disabled = true; gb.style.opacity = '0.6'; }
+        else { gb.textContent = `Carve the Soul-Anchor glyph (+1 cap) — ${costStr}`; gb.onclick = () => {
+          Object.entries(cost).forEach(([m, n]) => { state.base.materials[m] = (state.base.materials[m] || 0) - n; });
+          state.deathCapArray = nextLvl;
+          saveChar(); render();
+        }; }
+      }
+      pBtns.appendChild(gb);
     }
-    // (8) renewal rite: drop 1 layer + this layer's insight, regain 10% of total lifespan
+    // (8) renewal rite: drop 1 layer + this layer's insight, regain 10% of total lifespan. Capped 3 per realm.
+    const RENEWAL_CAP = 3;
+    const renewalLeft = Math.max(0, RENEWAL_CAP - ((state.renewalUses && state.renewalUses[tier]) || 0));
     const layer = state.realm.layer || 1;
     const rrb = document.createElement('button'); rrb.className = 'ghost small';
-    if (layer < 2) { rrb.textContent = 'Renewal Rite — needs layer 2+'; rrb.disabled = true; rrb.style.opacity = '0.6'; }
+    if (renewalLeft <= 0) { rrb.textContent = 'Renewal Rite — spent (none left this realm)'; rrb.disabled = true; rrb.style.opacity = '0.6'; }
+    else if (layer < 2) { rrb.textContent = `Renewal Rite — needs layer 2+ (${renewalLeft}/${RENEWAL_CAP} left)`; rrb.disabled = true; rrb.style.opacity = '0.6'; }
     else {
       const back = Math.round(0.10 * lifespanMax());
-      rrb.textContent = `Renewal Rite — drop 1 layer + its insight, regain 10% lifespan (~${back.toLocaleString()} yrs)`;
+      rrb.textContent = `Renewal Rite — drop 1 layer + its insight, regain 10% lifespan (~${back.toLocaleString()} yrs) (${renewalLeft}/${RENEWAL_CAP} left)`;
       armDestructiveButton(rrb, 'Tap again — fall back a layer to buy back years', () => {
+        state.renewalUses = state.renewalUses || {};
+        state.renewalUses[tier] = (state.renewalUses[tier] || 0) + 1;
         state.realm.layer = Math.max(1, (state.realm.layer || 1) - 1);
         state.realm.insight = 0;
         state.age = Math.max(16, (state.age || 16) - 0.10 * lifespanMax());
