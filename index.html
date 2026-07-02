@@ -2280,6 +2280,14 @@
       }
     }
   };
+  Object.assign(WEAPONS, JUNK_WEAPONS);
+  var JUNK_BY_TIER = (() => {
+    const out = { 0: [], 1: [], 2: [], 3: [] };
+    Object.entries(JUNK_WEAPONS).forEach(([id, w]) => {
+      out[w.junkTier || 0].push(id);
+    });
+    return out;
+  })();
 
   // app/src/data/techniques.js
   var TECHNIQUES = {
@@ -5058,6 +5066,7 @@
 
   // app/src/combat-registry.js
   var AI = {};
+  var AI_REQUIRED = ["enemyBasicStrike", "enemyTickCDs", "enemyCanUse", "enemyUseTech", "enemyMeditate"];
 
   // app/src/data/enemies.js
   var ENEMY_TECHS = {
@@ -8996,6 +9005,10 @@
 
   // app/src/main.js
   Object.assign(AI, { enemyBasicStrike, enemyTickCDs, enemyCanUse, enemyUseTech, enemyMeditate });
+  for (const fn of AI_REQUIRED) {
+    if (typeof AI[fn] !== "function") throw new Error("combat-registry: AI." + fn + " missing at load — update the Object.assign in main.js");
+  }
+  Object.freeze(AI);
   function makeRng(seed) {
     let s = seed >>> 0;
     return function() {
@@ -9028,8 +9041,8 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Tribulation resistance, resolve under pressure." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.37';
-  var BUILD_SHA = "8ad331a";
+  var GAME_VERSION = 'v1.27.38';
+  var BUILD_SHA = "c853952";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -9578,14 +9591,6 @@
       flavor: "You sever the last mortal ties of your spirit. What remains is something the heavens were not prepared to see."
     }
   ];
-  Object.assign(WEAPONS, JUNK_WEAPONS);
-  var JUNK_BY_TIER = (() => {
-    const out = { 0: [], 1: [], 2: [], 3: [] };
-    Object.entries(JUNK_WEAPONS).forEach(([id, w]) => {
-      out[w.junkTier || 0].push(id);
-    });
-    return out;
-  })();
   function rollJunkWeaponForTier(playerTierIdx) {
     let pools;
     if (playerTierIdx <= 0) pools = [JUNK_BY_TIER[0], JUNK_BY_TIER[0], JUNK_BY_TIER[1]];
@@ -20000,7 +20005,8 @@
         zh: "牙铁拳套",
         power: 17,
         slots: 3,
-        rarity: "legendary",
+        rarity: "divine",
+        // v1.27.38: ALL cross-realm relics are divine
         desc: "The Boar-King's tusk socketed in golem-heart iron. The fist wants things now. [Cross-realm relic]",
         apply: (m) => mergeMods(m, { flatDR: 4, hpBonus: 40, postureMult: 1.1 })
       },
@@ -20028,7 +20034,8 @@
         zh: "经钥杖",
         power: 28,
         slots: 4,
-        rarity: "legendary",
+        rarity: "divine",
+        // v1.27.38: ALL cross-realm relics are divine
         desc: "An unburnt sutra wound about a living jade key. It opens what it strikes and lectures what it opens. [Cross-realm relic]",
         apply: (m) => mergeMods(m, { dotMult: 1.15, qiBonus: 30, qiRegenBonus: 2 })
       },
@@ -21306,8 +21313,9 @@
       tierOf[r.id] = r.minRealmTier || 0;
     });
     Object.entries(WEAPONS).forEach(([id, w]) => {
-      if (!id.startsWith("gen_") && !id.startsWith("genr_")) return;
-      const t = tierOf[id] || 0;
+      const isCrossRelic = BOSS_CROSS_GEAR[id] && BOSS_CROSS_GEAR[id].kind === "weapon";
+      if (!id.startsWith("gen_") && !id.startsWith("genr_") && !isCrossRelic) return;
+      const t = isCrossRelic ? BOSS_CROSS_GEAR[id].tier || 0 : tierOf[id] || 0;
       const target = RARITY_EFFECT_COUNT[w.rarity] || 1;
       const have = w.apply ? 1 : 0;
       const need = Math.max(0, target - have);
@@ -27804,7 +27812,7 @@
     } else {
       const xHdr = document.createElement("div");
       xHdr.innerHTML = `<div style="font-weight:bold;margin:0.2rem 0">Cross-Realm Relics <span style="color:var(--ink-soft);font-weight:normal;font-size:0.8rem">跨界铸</span></div>
-      <p style="font-size:0.8rem;color:var(--ink-soft);margin:0 0 0.4rem">Forged from the unique essence of tyrants of <strong>two realms</strong> (this one and the one below). They carry no inscription stack — in exchange, each lands a shade <strong>past this realm's apex (divine)</strong> in raw power. One of each; the Vanquisher set is here too.</p>`;
+      <p style="font-size:0.8rem;color:var(--ink-soft);margin:0 0 0.4rem">Forged from the unique essence of tyrants of <strong>two realms</strong> (this one and the one below). Every relic is <strong>divine</strong>: the full divine attribute stack, AND raw power a shade <strong>past this realm's apex</strong>. One of each; the Vanquisher set is here too.</p>`;
       fP.appendChild(xHdr);
       const schoolForgeX = SCHOOLS[state.selectedSchool];
       const myKindX = schoolForgeX && WEAPONS[schoolForgeX.weapon] ? WEAPONS[schoolForgeX.weapon].kind : null;
