@@ -541,11 +541,11 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v1.27.34';
+const GAME_VERSION = 'v1.27.35';
 // v0.78: CI injects the build's short sha here; the APK shell reads it FROM THE RUNNING
 // PAGE (window.BUILD_SHA) and compares against the repo head — staleness detection that
-// cannot be fooled by cached metadata. 'cdbb337' = local/dev build (shell falls back).
-const BUILD_SHA = 'cdbb337';
+// cannot be fooled by cached metadata. '6ac4a06' = local/dev build (shell falls back).
+const BUILD_SHA = '6ac4a06';
 if (typeof window !== 'undefined') window.BUILD_SHA = BUILD_SHA;
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
@@ -10000,9 +10000,9 @@ function applyBossRefineToMods(mods, char) {
 
 // ============================================================
 // v0.67 CROSS-REALM BOSS RELICS — recipes that mix unique boss materials from
-// DIFFERENT realms. Five weapons covering the school weapon-kinds the per-boss relics
-// missed (unarmed / bow / staff / chakram / chain — every school's main weapon now has
-// a boss relic), plus the 4-piece VANQUISHER set. Crafted from the Bosses tab.
+// DIFFERENT realms. Five hand-authored weapons + the 4-piece VANQUISHER set; v1.27.35 expands this into a
+// full kind x realm roster (see expandCrossRealmForge below) and moves crafting to the Forge Weapon tab's
+// Cross-Realm Relics sub-tab.
 // ============================================================
 const BOSS_CROSS_GEAR = {
   bx_cestus: { kind: 'weapon', wkind: 'unarmed',
@@ -10067,6 +10067,70 @@ ARMOR_SETS.vanquisher = {
       apply: m => { m.elementBoostAll += 0.20; m.flatDR += 8; m.critChance += 0.05; } },
   ],
 };
+
+// ============================================================
+// v1.27.35 CROSS-REALM FORGE EXPANSION (operator). Cross-realm relics skip the generated attribute stack
+// (enrichGeneratedWeapons only touches gen_/genr_), so raw POWER is their compensation: every cross-realm
+// weapon lands ~15% ABOVE the divine of its realm (divine-of-t = common-of-t+1, so these shade into the
+// next realm proper). Two parts:
+//   1) The five hand-authored v0.67 relics are re-floored to that rule (tier = their highest boss-mat realm).
+//   2) A full roster: one cross-realm weapon per kind x realm tier 1..6, forged from the unique essence of
+//      a tyrant of THIS realm and one of the realm BELOW (the cross-realm identity). Kind effect one realm hot.
+// All entries live in BOSS_CROSS_GEAR, so the generic owns/can/craft helpers work unchanged. UI: Forge tab.
+function crossRealmPower(t) {
+  const tt = Math.max(0, Math.min(6, t));
+  const divine = tt < 6 ? WEAPON_GEN_TIER[tt + 1].power : Math.round(WEAPON_GEN_TIER[6].power * 1.35);
+  return Math.round(divine * 1.15);
+}
+const CROSS_REALM_PFX = [null,
+  ['Two-Rivers', '两河'], ['Span-of-Stones', '跨石'], ['Twin-Furnace', '双炉'],
+  ['Gold-and-Iron', '金铁'], ['Soul-Bridge', '魂桥'], ['World-Straddler', '跨世'],
+];
+(function expandCrossRealmForge() {
+  // Per-tier boss-unique mats (2 bosses per realm).
+  const matsByTier = {};
+  Object.entries(BOSS_UNIQUE_MATS).forEach(([bid, [mid]]) => {
+    const bt = BOSSES[bid] ? BOSSES[bid].tier : null;
+    if (bt != null) (matsByTier[bt] = matsByTier[bt] || []).push(mid);
+  });
+  const tierOfMat = {};
+  Object.entries(matsByTier).forEach(([t, mids]) => mids.forEach(m => { tierOfMat[m] = +t; }));
+  // 1) Tag every relic with its realm tier (highest boss-mat realm) and re-floor weapon power to the rule.
+  Object.values(BOSS_CROSS_GEAR).forEach(g => {
+    let t = 0;
+    Object.keys(g.mats).forEach(m => { if (tierOfMat[m] != null) t = Math.max(t, tierOfMat[m]); });
+    g.tier = t;
+    if (g.kind === 'weapon' && g.def.power < crossRealmPower(t)) g.def.power = crossRealmPower(t);
+  });
+  // 2) Generate the full kind x tier roster.
+  WEAPON_GEN_KINDS.forEach(([kind, noun, nounZh], ki) => {
+    for (let t = 1; t <= 6; t++) {
+      const id = `bxg_${kind}_${t}`;
+      if (BOSS_CROSS_GEAR[id]) continue;
+      const [pfx, pfxZh] = CROSS_REALM_PFX[t];
+      const [fx, blurb] = WEAPON_GEN_EFFECT[kind](Math.min(6, t + 1));   // kind effect one realm hot
+      const hiMat = (matsByTier[t] || [])[ki % 2] || (matsByTier[t] || [])[0];
+      const loMat = (matsByTier[t - 1] || [])[(ki + 1) % 2] || (matsByTier[t - 1] || [])[0];
+      const mats = { spirit_stone: 20 * (t + 1) };
+      if (hiMat) mats[hiMat] = 2;
+      if (loMat) mats[loMat] = 2;
+      BOSS_CROSS_GEAR[id] = {
+        kind: 'weapon', wkind: kind, tier: t,
+        def: {
+          name: `${pfx} ${noun}`, zh: `${pfxZh}${nounZh}`,
+          power: crossRealmPower(t), slots: Math.min(6, 2 + Math.ceil(t / 2) + 2),
+          rarity: 'divine', apply: fx,
+          desc: `Forged from the essence of two realms' tyrants — a shade past this realm's apex. ${blurb}. [Cross-realm relic]`,
+        },
+        mats,
+      };
+    }
+  });
+  // (Re)register every cross-gear weapon so the re-floored powers and new entries land in WEAPONS.
+  Object.entries(BOSS_CROSS_GEAR).forEach(([id, g]) => {
+    if (g.kind === 'weapon') WEAPONS[id] = Object.assign({ kind: g.wkind }, g.def);
+  });
+})();
 
 // ============================================================
 // v0.87 ARMOR REALM SCALING — every armor piece's hpBonus (and flatDR where present)
@@ -18051,7 +18115,22 @@ function renderCharSheet() {
   fP.className = 'panel';
   fP.innerHTML = `<h3>Forge Weapon <span style="font-weight:normal;color:var(--ink-soft);font-size:0.85rem">铸器</span></h3>
     <p style="font-size:0.85rem;color:var(--ink-soft);margin:0 0 0.5rem">Forge and refine weapons from gathered materials. Equip them in the Loadout tab.</p>`;
-  {   // v1.21b: Materials moved to its own tab; Forge Weapon no longer needs a sub-nav.
+  // v1.27.35: sub-tabs — Weapons (refine + forge) vs Cross-Realm Relics (boss-essence forging, moved from Bosses).
+  const forgeTab = (state.ui.forgeTab === 'cross') ? 'cross' : 'weapons';
+  {
+    const ftBar = document.createElement('div');
+    ftBar.className = 'button-row';
+    ftBar.style.cssText = 'margin:0 0 0.5rem;justify-content:flex-start';
+    [['weapons', 'Weapons'], ['cross', 'Cross-Realm Relics']].forEach(([tid, label]) => {
+      const b = document.createElement('button');
+      b.className = (forgeTab === tid ? 'gold' : 'ghost') + ' small';
+      b.textContent = label;
+      b.onclick = () => { state.ui.forgeTab = tid; saveChar(); render(); };
+      ftBar.appendChild(b);
+    });
+    fP.appendChild(ftBar);
+  }
+  if (forgeTab === 'weapons') {   // v1.21b: Materials moved to its own tab.
     // Wave 1b: weapon refinement — invest materials into equipped weapons (no failure).
     const refHdr = document.createElement('div');
     refHdr.innerHTML = `<div style="font-weight:bold;margin:0.2rem 0">Refine — Equipped Weapons <span style="color:var(--ink-soft);font-weight:normal;font-size:0.8rem">炼器</span></div>
@@ -18130,6 +18209,52 @@ function renderCharSheet() {
       fP.appendChild(none);
     }
     visibleRecipes.forEach(recipe => fP.appendChild(buildWeaponRecipeRow(recipe)));
+  } else {
+    // v1.27.35: CROSS-REALM RELICS — moved here from the Bosses tab and expanded to a full kind x realm
+    // roster. No generated attribute stack; raw power a shade past the realm's divine instead.
+    const xHdr = document.createElement('div');
+    xHdr.innerHTML = `<div style="font-weight:bold;margin:0.2rem 0">Cross-Realm Relics <span style="color:var(--ink-soft);font-weight:normal;font-size:0.8rem">跨界铸</span></div>
+      <p style="font-size:0.8rem;color:var(--ink-soft);margin:0 0 0.4rem">Forged from the unique essence of tyrants of <strong>two realms</strong> (this one and the one below). They carry no inscription stack — in exchange, each lands a shade <strong>past this realm's apex (divine)</strong> in raw power. One of each; the Vanquisher set is here too.</p>`;
+    fP.appendChild(xHdr);
+    const schoolForgeX = SCHOOLS[state.selectedSchool];
+    const myKindX = (schoolForgeX && WEAPONS[schoolForgeX.weapon]) ? WEAPONS[schoolForgeX.weapon].kind : null;
+    const mineOnlyX = !!state.ui.forgeWeaponMine;
+    if (myKindX) {
+      const fb = document.createElement('button');
+      fb.className = (mineOnlyX ? 'gold' : 'ghost') + ' small';
+      fb.textContent = mineOnlyX ? `My weapon type only (${myKindX})` : 'Showing all weapon types';
+      fb.style.cssText = 'margin:0 0 0.5rem';
+      fb.onclick = () => { state.ui.forgeWeaponMine = !state.ui.forgeWeaponMine; saveChar(); render(); };
+      fP.appendChild(fb);
+    }
+    const xShows = ([gid, g]) => !mineOnlyX || !myKindX || g.kind !== 'weapon' || g.wkind === myKindX;
+    fP.appendChild(realmTabChips('forgeCrossRealm', t =>
+      Object.entries(BOSS_CROSS_GEAR).filter(e => (e[1].tier || 0) === t && xShows(e)).length));
+    Object.entries(BOSS_CROSS_GEAR)
+      .filter(e => realmTabShows('forgeCrossRealm', e[1].tier || 0) && xShows(e))
+      .sort((a, b) => ((a[1].tier || 0) - (b[1].tier || 0)) || (a[1].kind === b[1].kind ? 0 : (a[1].kind === 'weapon' ? -1 : 1)))
+      .forEach(([gid, g]) => {
+        const item = g.kind === 'weapon' ? WEAPONS[gid] : ARMOR[gid];
+        if (!item) return;
+        const owned = ownsBossCrossGear(gid);
+        const costStr = Object.entries(g.mats).map(([m, n]) => {
+          const has = (state.base.materials[m] || 0) >= n;
+          return `<span style="color:${has ? 'var(--ink)' : 'var(--crimson)'}">${n}x ${(MATERIALS[m] && MATERIALS[m].name) || m}</span>`;
+        }).join(', ');
+        const statStr = g.kind === 'weapon' ? `power ${item.power} · ${item.kind}` : `${ARMOR_SLOT_LABELS[item.slot] || item.slot}${item.set ? ' · ' + ARMOR_SETS[item.set].name + ' set' : ''}`;
+        const row = document.createElement('div');
+        row.className = 'consumable-row';
+        row.innerHTML = `<div class="consumable-info">
+            <div class="consumable-name">${item.name} <span style="color:var(--ink-soft);font-size:0.75rem">${item.zh}</span> <span class="rarity-tag rarity-${item.rarity}">${item.rarity}</span></div>
+            <div class="consumable-desc">${item.desc} (${statStr})</div>
+            <div class="consumable-desc"><strong>Mats:</strong> ${costStr}</div>
+          </div>`;
+        const btns = document.createElement('div'); btns.className = 'consumable-buttons';
+        const b = document.createElement('button');
+        if (owned) { b.textContent = 'Forged'; b.disabled = true; }
+        else { b.textContent = 'Forge'; b.className = canCraftBossCrossGear(gid) ? 'gold' : ''; b.disabled = !canCraftBossCrossGear(gid); b.onclick = () => { craftBossCrossGear(gid); render(); }; }
+        btns.appendChild(b); row.appendChild(btns); fP.appendChild(row);
+      });
   }
 
   appendPanel(fP, 'forge');
@@ -18693,32 +18818,11 @@ function renderCharSheet() {
       card.appendChild(refRow);
     }
   });
-  // ---- v0.67: cross-realm relics (mix unique materials from several bosses) ----
-  const crossHdr = document.createElement('div');
-  crossHdr.style.cssText = 'font-weight:bold;margin:0.7rem 0 0.2rem';
-  crossHdr.textContent = 'Cross-Realm Relics — forged from several bosses\' essence';
-  bossP.appendChild(crossHdr);
-  Object.entries(BOSS_CROSS_GEAR).forEach(([gid, g]) => {
-    const item = g.kind === 'weapon' ? WEAPONS[gid] : ARMOR[gid];
-    const owned = ownsBossCrossGear(gid);
-    const costStr = Object.entries(g.mats).map(([m, n]) => {
-      const has = (state.base.materials[m] || 0) >= n;
-      return `<span style="color:${has ? 'var(--ink)' : 'var(--crimson)'}">${n}x ${(MATERIALS[m] && MATERIALS[m].name) || m}</span>`;
-    }).join(', ');
-    const statStr = g.kind === 'weapon' ? `power ${item.power} · ${item.kind}` : `${ARMOR_SLOT_LABELS[item.slot] || item.slot}${item.set ? ' · ' + ARMOR_SETS[item.set].name + ' set' : ''}`;
-    const row = document.createElement('div');
-    row.className = 'consumable-row';
-    row.innerHTML = `<div class="consumable-info">
-        <div class="consumable-name">${item.name} <span style="color:var(--ink-soft);font-size:0.75rem">${item.zh}</span> <span class="rarity-tag rarity-${item.rarity}">${item.rarity}</span></div>
-        <div class="consumable-desc">${item.desc} (${statStr})</div>
-        <div class="consumable-desc"><strong>Mats:</strong> ${costStr}</div>
-      </div>`;
-    const btns = document.createElement('div'); btns.className = 'consumable-buttons';
-    const b = document.createElement('button');
-    if (owned) { b.textContent = 'Forged'; b.disabled = true; }
-    else { b.textContent = 'Forge'; b.className = canCraftBossCrossGear(gid) ? 'gold' : ''; b.disabled = !canCraftBossCrossGear(gid); b.onclick = () => { craftBossCrossGear(gid); render(); }; }
-    btns.appendChild(b); row.appendChild(btns); bossP.appendChild(row);
-  });
+  // v1.27.35: cross-realm relic forging MOVED to the Forge Weapon tab (Cross-Realm Relics sub-tab).
+  const crossNote = document.createElement('p');
+  crossNote.style.cssText = 'font-size:0.78rem;color:var(--ink-soft);margin-top:0.5rem';
+  crossNote.innerHTML = 'The tyrants\' unique essence forges <strong>Cross-Realm Relics</strong> — see the <strong>Forge Weapon</strong> tab.';
+  bossP.appendChild(crossNote);
   const glyphNote = document.createElement('p');
   glyphNote.style.cssText = 'font-size:0.78rem;color:var(--ink-soft);margin-top:0.5rem';
   glyphNote.textContent = 'Each boss holds up to 5 challenge charges; a KILL spends one (defeats are free - retry at will). Charges refill one at a time, slower as you near full (10 / 20 / 40 / 60 / 60 min). The Challenge-Summons / War-Summons glyphs (House tab) shorten every interval; upgrade them with spirit stones.';
