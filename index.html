@@ -541,11 +541,11 @@ const STAT_KEYS = STATS.map(s => s.key);
 // ============================================================
 // Displayed game version — bump on every shipped gameplay change so OTA updates are verifiable
 // in-game (shown in the title bar + the Config tab).
-const GAME_VERSION = 'v1.27.33';
+const GAME_VERSION = 'v1.27.34';
 // v0.78: CI injects the build's short sha here; the APK shell reads it FROM THE RUNNING
 // PAGE (window.BUILD_SHA) and compares against the repo head — staleness detection that
-// cannot be fooled by cached metadata. 'a9ebe59' = local/dev build (shell falls back).
-const BUILD_SHA = 'a9ebe59';
+// cannot be fooled by cached metadata. 'cdbb337' = local/dev build (shell falls back).
+const BUILD_SHA = 'cdbb337';
 if (typeof window !== 'undefined') window.BUILD_SHA = BUILD_SHA;
 const ELEMENTS = ['metal','wood','water','fire','earth'];
 const ELEMENT_NAME = { metal:'Metal', wood:'Wood', water:'Water', fire:'Fire', earth:'Earth' };
@@ -6296,6 +6296,23 @@ for (let ht = 0; ht <= 6; ht++) {
 const HUNTER_AMBUSH_CHANCE = [0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35];        // per encounter, by tierIdx
 const INQUISITOR_TWO_UP_CHANCE = [0.00, 0.01, 0.02, 0.03, 0.04, 0.05, 0.06];    // chance the hunter is +2 realms (much deadlier), by tierIdx
 
+// v1.27.34: RIVAL DEMONIC CULTIVATORS — on demonic-qi ventures, another demon of the realm ABOVE you sometimes
+// contests the ground. As dangerous as an inquisitor, but a loss carries NO lifespan penalty (a demon killing a
+// demon is just the path). Worth triple insight, like the hunters.
+for (let rt = 0; rt <= 6; rt++) {
+  mkEnemy('demonic_rival_t' + rt, {
+    name: ['Blood Novice', 'Heretic Challenger', 'Foundation Devourer', 'Core Blood-Cultivator',
+           'Golden Heretic Lord', 'Soul-Severing Demon', 'Severance Heretic'][rt],
+    zh: '魔道劲敌', tier: rt, arch: 'elite', power: 1.05, kind: 'demonic', element: 'fire',
+    techIds: HUNTER_TECHS_BY_TIER[rt],
+    intro: 'Another demon walks the same hungry road. "This ground is mine, heretic — feed me your dao."',
+    victory: 'The rival demon falls, and everything it hoarded pours into you. The road narrows to one.',
+    defeat: 'The rival demon leaves you broken but breathing — a demon does not waste a meal it cannot finish.',
+  });
+  ENEMIES['demonic_rival_t' + rt].insightReward *= 3;
+}
+const DEMONIC_RIVAL_CHANCE = 0.20;   // chance a demonic-ground venture is contested by a realm+1 rival instead of the pack
+
 // ============================================================
 // v0.71 CONQUEST OF HEAVEN — demonic cultivators cannot "ascend" by invitation. At the
 // peak of Spirit Severing they must take the gate by force: a boss rush of THREE
@@ -10838,6 +10855,20 @@ Object.entries(TECHNIQUES).forEach(([id, t]) => {
   const demonic = t.school === 'demon_heart' || t.demonicOnly || /^dem_sig_/.test(id);
   t.cd = impact + (demonic ? 2 : 0);
 });
+// v1.27.34: append each technique's key combat stats to its description (space permitting) — weapon-power
+// multiplier + qi / cooldown / posture / AOE / effect. Runs AFTER the cd pass so the shown cooldown is final.
+function techStatSuffix(t) {
+  if (!t) return '';
+  const parts = [];
+  if (t.damage) parts.push(`×${t.damage} wpn`);
+  if (t.target === 'aoe') parts.push('AOE');
+  if (t.qi) parts.push(`${t.qi} qi`);
+  if (t.instant) parts.push('free'); else if (t.cd != null && !t.passive) parts.push(`cd ${t.cd}`);
+  if (t.postureBuild) parts.push(`+${t.postureBuild} posture`);
+  if (t.effect && typeof t.effect === 'string') parts.push(t.effect + (t.effectTurns ? ` ${t.effectTurns}t` : ''));
+  return parts.length ? ` [${parts.join(' · ')}]` : '';
+}
+Object.values(TECHNIQUES).forEach(t => { if (t && !t._descTagged) { t.desc = (t.desc || '') + techStatSuffix(t); t._descTagged = true; } });
 function buySectArt(techId) {
   const t = SECT_ARTS[techId];
   if (!t) return false;
@@ -13133,11 +13164,24 @@ function cleanupBuffs() {
   state.base.buffs = state.base.buffs.filter(b => b.expiresAt > now);
 }
 
+// v1.27.34: potions of the same kind STACK, but only the two most potent are active at once. Additive buffs
+// (hp_max_add) combine by SUM; multiplicative buffs (default 1) by PRODUCT. "Potency" = distance from neutral,
+// so the strongest reduction (e.g. incoming ×0.5) counts as more potent than a weaker one (×0.7).
+const BUFF_STACK_LIMIT = 2;
+const BODY_POTION_PCT = [0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08];   // % of max Body a Body potion adds, by realm tier
+function buffIsAdditive(kind) { return kind === 'hp_max_add'; }
+function buffPotency(b) { return buffIsAdditive(b.kind) ? Math.abs(b.value || 0) : Math.abs((b.value || 1) - 1); }
+function topBuffsOfKind(kind) {
+  if (!state || !state.base || !state.base.buffs) return [];
+  cleanupBuffs();
+  return state.base.buffs.filter(x => x.kind === kind)
+    .sort((a, b) => buffPotency(b) - buffPotency(a)).slice(0, BUFF_STACK_LIMIT);
+}
 function activeBuffValue(kind, defaultValue) {
   if (!state || !state.base) return defaultValue;
-  cleanupBuffs();
-  const b = state.base.buffs.find(x => x.kind === kind);
-  return b ? b.value : defaultValue;
+  const list = topBuffsOfKind(kind);
+  if (!list.length) return defaultValue;
+  return buffIsAdditive(kind) ? list.reduce((s, b) => s + b.value, 0) : list.reduce((p, b) => p * b.value, 1);
 }
 
 // ============================================================
@@ -13938,8 +13982,10 @@ function consume(recipeId) {
       return;
     }
     if (ef.kind === 'lifespan_add') {            // extend the lifespan cap by N years
-      // v1.15: a Demon Heart has no lifespan to extend — the longevity essence converts to power instead.
+      // v1.27.34: lifespan pills now WORK for a Demon Heart — but only at 10% effectiveness (a demon spends the
+      // candle, it doesn't hoard years). The stat/insight conversion stays ON TOP.
       if (isDemonHeart(state)) {
+        state.lifespanBonus = (state.lifespanBonus || 0) + ef.value * 0.10;
         addInsight(20000);
         const k = STAT_KEYS[Math.floor(Math.random() * STAT_KEYS.length)];
         applyStatPotionGain(k, 1);   // v1.27.18: soft-capped too, so longevity pills can't pump stats past the cap
@@ -13952,14 +13998,19 @@ function consume(recipeId) {
       state.age = (state.age || 16) + lifespanRemaining() * ef.value * lifespanConsumptionMult();   // v0.77: body inscriptions surcharge
       return;
     }
-    // Timed buff
-    state.base.buffs = state.base.buffs.filter(b => b.kind !== ef.kind);
-    state.base.buffs.push({
-      kind: ef.kind,
-      value: ef.value,
-      expiresAt: now + ef.durationMin * 60000,
-      sourceName: c.name,
-    });
+    // Timed buff. v1.27.34: Body potions (hp_max_add) grant DOUBLE the flat Body PLUS a small realm-scaling
+    // % of max Body; and same-kind potions now STACK, capped at the two most potent.
+    let buffVal = ef.value;
+    if (ef.kind === 'hp_max_add') {
+      const tier = Math.min(6, (state.realm && state.realm.tierIdx) || 0);
+      buffVal = ef.value * 2 + Math.round((BODY_POTION_PCT[tier] || 0) * computeMaxHP(state));
+    }
+    state.base.buffs.push({ kind: ef.kind, value: buffVal, expiresAt: now + ef.durationMin * 60000, sourceName: c.name });
+    const sameKind = state.base.buffs.filter(b => b.kind === ef.kind).sort((a, b) => buffPotency(b) - buffPotency(a));
+    if (sameKind.length > BUFF_STACK_LIMIT) {
+      const keep = new Set(sameKind.slice(0, BUFF_STACK_LIMIT));
+      state.base.buffs = state.base.buffs.filter(b => b.kind !== ef.kind || keep.has(b));
+    }
   });
   state.finalStats = finalStats(state);   // v1.27: refresh so baseStats-based perm gains apply immediately
   saveChar();
@@ -14150,6 +14201,11 @@ function rollEncounter(loc) {
     if (Math.random() < INQUISITOR_TWO_UP_CHANCE[_ambushTier]) ht += 2;          // v1.27.33: the rare +2-realm inquisitor
     return ['righteous_hunter_t' + Math.min(6, ht)];
   }
+  // v1.27.34: demonic-ground ventures are sometimes contested by a rival demon of the realm ABOVE you (solo,
+  // like a hunter ambush, but no lifespan penalty on a loss).
+  if (loc.demonOnly && Math.random() < DEMONIC_RIVAL_CHANCE) {
+    return ['demonic_rival_t' + Math.min(6, (state.realm.tierIdx || 0) + 1)];
+  }
   const pool = loc.enemyPool || [];
   if (!pool.length) return [];
   const pick = arr => arr[Math.floor(Math.random() * arr.length)];
@@ -14194,11 +14250,23 @@ function enemyOverInvestScale(enemyData, enemyId, isTribFight, isElite) {
   const over = Math.min(ENEMY_OVERSCALE_CAP, Math.max(0, statSum / baseline - 1));
   if (over <= 0) return { hp: 1, dmg: 1 };
   const type = isTribFight ? 'trib'
-    : String(enemyId).startsWith('righteous_hunter_t') ? 'inquisitor'
+    : (String(enemyId).startsWith('righteous_hunter_t') || String(enemyId).startsWith('demonic_rival_t')) ? 'inquisitor'
     : enemyData.isBoss ? 'boss' : isElite ? 'elite' : 'normal';
   const hpF = type === 'normal' ? ENEMY_OVERSCALE_HP_NORMAL[tier] : ENEMY_OVERSCALE_HP_FACTOR[type];
   return { hp: 1 + over * hpF, dmg: 1 + over * ENEMY_OVERSCALE_DMG_FACTOR[type] };
 }
+// v1.27.34: the realm tier of an enemy (bosses carry their own tier; normals/elites carry `tier`). Unknown -> 99
+// so it never counts as "below your realm".
+function enemyRealmTier(enemyId) {
+  if (!enemyId) return 99;
+  if (typeof BOSSES !== 'undefined' && BOSSES[enemyId]) return BOSSES[enemyId].tier;
+  const e = ENEMIES[enemyId];
+  return (e && e.tier != null) ? e.tier : 99;
+}
+// v1.27.34: fighting a foe BELOW your realm grants +20% damage dealt and +20% damage reduction.
+const SUB_REALM_DMG_MULT = 1.20;
+const SUB_REALM_INCOMING_MULT = 0.80;
+function isBelowRealm(enemyId) { return enemyRealmTier(enemyId) < ((state.realm && state.realm.tierIdx) || 0); }
 function buildEnemyCombat(enemyId) {
   const enemyData = ENEMIES[enemyId];
   if (!enemyData) return null;
@@ -14249,8 +14317,7 @@ function buildEnemyCombat(enemyId) {
   // for a geared demon but a real threat (moderate investment loses, same as it loses to bosses). Per-realm
   // bimodality prevents a precise win% target, so it's tuned as a tanky boss-tier fight, not a coin flip.
   let inqHpMult = 1, inqDmgMult = 1;
-  if (String(enemyId).startsWith('righteous_hunter_t')) {
-    const ht = parseInt(String(enemyId).slice('righteous_hunter_t'.length), 10) || 0;
+  if (String(enemyId).startsWith('righteous_hunter_t') || String(enemyId).startsWith('demonic_rival_t')) {   // v1.27.34: rivals share the boss-plus tuning
     inqHpMult  = 3.2;
     inqDmgMult = 1.5;
   }
@@ -14474,6 +14541,7 @@ function dealDamage(target, amount, opts) {
   let incoming = (target.buffs.incomingMult || 1) * (target.baseIncoming || 1);
   // Player-only heritage mitigations
   if (combat && target === combat.player) {
+    if (opts.attacker && isBelowRealm(opts.attacker.id)) incoming *= SUB_REALM_INCOMING_MULT;   // v1.27.34: +20% DR vs below-realm foes
     const hm = heritageMech();
     if (combat.tribulation && hm.tribulationIncomingMult) incoming *= hm.tribulationIncomingMult;
     if (combat.tribulation) incoming *= boonTribulationIncomingMult();
@@ -14739,6 +14807,7 @@ function applyPlayerOutgoingMods(p, dmg, target, ctx) {
   const m = p.mods;
   const kit = schoolKit();
   const turn = (combat && combat.turn) || 1;
+  if (target && isBelowRealm(target.id)) dmg *= SUB_REALM_DMG_MULT;   // v1.27.34: +20% vs foes below your realm
   if (m.firstStrikeBonus && turn <= 1 && !(ctx && ctx.instant)) dmg *= 1 + m.firstStrikeBonus;
   if (m.lowHpBonus && p.hp > 0 && p.hp / p.hpMax < 0.50) dmg *= 1 + m.lowHpBonus;  // v0.70: bloodied at <50% (was 33%)
   // v1.27: weapon REFINEMENT is now a real damage multiplier — gear investment that scales late-game
@@ -18429,7 +18498,7 @@ function renderCharSheet() {
       <div style="font-size:0.8rem;color:var(--ink-soft);margin-top:0.3rem">You may meet: ${enemies}</div>
       ${(() => { const rg = locationReagent(loc); return rg && MATERIALS[rg] ? `<div style="font-size:0.78rem;color:var(--jade);margin-top:0.15rem">Signature reagent: ${MATERIALS[rg].name}</div>` : ''; })()}
       <div style="font-size:0.78rem;color:var(--ink-soft);margin-top:0.15rem">Cultivation multiplier: ×${cultMult.toFixed(1)}</div>
-      ${loc.demonOnly ? `<div style="font-size:0.78rem;color:#c06;margin-top:0.15rem"><strong>Demonic Qi venture:</strong> foes +50%, insight +50%, no tribulation/hunter ambush — but a defeat costs 10% of this realm's insight.</div>` : ''}
+      ${loc.demonOnly ? `<div style="font-size:0.78rem;color:#c06;margin-top:0.15rem"><strong>Demonic Qi venture:</strong> foes ×10 Body / ×2.5 damage, insight +50%, no hunter ambush — but a rival demon of the realm above may contest it, and a defeat costs 10% of this realm's insight.</div>` : ''}
       ${reqHTML}
       <div class="location-actions" id="actions-${loc.id}"></div>`;
     locP.appendChild(card);
@@ -18445,8 +18514,13 @@ function renderCharSheet() {
           // tribulation/hunter ambush (already hunter-safe), but a defeat tears 10% of this realm's insight back out.
           if (loc.demonOnly) {
             combat.demonicQiVenture = true;
-            combat.enemies.forEach(e => { e.hpMax = Math.round((e.hpMax || 1) * 1.5); e.hp = e.hpMax; e.weaponPower = Math.round((e.weaponPower || 0) * 1.5); });
-            pushLog('flavor', 'You step onto demonic ground, qi running hot — the foes are fiercer and the spoils richer, and no righteous hunter dares follow. But fall here, and the qi tears insight back out of you.');
+            // v1.27.34: demonic-ground foes are far tankier + hit far harder (10x Body, 2.5x damage). Rival demons
+            // (realm+1) are already a full fight, so they skip this scaling.
+            combat.enemies.forEach(e => {
+              if (String(e.id || '').startsWith('demonic_rival_t')) return;
+              e.hpMax = Math.round((e.hpMax || 1) * 10); e.hp = e.hpMax; e.weaponPower = Math.round((e.weaponPower || 0) * 2.5);
+            });
+            pushLog('flavor', 'You step onto demonic ground, qi running hot — the foes are monstrous and the spoils richer, and no righteous hunter dares follow. But fall here, and the qi tears insight back out of you.');
           }
         }
         render();
