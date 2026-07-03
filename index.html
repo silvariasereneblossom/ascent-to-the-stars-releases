@@ -9023,8 +9023,8 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Tribulation resistance, resolve under pressure." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.40';
-  var BUILD_SHA = "c46e6c9";
+  var GAME_VERSION = 'v1.27.41';
+  var BUILD_SHA = "c36ce38";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -19276,27 +19276,39 @@
     MATERIALS[id] = { name, zh, rarity: "legendary", desc };
   });
   var DEATH_REVEAL_COST = [50, 100, 200, 400, 800, 1600, 3200];
-  var _tierBossMat = null;
-  function tierBossMat() {
-    if (_tierBossMat) return _tierBossMat;
-    _tierBossMat = {};
-    Object.keys(BOSS_UNIQUE_MATS).forEach((bid) => {
-      const tier = typeof BOSSES !== "undefined" && BOSSES[bid] ? BOSSES[bid].tier : null;
-      if (tier != null && _tierBossMat[tier] == null) _tierBossMat[tier] = BOSS_UNIQUE_MATS[bid][0];
-    });
-    return _tierBossMat;
-  }
   var DEATH_GLYPH_MIN_TIER = [0, 1, 2, 3, 4, 5, 6];
+  function deathGlyphBossMats() {
+    const tier = Math.min(6, state.realm && state.realm.tierIdx || 0);
+    return Object.keys(BOSS_UNIQUE_MATS).filter((bid) => typeof BOSSES !== "undefined" && BOSSES[bid] && BOSSES[bid].tier === tier).map((bid) => BOSS_UNIQUE_MATS[bid][0]);
+  }
   function deathGlyphCost(nextLvl) {
     const tier = Math.min(6, state.realm && state.realm.tierIdx || 0);
-    const out = {};
-    const mat = tierBossMat()[tier];
-    if (mat) out[mat] = 2 + nextLvl;
-    out.spirit_stone = 2e3 * (tier + 1) * nextLvl;
-    return out;
+    const base = 250 * tier;
+    return { stones: Math.round(base * (1 + 1.25 * (nextLvl - 1))), bossMats: nextLvl };
   }
   function canPayDeathGlyph(nextLvl) {
-    return Object.entries(deathGlyphCost(nextLvl)).every(([m, n]) => (state.base.materials[m] || 0) >= n);
+    const cost = deathGlyphCost(nextLvl);
+    const pool = deathGlyphBossMats().reduce((a, m) => a + (state.base.materials[m] || 0), 0);
+    return (state.base.materials.spirit_stone || 0) >= cost.stones && pool >= cost.bossMats;
+  }
+  function payDeathGlyph(nextLvl) {
+    if (!canPayDeathGlyph(nextLvl)) return false;
+    const cost = deathGlyphCost(nextLvl);
+    if (cost.stones > 0) {
+      state.base.materials.spirit_stone -= cost.stones;
+      if (state.base.materials.spirit_stone <= 0) delete state.base.materials.spirit_stone;
+    }
+    let need = cost.bossMats;
+    deathGlyphBossMats().sort((a, b) => (state.base.materials[b] || 0) - (state.base.materials[a] || 0)).forEach((m) => {
+      if (need <= 0) return;
+      const take = Math.min(need, state.base.materials[m] || 0);
+      if (take > 0) {
+        state.base.materials[m] -= take;
+        if (state.base.materials[m] <= 0) delete state.base.materials[m];
+        need -= take;
+      }
+    });
+    return true;
   }
   var RISEN_CINDER = "risen_cinder";
   MATERIALS[RISEN_CINDER] = {
@@ -20637,7 +20649,9 @@
       bossCdMult: "boss cooldown",
       hpMult: "max Body",
       critMult: "crit dmg",
-      qiDamageMult: "qi-barrier dmg"
+      qiDamageMult: "qi-barrier dmg",
+      herbGrowMult: "herb grow time"
+      // v1.27.41: was unlabeled — the Spirit Field card showed "(no stats)" at every level
     };
     Object.entries(mods).forEach(([k, v]) => {
       if (labels[k] && v) {
@@ -22076,7 +22090,9 @@
     const a = ARRAYS[aid];
     if (!a || !a.mods) return {};
     const lvl = arrayLevel(aid);
-    return lvl > 0 ? scaleBossMods(a.mods, 1 + 0.18 * lvl) : a.mods;
+    const out = lvl > 0 ? scaleBossMods(a.mods, 1 + 0.18 * lvl) : Object.assign({}, a.mods);
+    if (a.mods.herbGrowMult != null) out.herbGrowMult = Math.max(0.2, +(a.mods.herbGrowMult - 0.1 * lvl).toFixed(3));
+    return out;
   }
   function applyArraysToMods(mods, char) {
     activeArrays(char).forEach((id) => {
@@ -22148,7 +22164,8 @@
     millennium_peach: { price: 2e4, minTier: 5, kind: "consumable", supplyMs: 12 * 3600 * 1e3 },
     // v1.27: random-stat elixirs — each on its OWN 12h supply timer (supplyMs), outside the daily cap.
     // Tiers gate at start / Foundation Establishment (t2) / Nascent Soul (t5); 5000 / 10000 / 20000 stones.
-    essence_elixir_minor: { price: 5e3, minTier: 0, kind: "consumable", supplyMs: 12 * 3600 * 1e3 },
+    essence_elixir_minor: { price: 1e3, pricePerRealm: 1e3, minTier: 0, kind: "consumable", supplyMs: 12 * 3600 * 1e3 },
+    // v1.27.41: was flat 5000 — now 1k + 1k per realm above Mortal
     essence_elixir_greater: { price: 1e4, minTier: 2, kind: "consumable", supplyMs: 12 * 3600 * 1e3 },
     essence_elixir_supreme: { price: 2e4, minTier: 5, kind: "consumable", supplyMs: 12 * 3600 * 1e3 }
   };
@@ -22180,6 +22197,11 @@
   }
   function offerSupplyReady(matId) {
     return offerSupplyMsLeft(matId) <= 0;
+  }
+  function offerPrice(matId) {
+    const offer = MARKET_OFFERS[matId];
+    if (!offer) return Infinity;
+    return (offer.price || 0) + (offer.pricePerRealm || 0) * (state.realm && state.realm.tierIdx || 0);
   }
   function marketDailyCap(char) {
     const tier = char && char.realm ? char.realm.tierIdx : 0;
@@ -22231,14 +22253,14 @@
     if (!offer) return false;
     const tier = state.realm && state.realm.tierIdx || 0;
     if ((offer.minTier || 0) > tier) return false;
-    if ((state.base.materials.spirit_stone || 0) < offer.price) return false;
+    if ((state.base.materials.spirit_stone || 0) < offerPrice(matId)) return false;
     if (offer.supplyMs) {
       if (!offerSupplyReady(matId)) return false;
     } else {
       const used = Object.values(state.market.boughtToday).reduce((a, b) => a + b, 0);
       if (used >= marketDailyCap(state)) return false;
     }
-    state.base.materials.spirit_stone -= offer.price;
+    state.base.materials.spirit_stone -= offerPrice(matId);
     if (state.base.materials.spirit_stone <= 0) delete state.base.materials.spirit_stone;
     if (offer.kind === "consumable") state.base.consumables[matId] = (state.base.consumables[matId] || 0) + 1;
     else if (HERBS[matId]) state.base.herbs[matId] = (state.base.herbs[matId] || 0) + 1;
@@ -28596,18 +28618,19 @@
       } else {
         stockNote = `, ${sold} bought`;
       }
+      const price = offerPrice(matId);
       const row = document.createElement("div");
       row.className = "consumable-row";
       row.innerHTML = `
       <div class="consumable-info">
-        <div class="consumable-name">${nm}${kindTag} <span style="color:var(--ink-soft);font-size:0.75rem">— ${offer.price} stones each${stockNote}</span></div>
+        <div class="consumable-name">${nm}${kindTag} <span style="color:var(--ink-soft);font-size:0.75rem">— ${price} stones each${stockNote}</span></div>
         <div class="consumable-desc">${desc}</div>
       </div>`;
       const btns = document.createElement("div");
       btns.className = "consumable-buttons";
       const b = document.createElement("button");
-      const canBuy = stones >= offer.price && (isSupply ? offerSupplyReady(matId) : remaining > 0);
-      b.textContent = `Buy 1 (${offer.price})`;
+      const canBuy = stones >= price && (isSupply ? offerSupplyReady(matId) : remaining > 0);
+      b.textContent = `Buy 1 (${price})`;
       b.disabled = !canBuy;
       b.onclick = () => {
         if (marketBuyMaterial(matId)) render();
@@ -28947,7 +28970,11 @@
           gb.style.opacity = "0.6";
         } else {
           const cost = deathGlyphCost(nextLvl);
-          const costStr = Object.entries(cost).map(([m, n]) => `${n.toLocaleString()}× ${MATERIALS[m] && MATERIALS[m].name || m}`).join(", ");
+          const matNames = deathGlyphBossMats().map((m) => MATERIALS[m] && MATERIALS[m].name || m).join(" or ");
+          const costStr = [
+            cost.stones > 0 ? `${cost.stones.toLocaleString()}× Spirit Stone` : null,
+            `${cost.bossMats}× boss essence (${matNames})`
+          ].filter(Boolean).join(", ");
           if (!canPayDeathGlyph(nextLvl)) {
             gb.textContent = `Carve glyph (+1 cap) — need ${costStr}`;
             gb.disabled = true;
@@ -28955,9 +28982,7 @@
           } else {
             gb.textContent = `Carve the Soul-Anchor glyph (+1 cap) — ${costStr}`;
             gb.onclick = () => {
-              Object.entries(cost).forEach(([m, n]) => {
-                state.base.materials[m] = (state.base.materials[m] || 0) - n;
-              });
+              if (!payDeathGlyph(nextLvl)) return;
               state.deathCapArray = nextLvl;
               saveChar();
               render();
