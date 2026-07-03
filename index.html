@@ -239,29 +239,11 @@
   label { font-size: 0.9rem; }
   p { line-height: 1.5; }
 
-  /* Tooltip */
+  /* Tooltip — rendering handled entirely by the JS overlay (#tip-overlay in main.js),
+     which serves BOTH mouse hover and tap. The old CSS :hover::after tip is gone: with
+     both systems live, desktop users got two overlapping tips (hover + tap), and the
+     CSS tip clipped inside dense scrolling lists. Keep .tip as the marker class. */
   .tip { position: relative; }
-  .tip:hover::after {
-    content: attr(data-tip);
-    position: absolute;
-    bottom: calc(100% + 6px);
-    left: 50%;
-    transform: translateX(-50%);
-    background: #1a130e;
-    color: #e8d9b5;
-    padding: 0.5rem 0.7rem;
-    font-size: 0.78rem;
-    line-height: 1.35;
-    border-radius: 3px;
-    white-space: normal;
-    width: max-content;
-    max-width: 260px;
-    z-index: 100;
-    pointer-events: none;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-    border: 1px solid var(--gold);
-    text-align: left;
-  }
 
   /* Realm + cultivation */
   .realm-header {
@@ -2313,7 +2295,7 @@
       hits: 4,
       postureBuild: 32,
       // v1.27.22: now genuinely multi-hit (4 cuts)
-      desc: "Cascading strikes that wear down any defense. Massive posture pressure — often enough to break on its own.",
+      desc: "Cascading strikes that wear down any defense. Massive posture pressure.",
       logHit: (a, t) => `${a}'s blade splits into a hundred rippling echoes. ${t} is buried in silver.`
     },
     azure_severing: {
@@ -2324,7 +2306,7 @@
       cd: 3,
       damage: 5.2,
       postureBuild: 12,
-      desc: "A single devastating cleave — save it for a broken stance. Small posture build, enormous damage.",
+      desc: "A single devastating cleave. Small posture build, enormous damage — at its most fearsome against a broken stance.",
       logHit: (a, t) => `${a} draws the blade back — then severs the air itself.`
     },
     azure_stance: {
@@ -2374,7 +2356,7 @@
       cd: 3,
       damage: 5,
       postureBuild: 12,
-      desc: "Burn your own vitality for a devastating blow. The finisher that broken stances were made for.",
+      desc: "Burn your own vitality for a devastating blow, heaviest of all upon a broken stance.",
       logHit: (a, t) => `${a} bites through their own tongue — blood roars — the strike falls like a mountain.`
     },
     iron_stance: {
@@ -2401,7 +2383,7 @@
       effect: "qi_drain",
       effectValue: 8,
       effectTurns: 3,
-      desc: "Inscribes a draining glyph. Enemy loses 8 qi per turn for 3 turns — cripples casters.",
+      desc: "Inscribes a draining glyph upon the foe. They bleed 8 qi per turn for 3 turns.",
       logHit: (a, t) => `${a} traces a glyph in the air — it hangs there, siphoning ${t}'s breath.`
     },
     array_soul: {
@@ -2523,7 +2505,7 @@
       effect: "qi_drain",
       effectValue: 10,
       effectTurns: 3,
-      desc: "Binds the enemy in crystalline qi. Drains 10 qi per turn for 3 turns — punishing for casters.",
+      desc: "Binds the enemy in crystalline qi. Drains 10 qi per turn for 3 turns.",
       logHit: (a, t) => `${a} draws a ring in the air — ${t} is inside it before the shape closes.`
     },
     mirror_stance: {
@@ -2601,7 +2583,7 @@
       directHP: 3,
       postureBuild: 14,
       noCdScale: true,
-      desc: "A raking THREE-talon flurry that drinks through qi-armour — each rake brands a Hellfire stack. Demon-Heart's hellfire engine: hellfire only stacks from technique hits now, and this is the fastest way to pile it on.",
+      desc: "A raking THREE-talon flurry that drinks through qi-armour — each rake brands a Hellfire stack.",
       logHit: (a, t) => `${a}'s claws rake ${t} thrice; the skin opens, and the fire takes hold.`
     },
     demon_devour: {
@@ -2668,7 +2650,7 @@
       effect: "mark",
       effectValue: 0.25,
       effectTurns: 3,
-      desc: "AOE. Three falling waves — hits every standing foe 3× and Star-Marks each one.",
+      desc: "Three falling waves — hits every standing foe 3× and Star-Marks each one.",
       logHit: (a, t) => `Three waves of arrows fall from the dark at once.`
     },
     pierce_the_sky: {
@@ -2791,7 +2773,7 @@
       damage: 0,
       postureBuild: 10,
       buff: { postureBoost: 2, turns: 2 },
-      desc: "Call the storm into the haft: your posture damage is DOUBLED for 2 rounds. Break stances; Aftershock does the rest.",
+      desc: "Call the storm into the haft: your posture damage is DOUBLED for 2 rounds.",
       logHit: (a, t) => `Thunder answers ${a} from a clear sky, and settles into the hammer.`
     },
     // ============ Cloud Travelers Guild (4) ============
@@ -2989,7 +2971,7 @@
       damage: 2,
       postureBuild: 16,
       consumeBonus: { kind: "sunder", perStack: 0.8 },
-      desc: "The payoff swing: consumes the target's Sunder stacks for +80% damage per stack. Melt the armor, then quench the blade in what's left.",
+      desc: "A blade quenched in ruined armor: consumes the target's Sunder stacks for +80% damage per stack.",
       logHit: (a, t) => `${a} brings the blade down through everything Moltenwake already loosened.`
     },
     // ============ Chain-Saint Cloister (4) ============
@@ -3524,7 +3506,7 @@
       cd: 2,
       damage: 2,
       postureBuild: 15,
-      desc: "A column of flame splits the air. AOE strike. (FE+)",
+      desc: "A column of flame splits the air. (FE+)",
       logHit: (a, t) => `${a} drives the saber down; flame rises in a column where it lands.`
     },
     // ---- Core Formation (tier 3) ----
@@ -3602,7 +3584,7 @@
       effect: "qi_drain",
       effectValue: 10,
       effectTurns: 3,
-      desc: "A long low note that opens every nearby qi shield. AOE drain. (GC+)",
+      desc: "A long low note that opens every nearby qi shield, draining 10 qi per turn for 3 turns. (GC+)",
       logHit: (a, t) => `${a} plays a note no living throat could hold; qi peels off ${t} like wet paper.`
     },
     // ---- Nascent Soul (tier 5) ----
@@ -3620,7 +3602,7 @@
       effect: "qi_cost_up",
       effectValue: 1.8,
       effectTurns: 2,
-      desc: "A chain looped through every standing meridian at once. AOE control. (NS+)",
+      desc: "A chain looped through every standing meridian at once. Technique costs +80% for 2 turns. (NS+)",
       logHit: (a, t) => `${a} slings the chain in a shape that does not close — except around ${t} and any that stand near.`
     },
     phoenix_revival: {
@@ -3652,7 +3634,7 @@
       effect: "qi_cost_up",
       effectValue: 2.2,
       effectTurns: 3,
-      desc: "A formation drawn beneath every opponent at once. AOE qi-cost-up. (NS+)",
+      desc: "A formation drawn beneath every opponent at once. Technique costs +120% for 3 turns. (NS+)",
       logHit: (a, t) => `${a} draws a single line; nine glyphs ignite in a perfect ring under everyone present.`
     },
     // ============ v0.45: school signature techniques (5th base slot). Each delivers the
@@ -3667,7 +3649,7 @@
       damage: 2.2,
       postureBuild: 16,
       intentStacks: 2,
-      desc: "A cut informed by the two before it. ST. Grants +2 Sword Intent stacks on hit.",
+      desc: "A cut informed by the two before it. Grants +2 Sword Intent stacks on hit.",
       logHit: (a, t) => `${a}'s blade arrives where the first two cuts taught it to — ${t} is already there.`
     },
     iron_avalanche: {
@@ -3694,7 +3676,7 @@
       effect: "entangle",
       effectValue: 10,
       effectTurns: 2,
-      desc: "Glyphs close from five directions at once. AOE. Entangles: 10 qi drained per turn and meditation is sealed.",
+      desc: "Glyphs close from five directions at once. Entangles: 10 qi drained per turn and meditation is sealed.",
       logHit: (a, t) => `Five glyphs ignite in a ring; every direction ${t} considers is already written against.`
     },
     flame_ashfall: {
@@ -3711,7 +3693,7 @@
       effectPower: 0.18,
       effectTurns: 3,
       effectStacks: 2,
-      desc: "The air itself catches. AOE; +35% damage per debuff stack already on the target (detonates your Burn). Applies 2 Burn stacks — fire that ticks past qi shields.",
+      desc: "The air itself catches. +35% damage per debuff stack already on the target (detonates your Burn). Applies 2 Burn stacks — fire that ticks past qi shields.",
       logHit: (a, t) => `Ash falls upward around ${a}; everything it touches begins, politely, to burn.`
     },
     water_undertow: {
@@ -3726,7 +3708,7 @@
       effect: "chill",
       effectValue: 0.3,
       effectTurns: 2,
-      desc: "The cold below the wave. AOE. Chills every opponent: their damage drops 30% for 2 turns.",
+      desc: "The cold below the wave. Chills every opponent: their damage drops 30% for 2 turns.",
       logHit: (a, t) => `The floor of the world turns to cold water; ${t} moves slower coming out than going in.`
     },
     dagger_venom: {
@@ -3741,7 +3723,7 @@
       effectPower: 0.1,
       effectTurns: 4,
       effectStacks: 3,
-      desc: "Seven steps, they say, before the legs answer to someone else. ST. Applies 3 Poison stacks.",
+      desc: "Seven steps, they say, before the legs answer to someone else. Applies 3 Poison stacks.",
       logHit: (a, t) => `${a}'s blade barely touches ${t}. That is the bad news.`
     },
     demon_parasite: {
@@ -3755,7 +3737,7 @@
       effect: "leech",
       effectPower: 0.22,
       effectTurns: 3,
-      desc: "A clawed brand that eats in your name. ST. The wound feeds you each turn for 3 turns.",
+      desc: "A clawed brand that eats in your name. The wound feeds you each turn for 3 turns.",
       logHit: (a, t) => `${a} claws a character into ${t} that means, roughly, "mine".`
     },
     star_mark: {
@@ -3784,7 +3766,7 @@
       postureBuild: 12,
       effectScale: { perEffect: 0.35, max: 10 },
       selfBuff: { regrowthPct: 0.06, turns: 3 },
-      desc: "Borrow the patience of trees. AOE strike (+35% damage per debuff stack on the target), and you regrow 6% max Body per turn for 3 turns.",
+      desc: "Borrow the patience of trees. The strike gains +35% damage per debuff stack on the target, and you regrow 6% max Body per turn for 3 turns.",
       logHit: (a, t) => `Green light moves through ${a} like sap rising; the staff falls on ${t} almost as an afterthought.`
     },
     thunder_roll: {
@@ -3800,7 +3782,7 @@
       effectValue: 0,
       effectTurns: 1,
       effectChance: 0.35,
-      desc: "The hammer-fall that keeps falling. AOE, heavy posture. 35% chance to Shock each target (loses its next action).",
+      desc: "The hammer-fall that keeps falling. Heavy posture pressure. 35% chance to Shock each target (loses its next action).",
       logHit: (a, t) => `${a}'s hammer lands once; the sound lands several more times.`
     },
     cloud_mistwalk: {
@@ -3829,7 +3811,7 @@
       effect: "resonance",
       effectValue: 8,
       effectTurns: 3,
-      desc: "Every bone hums the same note. AOE spirit damage (+35% Body damage per debuff stack on the target); Resonance drains spirit each turn. Empty spirit = soul-broken (+30% damage taken).",
+      desc: "Every bone hums the same note. Spirit damage, +35% Body damage per debuff stack on the target; Resonance drains spirit each turn. Empty spirit = soul-broken (+30% damage taken).",
       logHit: (a, t) => `${a} plays a chord no single flute should manage; ${t}'s skeleton joins in against its will.`
     },
     ink_silence: {
@@ -3844,7 +3826,7 @@
       effect: "silence",
       effectValue: 0,
       effectTurns: 2,
-      desc: "One character, perfectly drawn. ST; +35% damage per debuff stack already on the target. Silenced: the enemy cannot use techniques for 2 turns.",
+      desc: "One character, perfectly drawn. +35% damage per debuff stack already on the target. Silenced: the enemy cannot use techniques for 2 turns.",
       logHit: (a, t) => `${a} writes "hush" in the air between them; ${t} opens their mouth and nothing arrives.`
     },
     forge_slag: {
@@ -3859,7 +3841,7 @@
       effectValue: 0.06,
       effectTurns: 3,
       effectStacks: 2,
-      desc: "Strike the armor as if it were ore. ST. Applies 2 Sunder stacks: +6% damage taken each, and armor stops counting.",
+      desc: "Strike the armor as if it were ore. Applies 2 Sunder stacks: +6% damage taken each, and armor stops counting.",
       logHit: (a, t) => `${a}'s blade treats ${t}'s guard as raw material, and begins refining.`
     },
     chain_litany: {
@@ -3874,7 +3856,7 @@
       effect: "oathbound",
       effectPower: 0.35,
       effectTurns: 3,
-      desc: "A prayer said in iron. AOE. Oath-bound enemies take backlash damage every time they use a technique.",
+      desc: "A prayer said in iron. Oath-bound enemies take backlash damage every time they use a technique.",
       logHit: (a, t) => `${a} recites; the chain punctuates. Everything standing is now party to the contract.`
     },
     // ---- Spirit Severing (tier 6) ----
@@ -9041,8 +9023,8 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Tribulation resistance, resolve under pressure." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.38';
-  var BUILD_SHA = "c853952";
+  var GAME_VERSION = 'v1.27.39';
+  var BUILD_SHA = "0b50ee0";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -10209,7 +10191,7 @@
       effect: "qi_cost_up",
       effectValue: 1.5,
       effectTurns: 2,
-      desc: "The severing array, editing the enemy's grammar: AOE damage and their techniques cost x1.5 qi.",
+      desc: "The severing array, editing the enemy's grammar: strikes the whole field and their techniques cost x1.5 qi.",
       logHit: (a, t) => `${a} strikes three characters from the field's vocabulary. Casting becomes expensive.`
     },
     array_p3_doublestroke: {
@@ -10267,7 +10249,7 @@
       effect: "qi_drain",
       effectValue: 20,
       effectTurns: 3,
-      desc: "The pavilion's great work: heavy AOE damage and 20 qi/turn siphoned from everything standing.",
+      desc: "The pavilion's great work: heavy damage and 20 qi/turn siphoned from everything standing.",
       logHit: (a, t) => `${a} unfolds the full array. A hundred inked hands take hold of every meridian present.`
     },
     array_p5_witnessed: {
@@ -10295,7 +10277,7 @@
       effect: "silence",
       effectValue: 0,
       effectTurns: 2,
-      desc: "The arrangement after which nothing needs arranging: massive AOE and the field is Silenced 2 turns.",
+      desc: "The arrangement after which nothing needs arranging: massive damage and the field is Silenced 2 turns.",
       logHit: (a, t) => `${a} dots the last stroke. The argument is over; the fight simply hasn't noticed yet.`
     },
     array_p6_white_space: {
@@ -10326,7 +10308,7 @@
       effect: "burn",
       effectPower: 0.14,
       effectTurns: 3,
-      desc: "The rending flame, fed properly: AOE damage and a fresh Burn on everything it touches.",
+      desc: "The rending flame, fed properly: damage and a fresh Burn on everything it touches.",
       logHit: (a, t) => `${a} opens the field like a banquet, and the fire is seated first.`
     },
     flame_p1_kindling: {
@@ -10350,7 +10332,7 @@
       damage: 2.2,
       postureBuild: 12,
       consumeBonus: { kind: "burn", perStack: 0.55 },
-      desc: "The payoff swing: consumes the target's Burn stacks for +55% damage per stack. Cook, then carve.",
+      desc: "A carving stroke that reaches into the fire already set: consumes the target's Burn stacks for +55% damage per stack.",
       logHit: (a, t) => `${a} reaches into the fire already living in ${t} and pulls it all out at once.`
     },
     flame_p2_ashes: {
@@ -10378,7 +10360,7 @@
       effectPower: 0.16,
       effectTurns: 3,
       effectStacks: 2,
-      desc: "The cry that answers itself: heavier AOE and 2 Burn stacks on every target.",
+      desc: "The cry that answers itself: heavier damage and 2 Burn stacks on every target.",
       logHit: (a, t) => `${a} cries the note twice; the second dawn is the one that takes.`
     },
     flame_p3_nine_century: {
@@ -10432,7 +10414,7 @@
       effectPower: 0.2,
       effectTurns: 4,
       effectStacks: 2,
-      desc: "Ashfall taught to eat the air on its way down. Heavy AOE; long, deep double Burns.",
+      desc: "Ashfall taught to eat the air on its way down. Heavy damage across the field; long, deep double Burns.",
       logHit: (a, t) => `${a} brings the sky down in grey sheets. Breathing becomes a negotiation.`
     },
     flame_p5_everburn_truth: {
@@ -10458,7 +10440,7 @@
       postureBuild: 20,
       target: "aoe",
       consumeBonus: { kind: "burn", perStack: 0.5 },
-      desc: "The pagoda's final argument: enormous AOE that ALSO consumes the primary target's Burns for +50% per stack.",
+      desc: "The pagoda's final argument: enormous damage to the whole field that ALSO consumes the primary target's Burns for +50% per stack.",
       logHit: (a, t) => `${a} stops feeding the fire and starts spending it. The field becomes a single bright debt.`
     },
     flame_p6_brazier_heart: {
@@ -10512,7 +10494,7 @@
       postureBuild: 6,
       qiRestore: 12,
       buff: { incomingMult: 0.5, turns: 1 },
-      desc: "Become the unbroken surface: -50% incoming for a round and +12 qi. Let them tire against water.",
+      desc: "Become the unbroken surface: -50% incoming for a round and +12 qi.",
       logHit: (a, t) => `${a} goes flat and reflective; the next blow lands on its own image.`
     },
     water_p2_patient_cold: {
@@ -10539,7 +10521,7 @@
       effect: "chill",
       effectValue: 0.28,
       effectTurns: 2,
-      desc: "The undertow that does not let go on the first pull: AOE damage and a -28% Chill across the field.",
+      desc: "The undertow that does not let go on the first pull: damage and a -28% Chill across the field.",
       logHit: (a, t) => `The water under everyone's footing develops opinions, all of them downward.`
     },
     water_p3_glacier: {
@@ -10592,7 +10574,7 @@
       damage: 5.8,
       postureBuild: 30,
       consumeBonus: { kind: "chill", perStack: 0.9 },
-      desc: "The attrition pays out: consumes the target's Chill for +90% damage per stack. Freeze, then break.",
+      desc: "One precise tap against frozen flesh: consumes the target's Chill for +90% damage per stack.",
       logHit: (a, t) => `${a} taps once, precisely, and everything the cold has been holding lets go at once.`
     },
     water_p5_never_freezes: {
@@ -10622,7 +10604,7 @@
       effect: "chill",
       effectValue: 0.4,
       effectTurns: 3,
-      desc: "The lake stands up. Massive AOE and a -40% Chill that outlasts most resolutions.",
+      desc: "The lake stands up. Massive damage across the field and a -40% Chill that outlasts most resolutions.",
       logHit: (a, t) => `${a} lifts the spear; the water table follows it. What the tide takes, it keeps.`
     },
     water_p6_drowned_patience: {
@@ -11034,7 +11016,7 @@
         m.spiritDamageMult *= 1.4;
         m.lifestealPct += 0.05;
       },
-      desc: "PASSIVE. The soul is the sweeter meat: +40% Spirit damage (break souls faster) and +5% lifesteal."
+      desc: "PASSIVE. The soul is the sweeter meat: +40% Spirit damage and +5% lifesteal."
     },
     // ============ Starfall Archers — the sky keeps appointments ============
     star_arrow_named: {
@@ -11100,7 +11082,7 @@
       damage: 3.4,
       postureBuild: 14,
       target: "aoe",
-      desc: "The volley during the busy season: heavy AOE arrows with the sky's full cooperation.",
+      desc: "The volley during the busy season: heavy arrows on every standing foe, with the sky's full cooperation.",
       logHit: (a, t) => `${a} signals; the night sky clears its calendar.`
     },
     star_p3_windless: {
@@ -11129,7 +11111,7 @@
       effect: "mark",
       effectValue: 0.3,
       effectTurns: 2,
-      desc: "One arrow, pre-booked at terminal velocity: heavy single-target damage and a +30% Mark.",
+      desc: "One arrow, pre-booked at terminal velocity: heavy damage and a +30% Mark.",
       logHit: (a, t) => `${a}'s arrow arrives precisely when it always said it would.`
     },
     star_p4_astronomer: {
@@ -11157,7 +11139,7 @@
       effect: "mark",
       effectValue: 0.2,
       effectTurns: 2,
-      desc: "The hail with names on every stone: heavy AOE and a +20% Mark on everything still standing.",
+      desc: "The hail with names on every stone: heavy damage and a +20% Mark on everything still standing.",
       logHit: (a, t) => `${a} brings the census down. Everyone present is counted, hard.`
     },
     star_p5_second_sight: {
@@ -11236,7 +11218,7 @@
       effect: "entangle",
       effectValue: 0,
       effectTurns: 2,
-      desc: "Invite the field to be held: AOE damage and 2-turn Entangle on everything standing.",
+      desc: "Invite the field to be held: damage and 2-turn Entangle on everything standing.",
       logHit: (a, t) => `The floor sprouts opinions. Everyone present is gently, firmly included.`
     },
     grove_p2_evergreen: {
@@ -11263,7 +11245,7 @@
       effect: "leech",
       effectPower: 0.15,
       effectTurns: 2,
-      desc: "The sweep at canopy height: heavy AOE and leeching roots in every wound.",
+      desc: "The sweep at canopy height: heavy damage across the field and leeching roots in every wound.",
       logHit: (a, t) => `${a} brings the whole green weight of the season down across the field.`
     },
     grove_p3_heartwood: {
@@ -11315,7 +11297,7 @@
       cd: 3,
       damage: 6.6,
       postureBuild: 30,
-      desc: "Borrow the weight of the oldest tree: enormous single-target damage with crushing posture.",
+      desc: "Borrow the weight of the oldest tree: enormous damage with crushing posture.",
       logHit: (a, t) => `${a} swings something that remembers being a forest. ${t} remembers being elsewhere.`
     },
     grove_p5_grove_provides: {
@@ -11343,7 +11325,7 @@
       effect: "entangle",
       effectValue: 0,
       effectTurns: 2,
-      desc: "The monastery's oldest sermon, delivered all at once: massive AOE, and the congregation is Rooted.",
+      desc: "The monastery's oldest sermon, delivered all at once: massive damage, and the congregation is Rooted.",
       logHit: (a, t) => `${a} speaks for the grove. The field, overruled, becomes garden.`
     },
     grove_p6_older_than_monks: {
@@ -11368,7 +11350,7 @@
       damage: 2.2,
       postureBuild: 24,
       target: "aoe",
-      desc: "The opening smash with the forge's full weight: AOE with brutal posture pressure.",
+      desc: "The opening smash with the forge's full weight: brutal posture pressure on every foe.",
       logHit: (a, t) => `${a}'s hammer comes down like an industrial accident with intentions.`
     },
     thunder_p1_anvil_shoulders: {
@@ -11473,7 +11455,7 @@
       effectValue: 0,
       effectTurns: 1,
       effectChance: 0.35,
-      desc: "Drop the workbench itself: massive AOE posture ruin, 35% Shock on every target.",
+      desc: "Drop the workbench itself: massive posture ruin, 35% Shock on every target.",
       logHit: (a, t) => `${a} borrows heaven's anvil and returns it via everyone present.`
     },
     thunder_p5_aftershock_law: {
@@ -11522,7 +11504,7 @@
       damage: 2.1,
       postureBuild: 14,
       target: "aoe",
-      desc: "The chakram takes the scenic route through everyone: improved AOE chip with travel pay.",
+      desc: "The chakram takes the scenic route through everyone, collecting travel pay from each.",
       logHit: (a, t) => `${a}'s ring goes sightseeing through the entire opposition.`
     },
     cloud_p1_loose_grip: {
@@ -11574,7 +11556,7 @@
       effect: "chill",
       effectValue: 0.15,
       effectTurns: 2,
-      desc: "The vortex visits every shrine on the field: heavy AOE, and the wind-chill saps -15% damage.",
+      desc: "The vortex visits every shrine on the field: heavy damage, and the wind-chill saps -15% damage.",
       logHit: (a, t) => `${a} sets the air walking in circles. Everyone inside walks with it, unwillingly.`
     },
     cloud_p3_no_address: {
@@ -11600,7 +11582,7 @@
       effect: "mark",
       effectValue: 0.2,
       effectTurns: 2,
-      desc: "The cut that charges for the view: heavy single-target damage and a +20% Mark.",
+      desc: "The cut that charges for the view: heavy damage and a +20% Mark.",
       logHit: (a, t) => `${a}'s ring clips ${t} at the exact height where the horizon keeps its accounts.`
     },
     cloud_p4_guild_dues: {
@@ -11626,7 +11608,7 @@
       postureBuild: 10,
       target: "aoe",
       buff: { dodgeChance: 0.45, counterOnDodge: 0.8, turns: 2 },
-      desc: "Declare independence from geography: AOE chip, then +45% dodge with 80%-power counters for 2 rounds.",
+      desc: "Declare independence from geography: a glancing cut across the field, then +45% dodge with 80%-power counters for 2 rounds.",
       logHit: (a, t) => `${a} secedes from the battlefield. The battlefield keeps paying taxes anyway.`
     },
     cloud_p5_wind_underfoot: {
@@ -11707,7 +11689,7 @@
       effect: "resonance",
       effectValue: 8,
       effectTurns: 3,
-      desc: "The brass kettle joins in: AOE spirit pressure and a long Resonance toward soul-break.",
+      desc: "The brass kettle joins in: spirit pressure across the field and a long Resonance toward soul-break.",
       logHit: (a, t) => `Somewhere in the cave, the kettle starts to sing along. It knows this one.`
     },
     reed_p2_seven_flutes: {
@@ -11788,7 +11770,7 @@
       effect: "resonance",
       effectValue: 12,
       effectTurns: 3,
-      desc: "The song performed in full: heavy AOE, 28 direct spirit, deep Resonance. Souls check the exits.",
+      desc: "The song performed in full: heavy damage, 28 direct spirit, deep Resonance. Souls check the exits.",
       logHit: (a, t) => `${a} performs the whole piece. The audience's souls give a standing ovation, involuntarily.`
     },
     reed_p5_marrow_choir: {
@@ -11816,7 +11798,7 @@
       effect: "resonance",
       effectValue: 16,
       effectTurns: 3,
-      desc: "The piece the hermitage saves for last: enormous AOE spirit ruin. Most souls leave before the coda.",
+      desc: "The piece the hermitage saves for last: enormous spirit ruin across the field. Most souls leave before the coda.",
       logHit: (a, t) => `${a} plays the one that ends with the audience asleep, permanently inclined.`
     },
     reed_p6_cliff_cave: {
@@ -11899,7 +11881,7 @@
       effect: "qi_cost_up",
       effectValue: 1.4,
       effectTurns: 2,
-      desc: "The binding character, promoted to law: AOE damage and enemy techniques cost x1.4 qi.",
+      desc: "The binding character, promoted to law: strikes the whole field and enemy techniques cost x1.4 qi.",
       logHit: (a, t) => `${a} publishes the edict mid-air. Compliance is extracted, not requested.`
     },
     ink_p3_archivists_eye: {
@@ -12170,7 +12152,7 @@
       damage: 2.2,
       postureBuild: 18,
       target: "aoe",
-      desc: "The lash with the cloister watching: improved AOE and the chain remembers each face it touches.",
+      desc: "The lash with the cloister watching: it sweeps every foe, and the chain remembers each face it touches.",
       logHit: (a, t) => `${a}'s chain cracks across the field, taking attendance.`
     },
     chain_p1_first_vow: {
@@ -12223,7 +12205,7 @@
       effect: "qi_drain",
       effectValue: 14,
       effectTurns: 3,
-      desc: "The praying wrap, scaled to the whole congregation: AOE damage and 14 qi/turn from every foe.",
+      desc: "The praying wrap, scaled to the whole congregation: damage and 14 qi/turn from every foe.",
       logHit: (a, t) => `${a}'s chain takes the whole field into the cloister's care, snugly.`
     },
     chain_p3_collection_round: {
@@ -12302,7 +12284,7 @@
       postureBuild: 22,
       target: "aoe",
       consumeBonus: { kind: "oathbound", perStack: 1.2 },
-      desc: "The cloister forecloses: massive AOE that consumes the primary target's Oathbind for +120% per stack.",
+      desc: "The cloister forecloses: massive damage across the field that consumes the primary target's Oathbind for +120% per stack.",
       logHit: (a, t) => `${a} pulls every chain at once. The ledger balances, loudly, in the cloister's favor.`
     },
     chain_p6_chain_remembers: {
@@ -12336,7 +12318,7 @@
       effect: "bleed",
       effectPower: 0.1,
       effectTurns: 3,
-      desc: "Pay 8 Body for a three-cut flurry far above your station. Each cut lands your on-hit riders (hellfire stacks fast) — the demonic path's buyable hellfire engine, in any school. Leaves an open wound.",
+      desc: "Pay 8 Body for a three-cut flurry far above your station. Each cut lands your on-hit riders (hellfire stacks fast). Leaves an open wound.",
       logHit: (a, t) => `${a} pays in advance; ${t} covers the remainder thrice over, in installments.`
     },
     dem_p1_scar_ledger: {
@@ -12479,7 +12461,7 @@
       effect: "leech",
       effectPower: 0.35,
       effectTurns: 3,
-      desc: "The path's destination, rehearsed: pay 26 Body for enormous AOE and leeches in everything standing.",
+      desc: "The path's destination, rehearsed: pay 26 Body for enormous damage and leeches in everything standing.",
       logHit: (a, t) => `${a} opens wide. The sky, sensibly, backs up a span.`
     },
     dem_p6_path_complete: {
@@ -12748,7 +12730,7 @@
       effectPower: 0.1,
       effectTurns: 3,
       effectStacks: 2,
-      desc: "The binding glyph, rewritten to bind FLESH. AOE: every standing foe is opened and kept open (2 Bleed stacks).",
+      desc: "The binding glyph, rewritten to bind FLESH. Every standing foe is opened and kept open (2 Bleed stacks).",
       logHit: (a, t) => `${a} writes the character for "open" on the air; everyone present complies.`
     }],
     crimson_flame: ["dem_sig_flame", {
@@ -12767,7 +12749,7 @@
       effectPower: 0.22,
       effectTurns: 3,
       effectStacks: 3,
-      desc: "Feed the fire something personal. AOE, pays 8 Body: 3 Burn stacks on everything standing.",
+      desc: "Feed the fire something personal. Pays 8 Body: 3 Burn stacks on everything standing.",
       logHit: (a, t) => `${a} burns a memory as kindling; the pyre takes everyone's measure.`
     }],
     moonlit_water: ["dem_sig_water", {
@@ -12782,7 +12764,7 @@
       effect: "chill",
       effectValue: 0.35,
       effectTurns: 2,
-      desc: "The undertow, given hands. AOE: every foe is dragged under — their damage drops 35% for 2 turns.",
+      desc: "The undertow, given hands. Every foe is dragged under — their damage drops 35% for 2 turns.",
       logHit: (a, t) => `Cold hands close around every ankle present. The lake is patient.`
     }],
     silent_daggers: ["dem_sig_daggers", {
@@ -12815,7 +12797,7 @@
       effect: "leech",
       effectPower: 0.35,
       effectTurns: 3,
-      desc: "The First Heresy's own brand, unabridged. ST: a leech that drinks deep and feeds it all to you.",
+      desc: "The First Heresy's own brand, unabridged. A leech that drinks deep and feeds it all to you.",
       logHit: (a, t) => `${a} signs ${t} in the Palace ledger; collection begins immediately.`
     }],
     starfall: ["dem_sig_starfall", {
@@ -12845,7 +12827,7 @@
       effect: "leech",
       effectPower: 0.15,
       effectTurns: 3,
-      desc: "The grove plants itself in THEM now. AOE: leeches root in every foe and feed you each turn.",
+      desc: "The grove plants itself in THEM now. Leeches root in every foe and feed you each turn.",
       logHit: (a, t) => `Pale shoots blossom from every wound on the field, all leaning toward ${a}.`
     }],
     thunder_hammer: ["dem_sig_thunder", {
@@ -12861,7 +12843,7 @@
       effectValue: 0,
       effectTurns: 1,
       effectChance: 0.5,
-      desc: "The tomb-iron rings for whom it pleases. AOE, heavy posture; 50% to Shock each target.",
+      desc: "The tomb-iron rings for whom it pleases. Heavy posture pressure; 50% to Shock each target.",
       logHit: (a, t) => `${a} swings; somewhere a grave answers. Several knees consider their options.`
     }],
     cloud_traveler: ["dem_sig_cloud", {
@@ -12889,7 +12871,7 @@
       effect: "resonance",
       effectValue: 12,
       effectTurns: 3,
-      desc: "Every soul this flute has eaten sings backup. AOE spirit damage + heavy Resonance toward soul-break.",
+      desc: "Every soul this flute has eaten sings backup. Spirit damage + heavy Resonance toward soul-break.",
       logHit: (a, t) => `${a} plays one note; a hundred missing voices harmonize. ${t}'s soul tries to leave early.`
     }],
     jade_inkwell: ["dem_sig_ink", {
@@ -12903,7 +12885,7 @@
       effect: "silence",
       effectValue: 0,
       effectTurns: 2,
-      desc: "ST: the Tribunal strikes a passage from the record — the target is cut AND silenced for 2 turns.",
+      desc: "The Tribunal strikes a passage from the record — the target is cut AND silenced for 2 turns.",
       logHit: (a, t) => `${a} draws one red stroke through ${t}'s next three sentences.`
     }],
     dragonforge: ["dem_sig_forge", {
@@ -12918,7 +12900,7 @@
       effectValue: 0.09,
       effectTurns: 3,
       effectStacks: 3,
-      desc: "ST: 3 Sunder stacks in one stroke — armor, then bone, then the idea of standing.",
+      desc: "3 Sunder stacks in one stroke — armor, then bone, then the idea of standing.",
       logHit: (a, t) => `${a} pours the stroke like slag; ${t}'s guard runs off in rivulets.`
     }],
     chain_saint: ["dem_sig_chain", {
@@ -12933,7 +12915,7 @@
       effect: "oathbound",
       effectPower: 0.45,
       effectTurns: 3,
-      desc: "The Oathbreaker rate. AOE: every foe is bound at 45% weapon-power backlash per technique they dare.",
+      desc: "The Oathbreaker rate. Every foe is bound at 45% weapon-power backlash per technique they dare.",
       logHit: (a, t) => `${a} reads the new terms aloud. Nobody present agreed to them; everybody present owes.`
     }]
   };
@@ -22909,27 +22891,42 @@
       document.body.appendChild(tipEl);
       return tipEl;
     }
+    function showTipAt(txt, cx, cy) {
+      const el = ensureTipEl();
+      if (!txt) {
+        el.style.display = "none";
+        return;
+      }
+      el.textContent = txt;
+      el.style.display = "block";
+      el.style.left = "0px";
+      el.style.top = "0px";
+      const r = el.getBoundingClientRect ? el.getBoundingClientRect() : { width: 240, height: 60 };
+      const pad = 8;
+      let x = cx - r.width / 2;
+      x = Math.max(pad, Math.min((window.innerWidth || 360) - r.width - pad, x));
+      let y = cy - r.height - 18;
+      if (y < pad) y = cy + 22;
+      el.style.left = x + "px";
+      el.style.top = y + "px";
+    }
     document.addEventListener("pointerdown", (ev) => {
       try {
         const host = ev.target && ev.target.closest ? ev.target.closest(".tip") : null;
-        const txt = host && host.getAttribute ? host.getAttribute("data-tip") : null;
-        const el = ensureTipEl();
-        if (!txt) {
-          el.style.display = "none";
+        showTipAt(host && host.getAttribute ? host.getAttribute("data-tip") : null, ev.clientX, ev.clientY);
+      } catch (e) {
+      }
+    });
+    document.addEventListener("pointerover", (ev) => {
+      try {
+        if (ev.pointerType !== "mouse") return;
+        const host = ev.target && ev.target.closest ? ev.target.closest(".tip") : null;
+        if (!host) {
+          if (tipEl) tipEl.style.display = "none";
           return;
         }
-        el.textContent = txt;
-        el.style.display = "block";
-        el.style.left = "0px";
-        el.style.top = "0px";
-        const r = el.getBoundingClientRect ? el.getBoundingClientRect() : { width: 240, height: 60 };
-        const pad = 8;
-        let x = ev.clientX - r.width / 2;
-        x = Math.max(pad, Math.min((window.innerWidth || 360) - r.width - pad, x));
-        let y = ev.clientY - r.height - 18;
-        if (y < pad) y = ev.clientY + 22;
-        el.style.left = x + "px";
-        el.style.top = y + "px";
+        const r = host.getBoundingClientRect();
+        showTipAt(host.getAttribute("data-tip"), r.left + r.width / 2, r.top);
       } catch (e) {
       }
     });
@@ -26009,6 +26006,38 @@
     }
     return wrap;
   }
+  function filterChips(uiKey, options, defaultKey) {
+    const wrap = document.createElement("div");
+    wrap.className = "button-row";
+    wrap.style.cssText = "flex-wrap:wrap;gap:0.25rem;margin:0 0 0.55rem;justify-content:flex-start";
+    if (!state.ui) state.ui = {};
+    let sel = state.ui[uiKey] !== void 0 ? state.ui[uiKey] : defaultKey !== void 0 ? defaultKey : "all";
+    if (sel !== "all" && !options.some((o) => o.key === sel)) sel = defaultKey !== void 0 && options.some((o) => o.key === defaultKey) ? defaultKey : "all";
+    const total = options.reduce((s, o) => s + o.count, 0);
+    const allBtn = document.createElement("button");
+    allBtn.className = "small " + (sel === "all" ? "gold" : "ghost");
+    allBtn.textContent = `All (${total})`;
+    allBtn.onclick = () => {
+      state.ui[uiKey] = "all";
+      saveChar();
+      render();
+    };
+    wrap.appendChild(allBtn);
+    options.forEach((o) => {
+      if (!o.count) return;
+      const b = document.createElement("button");
+      b.className = "small " + (o.key === sel ? "gold" : "ghost");
+      b.textContent = `${o.label} (${o.count})`;
+      b.onclick = () => {
+        state.ui[uiKey] = o.key;
+        saveChar();
+        render();
+      };
+      wrap.appendChild(b);
+    });
+    wrap._selected = sel;
+    return wrap;
+  }
   function renderTabBar() {
     const bar2 = document.createElement("div");
     bar2.className = "tabs";
@@ -26751,7 +26780,7 @@
       <div class="school-mods">Starter weapon: <strong>${weapon.name}</strong> (${weapon.zh}) — power ${weapon.power}. Best with: ${statNames}.</div>
       ${method ? `<div class="school-mods">Cultivation method: <strong>${method.name}</strong> (${method.zh}) — ${method.desc}</div>` : ""}
       <div class="school-flavor">${disp.flavor}</div>
-      <div style="margin-top:0.4rem;font-size:0.82rem"><strong>Gameplan.</strong> ${school.specialty}</div>
+      <div style="margin-top:0.4rem;font-size:0.82rem"><strong>Strategy.</strong> ${school.specialty}</div>
       ${kitCard ? `<div style="margin-top:0.3rem;font-size:0.82rem"><strong style="color:var(--gold)">Passive — ${kitCard.passiveName}</strong> <span style="color:var(--ink-soft);font-size:0.75rem">${kitCard.passiveZh}</span>: ${kitCard.passiveDesc}${tw ? ` <span style="color:var(--crimson)">DEMONIC: ${tw.twistDesc}</span>` : ""}</div>` : ""}
       <div style="margin-top:0.3rem">${techList}</div>`;
       card.onclick = () => {
@@ -27547,30 +27576,15 @@
     gP.appendChild(plotsHeader);
     const plotsWrap = document.createElement("div");
     plotsWrap.className = "garden-grid";
+    const emptyIdxs = [];
     state.base.plots.forEach((plot, idx) => {
+      if (!plot.herb) {
+        emptyIdxs.push(idx);
+        return;
+      }
       const plotEl = document.createElement("div");
       plotEl.id = `plot-${idx}-wrap`;
-      if (!plot.herb) {
-        plotEl.className = "plot";
-        plotEl.innerHTML = `<div class="plot-title">Empty Plot ${idx + 1}</div>
-        <div class="plot-timer">Plant a herb to begin growth.</div>`;
-        const btns = document.createElement("div");
-        btns.className = "plot-buttons";
-        Object.entries(HERBS).forEach(([hid, herb]) => {
-          if (!herbUnlocked(hid)) return;
-          const b = document.createElement("button");
-          b.className = "tip";
-          const effMin = Math.round(effectiveGrowSeconds(hid) / 60);
-          b.setAttribute("data-tip", `${herb.desc} (grows in ${effMin}m; auto-replants on harvest)`);
-          b.textContent = `Plant ${herb.name} (${effMin}m)`;
-          b.onclick = () => {
-            plantHerb(idx, hid);
-            render();
-          };
-          btns.appendChild(b);
-        });
-        plotEl.appendChild(btns);
-      } else {
+      {
         const herb = HERBS[plot.herb];
         plotEl.className = "plot growing";
         const effMin = Math.round(effectiveGrowSeconds(plot.herb) / 60);
@@ -27591,6 +27605,29 @@
       }
       plotsWrap.appendChild(plotEl);
     });
+    if (emptyIdxs.length) {
+      const plotEl = document.createElement("div");
+      plotEl.className = "plot";
+      plotEl.innerHTML = `<div class="plot-title">Empty Plots <span style="color:var(--ink-soft);font-weight:normal">× ${emptyIdxs.length}</span></div>
+      <div class="plot-timer">Plant a herb — it takes the next free plot and auto-replants on harvest.</div>`;
+      const btns = document.createElement("div");
+      btns.className = "plot-buttons";
+      Object.entries(HERBS).forEach(([hid, herb]) => {
+        if (!herbUnlocked(hid)) return;
+        const b = document.createElement("button");
+        b.className = "tip";
+        const effMin = Math.round(effectiveGrowSeconds(hid) / 60);
+        b.setAttribute("data-tip", `${herb.desc} (grows in ${effMin}m; auto-replants on harvest)`);
+        b.textContent = `Plant ${herb.name} (${effMin}m)`;
+        b.onclick = () => {
+          plantHerb(emptyIdxs[0], hid);
+          render();
+        };
+        btns.appendChild(b);
+      });
+      plotEl.appendChild(btns);
+      plotsWrap.appendChild(plotEl);
+    }
     gP.appendChild(plotsWrap);
     const appendConsumableSection = (kind, title, blurb) => {
       const hdr = document.createElement("div");
@@ -27779,25 +27816,21 @@
       fP.appendChild(divider);
       const schoolForge = SCHOOLS[state.selectedSchool];
       const myKind = schoolForge && WEAPONS[schoolForge.weapon] ? WEAPONS[schoolForge.weapon].kind : null;
-      const mineOnly = !!(state.ui && state.ui.forgeWeaponMine);
-      if (myKind) {
-        const filtRow = document.createElement("div");
-        filtRow.className = "button-row";
-        filtRow.style.cssText = "margin:0 0 0.5rem;justify-content:flex-start";
-        const fb = document.createElement("button");
-        fb.className = (mineOnly ? "gold" : "ghost") + " small";
-        fb.textContent = mineOnly ? `My weapon type only (${myKind})` : "Showing all weapon types";
-        fb.onclick = () => {
-          if (!state.ui) state.ui = {};
-          state.ui.forgeWeaponMine = !state.ui.forgeWeaponMine;
-          saveChar();
-          render();
-        };
-        filtRow.appendChild(fb);
-        fP.appendChild(filtRow);
-      }
-      fP.appendChild(realmTabChips("forgeWeaponRealm", (t) => ARTIFACT_RECIPES.filter((r) => (r.minRealmTier || 0) === t && (!mineOnly || !myKind || WEAPONS[r.id] && WEAPONS[r.id].kind === myKind)).length));
-      const visibleRecipes = ARTIFACT_RECIPES.filter((r) => realmTabShows("forgeWeaponRealm", r.minRealmTier || 0) && (!mineOnly || !myKind || WEAPONS[r.id] && WEAPONS[r.id].kind === myKind)).slice().sort((a, b) => (
+      fP.appendChild(realmTabChips("forgeWeaponRealm", (t) => ARTIFACT_RECIPES.filter((r) => (r.minRealmTier || 0) === t).length));
+      const realmScoped = ARTIFACT_RECIPES.filter((r) => realmTabShows("forgeWeaponRealm", r.minRealmTier || 0));
+      const kindCounts = {};
+      realmScoped.forEach((r) => {
+        const k = WEAPONS[r.id] && WEAPONS[r.id].kind;
+        if (k) kindCounts[k] = (kindCounts[k] || 0) + 1;
+      });
+      const kindChips = filterChips(
+        "forgeWeaponKind",
+        Object.keys(kindCounts).sort().map((k) => ({ key: k, label: k + (k === myKind ? " ★" : ""), count: kindCounts[k] })),
+        myKind || "all"
+      );
+      fP.appendChild(kindChips);
+      const selKind = kindChips._selected;
+      const visibleRecipes = realmScoped.filter((r) => selKind === "all" || WEAPONS[r.id] && WEAPONS[r.id].kind === selKind).slice().sort((a, b) => (
         // v1.1: realm (sub-tab) then rarity, then power
         (RARITY_RANK[(WEAPONS[a.id] || {}).rarity] || 0) - (RARITY_RANK[(WEAPONS[b.id] || {}).rarity] || 0) || (WEAPONS[a.id] && WEAPONS[a.id].power || 0) - (WEAPONS[b.id] && WEAPONS[b.id].power || 0)
       ));
@@ -27805,7 +27838,7 @@
         const none = document.createElement("div");
         none.className = "consumable-desc";
         none.style.cssText = "opacity:0.7;margin:0.2rem 0";
-        none.textContent = mineOnly ? "No weapons of your type are forgeable at your realm yet." : "No weapons are forgeable at your realm yet.";
+        none.textContent = selKind !== "all" ? "No weapons of that kind are forgeable at this realm." : "No weapons are forgeable at your realm yet.";
         fP.appendChild(none);
       }
       visibleRecipes.forEach((recipe) => fP.appendChild(buildWeaponRecipeRow(recipe)));
@@ -27914,7 +27947,20 @@
     acP.innerHTML = `<h3>Forge Armor <span style="font-weight:normal;color:var(--ink-soft);font-size:0.85rem">铸甲</span></h3>
     <p style="font-size:0.85rem;color:var(--ink-soft);margin:0 0 0.5rem">Forge armor from gathered materials. Equip what you craft in the Loadout tab.</p>`;
     acP.appendChild(realmTabChips("forgeArmorRealm", (t) => ARMOR_RECIPES.filter((r) => (r.minRealmTier || 0) === t).length));
-    ARMOR_RECIPES.filter((r) => realmTabShows("forgeArmorRealm", r.minRealmTier || 0)).slice().sort((a, b) => (
+    const armorScoped = ARMOR_RECIPES.filter((r) => realmTabShows("forgeArmorRealm", r.minRealmTier || 0));
+    const slotCounts = {};
+    armorScoped.forEach((r) => {
+      const s = ARMOR[r.id] && ARMOR[r.id].slot;
+      if (s) slotCounts[s] = (slotCounts[s] || 0) + 1;
+    });
+    const slotOrder = ["helmet", "chest", "gloves", "boots", "accessory1", "accessory2", "accessory"];
+    const slotChips = filterChips(
+      "forgeArmorSlot",
+      slotOrder.filter((s) => slotCounts[s]).map((s) => ({ key: s, label: ARMOR_SLOT_LABELS[s] || s, count: slotCounts[s] })),
+      "all"
+    );
+    acP.appendChild(slotChips);
+    armorScoped.filter((r) => slotChips._selected === "all" || ARMOR[r.id] && ARMOR[r.id].slot === slotChips._selected).slice().sort((a, b) => (
       // realm (sub-tab) then rarity, then layer
       (RARITY_RANK[(ARMOR[a.id] || {}).rarity] || 0) - (RARITY_RANK[(ARMOR[b.id] || {}).rarity] || 0) || (a.minLayer || 0) - (b.minLayer || 0)
     )).forEach((recipe) => acP.appendChild(buildArmorRecipeRow(recipe)));
@@ -29268,11 +29314,21 @@
         const btn = document.createElement("button");
         btn.className = "action-btn tip";
         const isAoeBtn = t.target === "aoe";
-        btn.setAttribute("data-tip", `[${isAoeBtn ? "AOE — hits every standing enemy at 70% damage" : "Single-target"}] ${t.desc}`);
+        let est = p.weaponPower * (t.damage || 0) * (p.mods.techDamageMult || 1);
+        const hmB = heritageMech();
+        const sB = techSchoolOf(t);
+        if (hmB.schoolDamageMult && hmB.schoolDamageMult[sB]) est *= hmB.schoolDamageMult[sB];
+        if (p.mods.schoolDamageMult && p.mods.schoolDamageMult[sB]) est *= p.mods.schoolDamageMult[sB];
+        est = Math.round(est * (t.hits || 1) * (isAoeBtn ? 0.7 : 1));
+        const fxInfo = t.effect && STATUS_INFO[t.effect] ? STATUS_INFO[t.effect] : t.statusList && t.statusList.length && STATUS_INFO[t.statusList[0].kind] ? STATUS_INFO[t.statusList[0].kind] : null;
+        const numbers = `${est > 0 ? `~${est} damage${isAoeBtn ? " per target" : ""} · ` : ""}${t.postureBuild ? `+${t.postureBuild} posture · ` : ""}cooldown ${t.cd}`;
+        btn.setAttribute("data-tip", `[${isAoeBtn ? "AOE — hits every standing enemy at 70% damage" : "Single-target"}] ${numbers}. ${t.desc}`);
         const cdLabel = locked ? " · chained" : sealed ? " · sealed" : cd > 0 ? ` · cd ${cd}` : "";
         const hpLabel = effHp ? ` · ${effHp} Body` : "";
         const tgtLabel = isAoeBtn ? " · AOE" : " · ST";
-        btn.innerHTML = `<span class="name">${t.name}</span><span class="meta">${effCost} qi${hpLabel}${tgtLabel}${cdLabel}</span>`;
+        const dmgLabel = est > 0 ? `~${est}${t.hits > 1 ? ` (${t.hits} hits)` : ""} · ` : t.instant ? "instant · " : "";
+        const fxLabel = fxInfo ? ` · ${fxInfo.label}` : "";
+        btn.innerHTML = `<span class="name">${t.name}</span><span class="meta">${dmgLabel}${effCost} qi${hpLabel}${fxLabel}${tgtLabel}${cdLabel}</span>`;
         btn.disabled = disabled;
         btn.onclick = () => playerTechnique(tid);
         grid2.appendChild(btn);
