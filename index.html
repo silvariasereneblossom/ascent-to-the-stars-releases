@@ -9023,8 +9023,8 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Tribulation resistance, resolve under pressure." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.39';
-  var BUILD_SHA = "0b50ee0";
+  var GAME_VERSION = 'v1.27.40';
+  var BUILD_SHA = "c46e6c9";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -19825,11 +19825,15 @@
     });
     return cost;
   }
+  function bossSetSlotFilled(bossId, slot) {
+    const owned = state.armor.owned || [];
+    return owned.includes(bossSetId(bossId, slot)) || owned.includes(hardSetId(bossId, slot));
+  }
   function bossSetOwnedCount(bossId) {
-    return BOSS_SET_SLOTS.filter(([slot]) => (state.armor.owned || []).includes(bossSetId(bossId, slot))).length;
+    return BOSS_SET_SLOTS.filter(([slot]) => bossSetSlotFilled(bossId, slot)).length;
   }
   function nextBossSetSlot(bossId) {
-    const pair = BOSS_SET_SLOTS.find(([slot]) => !(state.armor.owned || []).includes(bossSetId(bossId, slot)));
+    const pair = BOSS_SET_SLOTS.find(([slot]) => !bossSetSlotFilled(bossId, slot));
     return pair ? pair[0] : null;
   }
   function canCraftBossSetPiece(bossId) {
@@ -20193,6 +20197,29 @@
     });
     Object.entries(BOSS_CROSS_GEAR).forEach(([id, g]) => {
       if (g.kind === "weapon") WEAPONS[id] = Object.assign({ kind: g.wkind }, g.def);
+    });
+  })();
+  (function enrichBossSetArmor() {
+    Object.entries(ARMOR).forEach(([id, a]) => {
+      const isBossSet = !!a.bossSet || BOSS_CROSS_GEAR[id] && BOSS_CROSS_GEAR[id].kind === "armor";
+      if (!isBossSet) return;
+      const t = a.bossSet ? BOSSES[a.bossSet] && BOSSES[a.bossSet].tier || 0 : BOSS_CROSS_GEAR[id] && BOSS_CROSS_GEAR[id].tier || 0;
+      a.mods = a.mods || {};
+      const usedChannels = new Set(Object.keys(a.mods));
+      const need = Math.max(0, ARMOR_RARITY_EFFECT_COUNT.divine - usedChannels.size);
+      if (!need) return;
+      const blurbs = [];
+      let idx = Math.abs(hashStr(id)) % ARMOR_EFFECT_POOL.length;
+      let guard = 0;
+      while (blurbs.length < need && guard++ < ARMOR_EFFECT_POOL.length * 2) {
+        const e = ARMOR_EFFECT_POOL[idx % ARMOR_EFFECT_POOL.length];
+        idx++;
+        if (usedChannels.has(e.ch)) continue;
+        usedChannels.add(e.ch);
+        a.mods[e.ch] = e.mk(t);
+        blurbs.push(e.blurb(t));
+      }
+      if (blurbs.length) a.desc = a.desc + " Bonus: " + blurbs.join(", ") + ".";
     });
   })();
   var ARMOR_SLOT_WEIGHT = { chest: 1, helmet: 0.8, boots: 0.8, gloves: 0.7, accessory: 0.5 };
@@ -27964,6 +27991,71 @@
       // realm (sub-tab) then rarity, then layer
       (RARITY_RANK[(ARMOR[a.id] || {}).rarity] || 0) - (RARITY_RANK[(ARMOR[b.id] || {}).rarity] || 0) || (a.minLayer || 0) - (b.minLayer || 0)
     )).forEach((recipe) => acP.appendChild(buildArmorRecipeRow(recipe)));
+    {
+      const bsBosses = Object.keys(BOSS_LOOT).filter((bid) => BOSSES[bid] && (state.realm.tierIdx || 0) >= BOSSES[bid].tier && realmTabShows("forgeArmorRealm", BOSSES[bid].tier));
+      if (bsBosses.length) {
+        const bsHdr = document.createElement("div");
+        bsHdr.innerHTML = `<div style="font-weight:bold;margin:0.6rem 0 0.2rem">Boss Sets <span style="color:var(--ink-soft);font-weight:normal;font-size:0.8rem">魁甲</span></div>
+        <p style="font-size:0.78rem;color:var(--ink-soft);margin:0 0 0.3rem">Forged from each tyrant's unique essence (guaranteed drop per kill). Divine-standard subattributes on every piece; 2/4-piece set bonuses; the Ascendant upgrade consumes its base piece.</p>`;
+        acP.appendChild(bsHdr);
+        bsBosses.sort((a, b) => BOSSES[a].tier - BOSSES[b].tier).forEach((bid) => {
+          const L = BOSS_LOOT[bid];
+          const matInfo = BOSS_UNIQUE_MATS[bid];
+          const have = state.base.materials[matInfo[0]] || 0;
+          const setRow = document.createElement("div");
+          setRow.className = "consumable-row";
+          setRow.style.cssText = "display:block;font-size:0.8rem";
+          const owned2 = bossSetOwnedCount(bid);
+          const nextSlot = nextBossSetSlot(bid);
+          const costStr = Object.entries(bossSetCost(bid)).map(([m, n]) => {
+            const has = (state.base.materials[m] || 0) >= n;
+            return `<span style="color:${has ? "var(--ink)" : "var(--crimson)"}">${n}x ${MATERIALS[m] && MATERIALS[m].name || m}</span>`;
+          }).join(", ");
+          setRow.innerHTML = `<strong>${L.setName}</strong> <span style="color:var(--ink-soft)">(${REALMS[BOSSES[bid].tier].name}) · ${owned2}/4 pieces · ${matInfo[1]}: ${have}</span>
+          <div style="color:var(--ink-soft);margin-top:0.1rem">2pc: ${modSummary(L.set2)} · 4pc: ${modSummary(L.set4)}</div>
+          ${nextSlot ? `<div style="color:var(--ink-soft);margin-top:0.1rem">Next piece: ${costStr}</div>` : '<div style="color:var(--gold);margin-top:0.1rem">Set complete.</div>'}`;
+          if (nextSlot) {
+            const sb = document.createElement("button");
+            sb.className = "small " + (canCraftBossSetPiece(bid) ? "gold" : "ghost");
+            sb.style.marginTop = "0.25rem";
+            const slotLabel = (BOSS_SET_SLOTS.find((s) => s[0] === nextSlot) || [, "Piece"])[1];
+            sb.textContent = `Forge ${slotLabel}`;
+            sb.disabled = !canCraftBossSetPiece(bid);
+            sb.onclick = () => {
+              craftBossSetPiece(bid);
+              render();
+            };
+            setRow.appendChild(sb);
+          }
+          acP.appendChild(setRow);
+          if (bossKillCount(bid + HARD_BOSS_SUFFIX) > 0) {
+            const hRow = document.createElement("div");
+            hRow.style.cssText = "margin:0.15rem 0 0.35rem 0.6rem;font-size:0.8rem";
+            const hOwned = BOSS_SET_SLOTS.filter(([slot]) => (state.armor.owned || []).includes(hardSetId(bid, slot))).length;
+            const hNext = nextHardSetSlot(bid);
+            const hCostStr = Object.entries(hardSetCost(bid)).map(([m, n]) => {
+              const has = (state.base.materials[m] || 0) >= n;
+              return `<span style="color:${has ? "var(--ink)" : "var(--crimson)"}">${n}x ${MATERIALS[m] && MATERIALS[m].name || m}</span>`;
+            }).join(", ");
+            const hStatus = hOwned >= 4 ? '<div style="color:var(--gold);margin-top:0.1rem">Ascendant set complete.</div>' : hNext ? `<div style="color:var(--ink-soft);margin-top:0.1rem">Upgrade your ${(BOSS_SET_SLOTS.find((s) => s[0] === hNext) || [, "piece"])[1]} (consumes the base piece): ${hCostStr}</div>` : '<div style="color:var(--ink-soft);margin-top:0.1rem">Forge the base set pieces first — the Ascendant upgrades them.</div>';
+            hRow.innerHTML = `<strong style="color:var(--gold)">Ascendant ${L.setName}</strong> <span style="color:var(--ink-soft)">${hOwned}/4 · stronger pieces & set effects · ${MATERIALS[RISEN_CINDER].name}: ${state.base.materials[RISEN_CINDER] || 0}</span>${hStatus}`;
+            if (hNext) {
+              const hsb = document.createElement("button");
+              hsb.className = "small " + (canCraftHardSetPiece(bid) ? "gold" : "ghost");
+              hsb.style.marginTop = "0.25rem";
+              hsb.textContent = `Forge Ascendant ${(BOSS_SET_SLOTS.find((s) => s[0] === hNext) || [, "Piece"])[1]}`;
+              hsb.disabled = !canCraftHardSetPiece(bid);
+              hsb.onclick = () => {
+                craftHardSetPiece(bid);
+                render();
+              };
+              hRow.appendChild(hsb);
+            }
+            acP.appendChild(hRow);
+          }
+        });
+      }
+    }
     appendPanel(acP, "armor");
     const disHdrP = document.createElement("div");
     disHdrP.className = "panel";
@@ -28368,55 +28460,8 @@
         const have = state.base.materials[matInfo[0]] || 0;
         const setRow = document.createElement("div");
         setRow.style.cssText = "margin-top:0.4rem;padding-top:0.35rem;border-top:1px dashed rgba(120,120,120,0.35);font-size:0.8rem";
-        const owned2 = bossSetOwnedCount(bid);
-        const nextSlot = nextBossSetSlot(bid);
-        const costStr = Object.entries(bossSetCost(bid)).map(([m, n]) => {
-          const has = (state.base.materials[m] || 0) >= n;
-          return `<span style="color:${has ? "var(--ink)" : "var(--crimson)"}">${n}x ${MATERIALS[m] && MATERIALS[m].name || m}</span>`;
-        }).join(", ");
-        setRow.innerHTML = `<strong>${L.setName}</strong> <span style="color:var(--ink-soft)">${owned2}/4 pieces · ${matInfo[1]}: ${have}</span>
-        <div style="color:var(--ink-soft);margin-top:0.1rem">2pc: ${modSummary(L.set2)} · 4pc: ${modSummary(L.set4)}</div>
-        ${nextSlot ? `<div style="color:var(--ink-soft);margin-top:0.1rem">Next piece: ${costStr}</div>` : '<div style="color:var(--gold);margin-top:0.1rem">Set complete.</div>'}`;
-        if (nextSlot) {
-          const sb = document.createElement("button");
-          sb.className = "small " + (canCraftBossSetPiece(bid) ? "gold" : "ghost");
-          sb.style.marginTop = "0.25rem";
-          const slotLabel = (BOSS_SET_SLOTS.find((s) => s[0] === nextSlot) || [, "Piece"])[1];
-          sb.textContent = `Forge ${slotLabel}`;
-          sb.disabled = !canCraftBossSetPiece(bid);
-          sb.onclick = () => {
-            craftBossSetPiece(bid);
-            render();
-          };
-          setRow.appendChild(sb);
-        }
+        setRow.innerHTML = `<strong>${L.setName}</strong> <span style="color:var(--ink-soft)">${bossSetOwnedCount(bid)}/4 pieces · ${matInfo[1]}: ${have} — forge the set in the <strong>Forge Armor</strong> tab.</span>`;
         card.appendChild(setRow);
-        const hid2 = bid + HARD_BOSS_SUFFIX;
-        if (bossKillCount(hid2) > 0) {
-          const hRow = document.createElement("div");
-          hRow.style.cssText = "margin-top:0.35rem;font-size:0.8rem";
-          const hOwned = BOSS_SET_SLOTS.filter(([slot]) => (state.armor.owned || []).includes(hardSetId(bid, slot))).length;
-          const hNext = nextHardSetSlot(bid);
-          const hCostStr = Object.entries(hardSetCost(bid)).map(([m, n]) => {
-            const has = (state.base.materials[m] || 0) >= n;
-            return `<span style="color:${has ? "var(--ink)" : "var(--crimson)"}">${n}x ${MATERIALS[m] && MATERIALS[m].name || m}</span>`;
-          }).join(", ");
-          const hStatus = hOwned >= 4 ? '<div style="color:var(--gold);margin-top:0.1rem">Ascendant set complete.</div>' : hNext ? `<div style="color:var(--ink-soft);margin-top:0.1rem">Upgrade your ${(BOSS_SET_SLOTS.find((s) => s[0] === hNext) || [, "piece"])[1]} (consumes the base piece): ${hCostStr}</div>` : '<div style="color:var(--ink-soft);margin-top:0.1rem">Forge the base set pieces first — the Ascendant upgrades them.</div>';
-          hRow.innerHTML = `<strong style="color:var(--gold)">Ascendant ${L.setName}</strong> <span style="color:var(--ink-soft)">${hOwned}/4 · stronger pieces & set effects · ${MATERIALS[RISEN_CINDER].name}: ${state.base.materials[RISEN_CINDER] || 0}</span>${hStatus}`;
-          if (hNext) {
-            const hsb = document.createElement("button");
-            hsb.className = "small " + (canCraftHardSetPiece(bid) ? "gold" : "ghost");
-            hsb.style.marginTop = "0.25rem";
-            hsb.textContent = `Forge Ascendant ${(BOSS_SET_SLOTS.find((s) => s[0] === hNext) || [, "Piece"])[1]}`;
-            hsb.disabled = !canCraftHardSetPiece(bid);
-            hsb.onclick = () => {
-              craftHardSetPiece(bid);
-              render();
-            };
-            hRow.appendChild(hsb);
-          }
-          card.appendChild(hRow);
-        }
         const refRow = document.createElement("div");
         refRow.style.cssText = "margin-top:0.3rem;font-size:0.8rem";
         const pw = state.weapon, pwName = WEAPONS[pw] && WEAPONS[pw].name || "no weapon";
