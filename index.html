@@ -2576,14 +2576,16 @@
       name: "Rending Demon-Claw",
       zh: "裂魔爪",
       school: "demon_heart",
+      // v1.27.42 (operator): 0.6x wpn x3, 12 posture PER talon (36 total), and its hits lifesteal at 125%
+      // (the lifestealScale rider lives in playerTechnique).
       qi: 6,
       cd: 2,
-      damage: 0.65,
+      damage: 0.6,
       hits: 3,
       directHP: 3,
-      postureBuild: 14,
+      postureBuild: 36,
       noCdScale: true,
-      desc: "A raking THREE-talon flurry that drinks through qi-armour — each rake brands a Hellfire stack.",
+      desc: "A raking THREE-talon flurry that drinks through qi-armour — each rake brands a Hellfire stack, staggers the stance (12 posture per talon), and feeds the Hungry Dao at 125%.",
       logHit: (a, t) => `${a}'s claws rake ${t} thrice; the skin opens, and the fire takes hold.`
     },
     demon_devour: {
@@ -2595,7 +2597,7 @@
       damage: 2.2,
       directHP: 10,
       postureBuild: 16,
-      desc: "A pressing palm that tears a piece of the enemy's life into your own.",
+      desc: "A pressing palm that tears a piece of the enemy's life into your own — and devours a quarter of their remaining qi.",
       logHit: (a, t) => `${a}'s palm settles on ${t}, and a warm thread leaves them for good.`
     },
     demon_seal: {
@@ -2609,7 +2611,7 @@
       effect: "qi_cost_up",
       effectValue: 1.7,
       effectTurns: 2,
-      desc: "Seizes the enemy's meridians in a demon's grip. Their tech costs are +70% for 2 turns.",
+      desc: "Seizes the enemy's meridians in a demon's grip. Their tech costs are +70% for 2 turns — and the extra qi they spend flows to YOU.",
       logHit: (a, t) => `${a}'s fingers dig into a meridian-knot; ${t}'s qi recoils.`
     },
     demon_ascendant: {
@@ -9023,8 +9025,8 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Tribulation resistance, resolve under pressure." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.41';
-  var BUILD_SHA = "c36ce38";
+  var GAME_VERSION = 'v1.27.42';
+  var BUILD_SHA = "7792978";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -9126,9 +9128,10 @@
     },
     {
       name: "Demonic Bloodline",
-      rarity: "rare",
+      rarity: "legendary",
+      // v1.27.42: rare -> legendary (the hellfire heritage)
       mods: { spirit: 4, will: -2 },
-      extra: "Demonic techniques available from Foundation realm.",
+      extra: "Demonic techniques available from Foundation realm. Your technique hits brand HELLFIRE — on any path, righteous included (half Demon-Heart strength, 2 turns; a demonic path burns at FULL strength, 3 turns, +1 extra stack per technique). Cultivation -20%. On Demon-Heart Palace: +3 more weapon power, DOUBLE insight from every foe, and its self-damage is halved.",
       flavor: "The heavens will not love you. Perhaps that is freedom."
     },
     {
@@ -9345,7 +9348,8 @@
     "Fallen Noble": { startingInscriptions: ["jade_heart"] },
     "Spirit Beast Descendant": { schoolCultMult: { iron_body: 1.2 } },
     "Village Orphan": { spiritIncomingMult: 0.85 },
-    "Demonic Bloodline": { schoolDamageMult: { demon_heart: 1.15 } },
+    "Demonic Bloodline": { schoolDamageMult: { demon_heart: 1.15 }, cultivationMult: 0.8 },
+    // v1.27.42: hellfire-for-all costs -20% cultivation
     "Starborn": { cultInsightMult: 1.1 },
     "Ruined Root": { extraStatPool: 6 },
     // +6 distributable (non-Spirit)
@@ -9387,6 +9391,12 @@
     const h = state.heritages[state.selectedHeritage];
     return h && HERITAGE_MECHANICS[h.name] || {};
   }
+  function heritageIs(name, char) {
+    const c = char || state;
+    if (!c || c.selectedHeritage == null || !c.heritages) return false;
+    const h = c.heritages[c.selectedHeritage];
+    return !!(h && h.name === name);
+  }
   var HERITAGE_PASSIVES = {
     // ---- common ----
     "Mortal Born": { label: "Unwritten Path", mods: { critChance: 0.03, dodgeChance: 0.03 } },
@@ -9399,7 +9409,8 @@
     "Stray Ascetic": { label: "Ten Years' Silence", mods: { incomingMult: 0.95, qiRegenBonus: 2 } },
     "Beast-Tamer Heir": { label: "Kindred Snarl", mods: { weaponBonus: 2, critChance: 0.03 } },
     // ---- rare ----
-    "Demonic Bloodline": { label: "Heretic Marrow", mods: { lifestealPct: 0.08 } },
+    "Demonic Bloodline": { label: "Heretic Marrow", mods: { lifestealPct: 0.1, weaponBonus: 3 } },
+    // v1.27.42: +3 wpn, 10% lifesteal (was 8% only); +3 MORE wpn on demon-heart via computeMods
     "Starborn": { label: "Fallen Star", mods: { critChance: 0.05 } },
     "Ruined Root": { label: "Another Road", mods: { weaponBonus: 4, hpBonus: 30 } },
     "Karmic Debtor": { label: "The Ledger Opens", mods: { firstStrikeBonus: 0.15 } },
@@ -9436,6 +9447,7 @@
   function applyOriginPassivesToMods(mods, char) {
     const hp = heritagePassive(char);
     if (hp && hp.mods) mergeMods(mods, hp.mods);
+    if (heritageIs("Demonic Bloodline", char) && isDemonHeart(char)) mergeMods(mods, { weaponBonus: 3 });
     const picks = char && char.childhood && char.childhood.picks;
     if (picks) {
       Object.entries(picks).forEach(([stage, beatId]) => {
@@ -13053,7 +13065,7 @@
     oathbound: { label: "oath-bound", tip: (ef) => `Oath-bound: takes ${ef.value} backlash damage whenever it uses a technique. ${ef.turns} turn(s) left.` },
     hellfire: { label: "hellfire", tip: (ef) => `Demonic hellfire x${ef.stacks || 1}: burns ${ef.stacks || 1}% of MISSING health per turn (ignores qi shield). ${ef.turns} turn(s) left.` }
   };
-  var STATUS_STACK_CAP = { burn: 5, poison: 8, sunder: 5, bleed: 3, hellfire: 20 };
+  var STATUS_STACK_CAP = { burn: 5, poison: 8, sunder: 5, bleed: 3, hellfire: 10 };
   function playerStackCap(kind) {
     return (STATUS_STACK_CAP[kind] || 1) + ((schoolKit().stackCapBonus || {})[kind] || 0);
   }
@@ -14971,7 +14983,7 @@
   var DEMON_TRIB_QI_PIERCE = { v: 0.3, byTier: [0, 0.2, 0.25, 0.3, 0.35, 0.53, 0.52] };
   var DEMON_TRIB_QI_BITE = [1, 0, 0, 0, 0, 0, 0];
   var DEMON_TRIB_HEAL_MULT = [1, 1, 0.6, 0.45, 0.25, 0.15, 0.15];
-  var DEMON_TRIB_PCT_HP = [0, 0, 0, 73e-4, 86e-4, 9e-3, 0.0105];
+  var DEMON_TRIB_PCT_HP = [0, 0, 0, 85e-4, 0.01, 9e-3, 0.0105];
   var ENEMY_QI_SCALE = [1, 1, 1, 1, 1, 1, 1];
   var ENEMY_HP_SCALE = [1, 1.3, 1.4, 1.4, 1.2, 1.4, 1.4];
   var ENEMY_DMG_SCALE = [1, 2, 2, 2, 2, 2.2, 2.2];
@@ -15014,7 +15026,7 @@
       victory: "The hunter falls. Their warrant — and their accumulated dao — feed yours. The bounty on you just went up.",
       defeat: "The hunter leaves you alive, branded, and reported. The road home is long and watched."
     });
-    ENEMIES["righteous_hunter_t" + ht].insightReward *= 3;
+    ENEMIES["righteous_hunter_t" + ht].insightReward *= 5;
   }
   var HUNTER_AMBUSH_CHANCE = [0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35];
   var INQUISITOR_TWO_UP_CHANCE = [0, 0.01, 0.02, 0.03, 0.04, 0.05, 0.06];
@@ -15040,7 +15052,7 @@
       victory: "The rival demon falls, and everything it hoarded pours into you. The road narrows to one.",
       defeat: "The rival demon leaves you broken but breathing — a demon does not waste a meal it cannot finish."
     });
-    ENEMIES["demonic_rival_t" + rt].insightReward *= 3;
+    ENEMIES["demonic_rival_t" + rt].insightReward *= 5;
   }
   var DEMONIC_RIVAL_CHANCE = 0.2;
   [
@@ -24210,7 +24222,15 @@
     enemyData.techIds.forEach((id) => {
       eTechs[id] = ENEMY_TECHS[id] || TECHNIQUES[id];
     });
-    const scale = enemyData.isBoss && BOSSES[enemyId] ? bossAnchorScale(BOSSES[enemyId].tier) : playerLayerScale(state);
+    let scale = enemyData.isBoss && BOSSES[enemyId] ? bossAnchorScale(BOSSES[enemyId].tier) : playerLayerScale(state);
+    if (String(enemyId).startsWith("righteous_hunter_t") || String(enemyId).startsWith("demonic_rival_t")) {
+      const tierDef = REALMS[state.realm.tierIdx];
+      const midLayer = Math.ceil(((tierDef && tierDef.layers || 1) + 1) / 2);
+      if ((state.realm.layer || 1) > midLayer) {
+        const midScale = playerLayerScale({ realm: { tierIdx: state.realm.tierIdx, layer: midLayer } });
+        scale = { stats: midScale.stats, reward: scale.reward };
+      }
+    }
     const mortalBossMult = enemyData.isBoss && BOSSES[enemyId] && BOSSES[enemyId].tier === 0 ? 1.25 : 1;
     const isElite = enemyData.archetype === "elite";
     const hpBoost = isElite ? 0.96 : 1.32;
@@ -24230,7 +24250,7 @@
       inqDmgMult = 1.5;
     }
     let backHalf = 1;
-    if (!enemyData.isBoss) {
+    if (!enemyData.isBoss && !(String(enemyId).startsWith("righteous_hunter_t") || String(enemyId).startsWith("demonic_rival_t"))) {
       const tl = (REALMS[state.realm.tierIdx] || {}).layers || 1;
       const lf = tl > 1 ? (state.realm.layer - 1) / (tl - 1) : 0;
       if (lf > 0.5) backHalf = 1.1 + 0.2 * (lf - 0.5);
@@ -24713,8 +24733,10 @@
     return dmg;
   }
   function applyDemonicHellfire(tgt) {
-    if (!state.demonic || !tgt || tgt.hp <= 0) return;
-    applyStatusTo(tgt, "hellfire", 0, 3, "Hellfire", playerStackCap("hellfire"));
+    const blood = heritageIs("Demonic Bloodline");
+    if (!state.demonic && !blood || !tgt || tgt.hp <= 0) return;
+    const turns = !state.demonic && blood ? 2 : 3;
+    applyStatusTo(tgt, "hellfire", 0, turns, "Hellfire", playerStackCap("hellfire"));
   }
   function applySchoolOnHit(p, tgt) {
     const kit = schoolKit();
@@ -24844,15 +24866,17 @@
   var HP_COST_PER_POINT = 4e-3;
   var TRIB_HP_COST_MULT = 0.2;
   function hpCostPct(tech, hpCostMult) {
-    if (tech === TECHNIQUES.demon_ascendant && isDemonHeart(state)) return 0.2;
+    if (tech === TECHNIQUES.demon_ascendant && isDemonHeart(state)) return heritageIs("Demonic Bloodline") ? 0.1 : 0.2;
     const tribMult = typeof combat !== "undefined" && combat && combat.tribulation ? TRIB_HP_COST_MULT : 1;
-    return (tech.hpCost || 0) * HP_COST_PER_POINT * (isDemonHeart(state) ? 1.5 : 1) * tribMult * (hpCostMult != null ? hpCostMult : 1);
+    const dhMult = isDemonHeart(state) ? heritageIs("Demonic Bloodline") ? 0.75 : 1.5 : 1;
+    return (tech.hpCost || 0) * HP_COST_PER_POINT * dhMult * tribMult * (hpCostMult != null ? hpCostMult : 1);
   }
   function effectiveHpCost(p, tech) {
     if (tech === TECHNIQUES.demon_ascendant && isDemonHeart(state)) {
       const mhp = p && p.hpMax || computeMaxHP(state);
       const chp = p && p.hp != null ? p.hp : mhp;
-      return Math.max(1, Math.round(mhp * 0.1 + chp * 0.1));
+      const bloodHalf = heritageIs("Demonic Bloodline") ? 0.5 : 1;
+      return Math.max(1, Math.round((mhp * 0.1 + chp * 0.1) * bloodHalf));
     }
     if (!tech.hpCost) return 0;
     const maxHp = p && p.hpMax || computeMaxHP(state);
@@ -24954,7 +24978,7 @@
           });
           if (ctx.crit) pushLog("posture", `  → critical strike!`);
           pushLog("hurt", damageLogLine(res, tgt));
-          applyPostHitTriggers(p, res, tgt);
+          applyPostHitTriggers(p, res, tgt, techId === "demon_reap" ? 1.25 : void 0);
           dhHpDealt += res.hpDamage;
           dhQiDrained += res.qiAbsorbed;
           if (!res.dodged) {
@@ -24963,6 +24987,7 @@
           }
         }
       }
+      if (heritageIs("Demonic Bloodline") && state.demonic && tgt.hp > 0) applyDemonicHellfire(tgt);
       if (isDemonHeart(state) && !isAoe) {
         if (techId === "demon_ascendant" && dhHellStacks > 0) {
           const extra = Math.round((dhHpDealt + dhQiDrained) * 0.1 * dhHellStacks * tribHealMult());
@@ -24971,10 +24996,19 @@
             p.hp = Math.min(p.hpMax, p.hp + extra);
             if (p.hp > b) pushLog("heal", `  → +${p.hp - b} Body — the Crown feeds on ${dhHellStacks} hellfire.`);
           }
-        } else if (techId === "demon_devour" && dhQiDrained > 0) {
-          const b = p.qi;
-          p.qi = Math.min(p.qiMax, p.qi + dhQiDrained);
-          if (p.qi > b) pushLog("heal", `  → +${p.qi - b} qi siphoned from the barrier.`);
+        } else if (techId === "demon_devour") {
+          if (dhQiDrained > 0) {
+            const b = p.qi;
+            p.qi = Math.min(p.qiMax, p.qi + dhQiDrained);
+            if (p.qi > b) pushLog("heal", `  → +${p.qi - b} qi siphoned from the barrier.`);
+          }
+          if (tgt.qi > 0) {
+            const devoured = Math.max(1, Math.round(tgt.qi * 0.25));
+            tgt.qi -= devoured;
+            const b2 = p.qi;
+            p.qi = Math.min(p.qiMax, p.qi + devoured);
+            pushLog("hurt", `  → the palm devours ${devoured} of ${tgt.name}'s qi${p.qi > b2 ? ` (+${p.qi - b2} to ${p.name})` : ""}.`);
+          }
         }
       }
       if (tech.detonate && tgt.hp > 0 && tgt.effects) {
@@ -25164,7 +25198,7 @@
     const enemyData = ENEMIES[e.id];
     const hmVictory = heritageMech();
     const rewardScale = e.scale && e.scale.reward || 1;
-    const rawInsight = Math.round(0.25 * enemyData.insightReward * rewardScale * boonInsightMult() * skillCombatInsightMult() * (combat.player.mods.insightMult || 1) * (SCHOOLS[state.selectedSchool] && SCHOOLS[state.selectedSchool].insightFromKillsMult || 1) * (hmVictory.combatInsightMult || 1) * combatInsightMult(combat) * metaInsightMult() * (isDemonHeart(state) ? 2 : state.demonic ? 1.5 : 1) * 1.5 * (combat && combat.demonicQiVenture ? 1.5 : 1) * (state.demonic ? isDemonHeart(state) ? 1 + (cultivationBoostMult() - 1) * 0.5 : cultivationBoostMult() : 1) * (1 + 0.2 * goldenCoreLevel()));
+    const rawInsight = Math.round(0.25 * enemyData.insightReward * rewardScale * boonInsightMult() * skillCombatInsightMult() * (combat.player.mods.insightMult || 1) * (SCHOOLS[state.selectedSchool] && SCHOOLS[state.selectedSchool].insightFromKillsMult || 1) * (hmVictory.combatInsightMult || 1) * combatInsightMult(combat) * metaInsightMult() * (isDemonHeart(state) ? 2 : state.demonic ? 1.5 : 1) * 1.5 * (combat && combat.demonicQiVenture ? 1.5 : 1) * (state.demonic ? isDemonHeart(state) ? 1 + (cultivationBoostMult() - 1) * 0.5 : cultivationBoostMult() : 1) * (1 + 0.2 * goldenCoreLevel()) * (heritageIs("Demonic Bloodline") && isDemonHeart(state) ? 2 : 1));
     const _insightBaseline = Math.round(realmTotalInsight(state.realm.tierIdx || 0) * (enemyData.isBoss ? 0.015 : 5e-3));
     const insight = softCapInsight(rawInsight, _insightBaseline);
     addInsight(insight);
@@ -25576,9 +25610,10 @@
         }
       }
       if (ef.kind === "hellfire") {
-        const hfBase = isDemonHeart(state) ? c.hpMax || 0 : Math.max(0, (c.hpMax || 0) - c.hp);
+        const _blood = heritageIs("Demonic Bloodline");
+        const hfBase = isDemonHeart(state) || _blood && state.demonic ? c.hpMax || 0 : _blood ? (c.hpMax || 0) * 0.5 : Math.max(0, (c.hpMax || 0) - c.hp);
         const _pBroken = (c.broken || 0) > 0, _sBroken = (c.spiritMax || 0) > 0 && c.spirit <= 0;
-        const hfMag = _pBroken && _sBroken ? 0.01 : _pBroken ? 75e-4 : 5e-3;
+        const hfMag = _pBroken && _sBroken ? 0.02 : _pBroken ? 0.015 : 0.01;
         let burn = Math.max(1, Math.round(hfBase * hfMag * (ef.stacks || 1)));
         if (combat && combat.player && c !== combat.player) burn = Math.max(1, Math.round(burn * (combat.player.mods && combat.player.mods.dotMult || 1)));
         if (isDemonHeart(state) && (state.realm && state.realm.tierIdx || 0) >= 5 && combat && c !== combat.player) burn *= 2;
@@ -25635,7 +25670,9 @@
   }
   function chillMult(c) {
     const ef = (c.effects || []).find((x) => x.kind === "chill");
-    return ef ? Math.max(0, 1 - ef.value) : 1;
+    let m = ef ? Math.max(0, 1 - ef.value) : 1;
+    if ((c.effects || []).some((x) => x.kind === "leech" && x.name === "Sovereign Parasite")) m *= 0.85;
+    return m;
   }
   function applyPlayerReflect(e, res) {
     const p = combat.player;
@@ -25662,6 +25699,14 @@
     const up = e.effects.find((ef) => ef.kind === "qi_cost_up");
     const cost = up ? Math.ceil(tech.qi * up.value) : tech.qi;
     e.qi -= cost;
+    if (up && up.name === "Meridian-Crush Grip" && combat && combat.player && cost > tech.qi) {
+      const pl = combat.player;
+      const gain = Math.min(Math.max(0, pl.qiMax - pl.qi), cost - tech.qi);
+      if (gain > 0) {
+        pl.qi += gain;
+        pushLog("heal", `  → ${gain} qi wrung from ${e.name}'s crushed meridians flows to ${pl.name}.`);
+      }
+    }
     e.cooldowns[techId] = tech.cd + 1;
     const oath = e.effects.find((ef) => ef.kind === "oathbound");
     if (oath) {
