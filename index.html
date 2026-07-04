@@ -2624,7 +2624,7 @@
       damage: 5.4,
       directHP: 12,
       postureBuild: 14,
-      desc: "A devouring-fist finisher that feeds on the enemy's life and, quietly, your own.",
+      desc: "A devouring-fist finisher that feeds on the enemy's life and, quietly, your own. If the target bears a FULL hellfire brand (10+ stacks) it DETONATES: +20% damage per stack, consuming the brand.",
       logHit: (a, t) => `${a} closes a clawed fist around ${t} and feeds.`
     },
     // ============ Starfall Archers (4) ============
@@ -9025,8 +9025,8 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Tribulation resistance, resolve under pressure." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.43';
-  var BUILD_SHA = "34a2466";
+  var GAME_VERSION = 'v1.27.44';
+  var BUILD_SHA = "0c546d0";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -13406,9 +13406,10 @@
     applyPassiveTechsToMods(mods, char);
     applyOriginPassivesToMods(mods, char);
     if (isDemonHeart(char)) {
-      mods.flatDR = (mods.flatDR || 0) * 0.5;
-      if (mods.incomingMult < 1) mods.incomingMult = 1 - (1 - mods.incomingMult) * 0.5;
+      mods.flatDR = (mods.flatDR || 0) * 0.75;
+      if (mods.incomingMult < 1) mods.incomingMult = 1 - (1 - mods.incomingMult) * 0.75;
       mods.incomingMult *= 1.25;
+      mods.dodgeChance = (mods.dodgeChance || 0) + 0.1;
       mods.postureMult *= 0.9;
       mods.lowHpBonus += 0.15;
     }
@@ -20739,7 +20740,7 @@
     const kit = SCHOOL_KITS[char.selectedSchool];
     const chips = [];
     if (kit) chips.push(`<span class="buff-chip" style="border-color:var(--gold)">Passive: ${kit.passiveName}</span>`);
-    if (isDemonHeart(char)) chips.push(`<span class="buff-chip" style="background:rgba(160,40,40,0.18);border-color:var(--crimson)">Demon-Heart (×1.15 Body, +15% bloodied, +25% taken, −10% posture, ½ DR)</span>`);
+    if (isDemonHeart(char)) chips.push(`<span class="buff-chip" style="background:rgba(160,40,40,0.18);border-color:var(--crimson)">Demon-Heart (×1.15 Body, +15% bloodied, +25% taken, −10% posture, ¾ DR, +10% dodge)</span>`);
     else if (char.demonic) chips.push(`<span class="buff-chip" style="background:rgba(160,40,40,0.15);border-color:var(--crimson)">Demonic path (×1.2 Body, +4 stats)</span>`);
     const gcl = typeof goldenCoreLevel === "function" ? goldenCoreLevel() : char.goldenCoreQuality || 0;
     if (gcl > 0) chips.push(`<span class="buff-chip" style="border-color:var(--gold)">Golden Core ${goldenCoreGradeLabel(gcl)} (qual ${gcl})</span>`);
@@ -24925,12 +24926,16 @@
     let pierce = tech.pierceQi || 0;
     if (hm0.schoolPierceBonus && hm0.schoolPierceBonus[sDmg]) pierce = Math.min(1, pierce + hm0.schoolPierceBonus[sDmg]);
     let directSpiritAmt = (tech.directSpirit || 0) * (p.mods.spiritDamageMult || 1);
-    let dhHellStacks = 0;
+    let dhHellStacks = 0, dhDetonateMult = 1, dhDetonated = false;
     if (isDemonHeart(state) && !isAoe) {
       const dhHf = (e.effects || []).find((ef) => ef.kind === "hellfire");
       dhHellStacks = dhHf ? dhHf.stacks || 1 : 0;
       if (techId === "demon_ascendant" && dhHellStacks >= playerStackCap("hellfire")) {
         directSpiritAmt += Math.round(p.weaponPower * 2 * (p.mods.spiritDamageMult || 1));
+      }
+      if (techId === "demon_ascendant" && dhHellStacks >= 10) {
+        dhDetonateMult = 1 + 0.2 * dhHellStacks;
+        dhDetonated = true;
       }
     }
     const postureBoostMult = p.buffs && p.buffs.postureBoostTurns > 0 ? p.buffs.postureBoost || 1 : 1;
@@ -24967,7 +24972,7 @@
       let dhHpDealt = 0, dhQiDrained = 0;
       for (let h = 0; h < instances; h++) {
         if (tgt.hp <= 0) break;
-        let tdmg = dmg * targetDmgMult * perInstanceMult * consumeMult * effectMult;
+        let tdmg = dmg * targetDmgMult * perInstanceMult * consumeMult * effectMult * dhDetonateMult;
         const ctx = { instant: tech.instant };
         tdmg = applyPlayerOutgoingMods(p, tdmg, tgt, ctx);
         if (tdmg > 0 || h === 0 && (tech.directHP || tech.directSpirit || directSpiritAmt)) {
@@ -24995,6 +25000,11 @@
             const b = p.hp;
             p.hp = Math.min(p.hpMax, p.hp + extra);
             if (p.hp > b) pushLog("heal", `  → +${p.hp - b} Body — the Crown feeds on ${dhHellStacks} hellfire.`);
+          }
+          if (dhDetonated) {
+            const di = (tgt.effects || []).findIndex((ef) => ef.kind === "hellfire");
+            if (di >= 0) tgt.effects.splice(di, 1);
+            pushLog("posture", `  → the Crown DETONATES ${dhHellStacks} hellfire stacks (+${Math.round(dhHellStacks * 20)}% damage)!`);
           }
         } else if (techId === "demon_devour") {
           if (dhQiDrained > 0) {
