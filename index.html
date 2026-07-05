@@ -9037,8 +9037,8 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Tribulation resistance, resolve under pressure." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.46';
-  var BUILD_SHA = "3811d2f";
+  var GAME_VERSION = 'v1.27.47';
+  var BUILD_SHA = "84696c4";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -13420,7 +13420,9 @@
     applyPassiveTechsToMods(mods, char);
     applyOriginPassivesToMods(mods, char);
     if (isDemonHeart(char)) {
-      mods.dodgeChance = (mods.dodgeChance || 0) + 0.1;
+      mods.flatDR = (mods.flatDR || 0) * 0.5;
+      if (mods.incomingMult < 1) mods.incomingMult = 1 - (1 - mods.incomingMult) * 0.5;
+      mods.incomingMult *= 1.25;
       mods.postureMult *= 0.9;
       mods.lowHpBonus += 0.15;
     }
@@ -20751,7 +20753,7 @@
     const kit = SCHOOL_KITS[char.selectedSchool];
     const chips = [];
     if (kit) chips.push(`<span class="buff-chip" style="border-color:var(--gold)">Passive: ${kit.passiveName}</span>`);
-    if (isDemonHeart(char)) chips.push(`<span class="buff-chip" style="background:rgba(160,40,40,0.18);border-color:var(--crimson)">Demon-Heart (×1.2 Body, +15% bloodied, −10% posture, +10% dodge)</span>`);
+    if (isDemonHeart(char)) chips.push(`<span class="buff-chip" style="background:rgba(160,40,40,0.18);border-color:var(--crimson)">Demon-Heart (×1.15 Body, +15% bloodied, +25% taken, −10% posture, ½ DR)</span>`);
     else if (char.demonic) chips.push(`<span class="buff-chip" style="background:rgba(160,40,40,0.15);border-color:var(--crimson)">Demonic path (×1.2 Body, +4 stats)</span>`);
     const gcl = typeof goldenCoreLevel === "function" ? goldenCoreLevel() : char.goldenCoreQuality || 0;
     if (gcl > 0) chips.push(`<span class="buff-chip" style="border-color:var(--gold)">Golden Core ${goldenCoreGradeLabel(gcl)} (qual ${gcl})</span>`);
@@ -23657,7 +23659,7 @@
     const base = 63 + char.finalStats.body * 7 + Math.round(realmBonusFor(char).hp * 1.4);
     const mods = computeMods(char);
     const total = base + activeBuffValue("hp_max_add", 0) + boonHPAdd() + skillHPAdd() + (mods.hpBonus || 0) + metaHPAdd() + bodyQuenchHPAdd();
-    return Math.round(total * (mods.hpMult || 1) * cultPowerMults(char).hp * (1 + 0.05 * (char.goldenCoreQuality || 0)) * (char.demonic ? 1.2 : 1));
+    return Math.round(total * (mods.hpMult || 1) * cultPowerMults(char).hp * (1 + 0.05 * (char.goldenCoreQuality || 0)) * (isDemonHeart(char) ? 1.15 : char.demonic ? 1.2 : 1));
   }
   function cultLayers(char) {
     if (!char || !char.realm) return 0;
