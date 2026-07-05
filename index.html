@@ -3484,32 +3484,34 @@
       zh: "青缕断",
       school: "azure_sword",
       minRealmTier: 2,
-      cost: 50,
       qi: 16,
       cd: 2,
-      damage: 0.9,
-      hits: 2,
-      postureBuild: 18,
-      // v1.27.22b: "between two strikes" -> 2 hits
+      damage: 1.4,
+      hits: 3,
+      postureBuild: 26,
+      // v1.27.46: premium bleed-flurry (was 2x0.9 + bleed 4)
       effect: "bleed",
-      effectValue: 4,
-      effectTurns: 3,
-      desc: "A thread of qi between two strikes; the wound traces it home. (FE+)",
-      logHit: (a, t) => `${a} cuts a thin line that does not heal — and steps inside the line.`
+      effectValue: 12,
+      effectTurns: 4,
+      desc: "Three threads of qi drawn between the strikes; each wound traces the last one home. Far above the flash-cut, with a deep sustained bleed. (FE+)",
+      logHit: (a, t) => `${a} cuts three thin lines that do not heal — and steps inside them.`
     },
     flame_pillar: {
       name: "Pillar of Flame",
       zh: "焰柱",
       school: "crimson_flame",
       minRealmTier: 2,
-      cost: 50,
       target: "aoe",
       qi: 18,
       cd: 2,
-      damage: 2,
-      postureBuild: 15,
-      desc: "A column of flame splits the air. (FE+)",
-      logHit: (a, t) => `${a} drives the saber down; flame rises in a column where it lands.`
+      damage: 2.6,
+      postureBuild: 20,
+      // v1.27.46: AOE column that LEAVES a burn (new functionality)
+      effect: "burn",
+      effectValue: 14,
+      effectTurns: 3,
+      desc: "A column of flame splits the air over every foe — and the fire stays to feed. AOE damage plus a lingering burn on all it touches. (FE+)",
+      logHit: (a, t) => `${a} drives the saber down; flame rises in a column where it lands, and does not go out.`
     },
     // ---- Core Formation (tier 3) ----
     silent_throat: {
@@ -3517,29 +3519,34 @@
       zh: "寂喉切",
       school: "silent_daggers",
       minRealmTier: 3,
-      cost: 150,
-      qi: 18,
+      qi: 22,
       cd: 3,
-      damage: 2.6,
-      postureBuild: 12,
-      pierceQi: 0.7,
-      desc: "A precision strike that finds the breath under armor. (CF+)",
-      logHit: (a, t) => `${a}'s blade enters where the shield does not yet know to be.`
+      damage: 3.4,
+      postureBuild: 14,
+      pierceQi: 0.9,
+      // v1.27.46: now actually SILENCES (new functionality)
+      effect: "silence",
+      effectValue: 0,
+      effectTurns: 1,
+      desc: "A precision strike that finds the breath under armor — and steals it. Pierces 90% of the qi shield and SILENCES the target for a turn (no techniques). The only true silence a cultivator can buy. (CF+)",
+      logHit: (a, t) => `${a}'s blade enters where the shield does not yet know to be; ${t} reaches for a technique and finds no voice.`
     },
     starfall_rain: {
       name: "Starfall Rain",
       zh: "星雨",
       school: "starfall",
       minRealmTier: 3,
-      cost: 150,
       target: "aoe",
-      qi: 22,
+      qi: 24,
       cd: 3,
-      damage: 0.6,
-      hits: 3,
-      postureBuild: 18,
-      // v1.27.22b: "a single arrow that arrives as many" -> 3 hits/foe
-      desc: "A volley pierces the heavens — and arrives at every standing target, three times over. (CF+)",
+      damage: 0.9,
+      hits: 4,
+      postureBuild: 22,
+      // v1.27.46: four falling stars/foe + Star-Mark on all
+      effect: "mark",
+      effectValue: 0.25,
+      effectTurns: 3,
+      desc: "A volley pierces the heavens — and arrives at every standing target FOUR times over, Star-Marking each for +25% follow-up damage. (CF+)",
       logHit: (a, t) => `${a} looses a single arrow that arrives as many.`
     },
     // ---- Golden Core (tier 4) ----
@@ -3548,46 +3555,49 @@
       zh: "空步斩",
       school: "azure_sword",
       minRealmTier: 4,
-      cost: 400,
       qi: 30,
       cd: 3,
-      damage: 1.8,
+      damage: 2.8,
       hits: 2,
-      postureBuild: 24,
-      // v1.27.22b: step + cut -> 2 hits
-      desc: "A strike that crosses the gap before the gap exists — a step and the cut that follows it. (GC+)",
-      logHit: (a, t) => `${a} steps once — and the next step lands as the cut.`
+      postureBuild: 28,
+      // v1.27.46: 2x2.8 = 5.6, clearly past Mountain-Severing (5.2)
+      desc: "A strike that crosses the gap before the gap exists — twin cuts, a step and the fall that follows it. Outreaches the school's heaviest cleave. (GC+)",
+      logHit: (a, t) => `${a} steps once — and the next step lands twice as the cut.`
     },
     dragon_pivot: {
       name: "Dragon-Pivot Cleave",
       zh: "龙转劈",
       school: "dragonforge",
       minRealmTier: 4,
-      cost: 400,
       qi: 28,
       cd: 3,
-      damage: 3,
-      postureBuild: 30,
+      damage: 4.2,
+      postureBuild: 40,
       postureBreak: true,
-      desc: "A heavy turn that ends with the blade-edge in the right place. Posture-break finisher. (GC+)",
-      logHit: (a, t) => `${a}'s greatsword arcs in a slow circle; the circle ends inside ${t}.`
+      // v1.27.46: bigger break + leaves armor split
+      effect: "sunder",
+      effectValue: 0.3,
+      effectTurns: 2,
+      desc: "A heavy turn that ends with the blade-edge in the right place — and the plate peeled open. Posture-break finisher that also Sunders (+30% damage taken, DR negated) for 2 turns. (GC+)",
+      logHit: (a, t) => `${a}'s greatsword arcs in a slow circle; the circle ends inside ${t}, and the armor gives.`
     },
     bone_dirge: {
       name: "Bone Dirge",
       zh: "骨挽歌",
       school: "bone_reed",
       minRealmTier: 4,
-      cost: 400,
       target: "aoe",
       qi: 26,
       cd: 3,
-      damage: 1.5,
-      postureBuild: 12,
+      damage: 1.6,
+      directSpirit: 40,
+      postureBuild: 14,
+      // v1.27.46: AOE spirit-tear + heavier qi shred
       effect: "qi_drain",
-      effectValue: 10,
+      effectValue: 18,
       effectTurns: 3,
-      desc: "A long low note that opens every nearby qi shield, draining 10 qi per turn for 3 turns. (GC+)",
-      logHit: (a, t) => `${a} plays a note no living throat could hold; qi peels off ${t} like wet paper.`
+      desc: "A long low note that claws every nearby soul (40 Spirit) and peels every qi shield (18/turn for 3 turns). The mass soul-break setup Bone Reed lacked. AOE. (GC+)",
+      logHit: (a, t) => `${a} plays a note no living throat could hold; qi and soul peel off ${t} like wet paper.`
     },
     // ---- Nascent Soul (tier 5) ----
     chain_severing: {
@@ -3595,48 +3605,50 @@
       zh: "断链缚",
       school: "chain_saint",
       minRealmTier: 5,
-      cost: 1e3,
       target: "aoe",
       qi: 38,
       cd: 3,
-      damage: 2.5,
-      postureBuild: 18,
+      damage: 3.2,
+      postureBuild: 24,
+      // v1.27.46: harder + longer AOE lock
       effect: "qi_cost_up",
-      effectValue: 1.8,
-      effectTurns: 2,
-      desc: "A chain looped through every standing meridian at once. Technique costs +80% for 2 turns. (NS+)",
-      logHit: (a, t) => `${a} slings the chain in a shape that does not close — except around ${t} and any that stand near.`
+      effectValue: 2,
+      effectTurns: 3,
+      desc: "A chain looped through every standing meridian at once. Technique costs +100% for 3 turns, on everything present. AOE. (NS+)",
+      logHit: (a, t) => `${a} slings the chain in a shape that does not close — except around every throat present.`
     },
     phoenix_revival: {
       name: "Phoenix Revival",
       zh: "凤复",
       school: "crimson_flame",
       minRealmTier: 5,
-      cost: 1e3,
       qi: 35,
       cd: 3,
-      damage: 4,
-      directHP: 0,
+      damage: 4.6,
       postureBuild: 20,
-      buff: { incomingMult: 0.7, turns: 1 },
-      desc: "Flame reborn at the moment of striking — heals on hit. (NS+)",
-      logHit: (a, t) => `${a} burns hotter as the strike lands; the wound on their own arm closes.`
+      // v1.27.46: real survival payoff — searing blow + burn + 2-turn 50% incoming
+      effect: "burn",
+      effectValue: 20,
+      effectTurns: 3,
+      buff: { incomingMult: 0.5, turns: 2 },
+      desc: "Flame reborn at the moment of striking: a searing blow that leaves a burn AND wraps you in embers — incoming damage HALVED for 2 rounds. Strike and survive at once. (NS+)",
+      logHit: (a, t) => `${a} burns hotter as the strike lands; the wound on their own arm closes over.`
     },
     array_seal: {
       name: "Heaven-Sealing Array",
       zh: "封天阵",
       school: "whispering_array",
       minRealmTier: 5,
-      cost: 1e3,
       target: "aoe",
       qi: 30,
       cd: 3,
-      damage: 1.8,
-      postureBuild: 14,
+      damage: 2.4,
+      postureBuild: 16,
+      // v1.27.46: the hardest caster-lock there is
       effect: "qi_cost_up",
-      effectValue: 2.2,
+      effectValue: 2.4,
       effectTurns: 3,
-      desc: "A formation drawn beneath every opponent at once. Technique costs +120% for 3 turns. (NS+)",
+      desc: "A formation drawn beneath every opponent at once. Technique costs +140% for 3 turns — the deepest meridian-lock a cultivator can inscribe. AOE. (NS+)",
       logHit: (a, t) => `${a} draws a single line; nine glyphs ignite in a perfect ring under everyone present.`
     },
     // ============ v0.45: school signature techniques (5th base slot). Each delivers the
@@ -3867,13 +3879,13 @@
       zh: "清心驱魔",
       school: "demon_heart",
       minRealmTier: 6,
-      cost: 2500,
       qi: 50,
       cd: 3,
-      damage: 5,
-      directHP: 30,
-      postureBuild: 28,
-      desc: "The demon-school finisher: feed the wound back into the wound. (SS+)",
+      damage: 6.4,
+      directHP: 40,
+      postureBuild: 30,
+      // v1.27.46: enormous life-tearing finisher
+      desc: "The demon-school finisher: feed the wound back into the wound. Enormous burst plus a slab of direct life torn away — the biggest single blow the heresy offers. (SS+)",
       logHit: (a, t) => `${a} reaches into the place that has always been hungry, and feeds it ${t}.`
     },
     oath_unbinding: {
@@ -3881,14 +3893,14 @@
       zh: "解誓击",
       school: "chain_saint",
       minRealmTier: 6,
-      cost: 2500,
       target: "aoe",
       qi: 60,
       cd: 4,
-      damage: 3.5,
-      postureBuild: 30,
+      damage: 4.2,
+      postureBuild: 34,
       postureBreak: true,
-      desc: "Every promise the wielder ever broke, paid back at once. AOE posture-break. (SS+)",
+      // v1.27.46: harder AOE break
+      desc: "Every promise the wielder ever broke, paid back at once. Heavy AOE posture-break on everything standing. (SS+)",
       logHit: (a, t) => `${a} releases the chain. It does not fall — it stops everywhere it ever was.`
     }
   };
@@ -9025,8 +9037,8 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Tribulation resistance, resolve under pressure." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.45';
-  var BUILD_SHA = "e7c7f27";
+  var GAME_VERSION = 'v1.27.46';
+  var BUILD_SHA = "3811d2f";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -9766,7 +9778,7 @@
   ["demon_reap", "heatfold_cleave"].forEach((tid) => {
     if (TECHNIQUES[tid]) delete TECHNIQUES[tid].target;
   });
-  var MASTERY_TIER_COST = { 1: 20, 2: 50, 3: 150, 4: 400, 5: 1e3, 6: 2500 };
+  var MASTERY_TIER_COST = { 1: 200, 2: 750, 3: 2500, 4: 7500, 5: 2e4, 6: 5e4 };
   var MASTERY_UNLOCKS = {
     // Azure Sword: ladder QC rain -> FE thread(v0.21) -> CF void-step -> GC void-stride(v0.21) -> NS one-cut
     azure_rain: 1,
@@ -12491,7 +12503,9 @@
   };
   Object.entries(EXPANSION_TECHS).forEach(([tid, def]) => {
     TECHNIQUES[tid] = def;
-    def.cost = Math.round(MASTERY_TIER_COST[def.minRealmTier] * (def.passive ? 1.5 : 1));
+  });
+  Object.values(TECHNIQUES).forEach((t) => {
+    if (t && (t.minRealmTier || 0) >= 1) t.cost = Math.round(MASTERY_TIER_COST[t.minRealmTier] * (t.passive ? 1.5 : 1));
   });
   var SCHOOL_KITS = {
     azure_sword: {
@@ -13406,9 +13420,6 @@
     applyPassiveTechsToMods(mods, char);
     applyOriginPassivesToMods(mods, char);
     if (isDemonHeart(char)) {
-      mods.flatDR = (mods.flatDR || 0) * 0.75;
-      if (mods.incomingMult < 1) mods.incomingMult = 1 - (1 - mods.incomingMult) * 0.75;
-      mods.incomingMult *= 1.25;
       mods.dodgeChance = (mods.dodgeChance || 0) + 0.1;
       mods.postureMult *= 0.9;
       mods.lowHpBonus += 0.15;
@@ -20740,7 +20751,7 @@
     const kit = SCHOOL_KITS[char.selectedSchool];
     const chips = [];
     if (kit) chips.push(`<span class="buff-chip" style="border-color:var(--gold)">Passive: ${kit.passiveName}</span>`);
-    if (isDemonHeart(char)) chips.push(`<span class="buff-chip" style="background:rgba(160,40,40,0.18);border-color:var(--crimson)">Demon-Heart (×1.15 Body, +15% bloodied, +25% taken, −10% posture, ¾ DR, +10% dodge)</span>`);
+    if (isDemonHeart(char)) chips.push(`<span class="buff-chip" style="background:rgba(160,40,40,0.18);border-color:var(--crimson)">Demon-Heart (×1.2 Body, +15% bloodied, −10% posture, +10% dodge)</span>`);
     else if (char.demonic) chips.push(`<span class="buff-chip" style="background:rgba(160,40,40,0.15);border-color:var(--crimson)">Demonic path (×1.2 Body, +4 stats)</span>`);
     const gcl = typeof goldenCoreLevel === "function" ? goldenCoreLevel() : char.goldenCoreQuality || 0;
     if (gcl > 0) chips.push(`<span class="buff-chip" style="border-color:var(--gold)">Golden Core ${goldenCoreGradeLabel(gcl)} (qual ${gcl})</span>`);
@@ -23646,7 +23657,7 @@
     const base = 63 + char.finalStats.body * 7 + Math.round(realmBonusFor(char).hp * 1.4);
     const mods = computeMods(char);
     const total = base + activeBuffValue("hp_max_add", 0) + boonHPAdd() + skillHPAdd() + (mods.hpBonus || 0) + metaHPAdd() + bodyQuenchHPAdd();
-    return Math.round(total * (mods.hpMult || 1) * cultPowerMults(char).hp * (1 + 0.05 * (char.goldenCoreQuality || 0)) * (isDemonHeart(char) ? 1.15 : char.demonic ? 1.2 : 1));
+    return Math.round(total * (mods.hpMult || 1) * cultPowerMults(char).hp * (1 + 0.05 * (char.goldenCoreQuality || 0)) * (char.demonic ? 1.2 : 1));
   }
   function cultLayers(char) {
     if (!char || !char.realm) return 0;
