@@ -9037,8 +9037,8 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Tribulation resistance, resolve under pressure." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.48';
-  var BUILD_SHA = "9467bf9";
+  var GAME_VERSION = 'v1.27.49';
+  var BUILD_SHA = "5b96817";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -14764,6 +14764,8 @@
       arch: "boss",
       kind: "construct",
       element: "metal",
+      power: 0.78,
+      // v1.27.49 (operator): it one-shot squishy builds from near-full THROUGH damage reduction — its shared techs (mountain_press 3.4x, boulder_fall 2.2x, both qi-piercing) are too hot on a tier-1 boss chassis, so the chassis comes down ~22%
       techIds: ["boulder_fall", "mountain_press"],
       materialDrops: [{ id: "star_iron", chance: 0.5, count: [1, 2] }, { id: "spirit_iron", chance: 0.9, count: [3, 6] }],
       intro: "The cold-iron seam has grown a heart, and the heart has grown a body, and the body fills the gallery.",
@@ -14901,7 +14903,7 @@
       defeat: "You are gently overexposed. For three days your shadow arrives slightly after you do."
     }]
   ].forEach(([id, d]) => {
-    d.power = 1.15;
+    d.power = (d.power || 1) * 1.15;
     mkEnemy(id, d);
   });
   [
@@ -19863,9 +19865,12 @@
     });
     return cost;
   }
+  function armorOwnedOrEquipped(id) {
+    if ((state.armor.owned || []).includes(id)) return true;
+    return Object.values(state.armor.equipped || {}).includes(id);
+  }
   function bossSetSlotFilled(bossId, slot) {
-    const owned = state.armor.owned || [];
-    return owned.includes(bossSetId(bossId, slot)) || owned.includes(hardSetId(bossId, slot));
+    return armorOwnedOrEquipped(bossSetId(bossId, slot)) || armorOwnedOrEquipped(hardSetId(bossId, slot));
   }
   function bossSetOwnedCount(bossId) {
     return BOSS_SET_SLOTS.filter(([slot]) => bossSetSlotFilled(bossId, slot)).length;
@@ -19934,8 +19939,7 @@
     return cost;
   }
   function nextHardSetSlot(bossId) {
-    const owned = state.armor.owned || [];
-    const pair = BOSS_SET_SLOTS.find(([slot]) => owned.includes(bossSetId(bossId, slot)) && !owned.includes(hardSetId(bossId, slot)));
+    const pair = BOSS_SET_SLOTS.find(([slot]) => armorOwnedOrEquipped(bossSetId(bossId, slot)) && !armorOwnedOrEquipped(hardSetId(bossId, slot)));
     return pair ? pair[0] : null;
   }
   function canCraftHardSetPiece(bossId) {
@@ -19951,12 +19955,17 @@
       if (state.base.materials[m] <= 0) delete state.base.materials[m];
     });
     const baseId = bossSetId(bossId, slot);
+    const newId = hardSetId(bossId, slot);
     const oi = state.armor.owned.indexOf(baseId);
     if (oi >= 0) state.armor.owned.splice(oi, 1);
+    let swapped = false;
     Object.keys(state.armor.equipped || {}).forEach((s) => {
-      if (state.armor.equipped[s] === baseId) state.armor.equipped[s] = null;
+      if (state.armor.equipped[s] === baseId) {
+        state.armor.equipped[s] = newId;
+        swapped = true;
+      }
     });
-    state.armor.owned.push(hardSetId(bossId, slot));
+    if (!swapped) state.armor.owned.push(newId);
     saveChar();
     return true;
   }
@@ -20511,7 +20520,7 @@
   function ownsBossCrossGear(id) {
     const g = BOSS_CROSS_GEAR[id];
     if (!g) return false;
-    return g.kind === "weapon" ? state.weapons.owned.includes(id) || state.weapon === id : state.armor.owned.includes(id);
+    return g.kind === "weapon" ? state.weapons.owned.includes(id) || state.weapon === id : armorOwnedOrEquipped(id);
   }
   function canCraftBossCrossGear(id) {
     const g = BOSS_CROSS_GEAR[id];
@@ -21455,7 +21464,7 @@
     tier = Math.max(0, Math.min(6, tier));
     for (let t = tier; t >= 0; t--) {
       const weaponPool = ARTIFACT_RECIPES.filter((r) => (r.minRealmTier || 0) === t && WEAPONS[r.id]).filter((r) => !state.weapons.owned.includes(r.id) && r.id !== state.weapon).map((r) => ({ kind: "weapon", id: r.id, name: WEAPONS[r.id].name }));
-      const armorPool = ARMOR_RECIPES.filter((r) => (r.minRealmTier || 0) === t && ARMOR[r.id]).filter((r) => !state.armor.owned.includes(r.id)).map((r) => ({ kind: "armor", id: r.id, name: ARMOR[r.id].name }));
+      const armorPool = ARMOR_RECIPES.filter((r) => (r.minRealmTier || 0) === t && ARMOR[r.id]).filter((r) => !armorOwnedOrEquipped(r.id)).map((r) => ({ kind: "armor", id: r.id, name: ARMOR[r.id].name }));
       const pool = weaponPool.concat(armorPool);
       if (pool.length) return pool[Math.floor(Math.random() * pool.length)];
     }
@@ -21870,10 +21879,11 @@
     body_temper: {
       name: "Body-Tempering Array",
       zh: "炼体阵",
-      desc: "Heat-stones spaced in a meditation cell. Grants additional vitality.",
+      desc: "Heat-stones spaced in a meditation cell. +5% max Body, rising with your realm (and upgrades).",
       cost: { spirit_iron: 5, body_root: 2 },
-      mods: { hpBonus: 60 },
+      mods: { hpMult: 1.05 },
       minTier: 0
+      // v1.27.49 (operator): PERCENTAGE — 5% +1%/realm, level-scaled in effectiveArrayMods
     },
     five_element: {
       name: "Five-Element Glyph",
@@ -22118,6 +22128,10 @@
     const lvl = arrayLevel(aid);
     const out = lvl > 0 ? scaleBossMods(a.mods, 1 + 0.18 * lvl) : Object.assign({}, a.mods);
     if (a.mods.herbGrowMult != null) out.herbGrowMult = Math.max(0.2, +(a.mods.herbGrowMult - 0.1 * lvl).toFixed(3));
+    if (aid === "body_temper") {
+      const pct = (0.05 + 0.01 * (state.realm && state.realm.tierIdx || 0)) * (1 + 0.18 * lvl);
+      out.hpMult = 1 + pct;
+    }
     return out;
   }
   function applyArraysToMods(mods, char) {
@@ -23368,7 +23382,12 @@
     state.base.buffs = state.base.buffs.filter((b) => b.expiresAt > now);
   }
   var BUFF_STACK_LIMIT = 2;
-  var BODY_POTION_PCT = [0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08];
+  var BODY_POTION_PCT = [0.1, 0.12, 0.14, 0.16, 0.18, 0.2, 0.22];
+  Object.values(CONSUMABLES).forEach((c) => (c.effects || []).forEach((ef) => {
+    if (ef.kind !== "hp_max_add" || !c.desc) return;
+    const band = ef.value >= 400 ? 2 : ef.value >= 100 ? 1.5 : 1;
+    c.desc = c.desc.replace(/\+\d+ max Body/, `+${Math.round(10 * band)}% max Body (base — rises with your realm)`);
+  }));
   function buffIsAdditive(kind) {
     return kind === "hp_max_add";
   }
@@ -24029,7 +24048,9 @@
       let buffVal = ef.value;
       if (ef.kind === "hp_max_add") {
         const tier = Math.min(6, state.realm && state.realm.tierIdx || 0);
-        buffVal = ef.value * 2 + Math.round((BODY_POTION_PCT[tier] || 0) * computeMaxHP(state));
+        const band = ef.value >= 400 ? 2 : ef.value >= 100 ? 1.5 : 1;
+        const baseMax = Math.max(1, computeMaxHP(state) - activeBuffValue("hp_max_add", 0));
+        buffVal = Math.round((BODY_POTION_PCT[tier] || 0.1) * band * baseMax);
       }
       state.base.buffs.push({ kind: ef.kind, value: buffVal, expiresAt: now + ef.durationMin * 6e4, sourceName: c.name });
       const sameKind = state.base.buffs.filter((b) => b.kind === ef.kind).sort((a, b) => buffPotency(b) - buffPotency(a));
@@ -28129,7 +28150,7 @@
           if (bossKillCount(bid + HARD_BOSS_SUFFIX) > 0) {
             const hRow = document.createElement("div");
             hRow.style.cssText = "margin:0.15rem 0 0.35rem 0.6rem;font-size:0.8rem";
-            const hOwned = BOSS_SET_SLOTS.filter(([slot]) => (state.armor.owned || []).includes(hardSetId(bid, slot))).length;
+            const hOwned = BOSS_SET_SLOTS.filter(([slot]) => armorOwnedOrEquipped(hardSetId(bid, slot))).length;
             const hNext = nextHardSetSlot(bid);
             const hCostStr = Object.entries(hardSetCost(bid)).map(([m, n]) => {
               const has = (state.base.materials[m] || 0) >= n;
