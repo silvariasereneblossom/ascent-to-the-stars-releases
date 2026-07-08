@@ -9037,8 +9037,8 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Tribulation resistance, resolve under pressure." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.49';
-  var BUILD_SHA = "5b96817";
+  var GAME_VERSION = 'v1.27.50';
+  var BUILD_SHA = "68da54f";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -23385,8 +23385,8 @@
   var BODY_POTION_PCT = [0.1, 0.12, 0.14, 0.16, 0.18, 0.2, 0.22];
   Object.values(CONSUMABLES).forEach((c) => (c.effects || []).forEach((ef) => {
     if (ef.kind !== "hp_max_add" || !c.desc) return;
-    const band = ef.value >= 400 ? 2 : ef.value >= 100 ? 1.5 : 1;
-    c.desc = c.desc.replace(/\+\d+ max Body/, `+${Math.round(10 * band)}% max Body (base — rises with your realm)`);
+    const pct = Math.round((BODY_POTION_PCT[Math.min(6, c.minRealmTier || 0)] || 0.1) * 100);
+    c.desc = c.desc.replace(/\+\d+ max Body/, `+${pct}% max Body`);
   }));
   function buffIsAdditive(kind) {
     return kind === "hp_max_add";
@@ -24047,11 +24047,11 @@
       }
       let buffVal = ef.value;
       if (ef.kind === "hp_max_add") {
-        const tier = Math.min(6, state.realm && state.realm.tierIdx || 0);
-        const band = ef.value >= 400 ? 2 : ef.value >= 100 ? 1.5 : 1;
+        const potionTier = Math.min(6, c.minRealmTier || 0);
         const baseMax = Math.max(1, computeMaxHP(state) - activeBuffValue("hp_max_add", 0));
-        buffVal = Math.round((BODY_POTION_PCT[tier] || 0.1) * band * baseMax);
+        buffVal = Math.round((BODY_POTION_PCT[potionTier] || 0.1) * baseMax);
       }
+      state.base.buffs = state.base.buffs.filter((b) => !(b.kind === ef.kind && b.sourceName === c.name));
       state.base.buffs.push({ kind: ef.kind, value: buffVal, expiresAt: now + ef.durationMin * 6e4, sourceName: c.name });
       const sameKind = state.base.buffs.filter((b) => b.kind === ef.kind).sort((a, b) => buffPotency(b) - buffPotency(a));
       if (sameKind.length > BUFF_STACK_LIMIT) {
@@ -28229,6 +28229,22 @@
     const disAll = collectSellableItems(state).filter((it) => it.disassemble);
     dlP.appendChild(realmTabChips("disassemblyRealm", (t) => disAll.filter((it) => (it.tier || 0) === t).length));
     const disRows = disAll.filter((it) => realmTabShows("disassemblyRealm", it.tier || 0));
+    if (disRows.length) {
+      const bulkRow = document.createElement("div");
+      bulkRow.className = "button-row";
+      bulkRow.style.cssText = "margin:0 0 0.5rem;justify-content:flex-start";
+      const bulkBtn = document.createElement("button");
+      bulkBtn.className = "ghost small";
+      const fns = disRows.map((it) => it.disassemble);
+      const allRealms = selectedRealmTab("disassemblyRealm") === "all";
+      bulkBtn.textContent = `Disassemble All ${allRealms ? `(${disRows.length})` : `at this realm (${disRows.length})`}`;
+      armDestructiveButton(bulkBtn, `Tap again — break down all ${fns.length}`, () => {
+        fns.forEach((fn) => fn());
+        render();
+      });
+      bulkRow.appendChild(bulkBtn);
+      dlP.appendChild(bulkRow);
+    }
     if (!disRows.length) {
       const empty = document.createElement("div");
       empty.style.cssText = "font-size:0.85rem;color:var(--ink-soft);font-style:italic";
