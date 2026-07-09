@@ -2576,16 +2576,16 @@
       name: "Rending Demon-Claw",
       zh: "裂魔爪",
       school: "demon_heart",
-      // v1.27.42 (operator): 0.6x wpn x3, 12 posture PER talon (36 total), and its hits lifesteal at 125%
-      // (the lifestealScale rider lives in playerTechnique).
+      // v1.27.42 (operator): 0.6x wpn x3, and its hits lifesteal at 125% (lifestealScale rider in playerTechnique).
+      // v1.27.51: posture pared ~10% (36 -> 32, ~11/talon) — overshot.
       qi: 6,
       cd: 2,
       damage: 0.6,
       hits: 3,
       directHP: 3,
-      postureBuild: 36,
+      postureBuild: 32,
       noCdScale: true,
-      desc: "A raking THREE-talon flurry that drinks through qi-armour — each rake brands a Hellfire stack, staggers the stance (12 posture per talon), and feeds the Hungry Dao at 125%.",
+      desc: "A raking THREE-talon flurry that drinks through qi-armour — each rake brands a Hellfire stack, staggers the stance, and feeds the Hungry Dao at 125%.",
       logHit: (a, t) => `${a}'s claws rake ${t} thrice; the skin opens, and the fire takes hold.`
     },
     demon_devour: {
@@ -9037,8 +9037,8 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Tribulation resistance, resolve under pressure." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.50';
-  var BUILD_SHA = "68da54f";
+  var GAME_VERSION = 'v1.27.51';
+  var BUILD_SHA = "cfa6b1c";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -12336,9 +12336,9 @@
       cd: 2,
       damage: 0.95,
       hits: 3,
-      postureBuild: 14,
+      postureBuild: 13,
       noCdScale: true,
-      // v1.27.22b: the BUYABLE demonic hellfire engine — any school's demonic path can stack hellfire fast (cd-2 3-hit flurry, exempt from the long-CD pass)
+      // v1.27.22b: the BUYABLE demonic hellfire engine — cd-2 3-hit flurry, exempt from the long-CD pass. v1.27.51: posture 14->13 (~10% pare)
       effect: "bleed",
       effectPower: 0.1,
       effectTurns: 3,
@@ -23623,10 +23623,22 @@
     const t = char && char.realm && char.realm.tierIdx || 0;
     return 5 + (t >= 4 ? 1 : 0) + (t >= 5 ? 1 : 0);
   }
+  var TECH_MUTEX = { demon_reap: "hellfire_flurry", dem_bloodprice_edge: "hellfire_flurry" };
+  function scrubTechMutex(arr) {
+    const seen = /* @__PURE__ */ new Set();
+    return arr.filter((tid) => {
+      const g = TECH_MUTEX[tid];
+      if (!g) return true;
+      if (seen.has(g)) return false;
+      seen.add(g);
+      return true;
+    });
+  }
   function activeSkillsList(char) {
     const cap = activeSlotsForRealm(char);
     let arr = (char.activeSkills || []).filter((tid) => TECHNIQUES[tid] && !TECHNIQUES[tid].passive && (char.loadout || []).includes(tid));
     arr = arr.filter((tid, i) => arr.indexOf(tid) === i);
+    arr = scrubTechMutex(arr);
     if (!arr.length) {
       const school = SCHOOLS[char.selectedSchool];
       arr = school ? school.techniques.slice() : [];
@@ -23641,6 +23653,8 @@
     const i = state.activeSkills.indexOf(tid);
     if (i >= 0) state.activeSkills.splice(i, 1);
     else {
+      const grp = TECH_MUTEX[tid];
+      if (grp) state.activeSkills = state.activeSkills.filter((t) => TECH_MUTEX[t] !== grp);
       if (state.activeSkills.length >= activeSlotsForRealm(state)) return;
       state.activeSkills.push(tid);
     }
@@ -24501,6 +24515,9 @@
       hpDmg *= sbm;
     }
     let incoming = (target.buffs.incomingMult || 1) * (target.baseIncoming || 1);
+    if (target.id === "bell_abbot" && typeof combat !== "undefined" && combat) {
+      incoming *= 1 - Math.max(0, 0.7 - 0.1 * ((combat.turn || 1) - 1));
+    }
     if (combat && target === combat.player) {
       if (opts.attacker && isBelowRealm(opts.attacker.id)) incoming *= SUB_REALM_INCOMING_MULT;
       const hm = heritageMech();
@@ -24598,6 +24615,14 @@
       if (pr) amount = Math.round(amount * (1 + pr.value));
       const su = target.effects.find((ef) => ef.kind === "sunder");
       if (su) amount = Math.round(amount * (1 + 0.1 * (su.stacks || 1)));
+    }
+    if (amount > 0 && typeof combat !== "undefined" && combat && target !== combat.player && target.id) {
+      const _ed = ENEMIES[target.id];
+      if (_ed && _ed.isBoss) {
+        const _bt = typeof BOSSES !== "undefined" && BOSSES[target.id] ? BOSSES[target.id].tier : _ed.tier || 0;
+        const _resist = Math.min(0.75, 0.05 * _bt * Math.max(0, (combat.turn || 1) - 1));
+        if (_resist > 0) amount = Math.round(amount * (1 - _resist));
+      }
     }
     target.posture += amount;
     if (isBreaker) target.posture = target.postureMax;
@@ -25655,9 +25680,11 @@
       }
       if (ef.kind === "hellfire") {
         const _blood = heritageIs("Demonic Bloodline");
-        const hfBase = isDemonHeart(state) || _blood && state.demonic ? c.hpMax || 0 : _blood ? (c.hpMax || 0) * 0.5 : Math.max(0, (c.hpMax || 0) - c.hp);
+        const _dhStrength = isDemonHeart(state) || _blood && state.demonic;
+        const hfBase = Math.max(0, (c.hpMax || 0) - c.hp);
+        const _potency = _dhStrength ? 1.5 : _blood ? 0.75 : 1;
         const _pBroken = (c.broken || 0) > 0, _sBroken = (c.spiritMax || 0) > 0 && c.spirit <= 0;
-        const hfMag = _pBroken && _sBroken ? 0.02 : _pBroken ? 0.015 : 0.01;
+        const hfMag = (_pBroken && _sBroken ? 0.02 : _pBroken ? 0.015 : 0.01) * _potency;
         let burn = Math.max(1, Math.round(hfBase * hfMag * (ef.stacks || 1)));
         if (combat && combat.player && c !== combat.player) burn = Math.max(1, Math.round(burn * (combat.player.mods && combat.player.mods.dotMult || 1)));
         if (isDemonHeart(state) && (state.realm && state.realm.tierIdx || 0) >= 5 && combat && c !== combat.player) burn *= 2;
@@ -25774,9 +25801,10 @@
     pushLog("line", tech.logHit(e.name, p.name));
     if (dmg > 0 || tech.directHP || tech.directSpirit) {
       const cm = chillMult(e) * enr;
+      const bellSpirit = e.id === "bell_abbot" ? 10 * Math.max(0, (combat.turn || 1) - 1) : 0;
       const res = dealDamage(p, dmg, {
         directHP: (tech.directHP || 0) * cm,
-        directSpirit: (tech.directSpirit || 0) * cm,
+        directSpirit: ((tech.directSpirit || 0) + bellSpirit) * cm,
         pierceQi: tech.pierceQi || 0,
         attacker: e,
         attackerElement: e.element
@@ -26057,6 +26085,11 @@
     tribMechHook("roundEnd");
     combat.turn++;
     pushLog("turn", `— Turn ${combat.turn} —`);
+    if (!combat.over && combat.enemy && combat.enemy.id === "bell_abbot" && combat.turn >= 9 && p.hp > 0 && (p.spiritMax || 0) > 0 && p.spirit <= 0) {
+      pushLog("defeat", "The ninth echo finds a soul with no walls left, and rings it out of the world.");
+      p.hp = 0;
+      checkDeath();
+    }
     if (combat.tribulation && combat.turn % 3 === 0) {
       combat.enemies.forEach((e) => {
         if (e.hp > 0) {
