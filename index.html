@@ -9038,8 +9038,8 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Tribulation resistance, resolve under pressure." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.53';
-  var BUILD_SHA = "21ead3a";
+  var GAME_VERSION = 'v1.27.54';
+  var BUILD_SHA = "12e4bc5";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -25695,7 +25695,6 @@
         const hfMag = (_pBroken && _sBroken ? 0.02 : _pBroken ? 0.015 : 0.01) * _potency;
         let burn = Math.max(1, Math.round(hfBase * hfMag * (ef.stacks || 1)));
         if (combat && combat.player && c !== combat.player) burn = Math.max(1, Math.round(burn * (combat.player.mods && combat.player.mods.dotMult || 1)));
-        if (isDemonHeart(state) && (state.realm && state.realm.tierIdx || 0) >= 5 && combat && c !== combat.player) burn *= 2;
         if (c.hp > 0 && hfBase > 0) {
           c.hp = Math.max(0, c.hp - burn);
           c._hfBurnThisTick = (c._hfBurnThisTick || 0) + burn;
