@@ -9038,8 +9038,8 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Tribulation resistance, resolve under pressure." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.54';
-  var BUILD_SHA = "12e4bc5";
+  var GAME_VERSION = 'v1.27.55';
+  var BUILD_SHA = "fa6a61e";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -9673,7 +9673,7 @@
       weapon: "demon_claws",
       // v1.6: unarmed demon-claw moveset
       techniques: ["demon_reap", "demon_devour", "demon_seal", "demon_ascendant", "demon_parasite"],
-      specialty: "You do not merely walk the demonic path — you BECOME a demon. No cultivation at all (insight comes only from battle and the rift-gate) and no lifespan to spend, but 1.5x the demonic bonuses, a Hungry-Dao lifesteal on every hit (25%, rising to 30% at Golden Core), and hellfire that burns 1% of MAX health per stack. At FULL hellfire every hit also rends a share of its damage straight into the foe's spirit (15%, 20% at Golden Core) — soul-break them for +30% damage taken. Hellfire burns twice per turn at Nascent Soul. The price: tribulations that hit 25% softer but mend themselves and drag on, sect hunters always a realm above you (rarely two), and a mounting hunt that ends you if their defeats stack to the realm cap. Purge the hunt at your sect — at the cost of falling to the bottom of your realm.",
+      specialty: "You do not merely walk the demonic path — you BECOME a demon. No cultivation at all (insight comes only from battle and the rift-gate) and no lifespan to spend, but 1.5x the demonic bonuses, a Hungry-Dao lifesteal on every hit (25%, rising to 30% at Golden Core), and hellfire that burns a share of MISSING health per stack (0.5-0.75% by Golden Core quality, x1.5 the plain-demonic rate, more on a broken foe). At FULL hellfire every hit also rends a share of its damage straight into the foe's spirit (15%, 20% at Golden Core) — soul-break them for +30% damage taken. The price: tribulations that hit 25% softer but mend themselves and drag on, sect hunters always a realm above you (rarely two), and a mounting hunt that ends you if their defeats stack to the realm cap. Purge the hunt at your sect — at the cost of falling to the bottom of your realm.",
       bestStats: ["spirit", "will"],
       flavor: "High on a black stone plateau where no birds fly. The palace has no doors. Students arrive by conviction.",
       isDemon: true
@@ -13078,7 +13078,7 @@
     silence: { label: "silenced", tip: (ef) => `Silenced: cannot use techniques. ${ef.turns} turn(s) left.` },
     resonance: { label: "resonance", tip: (ef) => `Resonating: losing ${ef.value} spirit per turn. ${ef.turns} turn(s) left.` },
     oathbound: { label: "oath-bound", tip: (ef) => `Oath-bound: takes ${ef.value} backlash damage whenever it uses a technique. ${ef.turns} turn(s) left.` },
-    hellfire: { label: "hellfire", tip: (ef) => `Demonic hellfire x${ef.stacks || 1}: burns ${ef.stacks || 1}% of MISSING health per turn (ignores qi shield). ${ef.turns} turn(s) left.` }
+    hellfire: { label: "hellfire", tip: (ef) => `Demonic hellfire x${ef.stacks || 1}: burns ~0.5-0.75% of MISSING health PER STACK each turn (scales with Golden Core quality; more when the foe is posture/soul-broken; ignores qi shield). ${ef.turns} turn(s) left.` }
   };
   var STATUS_STACK_CAP = { burn: 5, poison: 8, sunder: 5, bleed: 3, hellfire: 10 };
   function playerStackCap(kind) {
@@ -23672,6 +23672,14 @@
   function goldenCoreLevel() {
     return state && state.goldenCoreQuality || 0;
   }
+  function hellfireBaseMag() {
+    const gc = goldenCoreLevel();
+    if (gc <= 0) return 5e-3;
+    if (gc >= 10) return 75e-4;
+    if (gc <= 3) return 6e-3;
+    if (gc <= 6) return 65e-4;
+    return 7e-3;
+  }
   function goldenCoreGradeLabel(level) {
     return GC_ROMAN[Math.max(0, Math.min(9, 10 - level))];
   }
@@ -25692,7 +25700,8 @@
         const hfBase = Math.max(0, (c.hpMax || 0) - c.hp);
         const _potency = _dhStrength ? 1.5 : _blood ? 0.75 : 1;
         const _pBroken = (c.broken || 0) > 0, _sBroken = (c.spiritMax || 0) > 0 && c.spirit <= 0;
-        const hfMag = (_pBroken && _sBroken ? 0.02 : _pBroken ? 0.015 : 0.01) * _potency;
+        const _breakMult = _pBroken && _sBroken ? 2 : _pBroken ? 1.5 : 1;
+        const hfMag = hellfireBaseMag() * _breakMult * _potency;
         let burn = Math.max(1, Math.round(hfBase * hfMag * (ef.stacks || 1)));
         if (combat && combat.player && c !== combat.player) burn = Math.max(1, Math.round(burn * (combat.player.mods && combat.player.mods.dotMult || 1)));
         if (c.hp > 0 && hfBase > 0) {
