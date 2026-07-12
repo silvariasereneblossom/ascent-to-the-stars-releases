@@ -9038,10 +9038,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Tribulation resistance, resolve under pressure." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.60';
+  var GAME_VERSION = 'v1.27.61';
   var SNAPSHOT_RELAY_URL = "";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "b514f1a";
+  var BUILD_SHA = "989b04d";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -25236,10 +25236,11 @@
     }
     const hm = heritageMech();
     const schoolMed = hm.schoolMeditateMult && hm.schoolMeditateMult[state.selectedSchool] || 1;
-    const regen = Math.ceil(p.qiMax * 0.5 * p.mods.meditateMult * schoolMed);
+    let regen = Math.ceil(p.qiMax * 0.5 * p.mods.meditateMult * schoolMed);
+    if (isDemonHeart(state)) regen = Math.max(0, regen - 50);
     const before = p.qi;
     p.qi = Math.min(p.qiMax, p.qi + regen);
-    const medReduce = 0.7;
+    const medReduce = isDemonHeart(state) ? 0.85 : 0.7;
     p.buffs.incomingMult = medReduce;
     p.buffs.incomingTurns = 1;
     pushLog("line", `${p.name} folds inward, drawing heaven-qi through open meridians.`);
