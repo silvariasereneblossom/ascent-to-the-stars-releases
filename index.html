@@ -9038,8 +9038,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Tribulation resistance, resolve under pressure." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.58';
-  var BUILD_SHA = "92eb962";
+  var GAME_VERSION = 'v1.27.59';
+  var SNAPSHOT_RELAY_URL = "";
+  var SNAPSHOT_RELAY_KEY = "";
+  var BUILD_SHA = "1635796";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -26514,6 +26516,37 @@
       };
       row.appendChild(copyBtn);
       row.appendChild(dlBtn);
+      if (SNAPSHOT_RELAY_URL) {
+        const upBtn = document.createElement("button");
+        upBtn.className = "gold small";
+        upBtn.textContent = "Upload Snapshot";
+        upBtn.onclick = () => {
+          let s;
+          try {
+            s = mkSnapshot();
+          } catch (e) {
+            status.textContent = "Export failed: " + e.message;
+            return;
+          }
+          status.textContent = "Uploading…";
+          upBtn.disabled = true;
+          const ctrl = typeof AbortController !== "undefined" ? new AbortController() : null;
+          const timer = setTimeout(() => {
+            if (ctrl) ctrl.abort();
+          }, 15e3);
+          const headers = { "Content-Type": "text/plain" };
+          if (SNAPSHOT_RELAY_KEY) headers["x-atts-key"] = SNAPSHOT_RELAY_KEY;
+          fetch(SNAPSHOT_RELAY_URL, { method: "POST", headers, body: s, signal: ctrl ? ctrl.signal : void 0 }).then((r) => r.json().catch(() => ({ ok: r.ok }))).then((j) => {
+            status.textContent = j.ok ? `Uploaded — filed as ${j.path || "snapshot"} for analysis.` : `Upload rejected: ${j.error || "unknown"} — use Copy instead.`;
+          }).catch(() => {
+            status.textContent = "Upload failed (offline?) — use Copy Snapshot instead.";
+          }).finally(() => {
+            clearTimeout(timer);
+            upBtn.disabled = false;
+          });
+        };
+        row.appendChild(upBtn);
+      }
       exP.appendChild(row);
       exP.appendChild(ta);
       exP.appendChild(status);
