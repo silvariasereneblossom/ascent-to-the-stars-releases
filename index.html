@@ -9040,10 +9040,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Tribulation resistance, resolve under pressure." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.65';
+  var GAME_VERSION = 'v1.27.66';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "dd4159e";
+  var BUILD_SHA = "ada7fe5";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -21812,9 +21812,11 @@
     const statSum = state.finalStats ? Object.values(state.finalStats).reduce((a, b) => a + b, 0) : 0;
     return Math.round(wp + computeMaxHP(state) / 15 + statSum);
   }
+  var RIFT_MIGHT_REF = [260, 300, 550, 1100, 3400, 6800, 16e3];
   function realmRunDifficulty(floor) {
     const t = state.realm.tierIdx || 0;
-    return Math.round((18 + floor * 7) * (1 + t * 0.7));
+    const ref = RIFT_MIGHT_REF[t] || RIFT_MIGHT_REF[0];
+    return Math.round(ref * (0.09 + 0.09 * (floor / riftMaxDepth())));
   }
   function riftMaxDepth() {
     return [15, 15, 30, 45, 60, 75, 90][state.realm && state.realm.tierIdx || 0] || 15;
@@ -21898,9 +21900,20 @@
     run.relics.forEach((id) => {
       if (ARTIFACTS[id]) state.artifacts.owned.push(id);
     });
-    state[s.summary] = `${collapsed ? "Cast out of the " + s.name.toLowerCase() : "You withdraw from the " + s.name.toLowerCase()} after ${run.floor} floor${run.floor === 1 ? "" : "s"} — gained ${Math.round(run.insight)} insight${lostInsight > 0 ? ` (${lostInsight} torn away by the collapse)` : ""}, ${run.stones} stones${run.relics.length ? `, ${run.relics.length} relic${run.relics.length === 1 ? "" : "s"}` : ""}.`;
+    let yearsLost = 0;
+    if (collapsed && run.floor > 0) {
+      yearsLost = run.floor;
+      state.age = (state.age || 16) + yearsLost;
+    }
+    state[s.summary] = `${collapsed ? "Cast out of the " + s.name.toLowerCase() : "You withdraw from the " + s.name.toLowerCase()} after ${run.floor} floor${run.floor === 1 ? "" : "s"} — gained ${Math.round(run.insight)} insight${lostInsight > 0 ? ` (${lostInsight} torn away by the collapse)` : ""}, ${run.stones} stones${run.relics.length ? `, ${run.relics.length} relic${run.relics.length === 1 ? "" : "s"}` : ""}${yearsLost > 0 ? ` — and the collapse tears <strong>${yearsLost} year${yearsLost === 1 ? "" : "s"}</strong> from your span` : ""}.`;
     state[s.field] = null;
     state[s.last] = Date.now();
+    if (yearsLost > 0 && state.age >= lifespanMax() && !noAgeDeathOn()) {
+      saveChar();
+      setTimeout(() => dieRun("the weight of years", `The rift's collapse spent the last of ${state.name}'s span.`, state.name), 0);
+      render();
+      return;
+    }
     saveChar();
     render();
   }
@@ -22214,8 +22227,8 @@
     }
   };
   function arrayCapacity(char) {
-    if (!char || !char.realm) return 3;
-    return 3 + (char.realm.tierIdx || 0) + 2 * Math.floor((char.goldenCoreQuality || 0) / 5);
+    if (!char || !char.realm) return 4;
+    return 4 + (char.realm.tierIdx || 0) + 2 * Math.floor((char.goldenCoreQuality || 0) / 5);
   }
   function activeArrays(char) {
     if (!char || !char.base || !char.base.arrays) return [];
@@ -23207,7 +23220,7 @@
     };
   }
   function maxPlots(char) {
-    return 4 + char.realm.tierIdx * 2;
+    return 6 + char.realm.tierIdx * 2;
   }
   function ensurePlots() {
     const max = maxPlots(state);
@@ -24075,9 +24088,10 @@
     const baseSec = (HERB_GROW_BASE_MIN + herbTier * HERB_GROW_PER_TIER_MIN) * 60;
     const playerTier = state && state.realm ? state.realm.tierIdx : 0;
     const realmSpeed = 1 / (1 + playerTier * 0.12);
+    const outgrown = Math.pow(0.9, Math.max(0, playerTier - herbTier));
     const hm = heritageMech();
     const speedMult = skillPlantSpeedMult() * (hm.herbGrowMult || 1) * arraysHerbGrowMult();
-    return Math.max(60, Math.min(HERB_GROW_CAP_SEC, baseSec * realmSpeed * speedMult));
+    return Math.max(60, Math.min(HERB_GROW_CAP_SEC, baseSec * realmSpeed * outgrown * speedMult));
   }
   function plotRemainingSec(plot) {
     if (!plot.herb) return 0;
@@ -24213,11 +24227,17 @@
   function applyStatPotionGain(statKey, nominal) {
     if (!STAT_KEYS.includes(statKey) || nominal <= 0) return;
     const eff = state.finalStats && state.finalStats[statKey] != null ? state.finalStats[statKey] : state.baseStats[statKey] || 10;
-    if (!state.statCarry) state.statCarry = {};
-    const raw = nominal * statPotionMult(eff) + (state.statCarry[statKey] || 0);
-    const whole = Math.floor(raw);
-    state.statCarry[statKey] = raw - whole;
-    state.baseStats[statKey] = (state.baseStats[statKey] || 10) + whole;
+    if (!state.statPips) state.statPips = {};
+    if (state.statCarry) {
+      Object.entries(state.statCarry).forEach(([k, v]) => {
+        if (v > 0) state.statPips[k] = (state.statPips[k] || 0) + v * 10;
+      });
+      state.statCarry = null;
+    }
+    const pips = (state.statPips[statKey] || 0) + nominal * statPotionMult(eff);
+    const whole = Math.floor(pips / 10);
+    state.statPips[statKey] = +(pips - whole * 10).toFixed(3);
+    if (whole > 0) state.baseStats[statKey] = (state.baseStats[statKey] || 10) + whole;
   }
   function consume(recipeId) {
     if (!state.base.consumables[recipeId]) return;
@@ -25604,7 +25624,8 @@
         materialDrops[reagent] = (materialDrops[reagent] || 0) + rn;
       }
     }
-    const stoneAmount = Math.max(1, Math.floor(Math.sqrt(enemyData.insightReward || 1) * rewardScale * 0.5 * (1 + (state.realm.tierIdx || 0))));
+    const _stoneLuck = state.finalStats && state.finalStats.luck || 0;
+    const stoneAmount = Math.max(1, Math.round((5 + Math.floor(_stoneLuck / 5)) * Math.pow(2, state.realm.tierIdx || 0) * rewardScale));
     state.base.materials.spirit_stone = (state.base.materials.spirit_stone || 0) + stoneAmount;
     materialDrops.spirit_stone = (materialDrops.spirit_stone || 0) + stoneAmount;
     const _isInquisitor = String(e.id || "").startsWith("righteous_hunter_t");
@@ -28161,12 +28182,34 @@
         wList.appendChild(item);
       });
     }
+    if (!state.ui) state.ui = {};
+    const houseTab = state.ui.houseTab || "garden";
     const gP = document.createElement("div");
     gP.className = "panel";
     gP.innerHTML = `<h3>House <span style="font-weight:normal;color:var(--ink-soft);font-size:0.85rem">家舍</span></h3>
-    <p style="font-size:0.85rem;color:var(--ink-soft);margin:0 0 0.5rem">Your hermitage. The garden grows here; the arrays you build hum quietly in the walls.</p>`;
+    <p style="font-size:0.85rem;color:var(--ink-soft);margin:0 0 0.5rem">Your hermitage. The garden grows here, the cauldron simmers, the arrays hum in the walls — and the rift-gates you've bound open in the courtyard.</p>`;
+    {
+      const houseChips = document.createElement("div");
+      houseChips.className = "button-row";
+      houseChips.style.cssText = "flex-wrap:wrap;gap:0.25rem;margin:0 0 0.55rem;justify-content:flex-start";
+      [["garden", "Garden"], ["alchemy", "Alchemy"], ["arrays", "Arrays"], ["rift", "Rift-Gates"]].forEach(([k, label]) => {
+        const b = document.createElement("button");
+        b.className = "small " + (houseTab === k ? "gold" : "ghost");
+        b.textContent = label;
+        b.onclick = () => {
+          state.ui.houseTab = k;
+          saveChar();
+          render();
+        };
+        houseChips.appendChild(b);
+      });
+      gP.appendChild(houseChips);
+    }
     if (state.base.buffs.length) {
-      gP.innerHTML += `<div style="font-size:0.85rem;margin-top:0.4rem"><strong>Active Effects</strong></div>`;
+      const buffHdr = document.createElement("div");
+      buffHdr.style.cssText = "font-size:0.85rem;margin-top:0.4rem";
+      buffHdr.innerHTML = `<strong>Active Effects</strong>`;
+      gP.appendChild(buffHdr);
       const buffWrap = document.createElement("div");
       buffWrap.style.marginBottom = "0.5rem";
       state.base.buffs.forEach((buff, i) => {
@@ -28186,28 +28229,30 @@
       });
       gP.appendChild(buffWrap);
     }
-    const herbHeader = document.createElement("div");
-    herbHeader.style.fontSize = "0.85rem";
-    herbHeader.style.marginTop = "0.4rem";
-    herbHeader.innerHTML = `<strong>Herbs</strong>`;
-    gP.appendChild(herbHeader);
-    const herbWrap = document.createElement("div");
-    herbWrap.className = "inventory-list";
-    const hasHerbs = Object.keys(state.base.herbs).length > 0;
-    if (!hasHerbs) {
-      herbWrap.innerHTML = `<span style="font-size:0.8rem;color:var(--ink-soft);font-style:italic">No herbs yet. Plant some in the plots below.</span>`;
-    } else {
-      Object.entries(state.base.herbs).forEach(([id, count]) => {
-        const herb = HERBS[id];
-        const chip = document.createElement("span");
-        chip.className = "inv-chip tip";
-        chip.setAttribute("data-tip", herb.desc);
-        chip.innerHTML = `<strong>${herb.name}</strong> × ${count}`;
-        herbWrap.appendChild(chip);
-      });
+    if (houseTab === "garden") {
+      const herbHeader = document.createElement("div");
+      herbHeader.style.fontSize = "0.85rem";
+      herbHeader.style.marginTop = "0.4rem";
+      herbHeader.innerHTML = `<strong>Herbs</strong>`;
+      gP.appendChild(herbHeader);
+      const herbWrap = document.createElement("div");
+      herbWrap.className = "inventory-list";
+      const hasHerbs = Object.keys(state.base.herbs).length > 0;
+      if (!hasHerbs) {
+        herbWrap.innerHTML = `<span style="font-size:0.8rem;color:var(--ink-soft);font-style:italic">No herbs yet. Plant some in the plots below.</span>`;
+      } else {
+        Object.entries(state.base.herbs).forEach(([id, count]) => {
+          const herb = HERBS[id];
+          const chip = document.createElement("span");
+          chip.className = "inv-chip tip";
+          chip.setAttribute("data-tip", herb.desc);
+          chip.innerHTML = `<strong>${herb.name}</strong> × ${count}`;
+          herbWrap.appendChild(chip);
+        });
+      }
+      gP.appendChild(herbWrap);
     }
-    gP.appendChild(herbWrap);
-    if (Object.keys(state.base.materials || {}).length) {
+    if (houseTab === "alchemy" && Object.keys(state.base.materials || {}).length) {
       const matHeader = document.createElement("div");
       matHeader.style.fontSize = "0.85rem";
       matHeader.style.marginTop = "0.4rem";
@@ -28226,66 +28271,86 @@
       });
       gP.appendChild(matWrap);
     }
-    const plotsHeader = document.createElement("div");
-    plotsHeader.style.fontSize = "0.85rem";
-    plotsHeader.style.marginTop = "0.4rem";
-    plotsHeader.innerHTML = `<strong>Plots</strong> <span style="color:var(--ink-soft);font-weight:normal;font-size:0.75rem">(${state.base.plots.length}/${maxPlots(state)} — grows with realm)</span>`;
-    gP.appendChild(plotsHeader);
-    const plotsWrap = document.createElement("div");
-    plotsWrap.className = "garden-grid";
-    const emptyIdxs = [];
-    state.base.plots.forEach((plot, idx) => {
-      if (!plot.herb) {
-        emptyIdxs.push(idx);
-        return;
-      }
-      const plotEl = document.createElement("div");
-      plotEl.id = `plot-${idx}-wrap`;
-      {
-        const herb = HERBS[plot.herb];
-        plotEl.className = "plot growing";
-        const effMin = Math.round(effectiveGrowSeconds(plot.herb) / 60);
-        plotEl.innerHTML = `<div class="plot-title">${herb.name} <span style="color:var(--ink-soft);font-weight:normal;font-size:0.8rem">${herb.zh}</span></div>
+    if (houseTab === "garden") {
+      const plotsHeader = document.createElement("div");
+      plotsHeader.style.fontSize = "0.85rem";
+      plotsHeader.style.marginTop = "0.4rem";
+      plotsHeader.innerHTML = `<strong>Plots</strong> <span style="color:var(--ink-soft);font-weight:normal;font-size:0.75rem">(${state.base.plots.length}/${maxPlots(state)} — grows with realm)</span>`;
+      gP.appendChild(plotsHeader);
+      const plotsWrap = document.createElement("div");
+      plotsWrap.className = "garden-grid";
+      const emptyIdxs = [];
+      state.base.plots.forEach((plot, idx) => {
+        if (!plot.herb) {
+          emptyIdxs.push(idx);
+          return;
+        }
+        const plotEl = document.createElement("div");
+        plotEl.id = `plot-${idx}-wrap`;
+        {
+          const herb = HERBS[plot.herb];
+          plotEl.className = "plot growing";
+          const effMin = Math.round(effectiveGrowSeconds(plot.herb) / 60);
+          plotEl.innerHTML = `<div class="plot-title">${herb.name} <span style="color:var(--ink-soft);font-weight:normal;font-size:0.8rem">${herb.zh}</span></div>
         <div class="plot-timer" id="plot-${idx}-timer">Growing — ${formatDuration(plotRemainingSec(plot))}</div>
         <div class="plot-timer" style="font-size:0.72rem">Auto-harvests every ${effMin}m. Replants this herb on its own.</div>`;
+          const btns = document.createElement("div");
+          btns.className = "plot-buttons";
+          const ub = document.createElement("button");
+          ub.className = "ghost";
+          ub.textContent = "Uproot (switch herb)";
+          ub.onclick = () => {
+            uprootPlot(idx);
+            render();
+          };
+          btns.appendChild(ub);
+          plotEl.appendChild(btns);
+        }
+        plotsWrap.appendChild(plotEl);
+      });
+      if (emptyIdxs.length) {
+        const plotEl = document.createElement("div");
+        plotEl.className = "plot";
+        plotEl.innerHTML = `<div class="plot-title">Empty Plots <span style="color:var(--ink-soft);font-weight:normal">× ${emptyIdxs.length}</span></div>
+      <div class="plot-timer">Plant a herb — it takes the next free plot and auto-replants on harvest.</div>`;
         const btns = document.createElement("div");
         btns.className = "plot-buttons";
-        const ub = document.createElement("button");
-        ub.className = "ghost";
-        ub.textContent = "Uproot (switch herb)";
-        ub.onclick = () => {
-          uprootPlot(idx);
-          render();
-        };
-        btns.appendChild(ub);
+        Object.entries(HERBS).forEach(([hid, herb]) => {
+          if (!herbUnlocked(hid)) return;
+          const b = document.createElement("button");
+          b.className = "tip";
+          const effMin = Math.round(effectiveGrowSeconds(hid) / 60);
+          b.setAttribute("data-tip", `${herb.desc} (grows in ${effMin}m; auto-replants on harvest)`);
+          b.textContent = `Plant ${herb.name} (${effMin}m)`;
+          b.onclick = () => {
+            plantHerb(emptyIdxs[0], hid);
+            render();
+          };
+          btns.appendChild(b);
+        });
         plotEl.appendChild(btns);
+        plotsWrap.appendChild(plotEl);
       }
-      plotsWrap.appendChild(plotEl);
-    });
-    if (emptyIdxs.length) {
-      const plotEl = document.createElement("div");
-      plotEl.className = "plot";
-      plotEl.innerHTML = `<div class="plot-title">Empty Plots <span style="color:var(--ink-soft);font-weight:normal">× ${emptyIdxs.length}</span></div>
-      <div class="plot-timer">Plant a herb — it takes the next free plot and auto-replants on harvest.</div>`;
-      const btns = document.createElement("div");
-      btns.className = "plot-buttons";
-      Object.entries(HERBS).forEach(([hid, herb]) => {
-        if (!herbUnlocked(hid)) return;
-        const b = document.createElement("button");
-        b.className = "tip";
-        const effMin = Math.round(effectiveGrowSeconds(hid) / 60);
-        b.setAttribute("data-tip", `${herb.desc} (grows in ${effMin}m; auto-replants on harvest)`);
-        b.textContent = `Plant ${herb.name} (${effMin}m)`;
-        b.onclick = () => {
-          plantHerb(emptyIdxs[0], hid);
-          render();
-        };
-        btns.appendChild(b);
-      });
-      plotEl.appendChild(btns);
-      plotsWrap.appendChild(plotEl);
+      gP.appendChild(plotsWrap);
     }
-    gP.appendChild(plotsWrap);
+    if (houseTab === "alchemy") {
+      const pipHdr = document.createElement("div");
+      pipHdr.style.cssText = "font-size:0.85rem;margin-top:0.4rem";
+      pipHdr.innerHTML = `<strong>Distillation Pips</strong> <span style="color:var(--ink-soft);font-weight:normal;font-size:0.75rem">— each stat potion adds pips (soft-capped past 40/50); every 10 pips crystallize into +1 stat point.</span>`;
+      gP.appendChild(pipHdr);
+      const pipWrap = document.createElement("div");
+      pipWrap.className = "inventory-list";
+      const pips = state.statPips || {};
+      STATS.forEach((s) => {
+        const v = pips[s.key] || 0;
+        const chip = document.createElement("span");
+        chip.className = "inv-chip tip";
+        chip.setAttribute("data-tip", `${s.name}: ${v.toFixed(1)}/10 pips toward the next point.`);
+        chip.innerHTML = `<strong>${s.name}</strong> ${v.toFixed(1)}/10`;
+        pipWrap.appendChild(chip);
+      });
+      gP.appendChild(pipWrap);
+    }
     const appendConsumableSection = (kind, title, blurb) => {
       const hdr = document.createElement("div");
       hdr.style.fontSize = "0.85rem";
@@ -28309,15 +28374,17 @@
         gP.appendChild(renderConsumableRow(id, c, "craft"));
       });
     };
-    appendConsumableSection("pill", "Pills", "long-duration, for cultivation and body. Grouped by realm; higher-realm recipes reveal themselves when you get there.");
-    appendConsumableSection("potion", "Potions", "short-duration combat buffs. Grouped by realm; higher-realm recipes reveal themselves when you get there.");
-    {
+    if (houseTab === "alchemy") {
+      appendConsumableSection("pill", "Pills", "long-duration, for cultivation and body. Grouped by realm; higher-realm recipes reveal themselves when you get there.");
+      appendConsumableSection("potion", "Potions", "short-duration combat buffs. Grouped by realm; higher-realm recipes reveal themselves when you get there.");
+    }
+    if (houseTab === "alchemy") {
       const brRow = document.createElement("div");
       brRow.className = "consumable-row";
-      const active2 = (state.base.buffs || []).find((b) => b.kind === "cultivation_mult" && b.sourceName === "Spirit-Fed Brazier" && b.expiresAt > Date.now());
+      const active = (state.base.buffs || []).find((b) => b.kind === "cultivation_mult" && b.sourceName === "Spirit-Fed Brazier" && b.expiresAt > Date.now());
       brRow.innerHTML = `<div class="consumable-info">
         <div class="consumable-name">Spirit-Fed Brazier <span style="color:var(--ink-soft);font-size:0.75rem">灵焚炉</span></div>
-        <div class="consumable-desc">Burn ${brazierCost()} spirit stones for +60% cultivation rate, 30 minutes.${active2 ? ` <strong style="color:var(--gold)">Burning (${Math.ceil((active2.expiresAt - Date.now()) / 6e4)}m left).</strong>` : ""}</div>
+        <div class="consumable-desc">Burn ${brazierCost()} spirit stones for +60% cultivation rate, 30 minutes.${active ? ` <strong style="color:var(--gold)">Burning (${Math.ceil((active.expiresAt - Date.now()) / 6e4)}m left).</strong>` : ""}</div>
       </div>`;
       const brBtns = document.createElement("div");
       brBtns.className = "consumable-buttons";
@@ -28332,75 +28399,77 @@
       brRow.appendChild(brBtns);
       gP.appendChild(brRow);
     }
-    const arraysHeader = document.createElement("div");
-    arraysHeader.style.cssText = "font-size:0.85rem;margin-top:0.6rem";
-    const active = activeArrays(state);
-    const arrCap = arrayCapacity(state);
-    arraysHeader.innerHTML = `<strong>Arrays</strong> <span style="color:var(--ink-soft);font-weight:normal;font-size:0.75rem">— fixtures built into the house. ${active.length}/${arrCap} active.</span>`;
-    gP.appendChild(arraysHeader);
-    Object.entries(ARRAYS).forEach(([aid, a]) => {
-      if (a.demonicOnly && !state.demonic) return;
-      const tier2 = state.realm.tierIdx;
-      const isActive = active.includes(aid);
-      const tierMet = tier2 >= (a.minTier || 0);
-      const row = document.createElement("div");
-      row.className = "consumable-row";
-      const costStr = Object.entries(a.cost || {}).map(([id, n]) => {
-        const have = (state.base.materials[id] || 0) + (state.base.herbs[id] || 0);
-        const cls = have >= n ? "" : 'style="color:#c44"';
-        const lbl = MATERIALS[id] && MATERIALS[id].name || HERBS[id] && HERBS[id].name || id;
-        return `<span ${cls}>${n}× ${lbl}</span>`;
-      }).join(", ");
-      const modStr = modSummary(isActive ? effectiveArrayMods(aid) : a.mods) + (isActive && arrayLevel(aid) ? ` (upgraded +${arrayLevel(aid)})` : "");
-      const tierStr = a.minTier ? ` (requires ${REALMS[a.minTier].name})` : "";
-      row.innerHTML = `
+    if (houseTab === "arrays") {
+      const arraysHeader = document.createElement("div");
+      arraysHeader.style.cssText = "font-size:0.85rem;margin-top:0.6rem";
+      const active = activeArrays(state);
+      const arrCap = arrayCapacity(state);
+      arraysHeader.innerHTML = `<strong>Arrays</strong> <span style="color:var(--ink-soft);font-weight:normal;font-size:0.75rem">— fixtures built into the house. ${active.length}/${arrCap} active.</span>`;
+      gP.appendChild(arraysHeader);
+      Object.entries(ARRAYS).forEach(([aid, a]) => {
+        if (a.demonicOnly && !state.demonic) return;
+        const tier2 = state.realm.tierIdx;
+        const isActive = active.includes(aid);
+        const tierMet = tier2 >= (a.minTier || 0);
+        const row = document.createElement("div");
+        row.className = "consumable-row";
+        const costStr = Object.entries(a.cost || {}).map(([id, n]) => {
+          const have = (state.base.materials[id] || 0) + (state.base.herbs[id] || 0);
+          const cls = have >= n ? "" : 'style="color:#c44"';
+          const lbl = MATERIALS[id] && MATERIALS[id].name || HERBS[id] && HERBS[id].name || id;
+          return `<span ${cls}>${n}× ${lbl}</span>`;
+        }).join(", ");
+        const modStr = modSummary(isActive ? effectiveArrayMods(aid) : a.mods) + (isActive && arrayLevel(aid) ? ` (upgraded +${arrayLevel(aid)})` : "");
+        const tierStr = a.minTier ? ` (requires ${REALMS[a.minTier].name})` : "";
+        row.innerHTML = `
       <div class="consumable-info">
         <div class="consumable-name">${a.name} <span style="color:var(--ink-soft);font-size:0.75rem">${a.zh}</span></div>
         <div class="consumable-desc">${a.desc}</div>
         <div class="consumable-desc"><strong>Effect:</strong> ${modStr}${tierStr}</div>
         <div class="consumable-desc"><strong>Cost:</strong> ${costStr || "free"}</div>
       </div>`;
-      const btns = document.createElement("div");
-      btns.className = "consumable-buttons";
-      if (isActive) {
-        const lvl = arrayLevel(aid);
-        if (lvl < arrayMaxLevel()) {
-          const up = document.createElement("button");
-          up.className = "small " + (canUpgradeArray(aid) ? "gold" : "ghost");
-          up.textContent = `Upgrade${lvl ? " +" + lvl : ""} (${arrayUpgradeCost(aid)} stones)`;
-          up.disabled = !canUpgradeArray(aid);
-          up.onclick = () => {
-            upgradeArray(aid);
+        const btns = document.createElement("div");
+        btns.className = "consumable-buttons";
+        if (isActive) {
+          const lvl = arrayLevel(aid);
+          if (lvl < arrayMaxLevel()) {
+            const up = document.createElement("button");
+            up.className = "small " + (canUpgradeArray(aid) ? "gold" : "ghost");
+            up.textContent = `Upgrade${lvl ? " +" + lvl : ""} (${arrayUpgradeCost(aid)} stones)`;
+            up.disabled = !canUpgradeArray(aid);
+            up.onclick = () => {
+              upgradeArray(aid);
+              render();
+            };
+            btns.appendChild(up);
+          } else {
+            const max = document.createElement("span");
+            max.className = "rarity-tag rarity-legendary";
+            max.textContent = `+${lvl} (realm cap)`;
+            btns.appendChild(max);
+          }
+          const dis = document.createElement("button");
+          dis.className = "ghost";
+          dis.textContent = "Dismantle";
+          dis.onclick = () => {
+            dismantleArray(aid);
             render();
           };
-          btns.appendChild(up);
+          btns.appendChild(dis);
         } else {
-          const max = document.createElement("span");
-          max.className = "rarity-tag rarity-legendary";
-          max.textContent = `+${lvl} (realm cap)`;
-          btns.appendChild(max);
+          const build = document.createElement("button");
+          build.textContent = "Build";
+          build.disabled = !canBuildArray(aid);
+          if (!tierMet) build.title = `Requires ${REALMS[a.minTier].name}`;
+          build.onclick = () => {
+            if (buildArray(aid)) render();
+          };
+          btns.appendChild(build);
         }
-        const dis = document.createElement("button");
-        dis.className = "ghost";
-        dis.textContent = "Dismantle";
-        dis.onclick = () => {
-          dismantleArray(aid);
-          render();
-        };
-        btns.appendChild(dis);
-      } else {
-        const build = document.createElement("button");
-        build.textContent = "Build";
-        build.disabled = !canBuildArray(aid);
-        if (!tierMet) build.title = `Requires ${REALMS[a.minTier].name}`;
-        build.onclick = () => {
-          if (buildArray(aid)) render();
-        };
-        btns.appendChild(build);
-      }
-      row.appendChild(btns);
-      gP.appendChild(row);
-    });
+        row.appendChild(btns);
+        gP.appendChild(row);
+      });
+    }
     appendPanel(gP, "garden");
     if (!state.ui) state.ui = {};
     const fP = document.createElement("div");
@@ -28901,8 +28970,8 @@
         if (!def) return;
         setHtml += `<div style="margin-top:0.2rem">${def.name} (${count}/4):</div>`;
         def.bonuses.forEach((b) => {
-          const active2 = count >= b.pieces;
-          setHtml += `<div style="margin-left:0.8rem;color:${active2 ? "var(--jade)" : "var(--ink-soft)"}">· ${b.pieces}-piece: ${b.desc}${active2 ? " ✓" : ""}</div>`;
+          const active = count >= b.pieces;
+          setHtml += `<div style="margin-left:0.8rem;color:${active ? "var(--jade)" : "var(--ink-soft)"}">· ${b.pieces}-piece: ${b.desc}${active ? " ✓" : ""}</div>`;
         });
       });
       setBox.innerHTML = setHtml;
@@ -29699,6 +29768,7 @@
     fbtns.appendChild(fbtn);
     fortP.appendChild(fbtns);
     appendPanel(fortP, "market");
+    const houseTabSel = state.ui && state.ui.houseTab || "garden";
     Object.entries(RUN_SLOTS).forEach(([slotKey, s]) => {
       if (s.demonicOnly && !state.demonic) return;
       const srP = document.createElement("div");
@@ -29724,7 +29794,7 @@
       } else {
         const srReady = realmRunReady(slotKey);
         let srHTML = `<h3>${s.name} <span style="font-weight:normal;color:var(--ink-soft);font-size:0.85rem">${s.zh}</span></h3>
-        <p style="font-size:0.85rem;color:var(--ink-soft);margin:0 0 0.5rem">${slotKey === "rift" ? "A second rift only heresy can force — the pocket world behind it runs WARPED and reopens twice as fast. Same dangers, same banked loot, separate door." : "A rift into a sealed pocket realm. Descend for escalating loot and inheritances — but three wounds collapse it. <strong>Extract anytime to keep what you've banked</strong> (death here only ejects you)."} Your Might: <strong>${cultivatorMight()}</strong>.</p>`;
+        <p style="font-size:0.85rem;color:var(--ink-soft);margin:0 0 0.5rem">${slotKey === "rift" ? "A second rift only heresy can force — the pocket world behind it runs WARPED and reopens twice as fast. Same dangers, same banked loot, separate door." : "A rift into a sealed pocket realm. Descend for escalating loot and inheritances — but too many wounds collapse it. <strong>Extract anytime to keep what you've banked</strong>; being CAST OUT keeps your loot but tears <strong>a year of lifespan per floor reached</strong>. The guardians respect only a fully-geared cultivator of their realm."} Your Might: <strong>${cultivatorMight()}</strong>.</p>`;
         if (state[s.summary]) srHTML += `<p style="font-size:0.85rem;margin:0 0 0.5rem;color:var(--gold)">${state[s.summary]}</p>`;
         srP.innerHTML = srHTML;
         const row = document.createElement("div");
@@ -29746,7 +29816,7 @@
         row.appendChild(enter);
         srP.appendChild(row);
       }
-      appendPanel(srP, "journeys");
+      if (houseTabSel === "rift") appendPanel(srP, "garden");
     });
     const cfgP = document.createElement("div");
     cfgP.className = "panel";
