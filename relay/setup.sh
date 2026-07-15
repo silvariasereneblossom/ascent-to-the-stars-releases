@@ -10,7 +10,7 @@ curl -fsSL "$RAW/server.js" -o /opt/atts-relay/server.js
 curl -fsSL "$RAW/atts-relay.service" -o /etc/systemd/system/atts-relay.service
 if [ ! -s /etc/atts-relay.env ]; then
   echo -n "Paste the GitHub PAT (fine-grained, ascent-to-the-stars-releases, Contents RW): "
-  read -r PAT
+  read -r PAT < /dev/tty   # read from the TERMINAL, not the curl|bash pipe (the pipe is the script itself!)
   printf 'GITHUB_TOKEN=%s\n' "$PAT" > /etc/atts-relay.env
   chmod 600 /etc/atts-relay.env
 fi
