@@ -9040,10 +9040,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Tribulation resistance, resolve under pressure." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.66';
+  var GAME_VERSION = 'v1.27.67';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "ada7fe5";
+  var BUILD_SHA = "b2792a1";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -24264,7 +24264,7 @@
           state.lifespanBonus = (state.lifespanBonus || 0) + ef.value * 0.1;
           addInsight(2e4);
           const k = STAT_KEYS[Math.floor(Math.random() * STAT_KEYS.length)];
-          applyStatPotionGain(k, 1);
+          applyStatPotionGain(k, ef.value / 100);
           return;
         }
         state.lifespanBonus = (state.lifespanBonus || 0) + ef.value;
