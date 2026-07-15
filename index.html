@@ -7919,14 +7919,16 @@
       effects: [{ kind: "cultivation_mult", value: 2.5, durationMin: 15 }],
       desc: "+150% cultivation rate for 15 minutes."
     },
+    // v1.27.65 (operator): the combat-tincture LADDER starts here — these two Mortal-tier bases open at
+    // 10%, and every realm introduces a stronger pair (+10%/realm, generated in main.js from realm herbs).
     fire_tincture: {
       name: "Fire-Blood Tincture",
       zh: "火血剂",
       kind: "potion",
       rarity: "common",
       recipe: { body_root: 1, jade_lotus: 1 },
-      effects: [{ kind: "weapon_mult", value: 1.35, durationMin: 10 }],
-      desc: "+35% weapon power for 10 minutes."
+      effects: [{ kind: "weapon_mult", value: 1.1, durationMin: 10 }],
+      desc: "+10% weapon power for 10 minutes."
     },
     cold_draught: {
       name: "Cold-Mist Draught",
@@ -7934,8 +7936,8 @@
       kind: "potion",
       rarity: "common",
       recipe: { qi_grass: 1, body_root: 1 },
-      effects: [{ kind: "incoming_mult", value: 0.7, durationMin: 10 }],
-      desc: "−30% incoming damage for 10 minutes."
+      effects: [{ kind: "incoming_mult", value: 0.9, durationMin: 10 }],
+      desc: "−10% incoming damage for 10 minutes."
     },
     // Permanent stat pills — lategame grind rewards
     spirit_opening_pill: {
@@ -9038,10 +9040,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Tribulation resistance, resolve under pressure." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.64';
+  var GAME_VERSION = 'v1.27.65';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "26114e2";
+  var BUILD_SHA = "dd4159e";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -13428,6 +13430,10 @@
     applyBossRefineToMods(mods, char);
     applyPassiveTechsToMods(mods, char);
     applyOriginPassivesToMods(mods, char);
+    (typeof META !== "undefined" && META && META.soulBoons || []).forEach((id) => {
+      const b = SOUL_BOONS.find((x) => x.id === id);
+      if (b && b.mods) mergeMods(mods, b.mods);
+    });
     if (isDemonHeart(char)) {
       mods.flatDR = (mods.flatDR || 0) * 0.5;
       if (mods.incomingMult < 1) mods.incomingMult = 1 - (1 - mods.incomingMult) * 0.5;
@@ -14726,6 +14732,7 @@
     ["soulsilk_weaver", "nascent_pearl_serpent", "voidbloom_ascetic", "floating_court_bailiff", "scarwound_horror", "quiet_thunder_envoy"],
     ["frostsever_swordsage", "amber_tie_keeper", "heavenscar_leviathan", "final_abbot", "dawnscar_herald", "void_arbiter_clerk"]
   ];
+  var BOSS_TIER_POWER = [1.05, 1.08, 1.28, 1.3, 1.15, 1.15, 1.15];
   [
     ["boar_king", {
       name: "Boar-King of the Withered Wood",
@@ -14912,7 +14919,7 @@
       defeat: "You are gently overexposed. For three days your shadow arrives slightly after you do."
     }]
   ].forEach(([id, d]) => {
-    d.power = (d.power || 1) * 1.15;
+    d.power = (d.power || 1) * (BOSS_TIER_POWER[d.tier] || 1.15);
     mkEnemy(id, d);
   });
   [
@@ -17933,6 +17940,35 @@
     if (hasBoon("heart_held_sutra")) m *= 0.75;
     return m;
   }
+  var SOUL_BOONS = [
+    { at: 15, id: "soul_ember", name: "Soul Ember", zh: "魂烬", desc: "+1 to every stat at the start of each life.", stats: { all: 1 } },
+    { at: 30, id: "soul_whisper", name: "Gathered Whispers", zh: "聚魂语", desc: "+8% insight from all sources.", mods: { insightMult: 1.08 } },
+    { at: 45, id: "soul_marrow", name: "Remembered Marrow", zh: "忆髓", desc: "+40 max Body.", mods: { hpBonus: 40 } },
+    { at: 60, id: "soul_current", name: "Undertow of Souls", zh: "魂潮", desc: "+8% cultivation rate.", mods: { cultMult: 1.08 } },
+    { at: 75, id: "soul_edge", name: "Grave-Whetted Edge", zh: "墓磨锋", desc: "+3 weapon power.", mods: { weaponBonus: 3 } },
+    { at: 90, id: "soul_ward", name: "Choir of the Lost", zh: "亡者颂", desc: "−5% incoming damage.", mods: { incomingMult: 0.95 } },
+    { at: 105, id: "soul_sovereign", name: "Sovereign of Cycles", zh: "轮回之主", desc: "+2 to every stat at the start of each life, and +10% insight.", stats: { all: 2 }, mods: { insightMult: 1.1 } }
+  ];
+  function syncSoulBoons() {
+    if (!META) return;
+    META.soulBoons = META.soulBoons || [];
+    let changed = false;
+    SOUL_BOONS.forEach((b) => {
+      if ((META.soulsEarned || 0) >= b.at && !META.soulBoons.includes(b.id)) {
+        META.soulBoons.push(b.id);
+        changed = true;
+      }
+    });
+    if (changed) saveMeta();
+  }
+  function applySoulBoonStats(char) {
+    (META && META.soulBoons || []).forEach((id) => {
+      const b = SOUL_BOONS.find((x) => x.id === id);
+      if (b && b.stats && b.stats.all) STAT_KEYS.forEach((k) => {
+        char.baseStats[k] = (char.baseStats[k] || 10) + b.stats.all;
+      });
+    });
+  }
   function canAscend() {
     return state && state.realm.tierIdx === REALMS.length - 1 && state.realm.layer === REALMS[REALMS.length - 1].layers;
   }
@@ -17993,6 +18029,7 @@
     fresh.ascensions = ascensions;
     fresh.ascensionBoons = newBoons;
     applyBoonsOnNewCharacter(fresh);
+    applySoulBoonStats(fresh);
     fresh.name = keptName;
     fresh.selectedSchool = keptSchool;
     fresh.selectedHeritage = 0;
@@ -18702,6 +18739,8 @@
     fire: ["Cinderheart", "烬心"],
     earth: ["Loess-Bound", "黄土"]
   };
+  var FLAT_GEAR_HP_REF = [120, 350, 900, 3500, 15e3, 6e4, 18e4];
+  var gearFlat = (t, pct) => Math.max(1, Math.round(FLAT_GEAR_HP_REF[Math.min(6, Math.max(0, t))] * pct));
   var WEAPON_GEN_EFFECT = {
     sword: (t) => [(m) => {
       m.critChance += 0.04 + 0.01 * t;
@@ -18710,13 +18749,13 @@
       m.lifestealPct += 0.04 + 0.01 * t;
     }, `+${4 + t}% lifesteal`],
     unarmed: (t) => [(m) => {
-      m.hpBonus += 15 * (t + 1);
+      m.hpBonus += gearFlat(t, 0.04);
       m.flatDR += 1 + t;
-    }, `+${15 * (t + 1)} Body, +${1 + t} DR`],
+    }, `+${gearFlat(t, 0.04)} Body, +${1 + t} DR`],
     focus: (t) => [(m) => {
-      m.qiBonus += 10 * (t + 1);
+      m.qiBonus += gearFlat(t, 0.025);
       m.qiRegenBonus += 1 + Math.floor(t / 2);
-    }, `+${10 * (t + 1)} qi, +${1 + Math.floor(t / 2)} qi regen`],
+    }, `+${gearFlat(t, 0.025)} qi, +${1 + Math.floor(t / 2)} qi regen`],
     polearm: (t) => [(m) => {
       m.firstStrikeBonus += 0.08 + 0.03 * t;
     }, `+${Math.round((0.08 + 0.03 * t) * 100)}% opener`],
@@ -18730,8 +18769,8 @@
     }, `+${Math.round((0.06 + 0.02 * t) * 100)}% opener, +crit`],
     staff: (t) => [(m) => {
       m.qiRegenBonus += 1 + Math.ceil(t / 2);
-      m.hpBonus += 10 * (t + 1);
-    }, `+${1 + Math.ceil(t / 2)} qi regen, +${10 * (t + 1)} Body`],
+      m.hpBonus += gearFlat(t, 0.025);
+    }, `+${1 + Math.ceil(t / 2)} qi regen, +${gearFlat(t, 0.025)} Body`],
     hammer: (t) => [(m) => {
       m.postureMult *= 1.08 + 0.02 * t;
     }, `+${Math.round((0.08 + 0.02 * t) * 100)}% posture`],
@@ -19269,10 +19308,11 @@
   var ARMOR_RARITY_EFFECT_COUNT = { common: 1, rare: 2, legendary: 3, divine: 5 };
   var ARMOR_EFFECT_POOL = [
     { ch: "flatDR", mk: (t) => 1 + t, blurb: (t) => `+${1 + t} DR` },
-    { ch: "hpBonus", mk: (t) => 12 * (t + 1), blurb: (t) => `+${12 * (t + 1)} Body` },
-    { ch: "qiBonus", mk: (t) => 8 * (t + 1), blurb: (t) => `+${8 * (t + 1)} qi` },
+    { ch: "hpBonus", mk: (t) => gearFlat(t, 0.04), blurb: (t) => `+${gearFlat(t, 0.04)} Body` },
+    // v1.27.65: pool-tracking flats
+    { ch: "qiBonus", mk: (t) => gearFlat(t, 0.025), blurb: (t) => `+${gearFlat(t, 0.025)} qi` },
     { ch: "qiRegenBonus", mk: (t) => 1 + Math.floor(t / 3), blurb: (t) => `+${1 + Math.floor(t / 3)} qi regen` },
-    { ch: "spiritBonus", mk: (t) => 4 * (t + 1), blurb: (t) => `+${4 * (t + 1)} max spirit` },
+    { ch: "spiritBonus", mk: (t) => gearFlat(t, 0.012), blurb: (t) => `+${gearFlat(t, 0.012)} max spirit` },
     { ch: "dodgeChance", mk: (t) => +(0.01 + 5e-3 * t).toFixed(3), blurb: (t) => `+${(1 + 0.5 * t).toFixed(1)}% dodge` },
     { ch: "critChance", mk: (t) => +(0.015 + 5e-3 * t).toFixed(3), blurb: (t) => `+${(1.5 + 0.5 * t).toFixed(1)}% crit` },
     { ch: "lifestealPct", mk: (t) => +(0.015 + 0.01 * t).toFixed(3), blurb: (t) => `+${Math.round((0.015 + 0.01 * t) * 100)}% lifesteal` },
@@ -19870,7 +19910,7 @@
     BOSS_SET_SLOTS.forEach(([slot, noun, nounZh]) => {
       const id = bossSetId(bossId, slot);
       const mods = Object.assign({}, scaleBossMods(L.set, 1.25));
-      mods.hpBonus = (mods.hpBonus || 0) + (15 + tier * 12);
+      mods.hpBonus = (mods.hpBonus || 0) + gearFlat(tier, 0.08);
       ARMOR[id] = {
         name: `${L.setName} ${noun}`,
         zh: `${L.setZh}${nounZh}`,
@@ -19941,7 +19981,7 @@
     BOSS_SET_SLOTS.forEach(([slot, noun, nounZh]) => {
       const id = hardSetId(bossId, slot);
       const mods = scaleBossMods(L.set, HARD_SET_MULT);
-      mods.hpBonus = (mods.hpBonus || 0) + Math.round((15 + tier * 12) * HARD_SET_MULT);
+      mods.hpBonus = (mods.hpBonus || 0) + Math.round(gearFlat(tier, 0.08) * HARD_SET_MULT);
       mods.flatDR = (mods.flatDR || 0) + Math.round(armorDrFloor(tier, "divine") * 2.3);
       ARMOR[id] = {
         name: `Ascendant ${L.setName} ${noun}`,
@@ -21387,11 +21427,12 @@
       m.dodgeChance += 0.01 + 5e-3 * t;
     }, blurb: (t) => `+${(1 + 0.5 * t).toFixed(1)}% dodge` },
     { key: "hp", ch: "hpBonus", mk: (t) => (m) => {
-      m.hpBonus += 12 * (t + 1);
-    }, blurb: (t) => `+${12 * (t + 1)} Body` },
+      m.hpBonus += gearFlat(t, 0.03);
+    }, blurb: (t) => `+${gearFlat(t, 0.03)} Body` },
+    // v1.27.65: pool-tracking flats
     { key: "qi", ch: "qiBonus", mk: (t) => (m) => {
-      m.qiBonus += 8 * (t + 1);
-    }, blurb: (t) => `+${8 * (t + 1)} qi` },
+      m.qiBonus += gearFlat(t, 0.02);
+    }, blurb: (t) => `+${gearFlat(t, 0.02)} qi` },
     { key: "regen", ch: "qiRegenBonus", mk: (t) => (m) => {
       m.qiRegenBonus += 1 + Math.floor(t / 3);
     }, blurb: (t) => `+${1 + Math.floor(t / 3)} qi regen` },
@@ -21592,7 +21633,9 @@
       const ins = Math.max(100, Math.floor((info ? info.cost : 2e3) * 0.25));
       addInsight(ins);
       META.souls += 1;
+      META.soulsEarned = (META.soulsEarned || 0) + 1;
       saveMeta();
+      syncSoulBoons();
       return `A dead immortal's inheritance opens to you — <strong>+${ins} insight</strong> and <strong>+1 soul</strong> carried beyond death.`;
     } },
     // v0.53: a rare wandering stall (the "rare shop") — a free pill or a clutch of rare materials.
@@ -21653,6 +21696,31 @@
   var WALK_CD_MS = 5 * 60 * 1e3;
   function walkCooldownLeft() {
     return Math.max(0, (state.lastWalk || 0) + WALK_CD_MS - Date.now());
+  }
+  var DEMONIC_VENTURE_CAP = 10;
+  var DEMONIC_VENTURE_WINDOW_MS = 3600 * 1e3;
+  function demonicVenturesUsed() {
+    state.demonicVentureTimes = (state.demonicVentureTimes || []).filter((t) => Date.now() - t < DEMONIC_VENTURE_WINDOW_MS);
+    return state.demonicVentureTimes.length;
+  }
+  function startVenture(loc) {
+    if (loc.demonOnly && demonicVenturesUsed() >= DEMONIC_VENTURE_CAP) return false;
+    initCombat(rollEncounter(loc), loc.cultivationMult || 1);
+    if (!combat) return false;
+    combat.ventureLocId = loc.id;
+    if (loc.demonOnly) {
+      state.demonicVentureTimes.push(Date.now());
+      combat.demonicQiVenture = true;
+      combat.enemies.forEach((e) => {
+        if (String(e.id || "").startsWith("demonic_rival_t")) return;
+        e.hpMax = Math.round((e.hpMax || 1) * 10);
+        e.hp = e.hpMax;
+        e.weaponPower = Math.round((e.weaponPower || 0) * 2.5);
+      });
+      pushLog("flavor", "You step onto demonic ground, qi running hot — the foes are monstrous and the spoils richer, and no righteous hunter dares follow. But fall here, and the qi tears insight back out of you.");
+      saveChar();
+    }
+    return true;
   }
   function walkAStretch() {
     if (walkCooldownLeft() > 0) return;
@@ -22760,6 +22828,8 @@
       m.up = m.up || {};
       m.ascensions = m.ascensions || 0;
       if (!Array.isArray(m.ascensionBoons)) m.ascensionBoons = [];
+      m.soulsEarned = Math.max(m.soulsEarned || 0, m.souls || 0);
+      if (!Array.isArray(m.soulBoons)) m.soulBoons = [];
       ["cult", "body", "insight", "memory"].forEach((k) => {
         m.up[k] = m.up[k] || 0;
       });
@@ -22781,8 +22851,10 @@
   function bankSoulsOnDeath(lifetimeInsight) {
     const earned = Math.max(1, Math.floor(Math.sqrt(Math.max(0, lifetimeInsight || 0)) / 8));
     META.souls += earned;
+    META.soulsEarned = (META.soulsEarned || 0) + earned;
     META.lives += 1;
     saveMeta();
+    syncSoulBoons();
     return earned;
   }
   function soulUpgradeCost(key) {
@@ -22815,6 +22887,7 @@
     return !!(META.settings && META.settings.noAgeDeath);
   }
   var META = loadMeta();
+  syncSoulBoons();
   var MUSIC_BASE = "https://github.com/silvariasereneblossom/ascent-to-the-stars-releases/releases/download/audio/";
   var TRACKS = {
     menu: [
@@ -23090,7 +23163,8 @@
     const sp = document.createElement("div");
     sp.className = "panel";
     sp.innerHTML = `<h3 style="color:#c79cf0">Soul Altar <span style="font-weight:normal;color:var(--ink-soft);font-size:0.85rem">魂台</span></h3>
-    <p style="font-size:0.85rem;color:var(--ink-soft);margin:0 0 0.5rem">Souls endure beyond death. Spend them on aptitudes that strengthen <em>every</em> life to come. Souls: <strong style="color:#c79cf0">${META.souls}</strong> · Lives lived: ${META.lives}</p>`;
+    <p style="font-size:0.85rem;color:var(--ink-soft);margin:0 0 0.5rem">Souls endure beyond death. Spend them on aptitudes that strengthen <em>every</em> life to come. Souls: <strong style="color:#c79cf0">${META.souls}</strong> · Lives lived: ${META.lives} · Gathered in total: ${META.soulsEarned || 0}</p>
+    <p style="font-size:0.8rem;color:var(--ink-soft);margin:0 0 0.5rem"><strong style="color:#c79cf0">Soul-Gather Boons</strong> (permanent, at lifetime-soul milestones — spending never undoes them): ${SOUL_BOONS.map((b) => (META.soulBoons || []).includes(b.id) ? `<span style="color:var(--gold)" title="${b.desc}">${b.name} ✓</span>` : `<span style="opacity:0.55" title="${b.desc}">${b.name} (${b.at})</span>`).join(" · ")}</p>`;
     Object.keys(SOUL_UPGRADES).forEach((key) => {
       const u = SOUL_UPGRADES[key];
       const rank = META.up[key] || 0;
@@ -23440,6 +23514,39 @@
   }
   var BUFF_STACK_LIMIT = 2;
   var BODY_POTION_PCT = [0.1, 0.12, 0.14, 0.16, 0.18, 0.2, 0.22];
+  (function generateTinctureLadder() {
+    const herbsByTier = {};
+    Object.entries(HERBS).forEach(([hid, h]) => {
+      const t = h.minRealmTier || 0;
+      (herbsByTier[t] = herbsByTier[t] || []).push(hid);
+    });
+    for (let t = 1; t <= 6; t++) {
+      const hs = herbsByTier[t] && herbsByTier[t].length ? herbsByTier[t] : herbsByTier[t - 1] || ["qi_grass"];
+      const h1 = hs[0], h2 = hs[1] || "body_root";
+      const pct = 10 * (t + 1);
+      const rar = t >= 5 ? "legendary" : t >= 3 ? "rare" : "common";
+      CONSUMABLES["wpn_tincture_t" + t] = {
+        name: `${REALMS[t].name} Blood Tincture`,
+        zh: "血剂",
+        kind: "potion",
+        rarity: rar,
+        recipe: { [h1]: 2, [h2]: 1 },
+        minRealmTier: t,
+        effects: [{ kind: "weapon_mult", value: 1 + pct / 100, durationMin: 10 }],
+        desc: `+${pct}% weapon power for 10 minutes. The ${REALMS[t].name} refinement of the fire-blood recipe.`
+      };
+      CONSUMABLES["ward_draught_t" + t] = {
+        name: `${REALMS[t].name} Mist Draught`,
+        zh: "雾饮",
+        kind: "potion",
+        rarity: rar,
+        recipe: { [h1]: 1, [h2]: 2 },
+        minRealmTier: t,
+        effects: [{ kind: "incoming_mult", value: 1 - pct / 100, durationMin: 10 }],
+        desc: `−${pct}% incoming damage for 10 minutes (defensive soft-caps apply past −15%).`
+      };
+    }
+  })();
   Object.values(CONSUMABLES).forEach((c) => (c.effects || []).forEach((ef) => {
     if (ef.kind !== "hp_max_add" || !c.desc) return;
     const pct = Math.round((BODY_POTION_PCT[Math.min(6, c.minRealmTier || 0)] || 0.1) * 100);
@@ -25497,7 +25604,7 @@
         materialDrops[reagent] = (materialDrops[reagent] || 0) + rn;
       }
     }
-    const stoneAmount = Math.max(1, Math.floor(Math.sqrt(enemyData.insightReward || 1) * rewardScale * 0.5));
+    const stoneAmount = Math.max(1, Math.floor(Math.sqrt(enemyData.insightReward || 1) * rewardScale * 0.5 * (1 + (state.realm.tierIdx || 0))));
     state.base.materials.spirit_stone = (state.base.materials.spirit_stone || 0) + stoneAmount;
     materialDrops.spirit_stone = (materialDrops.spirit_stone || 0) + stoneAmount;
     const _isInquisitor = String(e.id || "").startsWith("righteous_hunter_t");
@@ -27374,6 +27481,7 @@
       state.ascensions = META.ascensions || 0;
       state.ascensionBoons = (META.ascensionBoons || []).slice();
       applyBoonsOnNewCharacter(state);
+      applySoulBoonStats(state);
       state.finalStats = finalStats(state);
       state.weapon = school.weapon;
       state.loadout = school.techniques.slice();
@@ -28897,29 +29005,27 @@
         return rg && MATERIALS[rg] ? `<div style="font-size:0.78rem;color:var(--jade);margin-top:0.15rem">Signature reagent: ${MATERIALS[rg].name}</div>` : "";
       })()}
       <div style="font-size:0.78rem;color:var(--ink-soft);margin-top:0.15rem">Cultivation multiplier: ×${cultMult.toFixed(1)}</div>
-      ${loc.demonOnly ? `<div style="font-size:0.78rem;color:#c06;margin-top:0.15rem"><strong>Demonic Qi venture:</strong> foes ×10 Body / ×2.5 damage, insight +50%, no hunter ambush — but a rival demon of the realm above may contest it, and a defeat costs 10% of this realm's insight.</div>` : ""}
+      ${loc.demonOnly ? `<div style="font-size:0.78rem;color:#c06;margin-top:0.15rem"><strong>Demonic Qi venture:</strong> foes ×10 Body / ×2.5 damage, insight +50%, no hunter ambush — but a rival demon of the realm above may contest it, a defeat costs 10% of this realm's insight, and the ground only bears <strong>${DEMONIC_VENTURE_CAP} ventures per hour</strong> (the rest of the grind walks the hunted roads).</div>` : ""}
       ${reqHTML}
       <div class="location-actions" id="actions-${loc.id}"></div>`;
       locP.appendChild(card);
       const actions = card.querySelector(".location-actions");
       if (unlocked) {
         const venture = document.createElement("button");
-        venture.textContent = "Venture";
-        venture.onclick = () => {
-          initCombat(rollEncounter(loc), loc.cultivationMult || 1);
-          if (combat) {
-            combat.ventureLocId = loc.id;
-            if (loc.demonOnly) {
-              combat.demonicQiVenture = true;
-              combat.enemies.forEach((e) => {
-                if (String(e.id || "").startsWith("demonic_rival_t")) return;
-                e.hpMax = Math.round((e.hpMax || 1) * 10);
-                e.hp = e.hpMax;
-                e.weaponPower = Math.round((e.weaponPower || 0) * 2.5);
-              });
-              pushLog("flavor", "You step onto demonic ground, qi running hot — the foes are monstrous and the spoils richer, and no righteous hunter dares follow. But fall here, and the qi tears insight back out of you.");
-            }
+        if (loc.demonOnly) {
+          const used = demonicVenturesUsed();
+          if (used >= DEMONIC_VENTURE_CAP) {
+            venture.textContent = `Ground fallow (${used}/${DEMONIC_VENTURE_CAP} this hour)`;
+            venture.disabled = true;
+            venture.style.opacity = "0.6";
+          } else {
+            venture.textContent = `Venture (${used}/${DEMONIC_VENTURE_CAP} this hour)`;
           }
+        } else {
+          venture.textContent = "Venture";
+        }
+        venture.onclick = () => {
+          startVenture(loc);
           render();
         };
         actions.appendChild(venture);
@@ -29845,9 +29951,7 @@
       app.appendChild(aP);
       if (canReVenture) {
         document.getElementById("fight-again").onclick = () => {
-          const locId = combat.ventureLocId;
-          initCombat(rollEncounter(reLoc), reLoc.cultivationMult || 1);
-          if (combat) combat.ventureLocId = locId;
+          startVenture(reLoc);
           render();
         };
       }
