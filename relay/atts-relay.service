@@ -1,0 +1,26 @@
+# ATTS Snapshot Relay — systemd unit for the DigitalOcean droplet.
+# Install:
+#   sudo mkdir -p /opt/atts-relay && sudo cp server.js /opt/atts-relay/
+#   sudo cp atts-relay.service /etc/systemd/system/
+#   sudo nano /etc/atts-relay.env      # GITHUB_TOKEN=github_pat_...  (and optionally APP_KEY=..., PORT=8787)
+#   sudo chmod 600 /etc/atts-relay.env
+#   sudo systemctl daemon-reload && sudo systemctl enable --now atts-relay
+#   journalctl -u atts-relay -f        # watch it
+[Unit]
+Description=ATTS Snapshot Relay (game -> GitHub mirror)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+ExecStart=/usr/bin/env node /opt/atts-relay/server.js
+EnvironmentFile=/etc/atts-relay.env
+Restart=always
+RestartSec=5
+DynamicUser=yes
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target
