@@ -9038,10 +9038,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Tribulation resistance, resolve under pressure." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.61';
+  var GAME_VERSION = 'v1.27.62';
   var SNAPSHOT_RELAY_URL = "";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "989b04d";
+  var BUILD_SHA = "0b09539";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -9561,12 +9561,16 @@
       // v1.27.6: per-layer recal (was 45/30/4 over 5 layers)
       flavor: "Qi condenses in the dantian into a core of hot starlight. Its shape is yours alone."
     },
+    // v1.27.62 (operator): GC+ layer costs x5 — post-Golden-Core is balanced around HIGH/MAX investment at a
+    // T1-3 core (ACS-style: not optimizing = hard wall). insightCap deliberately NOT x5 (it's the per-kill income
+    // reference — scaling it would hand the x5 back to cap-riding optimized builds' income, which is the point:
+    // optimizers ride the softcap up, casual builds feel the full wall).
     {
       name: "Golden Core",
       zh: "金丹",
       layers: 9,
-      insightPerLayer: 46700,
-      insightPerLayerStep: 18680,
+      insightPerLayer: 233500,
+      insightPerLayerStep: 93400,
       insightCap: 52e3,
       hpBonus: 70,
       qiBonus: 50,
@@ -9577,9 +9581,10 @@
       name: "Nascent Soul",
       zh: "元婴",
       layers: 9,
-      insightPerLayer: 104250,
-      insightPerLayerStep: 41700,
+      insightPerLayer: 521250,
+      insightPerLayerStep: 208500,
       insightCap: 12e4,
+      // v1.27.62: x5
       hpBonus: 73,
       qiBonus: 53,
       weaponBonus: 7,
@@ -9590,9 +9595,10 @@
       name: "Spirit Severing",
       zh: "化神",
       layers: 9,
-      insightPerLayer: 230100,
-      insightPerLayerStep: 92040,
+      insightPerLayer: 1150500,
+      insightPerLayerStep: 460200,
       insightCap: 22e4,
+      // v1.27.62: x5
       hpBonus: 85,
       qiBonus: 60,
       weaponBonus: 9,
@@ -17666,17 +17672,27 @@
     if (skill.requires && skill.requires.some((r) => !hasSkill(r))) return false;
     return true;
   }
+  function learnedManualCount() {
+    return (state.skills || []).filter((id) => SKILL_BOOKS[id] && !SKILLS.find((x) => x.id === id)).length;
+  }
+  function skillCostMult() {
+    const realmMult = (state.realm && state.realm.tierIdx || 0) >= 4 ? 5 : 1;
+    return realmMult * (1 + 0.05 * Math.floor(learnedManualCount() / 10));
+  }
+  function effectiveSkillCost(skill) {
+    return Math.floor((skill.cost || 0) * skillCostMult());
+  }
   function canUnlockSkill(skill) {
     if (hasSkill(skill.id)) return false;
     if (!meetsSkillReq(skill)) return false;
-    if (state.realm.insight < skill.cost) return false;
+    if (state.realm.insight < effectiveSkillCost(skill)) return false;
     return true;
   }
   function unlockSkill(id) {
     const skill = findSkillDef(id);
     if (!skill) return;
     if (!canUnlockSkill(skill)) return;
-    state.realm.insight -= skill.cost;
+    state.realm.insight -= effectiveSkillCost(skill);
     state.skills = state.skills || [];
     state.skills.push(id);
     applyPermanentSkillEffect(skill);
@@ -17710,7 +17726,7 @@
     return state.skillRanks && state.skillRanks[id] || 0;
   }
   function repeatableCost(skill) {
-    return Math.floor(skill.cost * Math.pow(skill.costMult || 1.5, repeatableRank(skill.id)));
+    return Math.floor(skill.cost * Math.pow(skill.costMult || 1.5, repeatableRank(skill.id)) * skillCostMult());
   }
   function endlessPathMilestoneMult(rank) {
     return rank > 0 ? 1 + 0.1 * Math.ceil(rank / 5) : 1;
@@ -18626,43 +18642,43 @@
   ];
   var WEAPON_GEN_TIER = [
     {
-      power: 5,
+      power: 6,
       rarity: "common",
       pfx: [["Riverworn", "河磨"], ["Honest", "拙"]],
       mats: { spirit_iron: 2, qi_wood: 2 }
     },
     {
-      power: 9,
+      power: 10,
       rarity: "common",
       pfx: [["Spirit-Tempered", "灵炼"], ["Windworn", "风蚀"]],
       mats: { spirit_iron: 3, beast_sinew: 2 }
     },
     {
-      power: 15,
+      power: 17,
       rarity: "rare",
       pfx: [["Azure-Forged", "青锻"], ["Riverline", "河纹"]],
       mats: { star_iron: 2, spirit_pearl: 1, spirit_iron: 2 }
     },
     {
-      power: 23,
+      power: 26,
       rarity: "rare",
       pfx: [["Core-Carved", "核雕"], ["Thousand-Fold", "千叠"]],
       mats: { flame_marrow: 1, glacial_core: 1, star_iron: 2, spirit_stone: 2 }
     },
     {
-      power: 31,
+      power: 36,
       rarity: "legendary",
       pfx: [["Golden-Veined", "金脉"], ["Stormline", "暴纹"]],
       mats: { storm_crystal: 1, thunder_shard: 2, spirit_stone: 4 }
     },
     {
-      power: 41,
+      power: 47,
       rarity: "legendary",
       pfx: [["Soulbound", "魂缚"], ["Voidline", "虚纹"]],
       mats: { void_silk: 1, heavenly_jade: 1, moonshadow_silk: 2, spirit_stone: 8 }
     },
     {
-      power: 49,
+      power: 56,
       rarity: "legendary",
       pfx: [["World-Severing", "断世"], ["Heaven-Quenched", "天淬"]],
       mats: { sun_fragment: 1, heaven_silver: 1, primordial_stone: 1, spirit_stone: 12 }
@@ -18985,7 +19001,7 @@
       }
     });
   })();
-  var ARMOR_Body_BASE = [15, 34, 75, 165, 360, 700, 1300, 2e3];
+  var ARMOR_Body_BASE = [18, 41, 90, 198, 432, 840, 1560, 2400];
   (function generateArmorLadder() {
     const slotsCycle = [["helmet", "Helm", "盔"], ["chest", "Robe", "袍"], ["boots", "Boots", "靴"]];
     const hpBase = ARMOR_Body_BASE;
@@ -19346,8 +19362,19 @@
     name: "Risen Cinder",
     zh: "复燃烬",
     rarity: "divine",
-    desc: "An ember raked from a Heavenscourge's pyre. It refuses to cool; the forge drinks it to lift mortal work into the ascendant."
+    desc: "An ember raked from a Heavenscourge's pyre. LEGACY: the Ascendant forge now wants each tyrant's own Ascended essence instead."
   };
+  function ascMatId(bossId) {
+    return "asc_" + BOSS_UNIQUE_MATS[bossId][0];
+  }
+  Object.entries(BOSS_UNIQUE_MATS).forEach(([bossId, [mid, name, zh]]) => {
+    MATERIALS["asc_" + mid] = {
+      name: `Ascended ${name}`,
+      zh: `升华${zh}`,
+      rarity: "divine",
+      desc: `${name}, re-forged in a Heavenscourge's pyre until it remembers being part of something that defied heaven.`
+    };
+  });
   Object.entries(BOSS_UNIQUE_MATS).forEach(([bossId, [matId]]) => {
     if (ENEMIES[bossId]) {
       ENEMIES[bossId].materialDrops = [
@@ -19836,7 +19863,7 @@
     const setKey = `bset_${bossId}`;
     BOSS_SET_SLOTS.forEach(([slot, noun, nounZh]) => {
       const id = bossSetId(bossId, slot);
-      const mods = Object.assign({}, scaleBossMods(L.set, 1));
+      const mods = Object.assign({}, scaleBossMods(L.set, 1.25));
       mods.hpBonus = (mods.hpBonus || 0) + (15 + tier * 12);
       ARMOR[id] = {
         name: `${L.setName} ${noun}`,
@@ -19898,7 +19925,7 @@
     saveChar();
     return true;
   }
-  var HARD_SET_MULT = 1.4;
+  var HARD_SET_MULT = 1.75;
   function hardSetId(bossId, slot) {
     return `bset_${bossId}_hard_${slot}`;
   }
@@ -19935,7 +19962,7 @@
     const tier = BOSSES[bossId].tier;
     const cost = {};
     const slot = nextHardSetSlot(bossId);
-    cost[RISEN_CINDER] = slot === "chest" ? 10 : 5;
+    cost[ascMatId(bossId)] = slot === "chest" ? 10 : 5;
     Object.entries(WEAPON_GEN_TIER[tier].mats).forEach(([m, n]) => {
       cost[m] = (cost[m] || 0) + n * 2;
     });
@@ -21580,6 +21607,18 @@
   function seekOpportunity() {
     if (!opportunityReady()) return;
     const luck = state.finalStats && state.finalStats.luck || 0;
+    {
+      const eligible = Object.keys(TECHNIQUES).filter((tid) => techniqueBuyable(tid));
+      if (eligible.length && Math.random() < 0.02) {
+        state.masterOffer = eligible[Math.floor(Math.random() * eligible.length)];
+        const mt = TECHNIQUES[state.masterOffer];
+        state.lastOpportunityResult = `On a bend in the road you find the <strong>wandering master</strong>, brewing tea as if he expected you. He offers to teach <strong>${mt.name}</strong> for ${(mt.cost || 0).toLocaleString()} spirit stones — the offer stands below until you take it or he wanders on.`;
+        state.lastOpportunity = Date.now();
+        saveChar();
+        render();
+        return;
+      }
+    }
     const pool = FORTUNE_EVENTS.filter((ev) => !ev.luckGate || luck >= ev.luckGate);
     const weighted = pool.map((ev) => {
       let w = ev.base;
@@ -22521,7 +22560,7 @@
     const bossMats = new Set(Object.values(BOSS_UNIQUE_MATS).map((x) => x[0]));
     let best = null, bestD = 99;
     Object.entries(MATERIALS).forEach(([mid, mat]) => {
-      if (mat.rarity !== rarity || mid === "spirit_stone" || mid === RISEN_CINDER || bossMats.has(mid)) return;
+      if (mat.rarity !== rarity || mid === "spirit_stone" || mid === RISEN_CINDER || mid.startsWith("asc_") || bossMats.has(mid)) return;
       const mt = matTier(mid);
       const d = Math.abs(mt - t) + (mt > t + 1 ? 2 : 0);
       if (d < bestD) {
@@ -23608,7 +23647,10 @@
     saveChar();
     return true;
   }
-  function buyTechnique(techId) {
+  function techContribCost(tech) {
+    return (tech.cost || 0) * 5;
+  }
+  function techniqueBuyable(techId) {
     if (!state || !state.confirmed) return false;
     const tech = TECHNIQUES[techId];
     if (!tech) return false;
@@ -23618,9 +23660,10 @@
     if (min === 0) return false;
     if (state.realm.tierIdx < min) return false;
     if (state.loadout.includes(techId)) return false;
-    const cost = tech.cost || 0;
-    if ((state.base.materials.spirit_stone || 0) < cost) return false;
-    state.base.materials.spirit_stone -= cost;
+    return true;
+  }
+  function grantBoughtTechnique(techId) {
+    const tech = TECHNIQUES[techId];
     state.loadout.push(techId);
     if (!state.activeSkills) state.activeSkills = [];
     if (!tech.passive && state.activeSkills.length < activeSlotsForRealm(state) && !state.activeSkills.includes(techId)) {
@@ -23628,6 +23671,21 @@
     }
     saveChar();
     return true;
+  }
+  function buyTechnique(techId) {
+    if (!techniqueBuyable(techId)) return false;
+    const cost = techContribCost(TECHNIQUES[techId]);
+    if ((state.contribution || 0) < cost) return false;
+    state.contribution -= cost;
+    return grantBoughtTechnique(techId);
+  }
+  function buyTechniqueForStones(techId) {
+    if (!techniqueBuyable(techId)) return false;
+    const cost = TECHNIQUES[techId].cost || 0;
+    if ((state.base.materials.spirit_stone || 0) < cost) return false;
+    state.base.materials.spirit_stone -= cost;
+    if (state.masterOffer === techId) state.masterOffer = null;
+    return grantBoughtTechnique(techId);
   }
   function activeSlotsForRealm(char) {
     const t = char && char.realm && char.realm.tierIdx || 0;
@@ -25410,14 +25468,16 @@
       }
     }
     if (enemyData.isHardBoss) {
+      const _baseBoss = String(e.id).replace(HARD_BOSS_SUFFIX, "");
+      const _ascMat = BOSS_UNIQUE_MATS[_baseBoss] ? ascMatId(_baseBoss) : null;
       const _cl = state.finalStats && state.finalStats.luck || 0;
       const _cinderChance = 0.35 + 0.65 * (1 - Math.exp(-_cl / 9.5));
       let _cinders = 0;
       if (Math.random() < _cinderChance) _cinders++;
       if (_cl > 30 && Math.random() < Math.min(0.25, (_cl - 30) * 0.01)) _cinders++;
-      if (_cinders > 0) {
-        state.base.materials[RISEN_CINDER] = (state.base.materials[RISEN_CINDER] || 0) + _cinders;
-        materialDrops[RISEN_CINDER] = (materialDrops[RISEN_CINDER] || 0) + _cinders;
+      if (_cinders > 0 && _ascMat) {
+        state.base.materials[_ascMat] = (state.base.materials[_ascMat] || 0) + _cinders;
+        materialDrops[_ascMat] = (materialDrops[_ascMat] || 0) + _cinders;
       }
     }
     if (combat.ventureLocId) {
@@ -26247,7 +26307,11 @@
     const bar2 = document.createElement("div");
     bar2.className = "tabs";
     const tabs = [
-      { id: "self", label: "Loadout" },
+      { id: "self", label: "Cultivator" },
+      { id: "skillload", label: "Skill Loadout" },
+      // v1.27.62 (operator): UI split
+      { id: "weaponload", label: "Weapon Loadout" },
+      { id: "armorload", label: "Armor Loadout" },
       { id: "skills", label: "Skills" },
       { id: "library", label: "Library" },
       { id: "forge", label: "Forge Weapon" },
@@ -26609,11 +26673,167 @@
     dvBtns.appendChild(dvBtn);
     dvRow.appendChild(dvBtns);
     cfgP.appendChild(dvRow);
+    {
+      const lgOn = logModeOn();
+      const lgRow = document.createElement("div");
+      lgRow.className = "consumable-row";
+      lgRow.innerHTML = `<div class="consumable-info">
+        <div class="consumable-name">Logging Mode <span style="color:var(--ink-soft);font-size:0.75rem">战录</span></div>
+        <div class="consumable-desc">Records every turn of every fight (full combat log + realm/build context) for balance analysis. Stored locally (${fightLogStats()}); export or upload below. Slight save-size overhead while on.</div>
+      </div>`;
+      const lgBtns = document.createElement("div");
+      lgBtns.className = "consumable-buttons";
+      const lgBtn = document.createElement("button");
+      lgBtn.className = lgOn ? "gold" : "ghost";
+      lgBtn.textContent = lgOn ? "ON — disable" : "OFF — enable";
+      lgBtn.onclick = () => {
+        if (!META.settings) META.settings = {};
+        META.settings.logMode = !META.settings.logMode;
+        saveMeta();
+        render();
+      };
+      lgBtns.appendChild(lgBtn);
+      lgRow.appendChild(lgBtns);
+      cfgP.appendChild(lgRow);
+      const flP = document.createElement("div");
+      flP.style.cssText = "margin-top:0.4rem;padding-left:0.4rem;border-left:2px solid rgba(120,120,120,0.3)";
+      const flStatus = document.createElement("div");
+      flStatus.style.cssText = "font-size:0.75rem;color:var(--gold);margin-top:0.2rem";
+      const flRow = document.createElement("div");
+      flRow.className = "button-row";
+      const mkLogPayload = () => "ATTSLOG1." + btoa(unescape(encodeURIComponent(JSON.stringify({
+        fmt: "ATTS-LOG-1",
+        version: GAME_VERSION,
+        sha: window.BUILD_SHA || "dev",
+        exportedAt: (/* @__PURE__ */ new Date()).toISOString(),
+        player: state && state.confirmed ? { name: state.name, school: state.selectedSchool, demonic: !!state.demonic, realm: state.realm } : null,
+        fights: fightLogsGet()
+      }))));
+      const flCopy = document.createElement("button");
+      flCopy.className = "ghost small";
+      flCopy.textContent = "Copy Fight Logs";
+      flCopy.onclick = () => {
+        try {
+          const s = mkLogPayload();
+          const done = () => {
+            flStatus.textContent = `Copied ${fightLogStats()}.`;
+          };
+          if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(s).then(done).catch(() => {
+            flStatus.textContent = "Clipboard blocked — use Save as File.";
+          });
+          else flStatus.textContent = "Clipboard unavailable — use Save as File.";
+        } catch (e) {
+          flStatus.textContent = "Export failed: " + e.message;
+        }
+      };
+      const flDl = document.createElement("button");
+      flDl.className = "ghost small";
+      flDl.textContent = "Save as File";
+      flDl.onclick = () => {
+        try {
+          const a = document.createElement("a");
+          a.href = URL.createObjectURL(new Blob([mkLogPayload()], { type: "text/plain" }));
+          a.download = `atts-fightlogs-${GAME_VERSION}.txt`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          flStatus.textContent = "Fight logs saved.";
+        } catch (e) {
+          flStatus.textContent = "Download unavailable — use Copy.";
+        }
+      };
+      flRow.appendChild(flCopy);
+      flRow.appendChild(flDl);
+      if (SNAPSHOT_RELAY_URL) {
+        const flUp = document.createElement("button");
+        flUp.className = "gold small";
+        flUp.textContent = "Upload Fight Logs";
+        flUp.onclick = () => {
+          let s;
+          try {
+            s = mkLogPayload();
+          } catch (e) {
+            flStatus.textContent = "Export failed: " + e.message;
+            return;
+          }
+          flStatus.textContent = "Uploading…";
+          flUp.disabled = true;
+          const headers = { "Content-Type": "text/plain" };
+          if (SNAPSHOT_RELAY_KEY) headers["x-atts-key"] = SNAPSHOT_RELAY_KEY;
+          fetch(SNAPSHOT_RELAY_URL, { method: "POST", headers, body: s }).then((r) => r.json().catch(() => ({ ok: r.ok }))).then((j) => {
+            flStatus.textContent = j.ok ? `Uploaded — filed as ${j.path || "log"}.` : `Rejected: ${j.error || "unknown"}.`;
+          }).catch(() => {
+            flStatus.textContent = "Upload failed (offline?) — use Copy instead.";
+          }).finally(() => {
+            flUp.disabled = false;
+          });
+        };
+        flRow.appendChild(flUp);
+      }
+      const flClear = document.createElement("button");
+      flClear.className = "ghost small";
+      flClear.textContent = "Clear Logs";
+      flClear.onclick = () => {
+        fightLogsClear();
+        flStatus.textContent = "Cleared.";
+        render();
+      };
+      flRow.appendChild(flClear);
+      flP.appendChild(flRow);
+      flP.appendChild(flStatus);
+      cfgP.appendChild(flP);
+    }
     appendMusicControls(cfgP);
     return cfgP;
   }
   function devModeOn() {
     return !!(META.settings && META.settings.devMode);
+  }
+  function logModeOn() {
+    return !!(META.settings && META.settings.logMode);
+  }
+  var FIGHTLOG_KEY = "atts-fightlogs";
+  var FIGHTLOG_MAX_FIGHTS = 40;
+  var FIGHTLOG_MAX_BYTES = 6e5;
+  function fightLogsGet() {
+    try {
+      return JSON.parse(localStorage.getItem(FIGHTLOG_KEY) || "[]");
+    } catch (e) {
+      return [];
+    }
+  }
+  function fightLogsClear() {
+    try {
+      localStorage.removeItem(FIGHTLOG_KEY);
+    } catch (e) {
+    }
+  }
+  function fightLogStats() {
+    const l = fightLogsGet();
+    return `${l.length} fight${l.length === 1 ? "" : "s"}, ~${Math.round(JSON.stringify(l).length / 1024)} KB`;
+  }
+  function fightLogsPush(rec) {
+    try {
+      const logs = fightLogsGet();
+      logs.push(rec);
+      while (logs.length > FIGHTLOG_MAX_FIGHTS || JSON.stringify(logs).length > FIGHTLOG_MAX_BYTES) logs.shift();
+      localStorage.setItem(FIGHTLOG_KEY, JSON.stringify(logs));
+    } catch (e) {
+    }
+  }
+  function flushFightLog() {
+    if (!logModeOn() || !combat || !combat.over || combat._logged) return;
+    combat._logged = true;
+    fightLogsPush({
+      at: (/* @__PURE__ */ new Date()).toISOString(),
+      v: GAME_VERSION,
+      enemies: (combat.enemies || []).map((e) => e.id),
+      result: combat.victory ? "victory" : "defeat",
+      turns: combat.turn,
+      kind: combat.tribulation ? "tribulation" : combat.bossFight ? "boss" : combat.demonicQiVenture ? "venture" : "normal",
+      player: state && state.confirmed ? { name: state.name, school: state.selectedSchool, demonic: !!state.demonic, tier: state.realm.tierIdx, layer: state.realm.layer, gc: state.goldenCoreQuality || 0 } : null,
+      log: (combat.log || []).map((l) => l.cls + "|" + l.text)
+    });
   }
   function buildDevPanel() {
     const p = document.createElement("div");
@@ -27565,7 +27785,7 @@
           if (state.realm.tierIdx < (sk.minTier || 0)) reasonNotMet.push(`Requires ${REALMS[sk.minTier].name}`);
           else if (state.realm.tierIdx === (sk.minTier || 0) && sk.minLayer && state.realm.layer < sk.minLayer) reasonNotMet.push(`Requires ${REALMS[sk.minTier].name} L${sk.minLayer}`);
           if (sk.requires && sk.requires.some((r) => !hasSkill(r))) reasonNotMet.push(`Requires: ${sk.requires.map((r) => SKILLS.find((s) => s.id === r).name).join(", ")}`);
-          if (meetsSkillReq(sk) && state.realm.insight < sk.cost) reasonNotMet.push(`Need ${sk.cost} insight`);
+          if (meetsSkillReq(sk) && state.realm.insight < effectiveSkillCost(sk)) reasonNotMet.push(`Need ${effectiveSkillCost(sk).toLocaleString()} insight`);
         }
         const node = document.createElement("div");
         node.className = "skill-node tip" + (unlocked ? " unlocked" : meetsSkillReq(sk) ? "" : " locked");
@@ -27583,7 +27803,7 @@
         } else {
           const btn = document.createElement("button");
           btn.className = "small gold";
-          btn.textContent = `Learn (${sk.cost.toLocaleString()})`;
+          btn.textContent = `Learn (${effectiveSkillCost(sk).toLocaleString()})`;
           btn.disabled = !canBuy;
           btn.onclick = () => {
             unlockSkill(sk.id);
@@ -27615,7 +27835,8 @@
       ).forEach((bookId) => {
         const bk = SKILL_BOOKS[bookId];
         if (!bk) return;
-        const canBuy = state.realm.insight >= bk.cost;
+        const bkCost = effectiveSkillCost(bk);
+        const canBuy = state.realm.insight >= bkCost;
         const node = document.createElement("div");
         node.className = "skill-node tip";
         node.setAttribute("data-tip", bk.desc);
@@ -27624,17 +27845,17 @@
         const rarityCls = bk.rarity === "divine" ? "legendary" : bk.rarity;
         left.innerHTML = `<div class="skill-name">${bk.name} <span style="color:var(--ink-soft);font-weight:normal;font-size:0.8rem">${bk.zh}</span> <span class="rarity-tag rarity-${rarityCls}">${bk.rarity}</span></div>
         <div class="skill-desc">${bk.desc}</div>
-        ${!canBuy ? `<div class="skill-desc" style="color:var(--crimson)">Need ${bk.cost.toLocaleString()} insight</div>` : ""}`;
+        ${!canBuy ? `<div class="skill-desc" style="color:var(--crimson)">Need ${bkCost.toLocaleString()} insight</div>` : ""}`;
         node.appendChild(left);
         const right = document.createElement("div");
         right.style.textAlign = "right";
         const btn = document.createElement("button");
         btn.className = "small gold";
-        btn.textContent = `Learn (${bk.cost.toLocaleString()})`;
+        btn.textContent = `Learn (${bkCost.toLocaleString()})`;
         btn.disabled = !canBuy;
         btn.onclick = () => {
-          if (state.realm.insight < bk.cost) return;
-          state.realm.insight -= bk.cost;
+          if (state.realm.insight < bkCost) return;
+          state.realm.insight -= bkCost;
           state.skills.push(bookId);
           state.foundBooks = state.foundBooks.filter((x) => x !== bookId);
           applyPermanentSkillEffect(bk);
@@ -27715,7 +27936,7 @@
           bP.appendChild(none);
         }
       }
-      appendPanel(bP, "self");
+      appendPanel(bP, "armorload");
     }
     const cap = slotCapacity();
     let artHTML = `<h3>Artifact — ${weapon.name} <span style="color:var(--ink-soft);font-weight:normal;font-size:0.85rem">${weapon.zh}</span>
@@ -27735,7 +27956,7 @@
       <div id="weapon-list"></div>`;
     }
     artP.innerHTML = artHTML;
-    appendPanel(artP, "self");
+    appendPanel(artP, "weaponload");
     const slotRow = document.getElementById("slot-row");
     if (slotRow) {
       for (let i = 0; i < cap; i++) {
@@ -28327,7 +28548,7 @@
               return `<span style="color:${has ? "var(--ink)" : "var(--crimson)"}">${n}x ${MATERIALS[m] && MATERIALS[m].name || m}</span>`;
             }).join(", ");
             const hStatus = hOwned >= 4 ? '<div style="color:var(--gold);margin-top:0.1rem">Ascendant set complete.</div>' : hNext ? `<div style="color:var(--ink-soft);margin-top:0.1rem">Upgrade your ${(BOSS_SET_SLOTS.find((s) => s[0] === hNext) || [, "piece"])[1]} (consumes the base piece): ${hCostStr}</div>` : '<div style="color:var(--ink-soft);margin-top:0.1rem">Forge the base set pieces first — the Ascendant upgrades them.</div>';
-            hRow.innerHTML = `<strong style="color:var(--gold)">Ascendant ${L.setName}</strong> <span style="color:var(--ink-soft)">${hOwned}/4 · stronger pieces & set effects · ${MATERIALS[RISEN_CINDER].name}: ${state.base.materials[RISEN_CINDER] || 0}</span>${hStatus}`;
+            hRow.innerHTML = `<strong style="color:var(--gold)">Ascendant ${L.setName}</strong> <span style="color:var(--ink-soft)">${hOwned}/4 · stronger pieces & set effects · ${MATERIALS[ascMatId(bid)].name}: ${state.base.materials[ascMatId(bid)] || 0}</span>${hStatus}`;
             if (hNext) {
               const hsb = document.createElement("button");
               hsb.className = "small " + (canCraftHardSetPiece(bid) ? "gold" : "ghost");
@@ -28497,7 +28718,7 @@
         render();
       };
     });
-    appendPanel(lP, "skills");
+    appendPanel(lP, "skillload");
     const aP = document.createElement("div");
     aP.className = "panel";
     aP.innerHTML = `<h3>Armor <span style="font-weight:normal;color:var(--ink-soft);font-size:0.85rem">防具</span></h3>
@@ -28624,7 +28845,7 @@
         aP.appendChild(row);
       });
     }
-    appendPanel(aP, "self");
+    appendPanel(aP, "armorload");
     const useP = document.createElement("div");
     useP.className = "panel";
     useP.innerHTML = `<h3>Consumables <span style="font-weight:normal;color:var(--ink-soft);font-size:0.85rem">丹药</span></h3>
@@ -28831,8 +29052,8 @@
     appendPanel(mkP, "market");
     const masterP = document.createElement("div");
     masterP.className = "panel";
-    masterP.innerHTML = `<h3>Wandering Master <span style="font-weight:normal;color:var(--ink-soft);font-size:0.85rem">游师</span></h3>
-    <p style="font-size:0.85rem;color:var(--ink-soft);margin:0 0 0.6rem">Sells fragments of the deeper forms of your school. Costs scale with the realm of the form.</p>`;
+    masterP.innerHTML = `<h3>Sect Instruction <span style="font-weight:normal;color:var(--ink-soft);font-size:0.85rem">宗门传功</span></h3>
+    <p style="font-size:0.85rem;color:var(--ink-soft);margin:0 0 0.6rem">The sect instructs its own in the deeper forms — paid in CONTRIBUTION. (The old wandering master still roams: Seek Opportunity sometimes finds him selling one form for stones.)</p>`;
     const gatedTechs = Object.entries(TECHNIQUES).filter(([, t]) => t.minRealmTier && (t.school === state.selectedSchool || t.demonicOnly && state.demonic)).sort((a, b) => a[1].minRealmTier - b[1].minRealmTier || (a[1].cost || 0) - (b[1].cost || 0));
     if (!gatedTechs.length) {
       masterP.innerHTML += `<div style="font-size:0.85rem;color:var(--ink-soft);font-style:italic">The master has nothing to teach a sect that does not branch beyond its starting form.</div>`;
@@ -28841,7 +29062,8 @@
     gatedTechs.filter(([, tech]) => realmTabShows("masterRealm", tech.minRealmTier)).forEach(([tid, tech]) => {
       const owned2 = state.loadout.includes(tid);
       const tierMet = state.realm.tierIdx >= tech.minRealmTier;
-      const canAfford = stones >= (tech.cost || 0);
+      const contribCost = techContribCost(tech);
+      const canAfford = (state.contribution || 0) >= contribCost;
       const targetLabel = tech.passive ? '<span style="color:#b8a44a">PASSIVE</span>' : tech.target === "aoe" ? '<span style="color:#e89e9e">AOE</span>' : "Single";
       const demonTag = tech.demonicOnly ? ' <span style="color:#c06060;font-size:0.7rem">[HERESY]</span>' : "";
       const statLine = tech.passive ? "Always on once learned — no ability slot needed" : `${tech.qi} qi · ${tech.cd} cd · ${tech.damage}× weapon`;
@@ -28851,7 +29073,7 @@
       <div class="consumable-info">
         <div class="consumable-name">${tech.name} <span style="color:var(--ink-soft);font-size:0.75rem">${tech.zh || ""}</span> <span style="color:var(--ink-soft);font-size:0.7rem">[${targetLabel}]</span>${demonTag}</div>
         <div class="consumable-desc">${tech.desc || ""}</div>
-        <div class="consumable-desc"><strong>${REALMS[tech.minRealmTier].name}+</strong> · ${tech.cost || 0} spirit stones · ${statLine}</div>
+        <div class="consumable-desc"><strong>${REALMS[tech.minRealmTier].name}+</strong> · ${contribCost.toLocaleString()} contribution · ${statLine}</div>
       </div>`;
       const btns = document.createElement("div");
       btns.className = "consumable-buttons";
@@ -28863,10 +29085,10 @@
         b.textContent = `Locked (${REALMS[tech.minRealmTier].name})`;
         b.disabled = true;
       } else if (!canAfford) {
-        b.textContent = `Need ${tech.cost} stones`;
+        b.textContent = `Need ${contribCost.toLocaleString()} contribution`;
         b.disabled = true;
       } else {
-        b.textContent = `Buy (${tech.cost} stones)`;
+        b.textContent = `Learn (${contribCost.toLocaleString()} contribution)`;
         b.onclick = () => {
           if (buyTechnique(tid)) render();
         };
@@ -28875,7 +29097,7 @@
       row.appendChild(btns);
       masterP.appendChild(row);
     });
-    appendPanel(masterP, "skills");
+    appendPanel(masterP, "sect");
     const traderP = document.createElement("div");
     traderP.className = "panel";
     traderP.innerHTML = `<h3>Trader Caravan <span style="font-weight:normal;color:var(--ink-soft);font-size:0.85rem">商队</span></h3>
@@ -29314,6 +29536,36 @@
     <p style="font-size:0.85rem;color:var(--ink-soft);margin:0 0 0.5rem">Venture off the path in search of fortuitous encounters. Your <strong>Fortune (${luckVal})</strong> tilts fate toward better outcomes. High Fortune opens rarer fates: a dead immortal's inheritance (8+), a dying cultivator's bequest of equipment from the realm above yours (10+), or a fallen immortal's cache from two realms beyond (16+).</p>`;
     if (state.lastOpportunityResult) fortHTML += `<p style="font-size:0.88rem;margin:0 0 0.5rem;color:var(--gold)">${state.lastOpportunityResult}</p>`;
     fortP.innerHTML = fortHTML;
+    if (state.masterOffer && TECHNIQUES[state.masterOffer]) {
+      const mo = TECHNIQUES[state.masterOffer];
+      if (!techniqueBuyable(state.masterOffer)) {
+        state.masterOffer = null;
+      } else {
+        const moRow = document.createElement("div");
+        moRow.className = "consumable-row";
+        moRow.innerHTML = `<div class="consumable-info">
+          <div class="consumable-name">The Wandering Master's Offer: ${mo.name} <span style="color:var(--ink-soft);font-size:0.75rem">${mo.zh || ""}</span></div>
+          <div class="consumable-desc">${mo.desc || ""}</div>
+        </div>`;
+        const moBtns = document.createElement("div");
+        moBtns.className = "consumable-buttons";
+        const mob = document.createElement("button");
+        const moCost = mo.cost || 0;
+        if ((state.base.materials.spirit_stone || 0) < moCost) {
+          mob.textContent = `Need ${moCost.toLocaleString()} stones`;
+          mob.disabled = true;
+        } else {
+          mob.className = "gold";
+          mob.textContent = `Learn (${moCost.toLocaleString()} stones)`;
+          mob.onclick = () => {
+            if (buyTechniqueForStones(state.masterOffer)) render();
+          };
+        }
+        moBtns.appendChild(mob);
+        moRow.appendChild(moBtns);
+        fortP.appendChild(moRow);
+      }
+    }
     const fbtns = document.createElement("div");
     fbtns.className = "button-row";
     const fbtn = document.createElement("button");
@@ -29570,6 +29822,7 @@
         }
         endHTML += `</p>`;
       }
+      flushFightLog();
       const reLoc = combat.victory && combat.ventureLocId ? LOCATIONS.find((l) => l.id === combat.ventureLocId) : null;
       const canReVenture = reLoc && locationUnlocked(reLoc);
       endHTML += `<div class="button-row">
@@ -29654,6 +29907,21 @@
     medBtn.innerHTML = `<span class="name">Meditate</span><span class="meta">+${medAmount} qi · guard</span>`;
     medBtn.onclick = playerMeditate;
     grid2.appendChild(medBtn);
+    if (devModeOn() && !combat.over) {
+      const dkBtn = document.createElement("button");
+      dkBtn.className = "action-btn basic tip";
+      dkBtn.style.cssText = "border-color:var(--crimson)";
+      dkBtn.setAttribute("data-tip", "DEV: set every enemy to 0 Body and resolve the fight (rewards granted as a normal kill).");
+      dkBtn.innerHTML = `<span class="name">☠ Instant Kill</span><span class="meta">dev</span>`;
+      dkBtn.onclick = () => {
+        combat.enemies.forEach((en) => {
+          en.hp = 0;
+        });
+        checkDeath();
+        render();
+      };
+      grid2.appendChild(dkBtn);
+    }
     if (!isSurvival) {
       p.loadout.forEach((tid) => {
         const t = TECHNIQUES[tid];
