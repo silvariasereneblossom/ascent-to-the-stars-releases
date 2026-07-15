@@ -9038,10 +9038,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Tribulation resistance, resolve under pressure." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.63';
+  var GAME_VERSION = 'v1.27.64';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "0bea20c";
+  var BUILD_SHA = "26114e2";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -17975,9 +17975,15 @@
   }
   function finalizeAscension(boonId) {
     if (!pendingAscension) return;
-    const ascensions = (state.ascensions || 0) + 1;
-    const newBoons = (state.ascensionBoons || []).slice();
+    const ascensions = Math.max(META.ascensions || 0, state.ascensions || 0) + 1;
+    const newBoons = (META.ascensionBoons || []).slice();
+    (state.ascensionBoons || []).forEach((b) => {
+      if (!newBoons.includes(b)) newBoons.push(b);
+    });
     newBoons.push(boonId);
+    META.ascensions = ascensions;
+    META.ascensionBoons = newBoons;
+    saveMeta();
     const keptName = state.name;
     const keptSchool = state.selectedSchool;
     const keptHeritageIdx = state.selectedHeritage;
@@ -22741,7 +22747,7 @@
     } else render();
   }
   function defaultMeta() {
-    return { souls: 0, lives: 0, up: { cult: 0, body: 0, insight: 0, memory: 0 }, settings: { noAgeDeath: false, music: true, musicVol: 0.6 } };
+    return { souls: 0, lives: 0, ascensions: 0, ascensionBoons: [], up: { cult: 0, body: 0, insight: 0, memory: 0 }, settings: { noAgeDeath: false, music: true, musicVol: 0.6 } };
   }
   function loadMeta() {
     try {
@@ -22752,6 +22758,8 @@
       m.souls = m.souls || 0;
       m.lives = m.lives || 0;
       m.up = m.up || {};
+      m.ascensions = m.ascensions || 0;
+      if (!Array.isArray(m.ascensionBoons)) m.ascensionBoons = [];
       ["cult", "body", "insight", "memory"].forEach((k) => {
         m.up[k] = m.up[k] || 0;
       });
@@ -27363,6 +27371,9 @@
       state.confirmed = true;
       const school = SCHOOLS[state.selectedSchool];
       if (school.isDemon) state.demonic = true;
+      state.ascensions = META.ascensions || 0;
+      state.ascensionBoons = (META.ascensionBoons || []).slice();
+      applyBoonsOnNewCharacter(state);
       state.finalStats = finalStats(state);
       state.weapon = school.weapon;
       state.loadout = school.techniques.slice();
@@ -27372,6 +27383,7 @@
       state.passiveTick = Date.now();
       applyHeritagePostConfirm(state);
       applyChildhoodPostConfirm(state);
+      applyBoonsPostConfirm(state);
       saveChar();
       scheduleCultivationTick();
       render();
@@ -30035,6 +30047,13 @@
         if (!parsed.base.arrays) parsed.base.arrays = [];
         if (parsed.ascensions === void 0) parsed.ascensions = 0;
         if (!parsed.ascensionBoons) parsed.ascensionBoons = [];
+        if ((parsed.ascensions || 0) > (META.ascensions || 0)) META.ascensions = parsed.ascensions;
+        (parsed.ascensionBoons || []).forEach((b) => {
+          if (!META.ascensionBoons.includes(b)) META.ascensionBoons.push(b);
+        });
+        if (META.ascensions !== parsed.ascensions || META.ascensionBoons.length !== parsed.ascensionBoons.length) saveMeta();
+        parsed.ascensions = META.ascensions;
+        parsed.ascensionBoons = META.ascensionBoons.slice();
         if (!parsed.skills) parsed.skills = [];
         if (!parsed.skillRanks) parsed.skillRanks = {};
         if (!parsed.foundBooks) parsed.foundBooks = [];
