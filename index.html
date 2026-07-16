@@ -7916,6 +7916,8 @@
       kind: "pill",
       rarity: "rare",
       recipe: { qi_grass: 3, jade_lotus: 1 },
+      minRealmTier: 1,
+      // v1.27.68 (audit): needs jade_lotus (a QC herb) — it's a QC→FE pill anyway
       effects: [{ kind: "cultivation_mult", value: 2.5, durationMin: 15 }],
       desc: "+150% cultivation rate for 15 minutes."
     },
@@ -7926,7 +7928,8 @@
       zh: "火血剂",
       kind: "potion",
       rarity: "common",
-      recipe: { body_root: 1, jade_lotus: 1 },
+      recipe: { body_root: 1, sunpetal: 1 },
+      // v1.27.68 (audit): pure Mortal herbs — jade_lotus is QC
       effects: [{ kind: "weapon_mult", value: 1.1, durationMin: 10 }],
       desc: "+10% weapon power for 10 minutes."
     },
@@ -8014,8 +8017,10 @@
       rarity: "legendary",
       recipe: { dragonmint: 2, jade_lotus: 2 },
       minRealmTier: 3,
-      effects: [{ kind: "incoming_mult", value: 0.5, durationMin: 10 }],
-      desc: "−50% incoming damage for 10 minutes. Your body remembers a dragon it has never been."
+      // v1.27.68 (audit): was −50%, which equalled the GC ladder rung — sits between the FE (−30%)
+      // and CF (−40%) Mist Draughts now, as a cheaper off-ladder alternative.
+      effects: [{ kind: "incoming_mult", value: 0.65, durationMin: 10 }],
+      desc: "−35% incoming damage for 10 minutes. Your body remembers a dragon it has never been."
     },
     dragon_core_pill: {
       name: "Dragon-Core Pill",
@@ -8096,16 +8101,20 @@
       zh: "铁茶",
       kind: "potion",
       rarity: "common",
-      recipe: { body_root: 1, frostbell: 1 },
-      effects: [{ kind: "weapon_mult", value: 1.1, durationMin: 10 }],
-      desc: "+10% weapon power for 10 minutes. Hot, bitter, lodges iron in the teeth."
+      recipe: { body_root: 2, sunpetal: 1 },
+      // v1.27.68 (audit): pure Mortal herbs — frostbell is QC
+      // v1.27.68 (audit): was +10% weapon, a straight duplicate of Fire-Blood Tincture — now a light
+      // defensive tea (the weaker sibling of the Cold-Mist Draught's −10%).
+      effects: [{ kind: "incoming_mult", value: 0.95, durationMin: 10 }],
+      desc: "−5% incoming damage for 10 minutes. Hot, bitter, lodges iron in the teeth."
     },
     gentle_meridian_tea: {
       name: "Gentle Meridian Tea",
       zh: "柔经茶",
       kind: "potion",
       rarity: "common",
-      recipe: { qi_grass: 1, windreed: 1 },
+      recipe: { qi_grass: 1, sunpetal: 1 },
+      // v1.27.68 (audit): pure Mortal herbs — windreed is QC
       effects: [{ kind: "cultivation_mult", value: 1.25, durationMin: 30 }],
       desc: "+25% cultivation rate for 30 minutes. A mild, grass-scented tea."
     },
@@ -8225,8 +8234,10 @@
       rarity: "legendary",
       recipe: { void_fennel: 3, jade_lotus: 3, moonweaver: 2 },
       minRealmTier: 3,
-      effects: [{ kind: "cultivation_mult", value: 2.5, durationMin: 15 }],
-      desc: "+150% cultivation rate for 15 minutes. The first breath in minutes feels audibly fuller."
+      // v1.27.68 (audit): was +150%, identical to the Foundation Pill — now the CF step of the ladder
+      // (Foundation +150% → this +200% → Golden Cloud +250%).
+      effects: [{ kind: "cultivation_mult", value: 3, durationMin: 15 }],
+      desc: "+200% cultivation rate for 15 minutes. The first breath in minutes feels audibly fuller."
     },
     core_stable_pill: {
       name: "Core-Stable Pill",
@@ -8244,7 +8255,8 @@
       zh: "龙息丹",
       kind: "pill",
       rarity: "legendary",
-      recipe: { dragonmint: 3, phoenix_petal: 2, golden_cloud_cap: 1 },
+      recipe: { dragonmint: 3, phoenix_petal: 2, void_fennel: 1 },
+      // v1.27.68 (audit): golden_cloud_cap is a GC herb
       minRealmTier: 3,
       minLayer: 3,
       effects: [{ kind: "hp_max_add", value: 300, durationMin: 60 }],
@@ -8403,7 +8415,8 @@
       zh: "渊剂",
       kind: "potion",
       rarity: "legendary",
-      recipe: { void_fennel: 3, ghost_spring_orchid: 2, tri_dao_sage: 1 },
+      recipe: { void_fennel: 3, lotus_of_recall: 2, starvine: 1 },
+      // v1.27.68 (audit): the orchid+sage are NS herbs
       minRealmTier: 4,
       effects: [{ kind: "weapon_mult", value: 1.75, durationMin: 15 }],
       desc: "+75% weapon power for 15 minutes. A cold, black tonic taken by demon-path cultivators."
@@ -9040,10 +9053,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Tribulation resistance, resolve under pressure." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.67';
+  var GAME_VERSION = 'v1.27.68';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "b2792a1";
+  var BUILD_SHA = "03a0547";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
