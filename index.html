@@ -9053,10 +9053,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Tribulation resistance, resolve under pressure." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.68';
+  var GAME_VERSION = 'v1.27.69';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "03a0547";
+  var BUILD_SHA = "0529ae2";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -17960,7 +17960,16 @@
     { at: 60, id: "soul_current", name: "Undertow of Souls", zh: "魂潮", desc: "+8% cultivation rate.", mods: { cultMult: 1.08 } },
     { at: 75, id: "soul_edge", name: "Grave-Whetted Edge", zh: "墓磨锋", desc: "+3 weapon power.", mods: { weaponBonus: 3 } },
     { at: 90, id: "soul_ward", name: "Choir of the Lost", zh: "亡者颂", desc: "−5% incoming damage.", mods: { incomingMult: 0.95 } },
-    { at: 105, id: "soul_sovereign", name: "Sovereign of Cycles", zh: "轮回之主", desc: "+2 to every stat at the start of each life, and +10% insight.", stats: { all: 2 }, mods: { insightMult: 1.1 } }
+    { at: 105, id: "soul_sovereign", name: "Sovereign of Cycles", zh: "轮回之主", desc: "+2 to every stat at the start of each life, and +10% insight.", stats: { all: 2 }, mods: { insightMult: 1.1 } },
+    // v1.27.69 (operator): the ladder continues to 500 — deeper-cycle rewards, still weaker than ascension boons.
+    { at: 130, id: "soul_ghoststep", name: "Ghost-Step Memory", zh: "鬼步忆", desc: "+2% dodge — the dead remember how they should have moved.", mods: { dodgeChance: 0.02 } },
+    { at: 160, id: "soul_hundredfold", name: "Hundredfold Memory", zh: "百忆", desc: "+10% insight from all sources.", mods: { insightMult: 1.1 } },
+    { at: 200, id: "soul_agemarrow", name: "Marrow of Ages", zh: "岁髓", desc: "+150 max Body.", mods: { hpBonus: 150 } },
+    { at: 250, id: "soul_river", name: "Soul-River Current", zh: "魂河", desc: "+10% cultivation rate.", mods: { cultMult: 1.1 } },
+    { at: 300, id: "soul_legion_edge", name: "Grave-Legion Edge", zh: "墓军锋", desc: "+8 weapon power.", mods: { weaponBonus: 8 } },
+    { at: 375, id: "soul_bulwark", name: "Bulwark of the Unnumbered", zh: "无数垒", desc: "−5% incoming damage.", mods: { incomingMult: 0.95 } },
+    { at: 450, id: "soul_breath", name: "Breath of Ten Thousand", zh: "万息", desc: "+2 qi regen and +60 max qi.", mods: { qiRegenBonus: 2, qiBonus: 60 } },
+    { at: 500, id: "soul_wheel", name: "Emperor of the Turning Wheel", zh: "转轮帝", desc: "+3 to every stat at the start of each life, +15% insight, and +10% cultivation.", stats: { all: 3 }, mods: { insightMult: 1.15, cultMult: 1.1 } }
   ];
   function syncSoulBoons() {
     if (!META) return;
@@ -22856,6 +22865,14 @@
       if (!Array.isArray(m.ascensionBoons)) m.ascensionBoons = [];
       m.soulsEarned = Math.max(m.soulsEarned || 0, m.souls || 0);
       if (!Array.isArray(m.soulBoons)) m.soulBoons = [];
+      if (!m.soulRecon1) {
+        let spent = 0;
+        Object.entries(SOUL_UPGRADES).forEach(([k, u]) => {
+          for (let i = 0; i < (m.up[k] || 0); i++) spent += Math.floor(u.baseCost * Math.pow(u.costMult, i));
+        });
+        m.soulsEarned = Math.max(m.soulsEarned || 0, (m.souls || 0) + spent);
+        m.soulRecon1 = true;
+      }
       ["cult", "body", "insight", "memory"].forEach((k) => {
         m.up[k] = m.up[k] || 0;
       });
@@ -22883,10 +22900,14 @@
     syncSoulBoons();
     return earned;
   }
+  function soulCostDiscountMult() {
+    const over = Math.max(0, (META && META.soulsEarned || 0) - 500);
+    return Math.pow(0.5, Math.floor(over / 100));
+  }
   function soulUpgradeCost(key) {
     const u = SOUL_UPGRADES[key];
     if (!u) return Infinity;
-    return Math.floor(u.baseCost * Math.pow(u.costMult, META.up[key] || 0));
+    return Math.max(1, Math.floor(u.baseCost * Math.pow(u.costMult, META.up[key] || 0) * soulCostDiscountMult()));
   }
   function buySoulUpgrade(key) {
     const u = SOUL_UPGRADES[key];
@@ -23189,7 +23210,7 @@
     const sp = document.createElement("div");
     sp.className = "panel";
     sp.innerHTML = `<h3 style="color:#c79cf0">Soul Altar <span style="font-weight:normal;color:var(--ink-soft);font-size:0.85rem">魂台</span></h3>
-    <p style="font-size:0.85rem;color:var(--ink-soft);margin:0 0 0.5rem">Souls endure beyond death. Spend them on aptitudes that strengthen <em>every</em> life to come. Souls: <strong style="color:#c79cf0">${META.souls}</strong> · Lives lived: ${META.lives} · Gathered in total: ${META.soulsEarned || 0}</p>
+    <p style="font-size:0.85rem;color:var(--ink-soft);margin:0 0 0.5rem">Souls endure beyond death. Spend them on aptitudes that strengthen <em>every</em> life to come. Souls: <strong style="color:#c79cf0">${META.souls}</strong> · Lives lived: ${META.lives} · Gathered in total: ${META.soulsEarned || 0}${soulCostDiscountMult() < 1 ? ` · <strong style="color:var(--gold)">Aptitude costs ×1/${Math.round(1 / soulCostDiscountMult())}</strong> (every 100 souls past 500 halves them)` : ""}</p>
     <p style="font-size:0.8rem;color:var(--ink-soft);margin:0 0 0.5rem"><strong style="color:#c79cf0">Soul-Gather Boons</strong> (permanent, at lifetime-soul milestones — spending never undoes them): ${SOUL_BOONS.map((b) => (META.soulBoons || []).includes(b.id) ? `<span style="color:var(--gold)" title="${b.desc}">${b.name} ✓</span>` : `<span style="opacity:0.55" title="${b.desc}">${b.name} (${b.at})</span>`).join(" · ")}</p>`;
     Object.keys(SOUL_UPGRADES).forEach((key) => {
       const u = SOUL_UPGRADES[key];
