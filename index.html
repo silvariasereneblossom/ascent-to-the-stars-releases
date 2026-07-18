@@ -9053,10 +9053,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Tribulation resistance, resolve under pressure." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.69';
+  var GAME_VERSION = 'v1.27.70';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "0529ae2";
+  var BUILD_SHA = "3dce16e";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -13444,7 +13444,7 @@
     applyPassiveTechsToMods(mods, char);
     applyOriginPassivesToMods(mods, char);
     (typeof META !== "undefined" && META && META.soulBoons || []).forEach((id) => {
-      const b = SOUL_BOONS.find((x) => x.id === id);
+      const b = SOUL_BOON_POOL[id];
       if (b && b.mods) mergeMods(mods, b.mods);
     });
     if (isDemonHeart(char)) {
@@ -17953,41 +17953,77 @@
     if (hasBoon("heart_held_sutra")) m *= 0.75;
     return m;
   }
-  var SOUL_BOONS = [
-    { at: 15, id: "soul_ember", name: "Soul Ember", zh: "魂烬", desc: "+1 to every stat at the start of each life.", stats: { all: 1 } },
-    { at: 30, id: "soul_whisper", name: "Gathered Whispers", zh: "聚魂语", desc: "+8% insight from all sources.", mods: { insightMult: 1.08 } },
-    { at: 45, id: "soul_marrow", name: "Remembered Marrow", zh: "忆髓", desc: "+40 max Body.", mods: { hpBonus: 40 } },
-    { at: 60, id: "soul_current", name: "Undertow of Souls", zh: "魂潮", desc: "+8% cultivation rate.", mods: { cultMult: 1.08 } },
-    { at: 75, id: "soul_edge", name: "Grave-Whetted Edge", zh: "墓磨锋", desc: "+3 weapon power.", mods: { weaponBonus: 3 } },
-    { at: 90, id: "soul_ward", name: "Choir of the Lost", zh: "亡者颂", desc: "−5% incoming damage.", mods: { incomingMult: 0.95 } },
-    { at: 105, id: "soul_sovereign", name: "Sovereign of Cycles", zh: "轮回之主", desc: "+2 to every stat at the start of each life, and +10% insight.", stats: { all: 2 }, mods: { insightMult: 1.1 } },
-    // v1.27.69 (operator): the ladder continues to 500 — deeper-cycle rewards, still weaker than ascension boons.
-    { at: 130, id: "soul_ghoststep", name: "Ghost-Step Memory", zh: "鬼步忆", desc: "+2% dodge — the dead remember how they should have moved.", mods: { dodgeChance: 0.02 } },
-    { at: 160, id: "soul_hundredfold", name: "Hundredfold Memory", zh: "百忆", desc: "+10% insight from all sources.", mods: { insightMult: 1.1 } },
-    { at: 200, id: "soul_agemarrow", name: "Marrow of Ages", zh: "岁髓", desc: "+150 max Body.", mods: { hpBonus: 150 } },
-    { at: 250, id: "soul_river", name: "Soul-River Current", zh: "魂河", desc: "+10% cultivation rate.", mods: { cultMult: 1.1 } },
-    { at: 300, id: "soul_legion_edge", name: "Grave-Legion Edge", zh: "墓军锋", desc: "+8 weapon power.", mods: { weaponBonus: 8 } },
-    { at: 375, id: "soul_bulwark", name: "Bulwark of the Unnumbered", zh: "无数垒", desc: "−5% incoming damage.", mods: { incomingMult: 0.95 } },
-    { at: 450, id: "soul_breath", name: "Breath of Ten Thousand", zh: "万息", desc: "+2 qi regen and +60 max qi.", mods: { qiRegenBonus: 2, qiBonus: 60 } },
-    { at: 500, id: "soul_wheel", name: "Emperor of the Turning Wheel", zh: "转轮帝", desc: "+3 to every stat at the start of each life, +15% insight, and +10% cultivation.", stats: { all: 3 }, mods: { insightMult: 1.15, cultMult: 1.1 } }
-  ];
-  function syncSoulBoons() {
-    if (!META) return;
-    META.soulBoons = META.soulBoons || [];
-    let changed = false;
-    SOUL_BOONS.forEach((b) => {
-      if ((META.soulsEarned || 0) >= b.at && !META.soulBoons.includes(b.id)) {
-        META.soulBoons.push(b.id);
-        changed = true;
+  var SOUL_MILESTONES = [15, 30, 45, 60, 75, 90, 105, 130, 160, 200, 250, 300, 375, 450, 500];
+  var SOUL_BOON_POOL = {
+    // ---- tier 1: FAINT echoes (~1/4-1/3 of the ascension boon) ----
+    sb_echo_faint: { tier: 1, name: "Faint First-Dao Echo", zh: "初道微响", desc: "+1 to every stat at the start of each life.", stats: { all: 1 } },
+    sb_memory_faint: { tier: 1, name: "Faint Dao Memory", zh: "道忆微光", desc: "+8% insight from all sources.", mods: { insightMult: 1.08 } },
+    sb_root_faint: { tier: 1, name: "Budding Heavenly Root", zh: "天根芽", desc: "+7% cultivation rate.", mods: { cultMult: 1.07 } },
+    sb_will_faint: { tier: 1, name: "Iron Will, Remembered", zh: "忆铁志", desc: "+20 max Body.", mods: { hpBonus: 20 } },
+    sb_void_faint: { tier: 1, name: "Void-Brushed", zh: "虚拂", desc: "−4% incoming damage.", mods: { incomingMult: 0.96 } },
+    sb_blade_faint: { tier: 1, name: "Chipped Blade of Fate", zh: "缺宿刃", desc: "+2 weapon power.", mods: { weaponBonus: 2 } },
+    sb_star_faint: { tier: 1, name: "Starborn Glimmer", zh: "星辉屑", desc: "+2 Perception and +2 Divine Sense at the start of each life.", stats: { mind: 2, sense: 2 } },
+    sb_fortune_faint: { tier: 1, name: "Thread of Fate", zh: "命丝", desc: "+2 Fortune at the start of each life.", stats: { luck: 2 } },
+    sb_daoheart_faint: { tier: 1, name: "Tempered Sliver", zh: "炼志屑", desc: "+2 Dao Heart at the start of each life.", stats: { will: 2 } },
+    sb_dodge_faint: { tier: 1, name: "Ghost-Step Memory", zh: "鬼步忆", desc: "+2% dodge — the dead remember how they should have moved.", mods: { dodgeChance: 0.02 } },
+    sb_qi_faint: { tier: 1, name: "Well of Whispers", zh: "语井", desc: "+40 max qi and +1 qi regen.", mods: { qiBonus: 40, qiRegenBonus: 1 } },
+    // ---- tier 2: CLEAR echoes (~1/2) — offered from the 8th milestone (130 souls) ----
+    sb_echo_clear: { tier: 2, name: "Clear First-Dao Echo", zh: "初道清响", desc: "+2 to every stat at the start of each life.", stats: { all: 2 } },
+    sb_memory_clear: { tier: 2, name: "Clear Dao Memory", zh: "道忆清光", desc: "+15% insight from all sources.", mods: { insightMult: 1.15 } },
+    sb_root_clear: { tier: 2, name: "Deepening Root", zh: "深根", desc: "+12% cultivation rate.", mods: { cultMult: 1.12 } },
+    sb_will_clear: { tier: 2, name: "Remembered Iron", zh: "忆铁", desc: "+60 max Body.", mods: { hpBonus: 60 } },
+    sb_void_clear: { tier: 2, name: "Void-Tempered Echo", zh: "虚炼回响", desc: "−8% incoming damage.", mods: { incomingMult: 0.92 } },
+    sb_blade_clear: { tier: 2, name: "Fated Edge", zh: "宿锋", desc: "+5 weapon power.", mods: { weaponBonus: 5 } },
+    sb_crit_clear: { tier: 2, name: "Executioner's Recall", zh: "刽忆", desc: "+4% critical chance.", mods: { critChance: 0.04 } },
+    sb_life_clear: { tier: 2, name: "Hungering Echo", zh: "饥响", desc: "+4% lifesteal.", mods: { lifestealPct: 0.04 } },
+    sb_strike_clear: { tier: 2, name: "Battle-Scarred Echo", zh: "战痕响", desc: "+10% technique damage.", mods: { techDamageMult: 1.1 } },
+    sb_posture_clear: { tier: 2, name: "Mountain-Toppler's Ghost", zh: "倾山魂", desc: "+10% posture damage.", mods: { postureMult: 1.1 } },
+    // ---- tier 3: RESOUNDING echoes (~3/4) — offered from the 13th milestone (375 souls) ----
+    sb_memory_deep: { tier: 3, name: "Deep Memory Echo", zh: "深忆回响", desc: "+30% insight from all sources.", mods: { insightMult: 1.3 } },
+    sb_root_deep: { tier: 3, name: "World-Breath Echo", zh: "世息回响", desc: "+20% cultivation rate.", mods: { cultMult: 1.2 } },
+    sb_will_deep: { tier: 3, name: "Adamant Echo", zh: "金刚回响", desc: "+120 max Body.", mods: { hpBonus: 120 } },
+    sb_void_deep: { tier: 3, name: "Ghostproof Echo", zh: "驱魂回响", desc: "−12% incoming damage.", mods: { incomingMult: 0.88 } },
+    sb_blade_deep: { tier: 3, name: "Sky-Piercing Sliver", zh: "破天片", desc: "+10 weapon power.", mods: { weaponBonus: 10 } },
+    sb_sunder_deep: { tier: 3, name: "Sundering Echo", zh: "裂天回响", desc: "+20 weapon power and +80 max Body.", mods: { weaponBonus: 20, hpBonus: 80 } },
+    sb_all_deep: { tier: 3, name: "Chorus of Cycles", zh: "轮回合唱", desc: "+3 to every stat at the start of each life, and +10% insight.", stats: { all: 3 }, mods: { insightMult: 1.1 } }
+  };
+  function soulMilestonesCrossed() {
+    return SOUL_MILESTONES.filter((at) => (META && META.soulsEarned || 0) >= at).length;
+  }
+  function soulBoonPicksPending() {
+    if (!META) return 0;
+    return Math.max(0, soulMilestonesCrossed() - (META.soulBoons || []).length);
+  }
+  function rollSoulBoonChoices(claimIdx) {
+    const maxTier = claimIdx >= 12 ? 3 : claimIdx >= 7 ? 2 : 1;
+    const owned = new Set(META.soulBoons || []);
+    const remaining = Object.entries(SOUL_BOON_POOL).filter(([id, b]) => !owned.has(id) && b.tier <= maxTier);
+    const w = ([, b]) => b.tier === maxTier ? 3 : b.tier === maxTier - 1 ? 1 : 0.4;
+    const chosen = [];
+    while (chosen.length < 3 && remaining.length) {
+      const total = remaining.reduce((s, x) => s + w(x), 0);
+      let r = Math.random() * total, pickIdx = remaining.length - 1;
+      for (let i = 0; i < remaining.length; i++) {
+        r -= w(remaining[i]);
+        if (r <= 0) {
+          pickIdx = i;
+          break;
+        }
       }
-    });
-    if (changed) saveMeta();
+      chosen.push(remaining[pickIdx][0]);
+      remaining.splice(pickIdx, 1);
+    }
+    return chosen;
   }
   function applySoulBoonStats(char) {
     (META && META.soulBoons || []).forEach((id) => {
-      const b = SOUL_BOONS.find((x) => x.id === id);
-      if (b && b.stats && b.stats.all) STAT_KEYS.forEach((k) => {
-        char.baseStats[k] = (char.baseStats[k] || 10) + b.stats.all;
+      const b = SOUL_BOON_POOL[id];
+      if (!b || !b.stats) return;
+      Object.entries(b.stats).forEach(([k, v]) => {
+        if (k === "all") STAT_KEYS.forEach((sk) => {
+          char.baseStats[sk] = (char.baseStats[sk] || 10) + v;
+        });
+        else if (STAT_KEYS.includes(k)) char.baseStats[k] = (char.baseStats[k] || 10) + v;
       });
     });
   }
@@ -21657,7 +21693,6 @@
       META.souls += 1;
       META.soulsEarned = (META.soulsEarned || 0) + 1;
       saveMeta();
-      syncSoulBoons();
       return `A dead immortal's inheritance opens to you — <strong>+${ins} insight</strong> and <strong>+1 soul</strong> carried beyond death.`;
     } },
     // v0.53: a rare wandering stall (the "rare shop") — a free pill or a clutch of rare materials.
@@ -22873,6 +22908,7 @@
         m.soulsEarned = Math.max(m.soulsEarned || 0, (m.souls || 0) + spent);
         m.soulRecon1 = true;
       }
+      m.soulBoons = m.soulBoons.filter((id) => SOUL_BOON_POOL[id]);
       ["cult", "body", "insight", "memory"].forEach((k) => {
         m.up[k] = m.up[k] || 0;
       });
@@ -22897,7 +22933,6 @@
     META.soulsEarned = (META.soulsEarned || 0) + earned;
     META.lives += 1;
     saveMeta();
-    syncSoulBoons();
     return earned;
   }
   function soulCostDiscountMult() {
@@ -22934,7 +22969,6 @@
     return !!(META.settings && META.settings.noAgeDeath);
   }
   var META = loadMeta();
-  syncSoulBoons();
   var MUSIC_BASE = "https://github.com/silvariasereneblossom/ascent-to-the-stars-releases/releases/download/audio/";
   var TRACKS = {
     menu: [
@@ -23211,7 +23245,10 @@
     sp.className = "panel";
     sp.innerHTML = `<h3 style="color:#c79cf0">Soul Altar <span style="font-weight:normal;color:var(--ink-soft);font-size:0.85rem">魂台</span></h3>
     <p style="font-size:0.85rem;color:var(--ink-soft);margin:0 0 0.5rem">Souls endure beyond death. Spend them on aptitudes that strengthen <em>every</em> life to come. Souls: <strong style="color:#c79cf0">${META.souls}</strong> · Lives lived: ${META.lives} · Gathered in total: ${META.soulsEarned || 0}${soulCostDiscountMult() < 1 ? ` · <strong style="color:var(--gold)">Aptitude costs ×1/${Math.round(1 / soulCostDiscountMult())}</strong> (every 100 souls past 500 halves them)` : ""}</p>
-    <p style="font-size:0.8rem;color:var(--ink-soft);margin:0 0 0.5rem"><strong style="color:#c79cf0">Soul-Gather Boons</strong> (permanent, at lifetime-soul milestones — spending never undoes them): ${SOUL_BOONS.map((b) => (META.soulBoons || []).includes(b.id) ? `<span style="color:var(--gold)" title="${b.desc}">${b.name} ✓</span>` : `<span style="opacity:0.55" title="${b.desc}">${b.name} (${b.at})</span>`).join(" · ")}</p>`;
+    <p style="font-size:0.8rem;color:var(--ink-soft);margin:0 0 0.5rem"><strong style="color:#c79cf0">Soul-Gather Boons</strong> — one pick per lifetime milestone (${(META.soulBoons || []).length}/${SOUL_MILESTONES.length} claimed${soulBoonPicksPending() > 0 ? `, <strong style="color:var(--gold)">${soulBoonPicksPending()} pick${soulBoonPicksPending() === 1 ? "" : "s"} awaiting at the Soul Altar</strong>` : ""}${soulMilestonesCrossed() < SOUL_MILESTONES.length ? ` · next milestone at ${SOUL_MILESTONES[soulMilestonesCrossed()]} souls` : ""}): ${(META.soulBoons || []).length ? (META.soulBoons || []).map((id) => {
+      const b = SOUL_BOON_POOL[id];
+      return b ? `<span style="color:var(--gold)" title="${b.desc}">${b.name}</span>` : "";
+    }).filter(Boolean).join(" · ") : "<em>none picked yet</em>"}</p>`;
     Object.keys(SOUL_UPGRADES).forEach((key) => {
       const u = SOUL_UPGRADES[key];
       const rank = META.up[key] || 0;
@@ -26521,7 +26558,47 @@
     if (!state) return renderLanding();
     if (state.childhood && state.childhood.step !== "complete") return renderChildhood();
     if (!state.confirmed) return renderCreation();
+    if (soulBoonPicksPending() > 0) return renderSoulBoonPick();
     return renderCharSheet();
+  }
+  var pendingSoulOffer = null;
+  function renderSoulBoonPick() {
+    const claimed = (META.soulBoons || []).length;
+    const milestone = SOUL_MILESTONES[Math.min(claimed, SOUL_MILESTONES.length - 1)];
+    if (!pendingSoulOffer || !pendingSoulOffer.length) pendingSoulOffer = rollSoulBoonChoices(claimed);
+    const remaining = soulBoonPicksPending();
+    const p = document.createElement("div");
+    p.className = "panel offline-banner";
+    p.innerHTML = `<h2 style="color:#c79cf0">The Soul Altar Stirs <span style="font-weight:normal;font-size:0.9rem">魂坛微动</span></h2>
+    <p>${milestone} souls gathered across your lives. The altar offers an echo of the ascension daos — fainter, but yours to keep through every death.${remaining > 1 ? ` <strong style="color:var(--gold)">${remaining} picks awaiting.</strong>` : ""}</p>`;
+    app.appendChild(p);
+    pendingSoulOffer.forEach((id) => {
+      const b = SOUL_BOON_POOL[id];
+      if (!b) return;
+      const card = document.createElement("div");
+      card.className = "school-card";
+      card.innerHTML = `<div class="school-name">${b.name} <span style="color:var(--ink-soft);font-weight:normal;font-size:0.85rem">${b.zh}</span> <span class="rarity-tag rarity-${b.tier === 3 ? "legendary" : b.tier === 2 ? "rare" : "common"}">${["", "faint", "clear", "resounding"][b.tier]}</span></div>
+      <div class="school-mods">${b.desc}</div>`;
+      card.onclick = () => pickSoulBoon(id);
+      app.appendChild(card);
+    });
+  }
+  function pickSoulBoon(id) {
+    const b = SOUL_BOON_POOL[id];
+    if (!b || (META.soulBoons || []).includes(id) || soulBoonPicksPending() <= 0) return;
+    META.soulBoons.push(id);
+    saveMeta();
+    pendingSoulOffer = null;
+    if (state && state.confirmed && b.stats) {
+      Object.entries(b.stats).forEach(([k, v]) => {
+        if (k === "all") STAT_KEYS.forEach((sk) => {
+          state.baseStats[sk] = (state.baseStats[sk] || 10) + v;
+        });
+        else if (STAT_KEYS.includes(k)) state.baseStats[k] = (state.baseStats[k] || 10) + v;
+      });
+      saveChar();
+    }
+    render();
   }
   function renderAscension() {
     const p = document.createElement("div");
