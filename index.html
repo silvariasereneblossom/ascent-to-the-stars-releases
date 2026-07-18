@@ -9053,10 +9053,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Tribulation resistance, resolve under pressure." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.70';
+  var GAME_VERSION = 'v1.27.71';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "dfd6cb1";
+  var BUILD_SHA = "cbf5b12";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -27842,7 +27842,6 @@
     }
     html += `<p style="margin-top:1rem;font-style:italic;color:var(--ink-soft)">${h.flavor}</p>`;
     p.innerHTML = html;
-    app.appendChild(p);
     const realmP = document.createElement("div");
     realmP.className = "panel";
     const info = advanceInfo(state);
@@ -27907,6 +27906,7 @@
     realmP.innerHTML = realmHTML;
     app.appendChild(realmP);
     renderTabBar();
+    appendPanel(p, "self");
     const advBtn = document.getElementById("advance");
     if (advBtn) advBtn.onclick = () => {
       tryAdvanceRealm();
