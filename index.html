@@ -2764,7 +2764,7 @@
       cd: 3,
       damage: 5.6,
       postureBuild: 24,
-      desc: "A full-body plunge. Pays Body for devastating damage and posture.",
+      desc: "A full-body plunge. Pays Vitality for devastating damage and posture.",
       logHit: (a, t) => `${a} becomes the hammer, and the hammer becomes the anvil; ${t} is between.`
     },
     forge_stance: {
@@ -3263,7 +3263,7 @@
       damage: 4.6,
       directHP: 22,
       postureBuild: 18,
-      desc: "A vast draining cut. Steals a large chunk of enemy Body.",
+      desc: "A vast draining cut. Steals a large chunk of enemy Vitality.",
       logHit: (a, t) => `${a} opens their mouth — a thousand teeth — and feasts.`
     },
     demon_dao: {
@@ -3275,7 +3275,7 @@
       cd: 3,
       damage: 8.2,
       postureBuild: 20,
-      desc: "A blasphemous finisher. Pays Body for a strike that laughs at the heavens.",
+      desc: "A blasphemous finisher. Pays Vitality for a strike that laughs at the heavens.",
       logHit: (a, t) => `${a}'s saber names the heavens' mistake, and corrects it.`
     },
     // --- Starfall (2 extra) ---
@@ -3781,7 +3781,7 @@
       postureBuild: 12,
       effectScale: { perEffect: 0.35, max: 10 },
       selfBuff: { regrowthPct: 0.06, turns: 3 },
-      desc: "Borrow the patience of trees. The strike gains +35% damage per debuff stack on the target, and you regrow 6% max Body per turn for 3 turns.",
+      desc: "Borrow the patience of trees. The strike gains +35% damage per debuff stack on the target, and you regrow 6% max Vitality per turn for 3 turns.",
       logHit: (a, t) => `Green light moves through ${a} like sap rising; the staff falls on ${t} almost as an afterthought.`
     },
     thunder_roll: {
@@ -3826,7 +3826,7 @@
       effect: "resonance",
       effectValue: 8,
       effectTurns: 3,
-      desc: "Every bone hums the same note. Spirit damage, +35% Body damage per debuff stack on the target; Resonance drains spirit each turn. Empty spirit = soul-broken (+30% damage taken).",
+      desc: "Every bone hums the same note. Spirit damage, +35% Vitality damage per debuff stack on the target; Resonance drains spirit each turn. Empty spirit = soul-broken (+30% damage taken).",
       logHit: (a, t) => `${a} plays a chord no single flute should manage; ${t}'s skeleton joins in against its will.`
     },
     ink_silence: {
@@ -3930,7 +3930,7 @@
       name: "Bloodbond Script",
       zh: "血缘铭",
       rarity: "common",
-      desc: "Strikes restore 3 Body on hit. A scroll of your own blood woven into the grip.",
+      desc: "Strikes restore 3 Vitality on hit. A scroll of your own blood woven into the grip.",
       apply: (m) => {
         m.strikeHeal += 3;
       }
@@ -4005,7 +4005,7 @@
     insc_sparrowsong_edge: { name: "Sparrowsong Edge", zh: "雀歌锋", rarity: "common", desc: "Weapon power up. A fledgling blade that still hums.", apply: (m) => {
       m.weaponBonus += 2;
     } },
-    insc_clayward_glyph: { name: "Clayward Glyph", zh: "泥护符", rarity: "common", desc: "Max Body up. A potter's seal pressed into the grip.", apply: (m) => {
+    insc_clayward_glyph: { name: "Clayward Glyph", zh: "泥护符", rarity: "common", desc: "Max Vitality up. A potter's seal pressed into the grip.", apply: (m) => {
       m.hpBonus += 12;
     } },
     insc_riverstone_skin: { name: "Riverstone Skin", zh: "溪石肤", rarity: "common", desc: "Damage taken down. Smooth as a stone in the shallows.", apply: (m) => {
@@ -4035,7 +4035,7 @@
     insc_keenfold_brand: { name: "Keenfold Brand", zh: "锐叠烙", rarity: "rare", desc: "Weapon power up. Folded steel, brand-marked.", apply: (m) => {
       m.weaponBonus += 4;
     } },
-    insc_bastion_weave: { name: "Bastion Weave", zh: "堡织", rarity: "rare", desc: "Max Body up. A fortress-pattern braid on the grip.", apply: (m) => {
+    insc_bastion_weave: { name: "Bastion Weave", zh: "堡织", rarity: "rare", desc: "Max Vitality up. A fortress-pattern braid on the grip.", apply: (m) => {
       m.hpBonus += 50;
     } },
     insc_turtleshell_seal: { name: "Turtleshell Seal", zh: "龟甲印", rarity: "rare", desc: "Damage taken down. A layered carapace ward.", apply: (m) => {
@@ -4065,7 +4065,7 @@
     insc_corefang_inlay: { name: "Corefang Inlay", zh: "核牙嵌", rarity: "legendary", desc: "Weapon power up. A fang of condensed core-qi.", apply: (m) => {
       m.weaponBonus += 8;
     } },
-    insc_ironheart_array: { name: "Ironheart Array", zh: "铁心阵", rarity: "rare", desc: "Max Body up. A formation that hardens the dantian wall.", apply: (m) => {
+    insc_ironheart_array: { name: "Ironheart Array", zh: "铁心阵", rarity: "rare", desc: "Max Vitality up. A formation that hardens the dantian wall.", apply: (m) => {
       m.hpBonus += 90;
     } },
     insc_obsidian_ward: { name: "Obsidian Ward", zh: "黑曜障", rarity: "legendary", desc: "Damage taken down. A glassy ward that turns blows aside.", apply: (m) => {
@@ -4095,7 +4095,7 @@
     insc_goldcore_edge: { name: "Goldcore Edge", zh: "金核锋", rarity: "legendary", desc: "Weapon power up. A blade fed by a golden core.", apply: (m) => {
       m.weaponBonus += 9;
     } },
-    insc_adamant_bastion: { name: "Adamant Bastion", zh: "金刚堡", rarity: "rare", desc: "Max Body up. An unyielding bulwark seal.", apply: (m) => {
+    insc_adamant_bastion: { name: "Adamant Bastion", zh: "金刚堡", rarity: "rare", desc: "Max Vitality up. An unyielding bulwark seal.", apply: (m) => {
       m.hpBonus += 110;
     } },
     insc_eclipse_ward: { name: "Eclipse Ward", zh: "蚀障", rarity: "legendary", desc: "Damage taken down. A shadow that swallows incoming force.", apply: (m) => {
@@ -4110,7 +4110,7 @@
     insc_soulrend_edge: { name: "Soulrend Edge", zh: "裂魂锋", rarity: "divine", desc: "Weapon power up. An edge that frays the spirit it strikes.", apply: (m) => {
       m.weaponBonus += 14;
     } },
-    insc_undying_carapace: { name: "Undying Carapace", zh: "不死甲", rarity: "legendary", desc: "Max Body up. A shell that refuses the grave.", apply: (m) => {
+    insc_undying_carapace: { name: "Undying Carapace", zh: "不死甲", rarity: "legendary", desc: "Max Vitality up. A shell that refuses the grave.", apply: (m) => {
       m.hpBonus += 170;
     } },
     insc_nascent_aegis: { name: "Nascent Aegis", zh: "元婴盾", rarity: "divine", desc: "Damage taken down. A soul-infant's instinctive ward.", apply: (m) => {
@@ -4125,7 +4125,7 @@
     insc_worldcleaver_edge: { name: "Worldcleaver Edge", zh: "裂世锋", rarity: "divine", desc: "Weapon power up. An edge that parts the world itself.", apply: (m) => {
       m.weaponBonus += 16;
     } },
-    insc_eternal_rampart: { name: "Eternal Rampart", zh: "永垒", rarity: "divine", desc: "Max Body up. A wall that outlasts the heavens.", apply: (m) => {
+    insc_eternal_rampart: { name: "Eternal Rampart", zh: "永垒", rarity: "divine", desc: "Max Vitality up. A wall that outlasts the heavens.", apply: (m) => {
       m.hpBonus += 350;
     } },
     insc_severance_lotus: { name: "Severance Lotus", zh: "断莲", rarity: "legendary", desc: "Lifesteal up. A lotus fed on severed fate.", apply: (m) => {
@@ -4178,7 +4178,7 @@
       name: "Iron Brand",
       zh: "铁烙",
       rarity: "common",
-      desc: "+15 max Body. A forge-brand burned into the grip.",
+      desc: "+15 max Vitality. A forge-brand burned into the grip.",
       apply: (m) => {
         m.hpBonus += 15;
       }
@@ -4196,7 +4196,7 @@
       name: "Heart Seed",
       zh: "心种",
       rarity: "common",
-      desc: "Strikes restore 3 Body on hit. A small red sigil in the hilt wood.",
+      desc: "Strikes restore 3 Vitality on hit. A small red sigil in the hilt wood.",
       apply: (m) => {
         m.strikeHeal += 3;
       }
@@ -4214,7 +4214,7 @@
       name: "Mountain Base",
       zh: "山基",
       rarity: "common",
-      desc: "+20 max Body. Heavy, squat glyph on the weapon's pommel.",
+      desc: "+20 max Vitality. Heavy, squat glyph on the weapon's pommel.",
       apply: (m) => {
         m.hpBonus += 20;
       }
@@ -4260,7 +4260,7 @@
       name: "Rust Filigree",
       zh: "锈纹",
       rarity: "common",
-      desc: "Strikes restore 4 Body on hit. An old battlefield reuse-mark.",
+      desc: "Strikes restore 4 Vitality on hit. An old battlefield reuse-mark.",
       apply: (m) => {
         m.strikeHeal += 4;
       }
@@ -4269,7 +4269,7 @@
       name: "Woven Thread",
       zh: "织丝",
       rarity: "common",
-      desc: "+10 max Body. A fine silk binding that settles the qi.",
+      desc: "+10 max Vitality. A fine silk binding that settles the qi.",
       apply: (m) => {
         m.hpBonus += 10;
       }
@@ -4296,7 +4296,7 @@
       name: "Stitch Glyph",
       zh: "缝符",
       rarity: "common",
-      desc: "+2 Body on strike, +1 qi regen. A layered healer's mark.",
+      desc: "+2 Vitality on strike, +1 qi regen. A layered healer's mark.",
       apply: (m) => {
         m.strikeHeal += 2;
         m.qiRegenBonus += 1;
@@ -4315,7 +4315,7 @@
       name: "Pebble Hold",
       zh: "卵握",
       rarity: "common",
-      desc: "+15 max Body. A pebble-pattern braid on the grip.",
+      desc: "+15 max Vitality. A pebble-pattern braid on the grip.",
       apply: (m) => {
         m.hpBonus += 15;
       }
@@ -4333,7 +4333,7 @@
       name: "Red Thread",
       zh: "赤丝",
       rarity: "common",
-      desc: "Strikes restore 3 Body on hit. A small knot of crimson silk.",
+      desc: "Strikes restore 3 Vitality on hit. A small knot of crimson silk.",
       apply: (m) => {
         m.strikeHeal += 3;
       }
@@ -4434,7 +4434,7 @@
       name: "Copper Lip",
       zh: "铜唇",
       rarity: "common",
-      desc: "+4 Body on strike. A copper band along the weapon's mouth.",
+      desc: "+4 Vitality on strike. A copper band along the weapon's mouth.",
       apply: (m) => {
         m.strikeHeal += 4;
       }
@@ -4453,7 +4453,7 @@
       name: "Cloudsteel Inlay",
       zh: "云钢嵌",
       rarity: "rare",
-      desc: "+80 max Body. Thin cloudsteel plates woven under the grip.",
+      desc: "+80 max Vitality. Thin cloudsteel plates woven under the grip.",
       apply: (m) => {
         m.hpBonus += 80;
       }
@@ -4480,7 +4480,7 @@
       name: "Rattler Glyph",
       zh: "响符",
       rarity: "rare",
-      desc: "Strikes restore 6 Body on hit. The glyph hums when the weapon bites.",
+      desc: "Strikes restore 6 Vitality on hit. The glyph hums when the weapon bites.",
       apply: (m) => {
         m.strikeHeal += 6;
       }
@@ -4526,7 +4526,7 @@
       name: "Tomb Steel",
       zh: "墓钢",
       rarity: "rare",
-      desc: "+60 max Body, +3 max qi. Dense iron recycled from a warrior-tomb.",
+      desc: "+60 max Vitality, +3 max qi. Dense iron recycled from a warrior-tomb.",
       apply: (m) => {
         m.hpBonus += 60;
         m.qiBonus += 3;
@@ -4637,7 +4637,7 @@
       name: "Sunforge Array",
       zh: "阳炉阵",
       rarity: "legendary",
-      desc: "+200 max Body. A formation that kindles a slow inner fire.",
+      desc: "+200 max Vitality. A formation that kindles a slow inner fire.",
       apply: (m) => {
         m.hpBonus += 200;
       }
@@ -4683,7 +4683,7 @@
       name: "Emperor's Mark",
       zh: "帝印",
       rarity: "legendary",
-      desc: "+12 weapon, +100 max Body. A sealed imperial glyph, rarely granted.",
+      desc: "+12 weapon, +100 max Vitality. A sealed imperial glyph, rarely granted.",
       apply: (m) => {
         m.weaponBonus += 12;
         m.hpBonus += 100;
@@ -4712,7 +4712,7 @@
       name: "World-Tree Seal",
       zh: "世树印",
       rarity: "legendary",
-      desc: "+150 max Body, +3 qi regen, +5 weapon power. A root-shaped seal that grows into its bearer.",
+      desc: "+150 max Vitality, +3 qi regen, +5 weapon power. A root-shaped seal that grows into its bearer.",
       apply: (m) => {
         m.hpBonus += 150;
         m.qiRegenBonus += 3;
@@ -4733,7 +4733,7 @@
       name: "Immortal Aegis",
       zh: "不朽盾",
       rarity: "divine",
-      desc: "+400 max Body. A ward-script that refuses, on principle, to let you die.",
+      desc: "+400 max Vitality. A ward-script that refuses, on principle, to let you die.",
       apply: (m) => {
         m.hpBonus += 400;
       }
@@ -4789,7 +4789,7 @@
       name: "Eternal Spring",
       zh: "长春",
       rarity: "divine",
-      desc: "+10 Body on strike, +5 qi regen per turn. A spring that was old when the mountains were young.",
+      desc: "+10 Vitality on strike, +5 qi regen per turn. A spring that was old when the mountains were young.",
       apply: (m) => {
         m.strikeHeal += 10;
         m.qiRegenBonus += 5;
@@ -7879,7 +7879,7 @@
       recipe: { body_root: 4 },
       minRealmTier: 2,
       effects: [{ kind: "stat_perm", statKey: "body", value: 4 }, { kind: "lifespan_cost_pct", value: 0.12 }],
-      desc: "Permanently +4 Body — at the cost of 12% of your remaining lifespan."
+      desc: "Permanently +4 Vitality — at the cost of 12% of your remaining lifespan."
     },
     soul_kindling_pill: {
       name: "Soul-Kindling Pill",
@@ -7908,7 +7908,7 @@
       rarity: "common",
       recipe: { body_root: 2 },
       effects: [{ kind: "hp_max_add", value: 25, durationMin: 60 }],
-      desc: "+25 max Body for 60 minutes."
+      desc: "+25 max Vitality for 60 minutes."
     },
     foundation_pill: {
       name: "Foundation Pill",
@@ -7941,6 +7941,28 @@
       recipe: { qi_grass: 1, body_root: 1 },
       effects: [{ kind: "incoming_mult", value: 0.9, durationMin: 10 }],
       desc: "−10% incoming damage for 10 minutes."
+    },
+    // v1.27.72 (operator): VITALITY RESTORATION — the pool no longer refills after fights, so these
+    // two are the recovery line. Diffuse is throttled by time; Concentrated by compounding lifespan.
+    diffuse_vitality_draught: {
+      name: "Diffuse Vitality Draught",
+      zh: "缓生饮",
+      kind: "potion",
+      rarity: "common",
+      recipe: { qi_grass: 2, body_root: 2 },
+      vitDiffuse: true,
+      effects: [{ kind: "vitality_restore_pct", value: 0.35 }],
+      desc: "Restores 35% of max Vitality. Gentle — the body accepts only one every 10 minutes."
+    },
+    concentrated_vitality_elixir: {
+      name: "Concentrated Vitality Elixir",
+      zh: "浓生露",
+      kind: "potion",
+      rarity: "rare",
+      recipe: { body_root: 4, sunpetal: 2 },
+      vitConcentrated: true,
+      effects: [{ kind: "vitality_restore_pct", value: 1 }],
+      desc: "Restores Vitality to FULL by burning 0.5% of your remaining lifespan — and every subsequent elixir this life DOUBLES the burn of the last."
     },
     // Permanent stat pills — lategame grind rewards
     spirit_opening_pill: {
@@ -8053,7 +8075,7 @@
       minRealmTier: 4,
       minLayer: 3,
       effects: [{ kind: "hp_max_add", value: 400, durationMin: 60 }],
-      desc: "+400 max Body for 60 minutes. The golden core bleeds warmth into every vein."
+      desc: "+400 max Vitality for 60 minutes. The golden core bleeds warmth into every vein."
     },
     // Nascent Soul-tier consumables
     soulfire_pill: {
@@ -8094,7 +8116,7 @@
       rarity: "common",
       recipe: { body_root: 2, sunpetal: 1 },
       effects: [{ kind: "hp_max_add", value: 30, durationMin: 45 }],
-      desc: "+30 max Body for 45 minutes. Dense, heavy pill of pressed grains."
+      desc: "+30 max Vitality for 45 minutes. Dense, heavy pill of pressed grains."
     },
     iron_tea: {
       name: "Iron Tea",
@@ -8192,7 +8214,7 @@
       minRealmTier: 2,
       minLayer: 2,
       effects: [{ kind: "hp_max_add", value: 80, durationMin: 20 }],
-      desc: "+80 max Body for 20 minutes. Tastes of hot flowers and mulled wine."
+      desc: "+80 max Vitality for 20 minutes. Tastes of hot flowers and mulled wine."
     },
     ghost_calm_pill: {
       name: "Ghost-Calm Pill",
@@ -8224,7 +8246,7 @@
       minRealmTier: 2,
       minLayer: 1,
       effects: [{ kind: "hp_max_add", value: 120, durationMin: 30 }],
-      desc: "+120 max Body for 30 minutes. The bones take on a slow inner warmth."
+      desc: "+120 max Vitality for 30 minutes. The bones take on a slow inner warmth."
     },
     // ============ Legendary (10 new) ============
     nine_leaf_clarity_pill: {
@@ -8260,7 +8282,7 @@
       minRealmTier: 3,
       minLayer: 3,
       effects: [{ kind: "hp_max_add", value: 300, durationMin: 60 }],
-      desc: "+300 max Body for 60 minutes. You breathe in a way that would alarm a mortal physician."
+      desc: "+300 max Vitality for 60 minutes. You breathe in a way that would alarm a mortal physician."
     },
     radiant_sky_elixir: {
       name: "Radiant Sky Elixir",
@@ -8408,7 +8430,7 @@
       minRealmTier: 1,
       minLayer: 6,
       effects: [{ kind: "hp_max_add", value: 60, durationMin: 20 }],
-      desc: "+60 max Body for 20 minutes. Tastes faintly of spring soil."
+      desc: "+60 max Vitality for 20 minutes. Tastes faintly of spring soil."
     },
     abyssal_tonic: {
       name: "Abyssal Tonic",
@@ -8422,7 +8444,7 @@
       desc: "+75% weapon power for 15 minutes. A cold, black tonic taken by demon-path cultivators."
     },
     // ============ v0.45: realm-kit fill-ins (12 new) ============
-    // Every realm tier now offers a full kit: cultivation pill, Body pill, weapon potion,
+    // Every realm tier now offers a full kit: cultivation pill, Vitality pill, weapon potion,
     // defense potion. These fill the gaps at Mortal / QC / CF / GC / NS / SS.
     riverstone_tea: {
       name: "Riverstone Tea",
@@ -8453,7 +8475,7 @@
       minRealmTier: 1,
       minLayer: 3,
       effects: [{ kind: "hp_max_add", value: 60, durationMin: 40 }],
-      desc: "+60 max Body for 40 minutes. Light, hollow, surprisingly filling."
+      desc: "+60 max Vitality for 40 minutes. Light, hollow, surprisingly filling."
     },
     lotus_veil_draught: {
       name: "Lotus-Veil Draught",
@@ -8485,7 +8507,7 @@
       minRealmTier: 3,
       minLayer: 2,
       effects: [{ kind: "hp_max_add", value: 200, durationMin: 45 }],
-      desc: "+200 max Body for 45 minutes. Warm going down, warmer staying there."
+      desc: "+200 max Vitality for 45 minutes. Warm going down, warmer staying there."
     },
     twin_river_pill: {
       name: "Twin-River Pill",
@@ -8527,7 +8549,7 @@
       minRealmTier: 5,
       minLayer: 2,
       effects: [{ kind: "hp_max_add", value: 800, durationMin: 60 }],
-      desc: "+800 max Body for 60 minutes. The nascent soul lends the body its certainty."
+      desc: "+800 max Vitality for 60 minutes. The nascent soul lends the body its certainty."
     },
     world_pillar_pill: {
       name: "World-Pillar Pill",
@@ -8537,7 +8559,7 @@
       recipe: { heaven_root: 3, primordial_sage: 2 },
       minRealmTier: 6,
       effects: [{ kind: "hp_max_add", value: 2e3, durationMin: 60 }],
-      desc: "+2000 max Body for 60 minutes. For one hour, you are load-bearing."
+      desc: "+2000 max Vitality for 60 minutes. For one hour, you are load-bearing."
     },
     dao_sealed_draught: {
       name: "Dao-Sealed Draught",
@@ -9053,10 +9075,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Tribulation resistance, resolve under pressure." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.71';
+  var GAME_VERSION = 'v1.27.72';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "cbf5b12";
+  var BUILD_SHA = "f27c224";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -9146,7 +9168,7 @@
       name: "Spirit Beast Descendant",
       rarity: "common",
       mods: { body: 4, sense: -1 },
-      extra: "Body tempering paths advance 20% faster.",
+      extra: "Vitality tempering paths advance 20% faster.",
       flavor: "Something older than men stirs in your blood."
     },
     {
@@ -9304,7 +9326,7 @@
       name: "Celestial Bone Frame",
       rarity: "legendary",
       mods: { body: 3, spirit: 2, sense: 2, will: 2 },
-      extra: "Your bones chime when struck. Body techniques pierce qi shields 10% harder.",
+      extra: "Your bones chime when struck. Vitality techniques pierce qi shields 10% harder.",
       flavor: "Nothing inside you is quite mortal. The pattern of your skeleton is an older geometry."
     },
     {
@@ -9361,7 +9383,7 @@
       name: "World-Tree Scion",
       rarity: "divine",
       mods: { body: 4, mind: 4, sense: 3, will: 2 },
-      extra: "Herbs grow 15% faster around you. Body regenerates slowly between fights.",
+      extra: "Herbs grow 15% faster around you. Vitality regenerates slowly between fights.",
       flavor: "Roots tangle in your spine. The dao grows along them."
     },
     {
@@ -9715,7 +9737,7 @@
       zh: "翠林寺",
       weapon: "grove_staff",
       techniques: ["grove_strike", "root_bind", "greenwave_sweep", "heartwood_stance", "grove_bloom"],
-      specialty: "MIXED regeneration tank. Sap of the Grove regrows 3% max Body every round — more under Verdant Communion. Root casters dry while you simply refuse to die.",
+      specialty: "MIXED regeneration tank. Sap of the Grove regrows 3% max Vitality every round — more under Verdant Communion. Root casters dry while you simply refuse to die.",
       bestStats: ["body", "mind"],
       flavor: "A monastery woven into a grove that has been a monastery longer than the monks. The trees are considered elder disciples."
     },
@@ -10040,7 +10062,7 @@
         m.hpBonus += 60;
         m.flatDR += 3;
       },
-      desc: "PASSIVE. The frame stops arguing with the load: +60 Body, +3 flat damage reduction."
+      desc: "PASSIVE. The frame stops arguing with the load: +60 Vitality, +3 flat damage reduction."
     },
     iron_grudge_stance: {
       name: "Grudge-Holding Stance",
@@ -10091,7 +10113,7 @@
       applyMods: (m) => {
         m.hpBonus += 80;
       },
-      desc: "PASSIVE. Iron Skin sits +3 thicker at its base, and the body beneath holds +80 Body."
+      desc: "PASSIVE. Iron Skin sits +3 thicker at its base, and the body beneath holds +80 Vitality."
     },
     iron_immovable_decree: {
       name: "Immovable Decree",
@@ -10155,7 +10177,7 @@
       cd: 4,
       damage: 9.6,
       postureBuild: 30,
-      desc: "The hall's last lesson. Pay 30 Body; deliver an ending with a mountain's patience behind it.",
+      desc: "The hall's last lesson. Pay 30 Vitality; deliver an ending with a mountain's patience behind it.",
       logHit: (a, t) => `${a} falls on ${t} the way a hillside does — once, and comprehensively.`
     },
     iron_p6_scripture: {
@@ -10168,7 +10190,7 @@
         m.hpBonus += 200;
         m.incomingMult *= 0.94;
       },
-      desc: "PASSIVE. The flesh finishes its argument: +200 Body and all incoming damage -6%."
+      desc: "PASSIVE. The flesh finishes its argument: +200 Vitality and all incoming damage -6%."
     },
     // ============ Whispering Array Pavilion — the field is the weapon ============
     array_binding_double: {
@@ -10446,7 +10468,7 @@
         m.hpBonus += 100;
         m.elementBoostAll += 0.06;
       },
-      desc: "PASSIVE. Fired clay over living coal: +100 Body and your elemental advantages bite +6% deeper."
+      desc: "PASSIVE. Fired clay over living coal: +100 Vitality and your elemental advantages bite +6% deeper."
     },
     flame_ashfall_famine: {
       name: "Ashfall: Famine of Air",
@@ -10529,7 +10551,7 @@
         m.qiRegenBonus += 1;
         m.hpBonus += 40;
       },
-      desc: "PASSIVE. Settle like silt: +40 Body and +1 qi regen per turn."
+      desc: "PASSIVE. Settle like silt: +40 Vitality and +1 qi regen per turn."
     },
     water_still_surface: {
       name: "Still Surface",
@@ -10852,7 +10874,7 @@
       kitMod: (k) => {
         k.lifestealBonus = (k.lifestealBonus || 0) + 0.03;
       },
-      desc: "PASSIVE. The Hungry Dao notices you sooner: +3% of all damage returns as your Body."
+      desc: "PASSIVE. The Hungry Dao notices you sooner: +3% of all damage returns as your Vitality."
     },
     demon_banquet_posture: {
       name: "Banquet Posture",
@@ -10907,7 +10929,7 @@
       applyMods: (m) => {
         m.hpBonus += 80;
       },
-      desc: "PASSIVE. +3% more of the Hungry Dao and +80 Body — you are what you eat, cumulatively."
+      desc: "PASSIVE. +3% more of the Hungry Dao and +80 Vitality — you are what you eat, cumulatively."
     },
     demon_seat_at_table: {
       name: "Seat at the Long Table",
@@ -11251,7 +11273,7 @@
       applyMods: (m) => {
         m.hpBonus += 70;
       },
-      desc: "PASSIVE. What is well-rooted is hard to uproot: +70 Body."
+      desc: "PASSIVE. What is well-rooted is hard to uproot: +70 Vitality."
     },
     grove_thorn_communion: {
       name: "Thorn Communion",
@@ -11278,7 +11300,7 @@
       kitMod: (k) => {
         k.regenPct = (k.regenPct || 0) + 0.01;
       },
-      desc: "PASSIVE. Sap of the Grove runs richer: regrow +1% more max Body each round."
+      desc: "PASSIVE. Sap of the Grove runs richer: regrow +1% more max Vitality each round."
     },
     grove_greenwave_flood: {
       name: "Greenwave: Canopy Flood",
@@ -11306,7 +11328,7 @@
         m.hpBonus += 90;
         m.flatDR += 4;
       },
-      desc: "PASSIVE. Grow a core that saws disagree with: +90 Body, +4 flat DR."
+      desc: "PASSIVE. Grow a core that saws disagree with: +90 Vitality, +4 flat DR."
     },
     grove_quiet_season: {
       name: "The Quiet Season",
@@ -11358,7 +11380,7 @@
         m.lifestealPct += 0.04;
         m.hpBonus += 100;
       },
-      desc: "PASSIVE. Everything returns to the soil, then to you: +4% lifesteal, +100 Body."
+      desc: "PASSIVE. Everything returns to the soil, then to you: +4% lifesteal, +100 Vitality."
     },
     grove_stands_forever: {
       name: "The Grove Stands Forever",
@@ -11385,7 +11407,7 @@
       kitMod: (k) => {
         k.regenPct = (k.regenPct || 0) + 0.02;
       },
-      desc: "PASSIVE. Be the thing the monastery was built around: regrow +2% more max Body every round."
+      desc: "PASSIVE. Be the thing the monastery was built around: regrow +2% more max Vitality every round."
     },
     // ============ Thunder Hammer Forge — every stance is provisional ============
     storm_smash_forgefall: {
@@ -11461,7 +11483,7 @@
         m.postureBreakBonus += 1;
         m.hpBonus += 60;
       },
-      desc: "PASSIVE. Breathe like the bellows: stance breaks last +1 turn, +60 Body."
+      desc: "PASSIVE. Breathe like the bellows: stance breaks last +1 turn, +60 Vitality."
     },
     thunder_quench_hiss: {
       name: "Quenching Hiss",
@@ -11802,7 +11824,7 @@
         m.spiritDamageMult *= 1.1;
         m.hpBonus += 70;
       },
-      desc: "PASSIVE. Rooms learn to carry your sound: +10% spirit damage, +70 Body."
+      desc: "PASSIVE. Rooms learn to carry your sound: +10% spirit damage, +70 Vitality."
     },
     reed_hollow_aria: {
       name: "Hollow Song: Full Aria",
@@ -12128,7 +12150,7 @@
         m.hpBonus += 90;
         m.flatDR += 5;
       },
-      desc: "PASSIVE. Quench the self as carefully as the steel: +90 Body, +5 flat DR."
+      desc: "PASSIVE. Quench the self as carefully as the steel: +90 Vitality, +5 flat DR."
     },
     forge_quench_dragons_memory: {
       name: "Quench: Dragon's Memory",
@@ -12291,7 +12313,7 @@
         m.spiritDamageMult *= 1.1;
         m.hpBonus += 70;
       },
-      desc: "PASSIVE. Vows written on the soul directly: +10% spirit damage, +70 Body."
+      desc: "PASSIVE. Vows written on the soul directly: +10% spirit damage, +70 Vitality."
     },
     chain_soul_pull_verdict: {
       name: "Soul Pull: Standing Verdict",
@@ -12366,7 +12388,7 @@
       effect: "bleed",
       effectPower: 0.1,
       effectTurns: 3,
-      desc: "A three-cut flurry far above your station, paid in Body. Each cut lands your on-hit riders (hellfire stacks fast). Leaves an open wound.",
+      desc: "A three-cut flurry far above your station, paid in Vitality. Each cut lands your on-hit riders (hellfire stacks fast). Leaves an open wound.",
       logHit: (a, t) => `${a} pays in advance; ${t} covers the remainder thrice over, in installments.`
     },
     dem_p1_scar_ledger: {
@@ -12406,7 +12428,7 @@
       applyMods: (m) => {
         m.hpBonus += 90;
       },
-      desc: "PASSIVE (demonic). What heaven rejects, the body keeps: +90 Body."
+      desc: "PASSIVE (demonic). What heaven rejects, the body keeps: +90 Vitality."
     },
     dem_devour_falling: {
       name: "Devour the Falling",
@@ -12476,7 +12498,7 @@
       effectPower: 0.12,
       effectTurns: 3,
       effectStacks: 3,
-      desc: "Rule without permission: pay in Body for devastating damage and 3 Bleed stacks. Thrones are for the patient.",
+      desc: "Rule without permission: pay in Vitality for devastating damage and 3 Bleed stacks. Thrones are for the patient.",
       logHit: (a, t) => `${a} issues a decree with no seal but the wound it leaves in ${t}.`
     },
     dem_p5_demon_core: {
@@ -12509,7 +12531,7 @@
       effect: "leech",
       effectPower: 0.35,
       effectTurns: 3,
-      desc: "The path's destination, rehearsed: pay in Body for enormous damage and leeches in everything standing.",
+      desc: "The path's destination, rehearsed: pay in Vitality for enormous damage and leeches in everything standing.",
       logHit: (a, t) => `${a} opens wide. The sky, sensibly, backs up a span.`
     },
     dem_p6_path_complete: {
@@ -12578,7 +12600,7 @@
     demon_heart: {
       passiveName: "Hungry Dao",
       passiveZh: "饥道",
-      passiveDesc: "A share of all damage you deal returns as Body. You take +10% damage and burn 5% of your Body each turn — but you strike 15% harder while bloodied. Live on the edge; drink your way back to full.",
+      passiveDesc: "A share of all damage you deal returns as Vitality. You take +10% damage and burn 5% of your Vitality each turn — but you strike 15% harder while bloodied. Live on the edge; drink your way back to full.",
       lifestealBonus: 0.1
     },
     starfall: {
@@ -12590,7 +12612,7 @@
     verdant_monastery: {
       passiveName: "Sap of the Grove",
       passiveZh: "林髓",
-      passiveDesc: "Regrow 3% of max Body at the end of every round.",
+      passiveDesc: "Regrow 3% of max Vitality at the end of every round.",
       regenPct: 0.03
     },
     thunder_hammer: {
@@ -12609,7 +12631,7 @@
     bone_reed: {
       passiveName: "Marrow Reckoning",
       passiveZh: "髓裁",
-      passiveDesc: "Spirit damage +50% AND posture damage +50%; every hit also RENDS 15% of the target's MAX spirit, and breaking a stance Shocks it (loses its next action). EXECUTE: your hits land massive bonus Body damage vs a soul-broken OR posture-broken foe — break both and it is devastating.",
+      passiveDesc: "Spirit damage +50% AND posture damage +50%; every hit also RENDS 15% of the target's MAX spirit, and breaking a stance Shocks it (loses its next action). EXECUTE: your hits land massive bonus Vitality damage vs a soul-broken OR posture-broken foe — break both and it is devastating.",
       spiritDamageBonus: 0.5,
       postureBonus: 0.5,
       shockOnBreak: true,
@@ -12651,7 +12673,7 @@
     demon_heart: { lifestealBonus: 0.3, twistDesc: "Hungry Dao drinks 30% (35% at Golden Core)." },
     // v1.27.33: small early buff (+5%)
     starfall: { critBonus: 0.05, twistDesc: "+5% crit on top of Celestial Sight." },
-    verdant_monastery: { regenPct: 0.05, twistDesc: "Regrow 5% max Body per round." },
+    verdant_monastery: { regenPct: 0.05, twistDesc: "Regrow 5% max Vitality per round." },
     thunder_hammer: { postureBonus: 0.4, twistDesc: "+40% posture damage." },
     cloud_traveler: { dodgeChance: 0.2, twistDesc: "20% innate dodge." },
     bone_reed: { spiritDamageBonus: 0.45, twistDesc: "Spirit damage +45%." },
@@ -12764,7 +12786,7 @@
       damage: 0,
       postureBuild: 8,
       buff: { incomingMult: 0.4, turns: 2, reflectPct: 0.5 },
-      desc: "Pay 10 Body to become a wall that hates back: incoming 40% and HALF of what lands is returned, 2 rounds.",
+      desc: "Pay 10 Vitality to become a wall that hates back: incoming 40% and HALF of what lands is returned, 2 rounds.",
       logHit: (a, t) => `${a} opens their own skin willingly; what touches it regrets the introduction.`
     }],
     whispering_array: ["dem_sig_array", {
@@ -12799,7 +12821,7 @@
       effectPower: 0.22,
       effectTurns: 3,
       effectStacks: 3,
-      desc: "Feed the fire something personal. Pays 8 Body: 3 Burn stacks on everything standing.",
+      desc: "Feed the fire something personal. Pays 8 Vitality: 3 Burn stacks on everything standing.",
       logHit: (a, t) => `${a} burns a memory as kindling; the pyre takes everyone's measure.`
     }],
     moonlit_water: ["dem_sig_water", {
@@ -13088,15 +13110,15 @@
   var STATUS_INFO = {
     qi_drain: { label: "drain", tip: (ef) => `Losing ${ef.value} qi per turn. ${ef.turns} turn(s) left.` },
     qi_cost_up: { label: "knotted", tip: (ef) => `Technique qi costs ×${ef.value}. ${ef.turns} turn(s) left.` },
-    bleed: { label: "bleed", tip: (ef) => `Bleeding ${ef.value} Body per turn. ${ef.turns} turn(s) left.` },
-    burn: { label: "burn", tip: (ef) => `Burning: ${ef.value} Body per turn, ignores qi shield. ${ef.turns} turn(s) left.` },
-    poison: { label: "poison", tip: (ef) => `Poisoned: ${ef.value} Body per turn, ignores qi shield. ${ef.turns} turn(s) left.` },
+    bleed: { label: "bleed", tip: (ef) => `Bleeding ${ef.value} Vitality per turn. ${ef.turns} turn(s) left.` },
+    burn: { label: "burn", tip: (ef) => `Burning: ${ef.value} Vitality per turn, ignores qi shield. ${ef.turns} turn(s) left.` },
+    poison: { label: "poison", tip: (ef) => `Poisoned: ${ef.value} Vitality per turn, ignores qi shield. ${ef.turns} turn(s) left.` },
     chill: { label: "chill", tip: (ef) => `Chilled: outgoing damage -${Math.round(ef.value * 100)}%. ${ef.turns} turn(s) left.` },
     shock: { label: "shocked", tip: (ef) => `Shocked: loses its next action.` },
     sunder: { label: "sunder", tip: (ef) => `Sundered: +${Math.round(ef.value * 100)}% damage taken and armor (flat DR) negated. ${ef.turns} turn(s) left.` },
     pressured: { label: "pressured", tip: (ef) => `Stellar Pressure: +${Math.round(ef.value * 100)}% posture damage taken. ${ef.turns} turn(s) left.` },
     mark: { label: "marked", tip: (ef) => `Star Mark: +${Math.round(ef.value * 100)}% damage taken from the hunter, who also crits it +20% more often. ${ef.turns} turn(s) left.` },
-    leech: { label: "leeched", tip: (ef) => `Leeched: losing ${ef.value} Body per turn to the attacker, who heals for it. ${ef.turns} turn(s) left.` },
+    leech: { label: "leeched", tip: (ef) => `Leeched: losing ${ef.value} Vitality per turn to the attacker, who heals for it. ${ef.turns} turn(s) left.` },
     entangle: { label: "entangled", tip: (ef) => `Entangled: losing ${ef.value} qi per turn and meditation is sealed. ${ef.turns} turn(s) left.` },
     silence: { label: "silenced", tip: (ef) => `Silenced: cannot use techniques. ${ef.turns} turn(s) left.` },
     resonance: { label: "resonance", tip: (ef) => `Resonating: losing ${ef.value} spirit per turn. ${ef.turns} turn(s) left.` },
@@ -13265,6 +13287,12 @@
   function inscriptionRealm(id) {
     return INSCRIPTION_REALM[id] || 0;
   }
+  function inscriptionCategory(id) {
+    const th = INSCRIPTION_THEME[id];
+    if (th === "weapon" || th === "posture" || th === "technique" || th === "strike" || th === "spirit") return "offensive";
+    if (th === "guard" || th === "bulwark" || th === "sustain") return "defensive";
+    return "utility";
+  }
   var INSCR_RARITY_SCALE = { common: 1, rare: 1.75, legendary: 2.75, divine: 4 };
   var INSCR_RIDER_COUNT = { common: 0, rare: 1, legendary: 2, divine: 3 };
   function inscrRealmScale(realm) {
@@ -13272,15 +13300,15 @@
   }
   var CHANNEL_LABEL = {
     weaponBonus: "weapon power",
-    hpBonus: "max Body",
+    hpBonus: "max Vitality",
     qiRegenBonus: "qi regen/turn",
-    strikeHeal: "Body on hit",
+    strikeHeal: "Vitality on hit",
     spiritBonus: "max spirit",
     qiBonus: "max qi"
   };
   var INSCRIPTION_THEMES = {
     weapon: { flatCh: "weaponBonus", flatBase: 4, pctCh: "weaponMultFlat", pctBase: 0.04, pctMode: "mul", stat: "weapon power", riders: ["crit", "lifesteal", "firstStrike"] },
-    guard: { flatCh: "hpBonus", flatBase: 40, pctCh: "hpMult", pctBase: 0.04, pctMode: "mul", stat: "max Body", riders: ["flatDR", "dodge", "ward"] },
+    guard: { flatCh: "hpBonus", flatBase: 40, pctCh: "hpMult", pctBase: 0.04, pctMode: "mul", stat: "max Vitality", riders: ["flatDR", "dodge", "ward"] },
     bulwark: { flatCh: "hpBonus", flatBase: 22, pctCh: "incomingMult", pctBase: 0.05, pctMode: "reduce", stat: "damage taken", riders: ["flatDR", "dodge", "lowHp"] },
     qi: { flatCh: "qiRegenBonus", flatBase: 2, pctCh: "meditateMult", pctBase: 0.12, pctMode: "mul", stat: "qi recovered", riders: ["qiPool", "qiOnKill", "ramp"] },
     sustain: { flatCh: "strikeHeal", flatBase: 4, pctCh: "lifestealPct", pctBase: 0.03, pctMode: "add", stat: "lifesteal", riders: ["qiOnKill", "dodge", "ward"] },
@@ -13375,7 +13403,7 @@
       // ---- new channels ----
       hpBonus: 0,
       hpMult: 1,
-      // v0.89: multiplicative max-Body bonus (Body%), defensive-style stat
+      // v0.89: multiplicative max-Vitality bonus (Vitality%), defensive-style stat
       qiDamageMult: 1,
       // v1.27: bonus damage to a foe's QI BARRIER — anti-caster focus builds drain/break it faster
       qiDrainPct: 0,
@@ -13403,7 +13431,7 @@
       firstStrikeBonus: 0,
       // additive % to outgoing damage on round 1
       lowHpBonus: 0,
-      // additive % to outgoing damage at <33% Body
+      // additive % to outgoing damage at <33% Vitality
       vsKindMult: {},
       // { demonic: 0.15, beast: 0.10, ... } additive %
       qiOnKill: 0,
@@ -16515,7 +16543,7 @@
     forge_kissed: { name: "Forge-Kissed", zh: "炉之契", desc: "Begin with 10× Spirit Iron and 5× Spirit Stone." },
     dao_memory: { name: "Dao Memory", zh: "道忆", desc: "+25% insight from all sources permanently." },
     heavenly_root: { name: "Heavenly Root", zh: "天根", desc: "+20% cultivation rate permanently." },
-    iron_will: { name: "Iron Will", zh: "铁志", desc: "+60 max Body permanently." },
+    iron_will: { name: "Iron Will", zh: "铁志", desc: "+60 max Vitality permanently." },
     void_tempered: { name: "Void-Tempered", zh: "虚炼体", desc: "Incoming damage −12% permanently." },
     fated_blade: { name: "Fated Blade", zh: "宿命刃", desc: "+5 weapon power permanently." },
     pill_tongue: { name: "Pill-Touched Tongue", zh: "丹舌", desc: "Begin with 2× Foundation Pill and a Celestial Dao Pill recipe at reach." },
@@ -16524,7 +16552,7 @@
     // ---- 10 additional boons ----
     deep_memory: { name: "Deep Memory", zh: "深忆", desc: "+50% insight from all sources (stacks multiplicatively with Dao Memory)." },
     world_breath: { name: "World-Breath", zh: "世息", desc: "+35% cultivation rate (stacks multiplicatively with Heavenly Root)." },
-    adamant_form: { name: "Adamant Form", zh: "金刚身", desc: "+200 max Body permanently." },
+    adamant_form: { name: "Adamant Form", zh: "金刚身", desc: "+200 max Vitality permanently." },
     ghostproof_frame: { name: "Ghostproof Frame", zh: "驱魂架", desc: "−20% incoming damage (stacks multiplicatively with Void-Tempered)." },
     sky_piercing_edge: { name: "Sky-Piercing Edge", zh: "破天锋", desc: "+15 weapon power permanently." },
     forge_ascendant: { name: "Forge Ascendant", zh: "升炉", desc: "Begin with 30× Spirit Iron, 20× Spirit Stone, and 3× Dragon Scale." },
@@ -16537,8 +16565,8 @@
     battle_hardened: { name: "Battle-Hardened", zh: "战炼身", desc: "+30% strike damage permanently." },
     inscrutable_step: { name: "Inscrutable Step", zh: "难测步", desc: "−15% qi cost on every technique permanently." },
     heart_held_sutra: { name: "Heart-Held Sutra", zh: "心持经", desc: "During tribulations only, incoming damage −25%." },
-    heaven_sundering_resolve: { name: "Heaven-Sundering Resolve", zh: "裂天志", desc: "+50 weapon power and +200 max Body permanently." },
-    cycle_memory: { name: "Cycle Memory", zh: "轮忆", desc: "Per ascension already completed: +5 weapon power and +50 max Body. Scales with reincarnations." },
+    heaven_sundering_resolve: { name: "Heaven-Sundering Resolve", zh: "裂天志", desc: "+50 weapon power and +200 max Vitality permanently." },
+    cycle_memory: { name: "Cycle Memory", zh: "轮忆", desc: "Per ascension already completed: +5 weapon power and +50 max Vitality. Scales with reincarnations." },
     dao_read: { name: "Dao-Read", zh: "道阅", desc: "+60% insight from all sources permanently." },
     eternal_spring: { name: "Eternal Spring Garden", zh: "永春园", desc: "Begin with 6 plots already growing rare herbs." }
   };
@@ -16888,7 +16916,7 @@
       minTier: 3,
       demonicOnly: true,
       effect: { kind: "mods", mods: { hpBonus: 150, flatDR: 8 } },
-      desc: "DEMONIC ONLY. +150 max Body, +8 flat damage reduction. The body learns to hold a grudge against harm itself."
+      desc: "DEMONIC ONLY. +150 max Vitality, +8 flat damage reduction. The body learns to hold a grudge against harm itself."
     },
     {
       id: "ha_calamity_tempo",
@@ -16934,38 +16962,38 @@
       effect: { kind: "cultivation_mult", value: 1.5 },
       desc: "+50% cultivation rate (stacks)."
     },
-    // Body / defense
+    // Vitality / defense
     {
       id: "body_1",
       name: "Iron Skin",
       zh: "铁皮",
-      category: "Body",
+      category: "Vitality",
       cost: 2e3,
       minTier: 1,
       effect: { kind: "hp_add", value: 40 },
-      desc: "+40 max Body."
+      desc: "+40 max Vitality."
     },
     {
       id: "body_2",
       name: "Bronze Marrow",
       zh: "铜髓",
-      category: "Body",
+      category: "Vitality",
       cost: 3e4,
       minTier: 2,
       requires: ["body_1"],
       effect: { kind: "hp_add", value: 250 },
-      desc: "+250 max Body."
+      desc: "+250 max Vitality."
     },
     {
       id: "body_3",
       name: "Gold Bones",
       zh: "金骨",
-      category: "Body",
+      category: "Vitality",
       cost: 3e5,
       minTier: 4,
       requires: ["body_2"],
       effect: { kind: "hp_add", value: 1200 },
-      desc: "+1200 max Body."
+      desc: "+1200 max Vitality."
     },
     // Weapon / combat
     {
@@ -17058,7 +17086,7 @@
     },
     {
       id: "stat_body_1",
-      name: "Body Tempering Rite",
+      name: "Vitality Tempering Rite",
       zh: "体炼仪",
       category: "Stats",
       cost: 4e4,
@@ -17146,7 +17174,7 @@
       repeatable: true,
       maxRank: 35,
       effect: { kind: "hp_add", value: 50 },
-      desc: "+50 max Body per rank, with a realm-scaled milestone bonus every 5 ranks. Cost doubles each rank; max 5 ranks per realm (35 total)."
+      desc: "+50 max Vitality per rank, with a realm-scaled milestone bonus every 5 ranks. Cost doubles each rank; max 5 ranks per realm (35 total)."
     },
     {
       id: "rep_weapon",
@@ -17233,7 +17261,7 @@
       cost: 3e4,
       minTier: 2,
       effect: { kind: "hp_add", value: 900 },
-      desc: "+900 max Body. The marrow is hardened until it rings like struck bronze."
+      desc: "+900 max Vitality. The marrow is hardened until it rings like struck bronze."
     },
     book_unyielding_will: {
       name: "Unyielding-Will Litany",
@@ -17366,7 +17394,7 @@
       rarity: "rare",
       cost: 18e3,
       effect: { kind: "hp_add", value: 300 },
-      desc: "+300 max Body. Each breath becomes a slow-closing petal."
+      desc: "+300 max Vitality. Each breath becomes a slow-closing petal."
     },
     book_lightning_reflex: {
       name: "Lightning Reflex Scripture",
@@ -17435,7 +17463,7 @@
       cost: 6500,
       minTier: 0,
       effect: { kind: "hp_add", value: 120 },
-      desc: "+120 max Body. Breathe low and slow; the hide thickens."
+      desc: "+120 max Vitality. Breathe low and slow; the hide thickens."
     },
     book_quickening_breath: {
       name: "Quickening Breath Manual",
@@ -17525,7 +17553,7 @@
       cost: 9500,
       minTier: 1,
       effect: { kind: "hp_add", value: 180 },
-      desc: "+180 max Body. Dig the dantian deeper; hold more of the world."
+      desc: "+180 max Vitality. Dig the dantian deeper; hold more of the world."
     },
     book_dawn_ward: {
       name: "Dawn-Ward Scripture",
@@ -17559,7 +17587,7 @@
       rarity: "rare",
       cost: 25e3,
       effect: { kind: "hp_add", value: 600 },
-      desc: "+600 max Body. Each tendon is rewoven into jade-fibre."
+      desc: "+600 max Vitality. Each tendon is rewoven into jade-fibre."
     },
     book_storm_palm: {
       name: "Storm Palm Scripture",
@@ -17631,7 +17659,7 @@
     ["ward", "Iron-Ward Sutra", "铁护经", (t) => ({ kind: "incoming_mult_perm", value: +(1 - (0.04 + 8e-3 * t)).toFixed(3) }), (t) => `-${Math.round((0.04 + 8e-3 * t) * 100)}% incoming damage`],
     ["keen", "Keen-Eye Record", "锐目录", (t) => ({ kind: "mods", mods: { critChance: +(0.03 + 8e-3 * t).toFixed(3) } }), (t) => `+${(3 + 0.8 * t).toFixed(1)}% critical chance`],
     ["venom", "Lingering-Rot Codex", "余腐典", (t) => ({ kind: "mods", mods: { dotMult: +(1 + 0.06 + 0.015 * t).toFixed(3) } }), (t) => `+${Math.round((0.06 + 0.015 * t) * 100)}% damage-over-time`],
-    ["marrow", "Marrow-Forge Manual", "炼髓诀", (t) => ({ kind: "hp_add", value: 50 * (t + 1) }), (t) => `+${50 * (t + 1)} max Body`],
+    ["marrow", "Marrow-Forge Manual", "炼髓诀", (t) => ({ kind: "hp_add", value: 50 * (t + 1) }), (t) => `+${50 * (t + 1)} max Vitality`],
     ["blood", "Blood-Drinking Scroll", "饮血卷", (t) => ({ kind: "mods", mods: { lifestealPct: +(0.03 + 8e-3 * t).toFixed(3) } }), (t) => `+${Math.round((0.03 + 8e-3 * t) * 100)}% lifesteal`]
   ];
   (function generateBookLadder() {
@@ -17959,7 +17987,7 @@
     sb_echo_faint: { tier: 1, name: "Faint First-Dao Echo", zh: "初道微响", desc: "+1 to every stat at the start of each life.", stats: { all: 1 } },
     sb_memory_faint: { tier: 1, name: "Faint Dao Memory", zh: "道忆微光", desc: "+8% insight from all sources.", mods: { insightMult: 1.08 } },
     sb_root_faint: { tier: 1, name: "Budding Heavenly Root", zh: "天根芽", desc: "+7% cultivation rate.", mods: { cultMult: 1.07 } },
-    sb_will_faint: { tier: 1, name: "Iron Will, Remembered", zh: "忆铁志", desc: "+20 max Body.", mods: { hpBonus: 20 } },
+    sb_will_faint: { tier: 1, name: "Iron Will, Remembered", zh: "忆铁志", desc: "+20 max Vitality.", mods: { hpBonus: 20 } },
     sb_void_faint: { tier: 1, name: "Void-Brushed", zh: "虚拂", desc: "−4% incoming damage.", mods: { incomingMult: 0.96 } },
     sb_blade_faint: { tier: 1, name: "Chipped Blade of Fate", zh: "缺宿刃", desc: "+2 weapon power.", mods: { weaponBonus: 2 } },
     sb_star_faint: { tier: 1, name: "Starborn Glimmer", zh: "星辉屑", desc: "+2 Perception and +2 Divine Sense at the start of each life.", stats: { mind: 2, sense: 2 } },
@@ -17971,7 +17999,7 @@
     sb_echo_clear: { tier: 2, name: "Clear First-Dao Echo", zh: "初道清响", desc: "+2 to every stat at the start of each life.", stats: { all: 2 } },
     sb_memory_clear: { tier: 2, name: "Clear Dao Memory", zh: "道忆清光", desc: "+15% insight from all sources.", mods: { insightMult: 1.15 } },
     sb_root_clear: { tier: 2, name: "Deepening Root", zh: "深根", desc: "+12% cultivation rate.", mods: { cultMult: 1.12 } },
-    sb_will_clear: { tier: 2, name: "Remembered Iron", zh: "忆铁", desc: "+60 max Body.", mods: { hpBonus: 60 } },
+    sb_will_clear: { tier: 2, name: "Remembered Iron", zh: "忆铁", desc: "+60 max Vitality.", mods: { hpBonus: 60 } },
     sb_void_clear: { tier: 2, name: "Void-Tempered Echo", zh: "虚炼回响", desc: "−8% incoming damage.", mods: { incomingMult: 0.92 } },
     sb_blade_clear: { tier: 2, name: "Fated Edge", zh: "宿锋", desc: "+5 weapon power.", mods: { weaponBonus: 5 } },
     sb_crit_clear: { tier: 2, name: "Executioner's Recall", zh: "刽忆", desc: "+4% critical chance.", mods: { critChance: 0.04 } },
@@ -17981,10 +18009,10 @@
     // ---- tier 3: RESOUNDING echoes (~3/4) — offered from the 13th milestone (375 souls) ----
     sb_memory_deep: { tier: 3, name: "Deep Memory Echo", zh: "深忆回响", desc: "+30% insight from all sources.", mods: { insightMult: 1.3 } },
     sb_root_deep: { tier: 3, name: "World-Breath Echo", zh: "世息回响", desc: "+20% cultivation rate.", mods: { cultMult: 1.2 } },
-    sb_will_deep: { tier: 3, name: "Adamant Echo", zh: "金刚回响", desc: "+120 max Body.", mods: { hpBonus: 120 } },
+    sb_will_deep: { tier: 3, name: "Adamant Echo", zh: "金刚回响", desc: "+120 max Vitality.", mods: { hpBonus: 120 } },
     sb_void_deep: { tier: 3, name: "Ghostproof Echo", zh: "驱魂回响", desc: "−12% incoming damage.", mods: { incomingMult: 0.88 } },
     sb_blade_deep: { tier: 3, name: "Sky-Piercing Sliver", zh: "破天片", desc: "+10 weapon power.", mods: { weaponBonus: 10 } },
-    sb_sunder_deep: { tier: 3, name: "Sundering Echo", zh: "裂天回响", desc: "+20 weapon power and +80 max Body.", mods: { weaponBonus: 20, hpBonus: 80 } },
+    sb_sunder_deep: { tier: 3, name: "Sundering Echo", zh: "裂天回响", desc: "+20 weapon power and +80 max Vitality.", mods: { weaponBonus: 20, hpBonus: 80 } },
     sb_all_deep: { tier: 3, name: "Chorus of Cycles", zh: "轮回合唱", desc: "+3 to every stat at the start of each life, and +10% insight.", stats: { all: 3 }, mods: { insightMult: 1.1 } }
   };
   function soulMilestonesCrossed() {
@@ -18809,7 +18837,7 @@
     unarmed: (t) => [(m) => {
       m.hpBonus += gearFlat(t, 0.04);
       m.flatDR += 1 + t;
-    }, `+${gearFlat(t, 0.04)} Body, +${1 + t} DR`],
+    }, `+${gearFlat(t, 0.04)} Vitality, +${1 + t} DR`],
     focus: (t) => [(m) => {
       m.qiBonus += gearFlat(t, 0.025);
       m.qiRegenBonus += 1 + Math.floor(t / 2);
@@ -18828,7 +18856,7 @@
     staff: (t) => [(m) => {
       m.qiRegenBonus += 1 + Math.ceil(t / 2);
       m.hpBonus += gearFlat(t, 0.025);
-    }, `+${1 + Math.ceil(t / 2)} qi regen, +${gearFlat(t, 0.025)} Body`],
+    }, `+${1 + Math.ceil(t / 2)} qi regen, +${gearFlat(t, 0.025)} Vitality`],
     hammer: (t) => [(m) => {
       m.postureMult *= 1.08 + 0.02 * t;
     }, `+${Math.round((0.08 + 0.02 * t) * 100)}% posture`],
@@ -19366,7 +19394,7 @@
   var ARMOR_RARITY_EFFECT_COUNT = { common: 1, rare: 2, legendary: 3, divine: 5 };
   var ARMOR_EFFECT_POOL = [
     { ch: "flatDR", mk: (t) => 1 + t, blurb: (t) => `+${1 + t} DR` },
-    { ch: "hpBonus", mk: (t) => gearFlat(t, 0.04), blurb: (t) => `+${gearFlat(t, 0.04)} Body` },
+    { ch: "hpBonus", mk: (t) => gearFlat(t, 0.04), blurb: (t) => `+${gearFlat(t, 0.04)} Vitality` },
     // v1.27.65: pool-tracking flats
     { ch: "qiBonus", mk: (t) => gearFlat(t, 0.025), blurb: (t) => `+${gearFlat(t, 0.025)} qi` },
     { ch: "qiRegenBonus", mk: (t) => 1 + Math.floor(t / 3), blurb: (t) => `+${1 + Math.floor(t / 3)} qi regen` },
@@ -19654,12 +19682,12 @@
       name: "Iron Disciple",
       zh: "铁徒",
       bonuses: [
-        { pieces: 2, desc: "+30 max Body", apply: (m) => {
+        { pieces: 2, desc: "+30 max Vitality", apply: (m) => {
           m.hpBonus += 30;
         } },
         {
           pieces: 4,
-          desc: "+80 max Body, -8% incoming; +8 flat DR, +10% damage while bloodied",
+          desc: "+80 max Vitality, -8% incoming; +8 flat DR, +10% damage while bloodied",
           apply: (m) => {
             m.hpBonus += 80;
             m.incomingMult *= 0.92;
@@ -19739,12 +19767,12 @@
       name: "Dragon Scale",
       zh: "龙鳞",
       bonuses: [
-        { pieces: 2, desc: "+100 max Body", apply: (m) => {
+        { pieces: 2, desc: "+100 max Vitality", apply: (m) => {
           m.hpBonus += 100;
         } },
         {
           pieces: 4,
-          desc: "+400 max Body, -15% incoming; +8% lifesteal, +10% damage vs beasts",
+          desc: "+400 max Vitality, -15% incoming; +8% lifesteal, +10% damage vs beasts",
           apply: (m) => {
             m.hpBonus += 400;
             m.incomingMult *= 0.85;
@@ -19783,7 +19811,7 @@
         } },
         {
           pieces: 4,
-          desc: "+50 weapon power, +300 max Body, +20% cultivation; +6% crit, +10% opener damage",
+          desc: "+50 weapon power, +300 max Vitality, +20% cultivation; +6% crit, +10% opener damage",
           apply: (m) => {
             m.weaponBonus += 50;
             m.hpBonus += 300;
@@ -19798,7 +19826,7 @@
   var BOSS_LOOT = {
     // v0.86: Mortal (t0) set numbers toned down — operator rule: a Mortal boss set should be
     // competitive with EARLY Qi Condensation gear but must NOT beat QC's divine pieces
-    // (genr_armor_1_divine is ~50 Body + 5 DR + 18 qi per slot; the old 40/120 totals blew past it).
+    // (genr_armor_1_divine is ~50 Vitality + 5 DR + 18 qi per slot; the old 40/120 totals blew past it).
     boar_king: {
       setName: "Withered-Wood Warplate",
       setZh: "枯林战甲",
@@ -20408,7 +20436,10 @@
     const base = ARMOR_Body_BASE[Math.min(6, t)];
     const next = ARMOR_Body_BASE[Math.min(7, t + 1)];
     const frac = { common: 0.32, rare: 0.5, legendary: 0.7, divine: 0.86 }[rarity] || 0.32;
-    return Math.round((base + (next - base) * frac) * (ARMOR_SLOT_WEIGHT[slot] || 0.5));
+    const legacy = Math.round((base + (next - base) * frac) * (ARMOR_SLOT_WEIGHT[slot] || 0.5));
+    const refFrac = { common: 0.35, rare: 0.5, legendary: 0.7, divine: 1 }[rarity] || 0.35;
+    const refFloor = Math.round(FLAT_GEAR_HP_REF[Math.min(6, t)] * 0.08 * refFrac * (ARMOR_SLOT_WEIGHT[slot] || 0.5));
+    return Math.max(legacy, refFloor);
   }
   function armorDrFloor(t, rarity) {
     if (rarity === "divine") return Math.round(1.4 + 0.85 * t);
@@ -20541,14 +20572,14 @@
           bonuses: [
             {
               pieces: 2,
-              desc: `+${Math.round((0.07 + 0.01 * t) * 100)}% max Body`,
+              desc: `+${Math.round((0.07 + 0.01 * t) * 100)}% max Vitality`,
               apply: (m) => {
                 m.hpMult = (m.hpMult || 1) * (1 + 0.07 + 0.01 * t);
               }
             },
             {
               pieces: 4,
-              desc: `-${Math.round((0.09 + 0.01 * t) * 100)}% incoming damage, +5% max Body`,
+              desc: `-${Math.round((0.09 + 0.01 * t) * 100)}% incoming damage, +5% max Vitality`,
               apply: (m) => {
                 m.incomingMult *= 1 - (0.09 + 0.01 * t);
                 m.hpMult = (m.hpMult || 1) * 1.05;
@@ -20562,7 +20593,7 @@
             incomingMult: r2(1 - (0.02 + 5e-3 * t))
           }),
           pieceTag: "Plate that intends to still be standing at the end of the fight.",
-          accTag: "Pure defense — +Body, +Body%, flat DR, and reduced incoming damage."
+          accTag: "Pure defense — +Vitality, +Vitality%, flat DR, and reduced incoming damage."
         },
         burst: {
           light: true,
@@ -20648,6 +20679,11 @@
       }
       if ((a.mods.flatDR || 0) > 0) {
         a.mods.flatDR = Math.max(a.mods.flatDR, armorDrFloor(t, a.rarity));
+      }
+      if ((a.mods.qiBonus || 0) > 0) {
+        const qFrac = { common: 0.35, rare: 0.5, legendary: 0.7, divine: 1 }[a.rarity] || 0.35;
+        const qFloor = Math.round(FLAT_GEAR_HP_REF[Math.min(6, t)] * 0.05 * qFrac * (ARMOR_SLOT_WEIGHT[a.slot] || 0.5));
+        a.mods.qiBonus = Math.max(a.mods.qiBonus, qFloor);
       }
     });
   })();
@@ -20785,7 +20821,7 @@
     const parts = [];
     const labels = {
       weaponBonus: "wpn",
-      hpBonus: "Body",
+      hpBonus: "Vitality",
       qiBonus: "max qi",
       spiritBonus: "max spirit",
       qiRegenBonus: "qi regen",
@@ -20816,7 +20852,7 @@
       spiritDamageMult: "spirit dmg",
       dotMult: "DOT",
       bossCdMult: "boss cooldown",
-      hpMult: "max Body",
+      hpMult: "max Vitality",
       critMult: "crit dmg",
       qiDamageMult: "qi-barrier dmg",
       herbGrowMult: "herb grow time"
@@ -20877,8 +20913,8 @@
     const defense = [
       add(mods.flatDR, "flat DR"),
       mods.incomingMult < 1 ? `-${Math.round((1 - mods.incomingMult) * 100)}% incoming damage` : mul(mods.incomingMult, "incoming damage"),
-      add(mods.hpBonus, "Body"),
-      mul(mods.hpMult, "max Body"),
+      add(mods.hpBonus, "Vitality"),
+      mul(mods.hpMult, "max Vitality"),
       pct(mods.dodgeChance, "dodge")
     ].concat(mapc(mods.elementWard, "-", "from element")).filter(Boolean);
     const utility = [
@@ -20890,14 +20926,14 @@
       mul(mods.cultMult, "cultivation"),
       mul(mods.insightMult, "insight"),
       mul(mods.meditateMult, "meditate"),
-      mods.hpCostMult !== 1 ? `${mods.hpCostMult > 1 ? "+" : ""}${Math.round((mods.hpCostMult - 1) * 100)}% Body-cost of techniques` : null,
+      mods.hpCostMult !== 1 ? `${mods.hpCostMult > 1 ? "+" : ""}${Math.round((mods.hpCostMult - 1) * 100)}% Vitality-cost of techniques` : null,
       add(mods.strikeHeal, "heal on strike")
     ].filter(Boolean);
     const kit = SCHOOL_KITS[char.selectedSchool];
     const chips = [];
     if (kit) chips.push(`<span class="buff-chip" style="border-color:var(--gold)">Passive: ${kit.passiveName}</span>`);
-    if (isDemonHeart(char)) chips.push(`<span class="buff-chip" style="background:rgba(160,40,40,0.18);border-color:var(--crimson)">Demon-Heart (×1.15 Body, +15% bloodied, +25% taken, −10% posture, ½ DR)</span>`);
-    else if (char.demonic) chips.push(`<span class="buff-chip" style="background:rgba(160,40,40,0.15);border-color:var(--crimson)">Demonic path (×1.2 Body, +4 stats)</span>`);
+    if (isDemonHeart(char)) chips.push(`<span class="buff-chip" style="background:rgba(160,40,40,0.18);border-color:var(--crimson)">Demon-Heart (×1.15 Vitality, +15% bloodied, +25% taken, −10% posture, ½ DR)</span>`);
+    else if (char.demonic) chips.push(`<span class="buff-chip" style="background:rgba(160,40,40,0.15);border-color:var(--crimson)">Demonic path (×1.2 Vitality, +4 stats)</span>`);
     const gcl = typeof goldenCoreLevel === "function" ? goldenCoreLevel() : char.goldenCoreQuality || 0;
     if (gcl > 0) chips.push(`<span class="buff-chip" style="border-color:var(--gold)">Golden Core ${goldenCoreGradeLabel(gcl)} (qual ${gcl})</span>`);
     if (char.spiritRoot) {
@@ -20908,9 +20944,9 @@
     return `<div class="panel" style="background:rgba(0,0,0,0.12);padding:0.5rem 0.6rem;margin:0 0 0.6rem">
     <div style="font-size:0.82rem;margin-bottom:0.2rem"><strong style="color:var(--gold)">Stat Sheet</strong> <span style="color:var(--ink-soft);font-size:0.76rem">— every active bonus, as combat computes it</span></div>
     <div style="font-size:0.84rem">
-      <strong>Body</strong> ${hpMax} · <strong>Qi</strong> ${qiMax} · <strong>Spirit</strong> ${spMax} · <strong>Posture</strong> ${postureMax} · <strong>Weapon</strong> ${wpnPower}${offN ? ` (+${offN} off-hand)` : ""} · <strong>Might</strong> ${might}
+      <strong>Vitality</strong> ${hpMax} · <strong>Qi</strong> ${qiMax} · <strong>Spirit</strong> ${spMax} · <strong>Posture</strong> ${postureMax} · <strong>Weapon</strong> ${wpnPower}${offN ? ` (+${offN} off-hand)` : ""} · <strong>Might</strong> ${might}
     </div>
-    <div style="font-size:0.8rem;color:var(--ink-soft);margin-top:0.15rem">Stats — Body ${fs.body || 0} · Spirit ${fs.spirit || 0} · Sense ${fs.sense || 0} · Mind ${fs.mind || 0} · Will ${fs.will || 0} · Luck ${fs.luck || 0}</div>
+    <div style="font-size:0.8rem;color:var(--ink-soft);margin-top:0.15rem">Stats — Vitality ${fs.body || 0} · Spirit ${fs.spirit || 0} · Sense ${fs.sense || 0} · Mind ${fs.mind || 0} · Will ${fs.will || 0} · Luck ${fs.luck || 0}</div>
     ${grp("Offense", offense)}
     ${grp("Defense", defense)}
     ${grp("Utility", utility)}
@@ -21024,7 +21060,7 @@
     });
   }
   var DESTINIES = {
-    d_iron_hide: { name: "Iron Hide", zh: "铁皮命", rarity: "common", minTier: 0, mods: { hpBonus: 80 }, desc: "+80 max Body." },
+    d_iron_hide: { name: "Iron Hide", zh: "铁皮命", rarity: "common", minTier: 0, mods: { hpBonus: 80 }, desc: "+80 max Vitality." },
     d_keen: { name: "Keen Instinct", zh: "利觉", rarity: "common", minTier: 0, mods: { weaponBonus: 6 }, desc: "+6 weapon power." },
     d_swift_breath: { name: "Swift Breath", zh: "疾息", rarity: "common", minTier: 0, mods: { cultMult: 1.1 }, desc: "+10% cultivation rate." },
     d_deep_well: { name: "Deep Dantian", zh: "深丹", rarity: "common", minTier: 0, mods: { qiBonus: 50, qiRegenBonus: 2 }, desc: "+50 max qi, +2 qi regen per turn." },
@@ -21035,10 +21071,10 @@
     d_blood_1: { name: "Blood Sip", zh: "吸血一", rarity: "rare", minTier: 1, mods: { lifestealPct: 0.06 }, desc: "Heal 6% of damage dealt. (Chain I)" },
     d_blood_2: { name: "Blood Feast", zh: "血宴", rarity: "legendary", minTier: 3, requires: "d_blood_1", replaces: "d_blood_1", mods: { lifestealPct: 0.14 }, desc: "Heal 14% of damage dealt. Replaces Blood Sip. (Chain II)" },
     d_blood_3: { name: "Blood Sovereign", zh: "血君", rarity: "divine", minTier: 5, requires: "d_blood_2", replaces: "d_blood_2", mods: { lifestealPct: 0.25 }, desc: "Heal 25% of damage dealt. Replaces Blood Feast. (Chain III)" },
-    d_desperate: { name: "Cornered Beast", zh: "困兽", rarity: "legendary", minTier: 3, keystone: true, mods: { lowHpBonus: 0.4, flatDR: 12 }, desc: "Keystone: below 50% Body, +40% damage; always +12 flat damage reduction." },
+    d_desperate: { name: "Cornered Beast", zh: "困兽", rarity: "legendary", minTier: 3, keystone: true, mods: { lowHpBonus: 0.4, flatDR: 12 }, desc: "Keystone: below 50% Vitality, +40% damage; always +12 flat damage reduction." },
     d_warlord: { name: "Warlord's Edge", zh: "战王锋", rarity: "legendary", minTier: 3, mods: { weaponBonus: 20, strikeDamageMult: 1.15 }, desc: "+20 weapon power, +15% strike damage." },
     d_dao_clarity: { name: "Dao Clarity", zh: "道澄", rarity: "legendary", minTier: 4, mods: { cultMult: 1.35, insightMult: 1.25 }, desc: "+35% cultivation rate, +25% insight." },
-    d_heaven_defy: { name: "Heaven-Defying Will", zh: "逆天志", rarity: "divine", minTier: 5, keystone: true, mods: { weaponBonus: 30, hpBonus: 300, cultMult: 1.25, incomingMult: 0.9 }, desc: "Keystone: +30 weapon power, +300 max Body, +25% cultivation, -10% incoming." },
+    d_heaven_defy: { name: "Heaven-Defying Will", zh: "逆天志", rarity: "divine", minTier: 5, keystone: true, mods: { weaponBonus: 30, hpBonus: 300, cultMult: 1.25, incomingMult: 0.9 }, desc: "Keystone: +30 weapon power, +300 max Vitality, +25% cultivation, -10% incoming." },
     // ---- v0.57: ramping / build-identity destinies (operator: lean into ramping play) ----
     d_crescendo: { name: "Crescendo", zh: "渐强", rarity: "rare", minTier: 1, keystone: true, mods: { perTurnRamp: 0.05 }, desc: "Keystone: +5% damage per combat turn elapsed (caps at +45%). Long fights become your fights." },
     d_patient_hunter: { name: "Patient Hunter", zh: "伏猎", rarity: "rare", minTier: 2, mods: { lateBonus: 0.3 }, desc: "+30% damage from turn 4 onward. The first three turns are reconnaissance." },
@@ -21477,7 +21513,7 @@
     }, blurb: (t) => `+${Math.round((0.05 + 0.02 * t) * 100)}% opener` },
     { key: "lowhp", ch: "lowHpBonus", mk: (t) => (m) => {
       m.lowHpBonus += 0.06 + 0.02 * t;
-    }, blurb: (t) => `+${Math.round((0.06 + 0.02 * t) * 100)}% when bloodied (<50% Body)` },
+    }, blurb: (t) => `+${Math.round((0.06 + 0.02 * t) * 100)}% when bloodied (<50% Vitality)` },
     { key: "posture", ch: "postureMult", mk: (t) => (m) => {
       m.postureMult *= 1.05 + 0.02 * t;
     }, blurb: (t) => `+${Math.round((0.05 + 0.02 * t) * 100)}% posture` },
@@ -21486,7 +21522,7 @@
     }, blurb: (t) => `+${(1 + 0.5 * t).toFixed(1)}% dodge` },
     { key: "hp", ch: "hpBonus", mk: (t) => (m) => {
       m.hpBonus += gearFlat(t, 0.03);
-    }, blurb: (t) => `+${gearFlat(t, 0.03)} Body` },
+    }, blurb: (t) => `+${gearFlat(t, 0.03)} Vitality` },
     // v1.27.65: pool-tracking flats
     { key: "qi", ch: "qiBonus", mk: (t) => (m) => {
       m.qiBonus += gearFlat(t, 0.02);
@@ -21762,7 +21798,7 @@
   }
   function startVenture(loc) {
     if (loc.demonOnly && demonicVenturesUsed() >= DEMONIC_VENTURE_CAP) return false;
-    initCombat(rollEncounter(loc), loc.cultivationMult || 1);
+    initCombat(rollEncounter(loc), loc.cultivationMult || 1, loc);
     if (!combat) return false;
     combat.ventureLocId = loc.id;
     if (loc.demonOnly) {
@@ -21999,6 +22035,45 @@
   function lifespanRemaining() {
     return Math.max(0, lifespanMax() - (state.age || 16));
   }
+  function maxVitality() {
+    return computeMaxHP(state);
+  }
+  function getVitality() {
+    if (!state) return 0;
+    const max = maxVitality();
+    if (state.vitality == null) state.vitality = max;
+    return Math.max(0, Math.min(max, state.vitality));
+  }
+  function setVitality(v) {
+    if (state) state.vitality = Math.max(0, Math.min(maxVitality(), Math.round(v)));
+  }
+  function tickVitalityCultivation(seconds) {
+    if (!state || !state.cultivating) return;
+    const loc = LOCATIONS.find((l) => l.id === state.cultivating.locationId);
+    if (!loc) return;
+    const t = state.realm.tierIdx || 0;
+    if (loc.demonOnly && state.demonic && !isDemonHeart(state)) {
+      const p10 = (HUNTER_AMBUSH_CHANCE[Math.min(6, t)] || 0.05) * 0.5;
+      if (Math.random() < p10 * (seconds / 600)) {
+        stopCultivation();
+        initCombat(["righteous_hunter_t" + Math.min(6, t)]);
+        if (combat) pushLog("flavor", "The demonic qi you stirred was a beacon. An inquisitor steps out of it.");
+        render();
+      }
+      return;
+    }
+    if (t <= 0) return;
+    const drain = 10 * t * (loc.cultivationMult || 1) * (seconds / 600);
+    const floor = maxVitality() * 0.15;
+    const cur = getVitality();
+    if (cur > floor) setVitality(Math.max(floor, cur - drain));
+  }
+  function tickVitalityRecovery(seconds) {
+    if (!state || !state.confirmed) return;
+    const max = maxVitality();
+    const cur = getVitality();
+    if (cur < max) setVitality(Math.min(max, cur + max * 0.03 * (seconds / 60)));
+  }
   function advanceAge(seconds) {
     if (!state || !state.confirmed) return;
     state.age = (state.age || 16) + seconds * AGE_PER_SEC * lifespanConsumptionMult();
@@ -22072,7 +22147,7 @@
     body_temper: {
       name: "Body-Tempering Array",
       zh: "炼体阵",
-      desc: "Heat-stones spaced in a meditation cell. +5% max Body, rising with your realm (and upgrades).",
+      desc: "Heat-stones spaced in a meditation cell. +5% max Vitality, rising with your realm (and upgrades).",
       cost: { spirit_iron: 5, body_root: 2 },
       mods: { hpMult: 1.05 },
       minTier: 0
@@ -22818,7 +22893,7 @@
   }
   var SOUL_UPGRADES = {
     cult: { name: "Soul Cultivation", zh: "魂修", per: 0.04, baseCost: 3, costMult: 1.4, fmt: (r) => `+${Math.round(r * 4)}% cultivation rate` },
-    body: { name: "Soul Body", zh: "魂体", per: 40, baseCost: 2, costMult: 1.4, fmt: (r) => `+${r * 40} max Body` },
+    body: { name: "Soul Body", zh: "魂体", per: 40, baseCost: 2, costMult: 1.4, fmt: (r) => `+${r * 40} max Vitality` },
     insight: { name: "Soul Insight", zh: "魂悟", per: 0.04, baseCost: 3, costMult: 1.4, fmt: (r) => `+${Math.round(r * 4)}% combat insight` },
     memory: { name: "Inherited Memory", zh: "宿忆", per: 120, baseCost: 5, costMult: 1.5, fmt: (r) => `+${r * 120} starting insight each life` }
   };
@@ -23634,7 +23709,7 @@
   Object.values(CONSUMABLES).forEach((c) => (c.effects || []).forEach((ef) => {
     if (ef.kind !== "hp_max_add" || !c.desc) return;
     const pct = Math.round((BODY_POTION_PCT[Math.min(6, c.minRealmTier || 0)] || 0.1) * 100);
-    c.desc = c.desc.replace(/\+\d+ max Body/, `+${pct}% max Body`);
+    c.desc = c.desc.replace(/\+\d+ max Vitality/, `+${pct}% max Vitality`);
   }));
   function buffIsAdditive(kind) {
     return kind === "hp_max_add";
@@ -24341,6 +24416,22 @@
         state.lifespanBonus = (state.lifespanBonus || 0) + ef.value;
         return;
       }
+      if (ef.kind === "vitality_restore_pct") {
+        if (c.vitDiffuse) {
+          if (Date.now() - (state.lastDiffuseVit || 0) < 10 * 6e4) {
+            state.base.consumables[recipeId] = (state.base.consumables[recipeId] || 0) + 1;
+            return;
+          }
+          state.lastDiffuseVit = Date.now();
+        }
+        if (c.vitConcentrated) {
+          const uses = state.concVitUses || 0;
+          state.age = (state.age || 16) + lifespanRemaining() * 5e-3 * Math.pow(2, uses) * lifespanConsumptionMult();
+          state.concVitUses = uses + 1;
+        }
+        setVitality(getVitality() + maxVitality() * ef.value);
+        return;
+      }
       if (ef.kind === "lifespan_cost_pct") {
         state.age = (state.age || 16) + lifespanRemaining() * ef.value * lifespanConsumptionMult();
         return;
@@ -24426,9 +24517,14 @@
       addInsight(gain);
       if (state.cultivating) {
         state.cultivating.lastTick = now;
+        tickVitalityCultivation(elapsed);
+        if (combat) return;
         advanceAge(elapsed);
         if (!state) return;
-      } else state.passiveTick = now;
+      } else {
+        state.passiveTick = now;
+        tickVitalityRecovery(elapsed);
+      }
     }
     let needsRerender = false;
     state.base.plots.forEach((plot) => {
@@ -24478,6 +24574,8 @@
     if (advBtn && info) advBtn.disabled = state.realm.insight < info.cost;
     const rateEl = document.getElementById("cult-rate");
     if (rateEl) rateEl.textContent = cultivationRate().toFixed(3);
+    const vitEl = document.getElementById("vit-value");
+    if (vitEl) vitEl.textContent = getVitality();
     state.base.plots.forEach((plot, idx) => {
       const el = document.getElementById(`plot-${idx}-timer`);
       if (el && plot.herb) {
@@ -24495,6 +24593,20 @@
   }
   var combat = null;
   var atTitle = true;
+  var LOCATION_CULT_BASELINE = (() => {
+    const byTier = {};
+    LOCATIONS.forEach((l) => {
+      const t = l.minTier || 0;
+      const m = l.cultivationMult || 1;
+      if (byTier[t] == null || m < byTier[t]) byTier[t] = m;
+    });
+    return byTier;
+  })();
+  function locationCultRel(loc) {
+    if (!loc) return 1;
+    const base = LOCATION_CULT_BASELINE[loc.minTier || 0] || 1;
+    return Math.max(1, Math.min(2, (loc.cultivationMult || 1) / base));
+  }
   function rollEncounter(loc) {
     const _ambushTier = Math.min(6, state.realm.tierIdx || 0);
     if (state.demonic && !loc.demonOnly && Math.random() < HUNTER_AMBUSH_CHANCE[_ambushTier]) {
@@ -24630,7 +24742,7 @@
       effects: [],
       scale,
       flatDR: eliteFlatDR,
-      // v0.99: bosses get a qi barrier too (their qi soaks >1:1 before Body), scaling a little by tier.
+      // v0.99: bosses get a qi barrier too (their qi soaks >1:1 before Vitality), scaling a little by tier.
       qiShieldMult: enemyData.isBoss ? 1.3 + 0.05 * (enemyData.tier || 0) : 1
     };
   }
@@ -24656,10 +24768,20 @@
     for (const [el, rx] of ENEMY_ELEMENT_HINTS) if (rx.test(enemyId)) return el;
     return ELEMENTS[Math.abs(hashStr(enemyId)) % ELEMENTS.length];
   }
-  function initCombat(enemyIdOrIds, areaCultMult) {
+  function initCombat(enemyIdOrIds, areaCultMult, areaLoc) {
     const ids = Array.isArray(enemyIdOrIds) ? enemyIdOrIds.slice() : [enemyIdOrIds];
     const enemies = ids.map(buildEnemyCombat).filter(Boolean);
     if (!enemies.length) return;
+    const _areaRel = locationCultRel(areaLoc);
+    if (_areaRel > 1) {
+      enemies.forEach((e) => {
+        if (/^(righteous_hunter_t|demonic_rival_t)/.test(String(e.id || ""))) return;
+        e.hpMax = Math.round(e.hpMax * _areaRel);
+        e.hp = e.hpMax;
+        e.weaponPower = Math.max(1, Math.round(e.weaponPower * (1 + (_areaRel - 1) * 0.5)));
+        e._areaRel = _areaRel;
+      });
+    }
     if (enemies.length > 1) {
       const gm = 1 / (1 + 0.3 * (enemies.length - 1));
       enemies.forEach((e) => {
@@ -24680,11 +24802,12 @@
     const p = {
       name: state.name,
       hpMax: computeMaxHP(state),
-      hp: computeMaxHP(state),
+      hp: Math.max(1, getVitality()),
+      // v1.27.72: fights open at CURRENT Vitality
       qiMax: computeMaxQi(state),
       qi: computeMaxQi(state),
       qiShieldMult: softCapQiBarrier(cultPowerMults(state).qiBarrier),
-      // v0.98: qi barrier — qi soaks >1:1 before Body; v1.27.20: soft-capped
+      // v0.98: qi barrier — qi soaks >1:1 before Vitality; v1.27.20: soft-capped
       spiritMax: computeMaxSpirit(state),
       spirit: computeMaxSpirit(state),
       // v0.64: Dao Heart (will) hardens the stance — posture max scales with it.
@@ -24781,7 +24904,7 @@
           const jd = Math.round((target.hpMax || 0) * DEMON_TRIB_PCT_HP[pendingTribulation.targetTier]);
           if (jd > 0) {
             target.hp = Math.max(0, target.hp - jd);
-            pushLog("hurt", `  → the judgment finds you regardless: ${jd} Body.`);
+            pushLog("hurt", `  → the judgment finds you regardless: ${jd} Vitality.`);
             return { qiAbsorbed: 0, hpDamage: jd, spiritDamage: 0, dodged: true };
           }
         }
@@ -24941,10 +25064,10 @@
     return Math.min(0.75, softCapDodge(c));
   }
   function autoDamagePenalty(tierIdx) {
-    return Math.max(0, 0.3 - (tierIdx || 0) * 0.05);
+    return 0;
   }
   function combatInsightMult(combatRef) {
-    return combatRef && combatRef.autoUsed ? 0.5 : 4;
+    return 4;
   }
   function tickAutoCombatReset() {
     if (!state || !state.autoCombat) return;
@@ -24972,7 +25095,7 @@
       render();
       return;
     }
-    initCombat(rollEncounter(loc), loc.cultivationMult || 1);
+    initCombat(rollEncounter(loc), loc.cultivationMult || 1, loc);
     if (combat) combat.ventureLocId = loc.id;
     render();
   }
@@ -24992,10 +25115,25 @@
       return;
     }
     state.autoCombat.dailyMinutes += AUTO_TICK_MS / 6e4;
-    playerStrike({ auto: true });
+    state.autoCombat.activeAt = Date.now();
+    const p = combat.player;
+    let cast = null;
+    if (!playerSilenced() && p.hp > p.hpMax * 0.25) {
+      const ready = (p.loadout || []).filter((id) => {
+        const t = TECHNIQUES[id];
+        return t && !t.passive && (p.cooldowns[id] || 0) <= 0 && p.qi >= effectiveQiCost(p, t) && !isTechLocked(id);
+      });
+      if (ready.length && Math.random() < 0.8) cast = ready[Math.floor(Math.random() * ready.length)];
+    }
+    if (cast) playerTechnique(cast);
+    else playerStrike({ auto: true });
   }
   function setAutoCombat(on) {
     state.autoCombat.active = !!on;
+    if (on) {
+      state.autoCombat.activeAt = Date.now();
+      if (combat && combat.ventureLocId != null) state.autoCombat.locId = combat.ventureLocId;
+    }
     if (autoCombatTimer) {
       clearInterval(autoCombatTimer);
       autoCombatTimer = null;
@@ -25004,6 +25142,38 @@
       autoCombatTimer = setInterval(autoCombatTick, AUTO_TICK_MS);
     }
     saveChar();
+  }
+  var pendingAutoCatchup = null;
+  var autoReport = null;
+  function applyAutoCombatCatchup() {
+    const pending = pendingAutoCatchup;
+    pendingAutoCatchup = null;
+    if (!pending || !state || !state.confirmed) return null;
+    const loc = LOCATIONS.find((l) => l.id === pending.locId);
+    if (!loc || !locationUnlocked(loc)) return null;
+    tickAutoCombatReset();
+    const budgetMin = Math.max(0, AUTO_DAILY_CAP_MIN - (state.autoCombat.dailyMinutes || 0));
+    const FIGHT_MIN = 1 / 3;
+    const fights = Math.min(150, Math.floor(Math.min(pending.elapsedMs / 6e4, budgetMin) / FIGHT_MIN));
+    if (fights <= 0) return null;
+    const rel = locationCultRel(loc);
+    const t = state.realm.tierIdx || 0;
+    const pool = (loc.enemyPool || []).filter((id) => ENEMIES[id]);
+    if (!pool.length) return null;
+    const baseline = Math.round(realmTotalInsight(t) * 5e-3);
+    const luck = state.finalStats && state.finalStats.luck || 0;
+    const stonesPerKill = Math.max(1, Math.round((5 + Math.floor(luck / 5)) * Math.pow(2, t)));
+    let insight = 0, stones = 0;
+    for (let i = 0; i < fights; i++) {
+      const base = ENEMIES[pool[Math.floor(Math.random() * pool.length)]].insightReward || 1;
+      insight += Math.min(baseline, Math.round(0.25 * base * 4 * rel * metaInsightMult()));
+      stones += stonesPerKill;
+    }
+    addInsight(insight);
+    state.base.materials.spirit_stone = (state.base.materials.spirit_stone || 0) + stones;
+    state.autoCombat.dailyMinutes += fights * FIGHT_MIN;
+    saveChar();
+    return { fights, insight, stones, locName: loc.name };
   }
   function applyPlayerOutgoingMods(p, dmg, target, ctx) {
     const m = p.mods;
@@ -25124,7 +25294,7 @@
       if (heal > 0) {
         const before = p.hp;
         p.hp = Math.min(p.hpMax, p.hp + heal);
-        if (p.hp > before) pushLog("heal", `  → +${p.hp - before} Body (lifesteal)`);
+        if (p.hp > before) pushLog("heal", `  → +${p.hp - before} Vitality (lifesteal)`);
       }
       demonHeartQiFromBody(p, heal);
     }
@@ -25191,7 +25361,7 @@
       if (p.mods.strikeHeal > 0 && res.qiAbsorbed + res.hpDamage > 0) {
         const before = p.hp;
         p.hp = Math.min(p.hpMax, p.hp + p.mods.strikeHeal * tribHealMult());
-        if (p.hp > before) pushLog("heal", `  → +${p.hp - before} Body (Bloodbond)`);
+        if (p.hp > before) pushLog("heal", `  → +${p.hp - before} Vitality (Bloodbond)`);
       }
     }
     tribMechHook("playerStruck");
@@ -25348,7 +25518,7 @@
           if (extra > 0) {
             const b = p.hp;
             p.hp = Math.min(p.hpMax, p.hp + extra);
-            if (p.hp > b) pushLog("heal", `  → +${p.hp - b} Body — the Crown feeds on ${dhHellStacks} hellfire.`);
+            if (p.hp > b) pushLog("heal", `  → +${p.hp - b} Vitality — the Crown feeds on ${dhHellStacks} hellfire.`);
           }
           if (dhDetonated) {
             const di = (tgt.effects || []).findIndex((ef) => ef.kind === "hellfire");
@@ -25485,7 +25655,7 @@
     if (tech.selfBuff && tech.selfBuff.regrowthPct) {
       p.buffs.regrowthPct = tech.selfBuff.regrowthPct;
       p.buffs.regrowthTurns = tech.selfBuff.turns || 1;
-      pushLog("heal", `  → Regrowth: +${Math.round(tech.selfBuff.regrowthPct * 100)}% max Body per turn for ${p.buffs.regrowthTurns} turns.`);
+      pushLog("heal", `  → Regrowth: +${Math.round(tech.selfBuff.regrowthPct * 100)}% max Vitality per turn for ${p.buffs.regrowthTurns} turns.`);
     }
     if (tech.instant) render();
     else endPlayerAction();
@@ -25557,7 +25727,7 @@
     const enemyData = ENEMIES[e.id];
     const hmVictory = heritageMech();
     const rewardScale = e.scale && e.scale.reward || 1;
-    const rawInsight = Math.round(0.25 * enemyData.insightReward * rewardScale * boonInsightMult() * skillCombatInsightMult() * (combat.player.mods.insightMult || 1) * (SCHOOLS[state.selectedSchool] && SCHOOLS[state.selectedSchool].insightFromKillsMult || 1) * (hmVictory.combatInsightMult || 1) * combatInsightMult(combat) * metaInsightMult() * (isDemonHeart(state) ? 2 : state.demonic ? 1.5 : 1) * 1.5 * (combat && combat.demonicQiVenture ? 1.5 : 1) * (state.demonic ? isDemonHeart(state) ? 1 + (cultivationBoostMult() - 1) * 0.5 : cultivationBoostMult() : 1) * (1 + 0.2 * goldenCoreLevel()) * (heritageIs("Demonic Bloodline") && isDemonHeart(state) ? 2 : 1));
+    const rawInsight = Math.round(0.25 * enemyData.insightReward * rewardScale * boonInsightMult() * skillCombatInsightMult() * (combat.player.mods.insightMult || 1) * (SCHOOLS[state.selectedSchool] && SCHOOLS[state.selectedSchool].insightFromKillsMult || 1) * (hmVictory.combatInsightMult || 1) * combatInsightMult(combat) * metaInsightMult() * (isDemonHeart(state) ? 2 : state.demonic ? 1.5 : 1) * 1.5 * (combat && combat.demonicQiVenture ? 1.5 : 1) * (state.demonic ? isDemonHeart(state) ? 1 + (cultivationBoostMult() - 1) * 0.5 : cultivationBoostMult() : 1) * (1 + 0.2 * goldenCoreLevel()) * (heritageIs("Demonic Bloodline") && isDemonHeart(state) ? 2 : 1) * (e._areaRel || 1));
     const _insightBaseline = Math.round(realmTotalInsight(state.realm.tierIdx || 0) * (enemyData.isBoss ? 0.015 : 5e-3));
     const insight = softCapInsight(rawInsight, _insightBaseline);
     addInsight(insight);
@@ -25791,7 +25961,7 @@
         state.realm.layer = 1;
         state.realmDefeats = 0;
         state.bodyQuench = (state.bodyQuench || 0) + 1;
-        pushLog("reward", `Realm breakthrough: ${REALMS[state.realm.tierIdx].name}! The tribulation's fire tempers your body — now +${bodyQuenchHPAdd()} max Body for life.`);
+        pushLog("reward", `Realm breakthrough: ${REALMS[state.realm.tierIdx].name}! The tribulation's fire tempers your body — now +${bodyQuenchHPAdd()} max Vitality for life.`);
         if (state.realm.tierIdx === 4 && !state.goldenCoreQuality) {
           state.goldenCoreQuality = goldenCoreQualityFromScore(goldenCoreScore(gcPreInsight, gcThreshold));
           pushLog("reward", `Your Golden Core crystallizes at grade ${goldenCoreGradeLabel(state.goldenCoreQuality)} (quality ${state.goldenCoreQuality}/10) — every power it grants scales with that grade.`);
@@ -25827,6 +25997,12 @@
         combat.player.spirit = combat.player.spiritMax;
         pushLog("heal", `  → World-Tree Scion: body and qi restored.`);
       }
+      {
+        const packHp = combat.enemies.reduce((s, en) => s + (en.hpMax || 0), 0);
+        const healed = Math.round(p.hpMax * 0.15) + (state.demonic ? Math.round(packHp * 0.01) : 0);
+        setVitality(Math.max(0, p.hp) + healed);
+        pushLog("heal", `  → You bind your wounds: +${healed} Vitality (${getVitality()}/${p.hpMax}).`);
+      }
       saveChar();
       render();
       return true;
@@ -25835,6 +26011,7 @@
       combat.over = true;
       combat.victory = false;
       const enemyData = ENEMIES[combat.enemyId];
+      setVitality(p.hpMax * 0.25);
       pushLog("defeat", `${p.name} collapses.`);
       pushLog("flavor", enemyData.defeatText);
       if (combat.tribulation && (pendingTribulation || combat.ventureTrib)) {
@@ -25955,13 +26132,13 @@
         const lost = before - c.hp;
         if (lost > 0) {
           const label = STATUS_INFO[ef.kind] && STATUS_INFO[ef.kind].label || ef.kind;
-          pushLog("hurt", `  → ${c.name} loses ${lost} Body to ${ef.name} (${label}${ef.stacks > 1 ? ` ×${ef.stacks}` : ""}).`);
+          pushLog("hurt", `  → ${c.name} loses ${lost} Vitality to ${ef.name} (${label}${ef.stacks > 1 ? ` ×${ef.stacks}` : ""}).`);
           if (combat && c === combat.player) c.lastHpHit = Math.max(c.lastHpHit || 0, lost);
           if (ef.kind === "leech" && opts.healTarget && opts.healTarget.hp > 0) {
             const ht = opts.healTarget;
             const beforeHeal = ht.hp;
             ht.hp = Math.min(ht.hpMax, ht.hp + lost);
-            if (ht.hp > beforeHeal) pushLog("heal", `  → +${ht.hp - beforeHeal} Body drained through ${ef.name}.`);
+            if (ht.hp > beforeHeal) pushLog("heal", `  → +${ht.hp - beforeHeal} Vitality drained through ${ef.name}.`);
             if (combat && ht === combat.player) demonHeartQiFromBody(ht, ht.hp - beforeHeal);
           }
         }
@@ -25984,7 +26161,7 @@
         if (c.hp > 0 && hfBase > 0) {
           c.hp = Math.max(0, c.hp - burn);
           c._hfBurnThisTick = (c._hfBurnThisTick || 0) + burn;
-          pushLog("hurt", `  → ${c.name} loses ${burn} Body to hellfire (x${ef.stacks || 1}).`);
+          pushLog("hurt", `  → ${c.name} loses ${burn} Vitality to hellfire (x${ef.stacks || 1}).`);
           if (combat && c === combat.player) c.lastHpHit = Math.max(c.lastHpHit || 0, burn);
         }
       }
@@ -26124,7 +26301,7 @@
         value: tech.effectValue,
         turns,
         name: tech.name,
-        // v1.0.1: boss DOTs may carry %-of-max riders (Body / qi / spirit) so they scale with the realm.
+        // v1.0.1: boss DOTs may carry %-of-max riders (Vitality / qi / spirit) so they scale with the realm.
         pctHp: tech.effectPctHp || 0,
         pctQi: tech.effectPctQi || 0,
         pctSpirit: tech.effectPctSpirit || 0
@@ -26180,7 +26357,7 @@
       const mend = Math.round((e.hpMax - e.hp) * 0.25);
       if (mend > 0) {
         e.hp = Math.min(e.hpMax, e.hp + mend);
-        pushLog("heal", `  → ${e.name} gathers itself and mends ${mend} Body.`);
+        pushLog("heal", `  → ${e.name} gathers itself and mends ${mend} Vitality.`);
       }
     }
     return enemyBasicStrike(e, combat.player);
@@ -26321,7 +26498,7 @@
       const burnPct = postureBroken && spiritBroken ? 0.225 : postureBroken ? 0.15 : 0.075;
       const selfBurn = Math.max(1, Math.round(p.hpMax * burnPct));
       p.hp = Math.max(1, p.hp - selfBurn);
-      pushLog("hurt", `  → ${selfBurn} Body consumed by the demon within.`);
+      pushLog("hurt", `  → ${selfBurn} Vitality consumed by the demon within.`);
     }
     if (isDemonHeart(state) && combat.tribulation) {
       const rgn = 3 + ((state.realm && state.realm.tierIdx || 0) + 1);
@@ -26329,7 +26506,7 @@
         if (en.hp > 0 && en.hp < en.hpMax) {
           const before = en.hp;
           en.hp = Math.min(en.hpMax, en.hp + rgn);
-          if (en.hp > before) pushLog("hurt", `  → ${en.name} mends ${en.hp - before} Body (the trial refuses to end).`);
+          if (en.hp > before) pushLog("hurt", `  → ${en.name} mends ${en.hp - before} Vitality (the trial refuses to end).`);
         }
       });
     }
@@ -26343,7 +26520,7 @@
     if (regen0 > 0 && p.hp > 0 && p.hp < p.hpMax) {
       const before = p.hp;
       p.hp = Math.min(p.hpMax, p.hp + Math.round(regen0 * tribHealMult()));
-      if (p.hp > before) pushLog("heal", `  → +${p.hp - before} Body (regrowth)`);
+      if (p.hp > before) pushLog("heal", `  → +${p.hp - before} Vitality (regrowth)`);
     }
     if (p.buffs.incomingTurns > 0) {
       p.buffs.incomingTurns--;
@@ -27580,7 +27757,7 @@
     const twistLine = state.selectedSchool && DEMONIC_TWISTS[state.selectedSchool] ? `<div style="font-size:0.8rem;margin-top:0.3rem"><strong>Your school's demonic form${demonLore ? ` — ${demonLore.name} ${demonLore.zh}` : ""}:</strong> ${DEMONIC_TWISTS[state.selectedSchool].twistDesc}${demonLore ? `<div style="color:var(--ink-soft);margin-top:0.15rem">${demonLore.flavor}</div>` : ""}</div>` : "";
     dP.innerHTML = `<strong>The Demonic Path</strong> <span style="color:var(--ink-soft);font-size:0.85rem">魔道</span>
     <p style="font-size:0.85rem;color:var(--ink-soft);margin:0.3rem 0 0.4rem">Any school can be walked as heresy — each has a demonic mirror of itself. The demonic dao grows by SLAUGHTER, not stillness.</p>
-    <div style="font-size:0.82rem"><strong style="color:var(--gold)">Gains:</strong> +4 to every stat · +20% max Body · +20% to ALL damage · every landed blow brands HELLFIRE (stacks to 5; each stack burns 1% of the target's MISSING health per turn) · +50% insight from kills, and righteous hunters who ambush you are worth TRIPLE · your school's passive sharpened · six demon-only grounds.</div>
+    <div style="font-size:0.82rem"><strong style="color:var(--gold)">Gains:</strong> +4 to every stat · +20% max Vitality · +20% to ALL damage · every landed blow brands HELLFIRE (stacks to 5; each stack burns 1% of the target's MISSING health per turn) · +50% insight from kills, and righteous hunters who ambush you are worth TRIPLE · your school's passive sharpened · six demon-only grounds.</div>
     <div style="font-size:0.82rem;margin-top:0.25rem"><strong style="color:var(--crimson)">Price:</strong> raw cultivation runs at HALF pace (this dao is fed, not sat with) · a heavenly tribulation bars EVERY breakthrough, against executioners far above your realm · righteous sects hunt you on the road.</div>
     ${twistLine}`;
     const dBtnRow = document.createElement("div");
@@ -27743,13 +27920,13 @@
     if (probe.lifestealPct > 0) tags.push(`${Math.round(probe.lifestealPct * 100)}% lifesteal`);
     if (probe.flatDR > 0) tags.push(`${probe.flatDR} DR`);
     if (probe.firstStrikeBonus > 0) tags.push(`+${Math.round(probe.firstStrikeBonus * 100)}% opener`);
-    if (probe.lowHpBonus > 0) tags.push(`+${Math.round(probe.lowHpBonus * 100)}% at low Body`);
+    if (probe.lowHpBonus > 0) tags.push(`+${Math.round(probe.lowHpBonus * 100)}% at low Vitality`);
     if (probe.qiOnKill > 0) tags.push(`+${probe.qiOnKill} qi/kill`);
     Object.entries(probe.vsKindMult || {}).forEach(([k, v]) => {
       if (v > 0) tags.push(`+${Math.round(v * 100)}% vs ${k}`);
     });
     if (probe.qiRegenBonus > 0) tags.push(`+${probe.qiRegenBonus} qi regen`);
-    if (probe.hpBonus > 0) tags.push(`+${probe.hpBonus} Body`);
+    if (probe.hpBonus > 0) tags.push(`+${probe.hpBonus} Vitality`);
     if (probe.qiBonus > 0) tags.push(`+${probe.qiBonus} qi`);
     if (probe.spiritBonus > 0) tags.push(`+${probe.spiritBonus} spirit`);
     if (probe.spiritDamageMult > 1) tags.push(`+${Math.round((probe.spiritDamageMult - 1) * 100)}% spirit dmg`);
@@ -27793,6 +27970,19 @@
         render();
       };
     }
+    if (autoReport) {
+      const abanner = document.createElement("div");
+      abanner.className = "panel offline-banner";
+      abanner.innerHTML = `
+      <strong>The fighting continued without you.</strong>
+      <p style="margin:0.4rem 0">While the app was closed, your auto-venture at ${autoReport.locName} settled <strong>${autoReport.fights}</strong> fight${autoReport.fights === 1 ? "" : "s"}: +<strong>${autoReport.insight}</strong> insight, +<strong>${autoReport.stones}</strong> spirit stones. (Settled fights roll no loot, and never end in defeat.)</p>
+      <div class="button-row"><button class="gold" id="dismiss-auto">Continue</button></div>`;
+      app.appendChild(abanner);
+      document.getElementById("dismiss-auto").onclick = () => {
+        autoReport = null;
+        render();
+      };
+    }
     const p = document.createElement("div");
     p.className = "panel";
     const ascLabel = state.ascensions ? ` &middot; <span style="color:var(--gold)">Ascensions ×${state.ascensions}</span>` : "";
@@ -27825,7 +28015,7 @@
     const wpnMult = activeBuffValue("weapon_mult", 1);
     const wpnPower = Math.round((weapon.power + refineWeaponBonus(state) + rb.weapon + mods.weaponBonus) * wpnMult);
     html += `<div style="margin-top:0.8rem;font-size:0.88rem">
-    <strong>Body</strong> ${hpMax} Body &middot;
+    <strong>Vitality</strong> <span style="color:var(--ink-soft);font-size:0.85em">生机</span> ${hpMax} &middot;
     <strong>Qi Pool</strong> ${qiMax} &middot;
     <strong>Spirit</strong> ${spMax} &middot;
     <strong>Weapon Power</strong> ${wpnPower}
@@ -27856,9 +28046,10 @@
     <p style="font-size:0.85rem;color:var(--ink-soft);margin:0.2rem 0 0.6rem;font-style:italic">${tier.flavor}</p>`;
     if (goldenCoreLevel() > 0) {
       const gcl = goldenCoreLevel();
-      realmHTML += `<p class="tip" data-tip="Your Golden Core's quality, locked in when you formed it. Per quality level: +1 to all stats, +5% Body, +10% Qi, +10% Spirit, +20% cultivation & insight, +1.5% damage; +2 glyph slots per 5 levels." style="font-size:0.85rem;color:var(--gold);margin:0 0 0.4rem">Golden Core: grade <strong>${goldenCoreGradeLabel(gcl)}</strong> <span style="color:var(--ink-soft)">(quality ${gcl}/10)</span></p>`;
+      realmHTML += `<p class="tip" data-tip="Your Golden Core's quality, locked in when you formed it. Per quality level: +1 to all stats, +5% Vitality, +10% Qi, +10% Spirit, +20% cultivation & insight, +1.5% damage; +2 glyph slots per 5 levels." style="font-size:0.85rem;color:var(--gold);margin:0 0 0.4rem">Golden Core: grade <strong>${goldenCoreGradeLabel(gcl)}</strong> <span style="color:var(--ink-soft)">(quality ${gcl}/10)</span></p>`;
     }
-    realmHTML += `<p class="tip" data-tip="Lifespan is a resource. Age advances slowly and ONLY while actively cultivating (idling/offline are safe); each realm hugely extends your span. Certain pills, schools, and artifacts ADD lifespan; powerful pills SPEND it (a share of what remains) for permanent power. Running out is death by old age — which reincarnates you with your souls intact." style="font-size:0.8rem;color:var(--ink-soft);margin:0 0 0.4rem">Age <strong>${Math.floor(state.age || 16)}</strong> / lifespan <strong>${lifespanMax()}</strong> yrs &middot; <strong style="color:var(--jade)">${Math.floor(lifespanRemaining())}</strong> remaining${state.bodyQuench ? ` · body tempered ×${state.bodyQuench} (+${bodyQuenchHPAdd()} Body)` : ""}</p>`;
+    realmHTML += `<p class="tip" data-tip="Vitality is your health between fights — battles open at whatever you have. Wins bind back 15% of max; cultivating at HOME mends 3%/min; journey meditation taxes it; Vitality potions restore it." style="font-size:0.8rem;margin:0 0 0.4rem"><strong>Vitality</strong> <span style="color:var(--ink-soft);font-size:0.85em">生机</span> <strong id="vit-value" style="color:${getVitality() < maxVitality() * 0.4 ? "var(--crimson)" : "var(--jade)"}">${getVitality()}</strong> / ${maxVitality()}</p>`;
+    realmHTML += `<p class="tip" data-tip="Lifespan is a resource. Age advances slowly and ONLY while actively cultivating (idling/offline are safe); each realm hugely extends your span. Certain pills, schools, and artifacts ADD lifespan; powerful pills SPEND it (a share of what remains) for permanent power. Running out is death by old age — which reincarnates you with your souls intact." style="font-size:0.8rem;color:var(--ink-soft);margin:0 0 0.4rem">Age <strong>${Math.floor(state.age || 16)}</strong> / lifespan <strong>${lifespanMax()}</strong> yrs &middot; <strong style="color:var(--jade)">${Math.floor(lifespanRemaining())}</strong> remaining${state.bodyQuench ? ` · body tempered ×${state.bodyQuench} (+${bodyQuenchHPAdd()} Vitality)` : ""}</p>`;
     if (destinyPicksAvailable() > 0 && eligibleDestinies().length) {
       realmHTML += `<div class="button-row" style="margin-top:0.4rem"><button class="gold" id="choose-destiny">Choose a Destiny (${destinyPicksAvailable()} available)</button></div>
       <p style="font-size:0.78rem;color:#c79cf0;margin-top:0.3rem">A breakthrough has opened a fork in your fate.</p>`;
@@ -27907,6 +28098,25 @@
     app.appendChild(realmP);
     renderTabBar();
     appendPanel(p, "self");
+    {
+      const pipP = document.createElement("div");
+      pipP.className = "panel";
+      pipP.innerHTML = `<h3 style="font-size:0.95rem">Distillation Pips <span style="font-weight:normal;color:var(--ink-soft);font-size:0.8rem">丹屑</span></h3>
+      <p style="font-size:0.78rem;color:var(--ink-soft);margin:0 0 0.4rem">Each stat potion adds pips (soft-capped past 40/50); every 10 pips crystallize into +1 stat point.</p>`;
+      const pipWrap = document.createElement("div");
+      pipWrap.className = "inventory-list";
+      const pips = state.statPips || {};
+      STATS.forEach((s) => {
+        const v = pips[s.key] || 0;
+        const chip = document.createElement("span");
+        chip.className = "inv-chip tip";
+        chip.setAttribute("data-tip", `${s.name}: ${v.toFixed(1)}/10 pips toward the next point.`);
+        chip.innerHTML = `<strong>${s.name}</strong> ${v.toFixed(1)}/10`;
+        pipWrap.appendChild(chip);
+      });
+      pipP.appendChild(pipWrap);
+      appendPanel(pipP, "self");
+    }
     const advBtn = document.getElementById("advance");
     if (advBtn) advBtn.onclick = () => {
       tryAdvanceRealm();
@@ -27990,7 +28200,7 @@
           let cur = "";
           if (rank2 > 0) {
             if (sk.effect.kind === "cultivation_mult") cur = `now +${Math.round(v * 100)}% cultivation`;
-            else if (sk.effect.kind === "hp_add") cur = `now +${Math.round(v)} max Body`;
+            else if (sk.effect.kind === "hp_add") cur = `now +${Math.round(v)} max Vitality`;
             else if (sk.effect.kind === "weapon_add") cur = `now +${Math.round(v)} weapon power`;
             else if (sk.effect.kind === "combat_insight_mult") cur = `now +${Math.round(v * 100)}% combat insight`;
             else if (sk.effect.kind === "incoming_mult_perm") cur = `now -${Math.round(v * 100)}% damage taken`;
@@ -28127,7 +28337,7 @@
       const carved = bodyInscriptions();
       const bP = document.createElement("div");
       bP.className = "panel";
-      bP.innerHTML = `<h3>Body Inscriptions <span style="font-weight:normal;color:var(--ink-soft);font-size:0.85rem">刻身</span></h3>
+      bP.innerHTML = `<h3>Vitality Inscriptions <span style="font-weight:normal;color:var(--ink-soft);font-size:0.85rem">刻身</span></h3>
       <p style="font-size:0.85rem;color:var(--ink-soft);margin:0 0 0.4rem">Heresy carves power into the FLESH itself: <strong style="color:var(--gold)">${carved.length}/${bSlots}</strong> body slots (+1 every second realm). Each carved inscription applies its full effect — and raises <strong style="color:var(--crimson)">ALL lifespan consumption by +10%</strong> (currently ${Math.round((lifespanConsumptionMult() - 1) * 100)}%): aging, defeat tolls, and lifespan-burning pills alike.</p>`;
       carved.forEach((id, idx) => {
         const ins = INSCRIPTIONS[id];
@@ -28188,7 +28398,7 @@
           bP.appendChild(none);
         }
       }
-      appendPanel(bP, "armorload");
+      appendPanel(bP, "self");
     }
     const cap = slotCapacity();
     let artHTML = `<h3>Artifact — ${weapon.name} <span style="color:var(--ink-soft);font-weight:normal;font-size:0.85rem">${weapon.zh}</span>
@@ -28198,6 +28408,7 @@
     <div class="slot-row" id="slot-row"></div>`;
     if (state.inscriptions.owned.length) {
       artHTML += `<div style="font-size:0.85rem;margin-top:0.6rem"><strong>Owned Inscriptions</strong> — click to slot</div>
+      <div class="button-row" id="insc-cat-row" style="flex-wrap:wrap;gap:0.25rem;margin:0.3rem 0;justify-content:flex-start"></div>
       <div class="owned-list" id="owned-list"></div>`;
     } else {
       artHTML += `<p style="font-size:0.78rem;color:var(--ink-soft);margin-top:0.5rem;font-style:italic">No loose inscriptions. Victories may yield them.</p>`;
@@ -28232,10 +28443,30 @@
         slotRow.appendChild(slot);
       }
     }
+    const inscCatRow = document.getElementById("insc-cat-row");
+    const inscSel = state.ui && state.ui.inscTab || "offensive";
+    if (inscCatRow) {
+      if (!state.ui) state.ui = {};
+      const counts = { offensive: 0, defensive: 0, utility: 0 };
+      state.inscriptions.owned.forEach((id) => {
+        if (INSCRIPTIONS[id]) counts[inscriptionCategory(id)]++;
+      });
+      [["offensive", "Offensive"], ["defensive", "Defensive"], ["utility", "Utility"]].forEach(([k, label]) => {
+        const b = document.createElement("button");
+        b.className = "small " + (inscSel === k ? "gold" : "ghost");
+        b.textContent = `${label} (${counts[k]})`;
+        b.onclick = () => {
+          state.ui.inscTab = k;
+          saveChar();
+          render();
+        };
+        inscCatRow.appendChild(b);
+      });
+    }
     const ownedList = document.getElementById("owned-list");
     if (ownedList) {
       const slotFull = state.inscriptions.slotted.length >= cap;
-      state.inscriptions.owned.slice().sort(
+      state.inscriptions.owned.slice().filter((id) => INSCRIPTIONS[id] && inscriptionCategory(id) === inscSel).sort(
         (a, b) => inscriptionRealm(a) - inscriptionRealm(b) || (RARITY_RANK[(INSCRIPTIONS[a] || {}).rarity] || 0) - (RARITY_RANK[(INSCRIPTIONS[b] || {}).rarity] || 0)
       ).forEach((id) => {
         const ins = INSCRIPTIONS[id];
@@ -28329,7 +28560,7 @@
         chip.className = "buff-chip tip";
         const labelKind = {
           cultivation_mult: "cultivation rate",
-          hp_max_add: "max Body",
+          hp_max_add: "max Vitality",
           weapon_mult: "weapon power",
           incoming_mult: "incoming damage"
         }[buff.kind] || buff.kind;
@@ -28443,24 +28674,6 @@
         plotsWrap.appendChild(plotEl);
       }
       gP.appendChild(plotsWrap);
-    }
-    if (houseTab === "alchemy") {
-      const pipHdr = document.createElement("div");
-      pipHdr.style.cssText = "font-size:0.85rem;margin-top:0.4rem";
-      pipHdr.innerHTML = `<strong>Distillation Pips</strong> <span style="color:var(--ink-soft);font-weight:normal;font-size:0.75rem">— each stat potion adds pips (soft-capped past 40/50); every 10 pips crystallize into +1 stat point.</span>`;
-      gP.appendChild(pipHdr);
-      const pipWrap = document.createElement("div");
-      pipWrap.className = "inventory-list";
-      const pips = state.statPips || {};
-      STATS.forEach((s) => {
-        const v = pips[s.key] || 0;
-        const chip = document.createElement("span");
-        chip.className = "inv-chip tip";
-        chip.setAttribute("data-tip", `${s.name}: ${v.toFixed(1)}/10 pips toward the next point.`);
-        chip.innerHTML = `<strong>${s.name}</strong> ${v.toFixed(1)}/10`;
-        pipWrap.appendChild(chip);
-      });
-      gP.appendChild(pipWrap);
     }
     const appendConsumableSection = (kind, title, blurb) => {
       const hdr = document.createElement("div");
@@ -29000,7 +29213,7 @@
       const effQi = Math.ceil(t.qi * (mods.schoolQiMult[t.school] || 1));
       const effHp = t.hpCost ? +(hpCostPct(t, mods.hpCostMult) * 100).toFixed(1) : 0;
       const meta = [t.target === "aoe" ? "AOE" : "ST", `${effQi} qi`, `${t.cd} turn cd`];
-      if (effHp) meta.push(`${effHp}% Body`);
+      if (effHp) meta.push(`${effHp}% Vitality`);
       if (t.effect && STATUS_INFO[t.effect]) meta.push(STATUS_INFO[t.effect].label);
       const isActive = state.activeSkills.includes(tid);
       const full = !isActive && activeCount >= activeCap;
@@ -29185,7 +29398,7 @@
         return rg && MATERIALS[rg] ? `<div style="font-size:0.78rem;color:var(--jade);margin-top:0.15rem">Signature reagent: ${MATERIALS[rg].name}</div>` : "";
       })()}
       <div style="font-size:0.78rem;color:var(--ink-soft);margin-top:0.15rem">Cultivation multiplier: ×${cultMult.toFixed(1)}</div>
-      ${loc.demonOnly ? `<div style="font-size:0.78rem;color:#c06;margin-top:0.15rem"><strong>Demonic Qi venture:</strong> foes ×10 Body / ×2.5 damage, insight +50%, no hunter ambush — but a rival demon of the realm above may contest it, a defeat costs 10% of this realm's insight, and the ground only bears <strong>${DEMONIC_VENTURE_CAP} ventures per hour</strong> (the rest of the grind walks the hunted roads).</div>` : ""}
+      ${loc.demonOnly ? `<div style="font-size:0.78rem;color:#c06;margin-top:0.15rem"><strong>Demonic Qi venture:</strong> foes ×10 Vitality / ×2.5 damage, insight +50%, no hunter ambush — but a rival demon of the realm above may contest it, a defeat costs 10% of this realm's insight, and the ground only bears <strong>${DEMONIC_VENTURE_CAP} ventures per hour</strong> (the rest of the grind walks the hunted roads).</div>` : ""}
       ${reqHTML}
       <div class="location-actions" id="actions-${loc.id}"></div>`;
       locP.appendChild(card);
@@ -30171,12 +30384,10 @@
       tickAutoCombatReset();
       const ac = state.autoCombat || { active: false, dailyMinutes: 0 };
       const minutesLeft = Math.max(0, AUTO_DAILY_CAP_MIN - (ac.dailyMinutes || 0));
-      const tierIdx = state.realm.tierIdx || 0;
-      const penPct = Math.round(autoDamagePenalty(tierIdx) * 100);
       const banner = document.createElement("div");
       banner.style.cssText = "grid-column: 1 / -1; background: rgba(58,42,28,0.4); border: 1px solid var(--ink-soft); padding: 0.45rem 0.6rem; border-radius: 3px; font-size: 0.78rem; display:flex;justify-content:space-between;align-items:center;gap:0.5rem;";
       const autoLoops = ac.active && combat.ventureLocId != null;
-      const status = ac.active ? `<strong style="color:var(--gold)">Auto-combat ON</strong> — ${penPct === 0 ? "no damage penalty" : "-" + penPct + "% strike damage"}, kills give 12.5% insight (vs 4x baseline). ${minutesLeft.toFixed(1)}m left today.${autoLoops ? " Re-ventures this place on victory." : ""}` : `Auto-combat: ${penPct === 0 ? "no damage penalty" : "-" + penPct + "% strike damage"}, 12.5% insight, strikes only. ${minutesLeft.toFixed(1)}m left today.`;
+      const status = ac.active ? `<strong style="color:var(--gold)">Auto-combat ON</strong> — full damage & insight, casts random ready techniques. ${minutesLeft.toFixed(1)}m left today.${autoLoops ? " Re-ventures this place on victory (keeps fighting even if the app closes)." : ""}` : `Auto-combat: full damage & insight, random techniques from your loadout. ${minutesLeft.toFixed(1)}m left today.`;
       const btn = document.createElement("button");
       btn.className = "small " + (ac.active ? "gold" : "ghost");
       btn.textContent = ac.active ? "Stop Auto" : "Start Auto";
@@ -30208,7 +30419,7 @@
       const dkBtn = document.createElement("button");
       dkBtn.className = "action-btn basic tip";
       dkBtn.style.cssText = "border-color:var(--crimson)";
-      dkBtn.setAttribute("data-tip", "DEV: set every enemy to 0 Body and resolve the fight (rewards granted as a normal kill).");
+      dkBtn.setAttribute("data-tip", "DEV: set every enemy to 0 Vitality and resolve the fight (rewards granted as a normal kill).");
       dkBtn.innerHTML = `<span class="name">☠ Instant Kill</span><span class="meta">dev</span>`;
       dkBtn.onclick = () => {
         combat.enemies.forEach((en) => {
@@ -30242,7 +30453,7 @@
         const numbers = `${est > 0 ? `~${est} damage${isAoeBtn ? " per target" : ""} · ` : ""}${t.postureBuild ? `+${t.postureBuild} posture · ` : ""}cooldown ${t.cd}`;
         btn.setAttribute("data-tip", `[${isAoeBtn ? "AOE — hits every standing enemy at 70% damage" : "Single-target"}] ${numbers}. ${t.desc}`);
         const cdLabel = locked ? " · chained" : sealed ? " · sealed" : cd > 0 ? ` · cd ${cd}` : "";
-        const hpLabel = effHp ? ` · ${effHp} Body` : "";
+        const hpLabel = effHp ? ` · ${effHp} Vitality` : "";
         const tgtLabel = isAoeBtn ? " · AOE" : " · ST";
         const dmgLabel = est > 0 ? `~${est}${t.hits > 1 ? ` (${t.hits} hits)` : ""} · ` : t.instant ? "instant · " : "";
         const fxLabel = fxInfo ? ` · ${fxInfo.label}` : "";
@@ -30272,7 +30483,7 @@
       if (c.swordIntent > 0) effTags += `<span class="rarity-tag rarity-legendary tip" data-tip="Sword Intent: +${c.swordIntent * 8}% damage. Builds on technique hits; meditating resets it.">sword intent ${c.swordIntent}/${schoolKit().intentCap || 5}</span>`;
       if (c.buffs && c.buffs.dodgeTurns > 0) effTags += `<span class="rarity-tag rarity-legendary tip" data-tip="Mistwalk: +${Math.round((c.buffs.dodgeChance || 0) * 100)}% dodge for ${c.buffs.dodgeTurns} more round(s).">mistwalk ${c.buffs.dodgeTurns}</span>`;
       if (c.buffs && c.buffs.reflectTurns > 0) effTags += `<span class="rarity-tag rarity-legendary tip" data-tip="Avalanche Guard: +${Math.round((c.buffs.reflectPct || 0) * 100)}% of damage taken is reflected for ${c.buffs.reflectTurns} more round(s).">guard ${c.buffs.reflectTurns}</span>`;
-      if (c.buffs && c.buffs.regrowthTurns > 0) effTags += `<span class="rarity-tag rarity-legendary tip" data-tip="Regrowth: healing ${Math.round((c.buffs.regrowthPct || 0) * 100)}% max Body per round for ${c.buffs.regrowthTurns} more round(s).">regrowth ${c.buffs.regrowthTurns}</span>`;
+      if (c.buffs && c.buffs.regrowthTurns > 0) effTags += `<span class="rarity-tag rarity-legendary tip" data-tip="Regrowth: healing ${Math.round((c.buffs.regrowthPct || 0) * 100)}% max Vitality per round for ${c.buffs.regrowthTurns} more round(s).">regrowth ${c.buffs.regrowthTurns}</span>`;
     }
     const brokenTag = broken ? `<span class="broken-banner tip" data-tip="Posture broken: qi damage to this combatant is doubled for ${c.broken} more turn${c.broken === 1 ? "" : "s"}.">Posture Broken — ${c.broken}</span>` : "";
     const elKey = c.element || c.elements && c.elements[0];
@@ -30292,8 +30503,8 @@
     ${elBadge || matchup ? `<div style="margin:0.2rem 0">${elBadge} ${matchup}</div>` : ""}
     ${broken ? `<div>${brokenTag}</div>` : ""}
     ${effTags ? `<div style="margin:0.2rem 0">${effTags}</div>` : ""}
-    ${bar("Body", c.hp, c.hpMax, "bar-hp", "Body vitality. Reaches 0 = defeat.")}
-    ${bar("Qi Shield", c.qi, c.qiMax, "bar-qi", "Absorbs damage before Body. Some techniques (direct Body, pierce) bypass it.")}
+    ${bar("Vitality", c.hp, c.hpMax, "bar-hp", "Vitality vitality. Reaches 0 = defeat.")}
+    ${bar("Qi Shield", c.qi, c.qiMax, "bar-qi", "Absorbs damage before Vitality. Some techniques (direct Vitality, pierce) bypass it.")}
     ${bar("Spirit", c.spirit, c.spiritMax, "bar-spirit", "Mental/soul pool. Some techniques target it directly.")}
     ${bar("Posture", c.posture, c.postureMax, "bar-posture" + (broken ? " broken" : ""), "Fill this bar to break the target: 3 turns of doubled qi damage.")}
   `;
@@ -30364,7 +30575,13 @@
           dailyMinutes: 0,
           lastReset: Date.now()
         };
+        if (parsed.autoCombat.active && parsed.autoCombat.locId && parsed.autoCombat.activeAt) {
+          pendingAutoCatchup = { locId: parsed.autoCombat.locId, elapsedMs: Math.max(0, Date.now() - parsed.autoCombat.activeAt) };
+        }
         parsed.autoCombat.active = false;
+        if (parsed.vitality === void 0) parsed.vitality = null;
+        if (parsed.lastDiffuseVit == null) parsed.lastDiffuseVit = 0;
+        if (parsed.concVitUses == null) parsed.concVitUses = 0;
         if (parsed.realmDefeats == null) parsed.realmDefeats = 0;
         if (parsed.lifetimeInsight == null) parsed.lifetimeInsight = parsed.realm ? parsed.realm.insight || 0 : 0;
         if (!parsed.spiritRoot) {
@@ -30432,6 +30649,7 @@
   }
   if (state && state.confirmed) {
     offlineReport = applyOfflineGains();
+    autoReport = applyAutoCombatCatchup();
     scheduleCultivationTick();
   }
   render();
