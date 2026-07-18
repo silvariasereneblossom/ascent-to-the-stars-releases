@@ -9075,10 +9075,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Tribulation resistance, resolve under pressure." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.73';
+  var GAME_VERSION = 'v1.27.74';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "60226c1";
+  var BUILD_SHA = "a94f47e";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -23724,6 +23724,7 @@
   (function normalizePotionCosts() {
     Object.values(CONSUMABLES).forEach((c) => {
       if (!c.recipe) return;
+      if (c.noCostNorm) return;
       const P = consumablePotency(c);
       if (P <= 0) return;
       const cost = Object.entries(c.recipe).reduce((s, [h, n]) => s + n * (HERBS[h] && HERBS[h].growMinutes || 10), 0);
@@ -23734,6 +23735,120 @@
       Object.keys(c.recipe).forEach((h) => {
         c.recipe[h] = Math.max(1, Math.round(c.recipe[h] * f));
       });
+    });
+  })();
+  var JOURNEY_DROP_NOUN = { beast: "Fang", human: "Sash", spirit: "Grave-Ash", heaven: "Feather", construct: "Core-Shard", demonic: "Horn" };
+  var JOURNEY_WEAPON_KIND = [["sword", "Blade"], ["saber", "Saber"], ["polearm", "Spear"], ["bow", "Bow"], ["hammer", "Maul"], ["greatsword", "Greatblade"], ["staff", "Staff"], ["dagger", "Kris"]];
+  var JOURNEY_ARMOR_SLOT = [["helmet", "Helm"], ["chest", "Cuirass"], ["gloves", "Gauntlets"], ["boots", "Greaves"]];
+  (function generateJourneyTrophies() {
+    const perTierCount = {};
+    const sigOf = (effs) => effs.map((ef) => `${ef.kind}:${ef.value}:${ef.durationMin}`).join("|");
+    const takenSigs = new Set(Object.values(CONSUMABLES).map((c) => sigOf(c.effects || [])));
+    const genPow = (t, r) => Object.entries(WEAPONS).reduce((m, [id, w]) => id.indexOf(`_${t}_${r}`) >= 0 && w.power > m ? w.power : m, 0);
+    LOCATIONS.forEach((loc) => {
+      if (loc.demonOnly) return;
+      const t = Math.min(6, loc.minTier || 0);
+      const idx = perTierCount[t] = (perTierCount[t] || 0) + 1;
+      const h = Math.abs(hashStr(loc.id));
+      const pool = (loc.enemyPool || []).map((id) => ENEMIES[id]).filter(Boolean);
+      const noun = JOURNEY_DROP_NOUN[pool[0] && pool[0].kind || "beast"] || "Relic";
+      const rar = t <= 1 ? "common" : t <= 3 ? "rare" : t <= 5 ? "legendary" : "divine";
+      const gearRar = t <= 1 ? "rare" : t <= 4 ? "legendary" : "divine";
+      const matId = "jd_" + loc.id;
+      const use = h % 5;
+      const foes = pool.length ? pool.slice(0, 2).map((e) => e.name).join(" and ") : "foes";
+      if (use <= 2) {
+        const dur = 10 + idx % 3 * 5;
+        let effects;
+        if (use === 0) effects = [{ kind: "weapon_mult", value: +(1 + 0.08 + 0.05 * t + idx * 0.01).toFixed(3), durationMin: dur }];
+        else if (use === 1) effects = [{ kind: "incoming_mult", value: +(1 - (0.06 + 0.04 * t + idx * 0.01)).toFixed(3), durationMin: dur }];
+        else effects = [{ kind: "cultivation_mult", value: +(1 + 0.35 + 0.3 * t + idx * 0.05).toFixed(3), durationMin: dur * 2 }];
+        let guard = 0;
+        while (takenSigs.has(sigOf(effects)) && guard++ < 40) effects[0].value = +(effects[0].value + 5e-3).toFixed(3);
+        takenSigs.add(sigOf(effects));
+        const v = effects[0].value, k = effects[0].kind;
+        const blurb = k === "weapon_mult" ? `+${Math.round((v - 1) * 100)}% weapon power for ${dur} minutes.` : k === "incoming_mult" ? `−${Math.round((1 - v) * 100)}% incoming damage for ${dur} minutes.` : `+${Math.round((v - 1) * 100)}% cultivation rate for ${dur * 2} minutes.`;
+        const tierHerbs = Object.entries(HERBS).filter(([, hb]) => (hb.minRealmTier || 0) === t);
+        const herb = tierHerbs.length ? tierHerbs[idx % tierHerbs.length][0] : "qi_grass";
+        const isPill = use === 2;
+        CONSUMABLES["jt_" + loc.id] = {
+          name: `${loc.name} ${isPill ? "Pill" : "Tonic"}`,
+          zh: isPill ? "游丹" : "游酿",
+          kind: isPill ? "pill" : "potion",
+          rarity: rar,
+          recipe: { [matId]: 2, [herb]: 2 },
+          minRealmTier: t,
+          noCostNorm: true,
+          effects,
+          journeyTonic: loc.id,
+          desc: `${blurb} Brewed from the ${noun.toLowerCase()} its foes carry — a taste of ${loc.name} itself.`
+        };
+        MATERIALS[matId] = {
+          name: `${noun} of ${loc.name}`,
+          zh: "游珍",
+          rarity: rar,
+          desc: `Carried only by the ${foes} of ${loc.name}. Brews the ${CONSUMABLES["jt_" + loc.id].name}.`
+        };
+      } else if (use === 3) {
+        const [kind, wNoun] = JOURNEY_WEAPON_KIND[h % JOURNEY_WEAPON_KIND.length];
+        const leg = genPow(t, "legendary"), div = genPow(t, "divine");
+        const power = Math.max(8 + t * 10, Math.round(leg && div ? (leg + div) / 2 : leg || div || 8 + t * 10));
+        const mod = [
+          { critChance: +(0.05 + 0.01 * t).toFixed(2) },
+          { lifestealPct: +(0.05 + 0.01 * t).toFixed(2) },
+          { postureMult: +(1.1 + 0.02 * t).toFixed(2) },
+          { firstStrikeBonus: +(0.1 + 0.03 * t).toFixed(2) }
+        ][h % 4];
+        const wid = "jw_" + loc.id;
+        WEAPONS[wid] = {
+          name: `${wNoun} of ${loc.name}`,
+          zh: "游兵",
+          power,
+          slots: 3,
+          kind,
+          rarity: gearRar,
+          mods: mod,
+          journeyGear: loc.id,
+          desc: `Forged around the ${noun.toLowerCase()}s of ${loc.name} — its foes' tempering, turned outward. ${modSummary(mod)}.`
+        };
+        const mats = Object.assign({}, WEAPON_GEN_TIER[t].mats);
+        mats[matId] = 3;
+        ARTIFACT_RECIPES.push({ id: wid, materials: mats, minRealmTier: t, minLayer: 2 });
+        MATERIALS[matId] = {
+          name: `${noun} of ${loc.name}`,
+          zh: "游珍",
+          rarity: rar,
+          desc: `Carried only by the ${foes} of ${loc.name}. Forges the ${WEAPONS[wid].name}.`
+        };
+      } else {
+        const [slot, aNoun] = JOURNEY_ARMOR_SLOT[h % JOURNEY_ARMOR_SLOT.length];
+        const flavor = [
+          { dodgeChance: +(0.02 + 5e-3 * t).toFixed(3) },
+          { qiBonus: gearFlat(t, 0.03) },
+          { incomingMult: +(0.96 - 5e-3 * t).toFixed(3) },
+          { spiritBonus: gearFlat(t, 0.015) }
+        ][h % 4];
+        const aid = "ja_" + loc.id;
+        const mods = Object.assign({ hpBonus: armorHpFloor(t, gearRar, slot), flatDR: armorDrFloor(t, gearRar) }, flavor);
+        ARMOR[aid] = {
+          name: `${aNoun} of ${loc.name}`,
+          zh: "游甲",
+          slot,
+          rarity: gearRar,
+          mods,
+          journeyGear: loc.id,
+          desc: `Armored with the ${noun.toLowerCase()}s of ${loc.name} — what its foes carried now carries you. ${modSummary(flavor)}.`
+        };
+        const mats = Object.assign({}, WEAPON_GEN_TIER[t].mats);
+        mats[matId] = 3;
+        ARMOR_RECIPES.push({ id: aid, materials: mats, minRealmTier: t, minLayer: 2 });
+        MATERIALS[matId] = {
+          name: `${noun} of ${loc.name}`,
+          zh: "游珍",
+          rarity: rar,
+          desc: `Carried only by the ${foes} of ${loc.name}. Forges the ${ARMOR[aid].name}.`
+        };
+      }
     });
   })();
   Object.values(CONSUMABLES).forEach((c) => (c.effects || []).forEach((ef) => {
@@ -24312,8 +24427,9 @@
     if (!c) return false;
     if (!c.recipe || !Object.keys(c.recipe).length) return false;
     if (!meetsRealmReq(c)) return false;
-    for (const [herb, count] of Object.entries(effectiveRecipe(c))) {
-      if ((state.base.herbs[herb] || 0) < count) return false;
+    for (const [ing, count] of Object.entries(effectiveRecipe(c))) {
+      const have = HERBS[ing] ? state.base.herbs[ing] || 0 : state.base.materials[ing] || 0;
+      if (have < count) return false;
     }
     return true;
   }
@@ -24321,7 +24437,7 @@
   function effectiveWeaponRecipeCost(recipe) {
     const out = {};
     Object.entries(recipe.materials).forEach(([mat, count]) => {
-      out[mat] = count * WEAPON_MAT_COST_MULT;
+      out[mat] = count * (mat.indexOf("jd_") === 0 ? 1 : WEAPON_MAT_COST_MULT);
     });
     return out;
   }
@@ -24384,15 +24500,16 @@
   var RECIPE_COST_MULT = 10;
   function effectiveRecipe(c) {
     const r = {};
-    for (const [h, n] of Object.entries(c && c.recipe || {})) r[h] = n * RECIPE_COST_MULT;
+    for (const [h, n] of Object.entries(c && c.recipe || {})) r[h] = n * (HERBS[h] ? RECIPE_COST_MULT : 1);
     return r;
   }
   function craft(recipeId) {
     if (!canCraft(recipeId)) return;
     const c = CONSUMABLES[recipeId];
-    for (const [herb, count] of Object.entries(effectiveRecipe(c))) {
-      state.base.herbs[herb] -= count;
-      if (state.base.herbs[herb] <= 0) delete state.base.herbs[herb];
+    for (const [ing, count] of Object.entries(effectiveRecipe(c))) {
+      const pool = HERBS[ing] ? state.base.herbs : state.base.materials;
+      pool[ing] -= count;
+      if (pool[ing] <= 0) delete pool[ing];
     }
     state.base.consumables[recipeId] = (state.base.consumables[recipeId] || 0) + 1;
     saveChar();
@@ -25884,6 +26001,13 @@
       if (_cinders > 0 && _ascMat) {
         state.base.materials[_ascMat] = (state.base.materials[_ascMat] || 0) + _cinders;
         materialDrops[_ascMat] = (materialDrops[_ascMat] || 0) + _cinders;
+      }
+    }
+    if (combat.ventureLocId && !/^(righteous_hunter_t|demonic_rival_t)/.test(String(e.id || ""))) {
+      const _jdId = "jd_" + combat.ventureLocId;
+      if (MATERIALS[_jdId] && Math.random() < 0.3) {
+        state.base.materials[_jdId] = (state.base.materials[_jdId] || 0) + 1;
+        materialDrops[_jdId] = (materialDrops[_jdId] || 0) + 1;
       }
     }
     if (combat.ventureLocId) {
@@ -30251,9 +30375,11 @@
     const canMake = canCraft(id);
     const meetsReq = meetsRealmReq(c);
     const recipeText = Object.entries(effectiveRecipe(c)).map(([h, n]) => {
-      const have = state.base.herbs[h] || 0;
+      const isHerb = !!HERBS[h];
+      const have = isHerb ? state.base.herbs[h] || 0 : state.base.materials[h] || 0;
+      const label = isHerb ? HERBS[h].name : MATERIALS[h] && MATERIALS[h].name || h;
       const short = have < n;
-      return `<span style="color:${short ? "var(--crimson)" : "var(--ink)"}">${n}× ${HERBS[h].name} (${have})</span>`;
+      return `<span style="color:${short ? "var(--crimson)" : "var(--ink)"}">${n}× ${label} (${have})</span>`;
     }).join(", ");
     const reqLabel = c.minRealmTier ? `${REALMS[c.minRealmTier].name}${c.minLayer ? " L" + c.minLayer : ""}` : "";
     const reqHTML = !meetsReq ? `<div class="consumable-desc" style="color:var(--crimson)">Requires ${reqLabel}.</div>` : "";
