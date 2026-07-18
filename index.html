@@ -9075,10 +9075,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Tribulation resistance, resolve under pressure." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.74';
+  var GAME_VERSION = 'v1.27.75';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "a94f47e";
+  var BUILD_SHA = "17fe3e7";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -23738,13 +23738,11 @@
     });
   })();
   var JOURNEY_DROP_NOUN = { beast: "Fang", human: "Sash", spirit: "Grave-Ash", heaven: "Feather", construct: "Core-Shard", demonic: "Horn" };
-  var JOURNEY_WEAPON_KIND = [["sword", "Blade"], ["saber", "Saber"], ["polearm", "Spear"], ["bow", "Bow"], ["hammer", "Maul"], ["greatsword", "Greatblade"], ["staff", "Staff"], ["dagger", "Kris"]];
-  var JOURNEY_ARMOR_SLOT = [["helmet", "Helm"], ["chest", "Cuirass"], ["gloves", "Gauntlets"], ["boots", "Greaves"]];
   (function generateJourneyTrophies() {
     const perTierCount = {};
     const sigOf = (effs) => effs.map((ef) => `${ef.kind}:${ef.value}:${ef.durationMin}`).join("|");
     const takenSigs = new Set(Object.values(CONSUMABLES).map((c) => sigOf(c.effects || [])));
-    const genPow = (t, r) => Object.entries(WEAPONS).reduce((m, [id, w]) => id.indexOf(`_${t}_${r}`) >= 0 && w.power > m ? w.power : m, 0);
+    const gearSinks = [];
     LOCATIONS.forEach((loc) => {
       if (loc.demonOnly) return;
       const t = Math.min(6, loc.minTier || 0);
@@ -23753,7 +23751,6 @@
       const pool = (loc.enemyPool || []).map((id) => ENEMIES[id]).filter(Boolean);
       const noun = JOURNEY_DROP_NOUN[pool[0] && pool[0].kind || "beast"] || "Relic";
       const rar = t <= 1 ? "common" : t <= 3 ? "rare" : t <= 5 ? "legendary" : "divine";
-      const gearRar = t <= 1 ? "rare" : t <= 4 ? "legendary" : "divine";
       const matId = "jd_" + loc.id;
       const use = h % 5;
       const foes = pool.length ? pool.slice(0, 2).map((e) => e.name).join(" and ") : "foes";
@@ -23789,65 +23786,35 @@
           rarity: rar,
           desc: `Carried only by the ${foes} of ${loc.name}. Brews the ${CONSUMABLES["jt_" + loc.id].name}.`
         };
-      } else if (use === 3) {
-        const [kind, wNoun] = JOURNEY_WEAPON_KIND[h % JOURNEY_WEAPON_KIND.length];
-        const leg = genPow(t, "legendary"), div = genPow(t, "divine");
-        const power = Math.max(8 + t * 10, Math.round(leg && div ? (leg + div) / 2 : leg || div || 8 + t * 10));
-        const mod = [
-          { critChance: +(0.05 + 0.01 * t).toFixed(2) },
-          { lifestealPct: +(0.05 + 0.01 * t).toFixed(2) },
-          { postureMult: +(1.1 + 0.02 * t).toFixed(2) },
-          { firstStrikeBonus: +(0.1 + 0.03 * t).toFixed(2) }
-        ][h % 4];
-        const wid = "jw_" + loc.id;
-        WEAPONS[wid] = {
-          name: `${wNoun} of ${loc.name}`,
-          zh: "游兵",
-          power,
-          slots: 3,
-          kind,
-          rarity: gearRar,
-          mods: mod,
-          journeyGear: loc.id,
-          desc: `Forged around the ${noun.toLowerCase()}s of ${loc.name} — its foes' tempering, turned outward. ${modSummary(mod)}.`
-        };
-        const mats = Object.assign({}, WEAPON_GEN_TIER[t].mats);
-        mats[matId] = 3;
-        ARTIFACT_RECIPES.push({ id: wid, materials: mats, minRealmTier: t, minLayer: 2 });
-        MATERIALS[matId] = {
-          name: `${noun} of ${loc.name}`,
-          zh: "游珍",
-          rarity: rar,
-          desc: `Carried only by the ${foes} of ${loc.name}. Forges the ${WEAPONS[wid].name}.`
-        };
       } else {
-        const [slot, aNoun] = JOURNEY_ARMOR_SLOT[h % JOURNEY_ARMOR_SLOT.length];
-        const flavor = [
-          { dodgeChance: +(0.02 + 5e-3 * t).toFixed(3) },
-          { qiBonus: gearFlat(t, 0.03) },
-          { incomingMult: +(0.96 - 5e-3 * t).toFixed(3) },
-          { spiritBonus: gearFlat(t, 0.015) }
-        ][h % 4];
-        const aid = "ja_" + loc.id;
-        const mods = Object.assign({ hpBonus: armorHpFloor(t, gearRar, slot), flatDR: armorDrFloor(t, gearRar) }, flavor);
-        ARMOR[aid] = {
-          name: `${aNoun} of ${loc.name}`,
-          zh: "游甲",
-          slot,
-          rarity: gearRar,
-          mods,
-          journeyGear: loc.id,
-          desc: `Armored with the ${noun.toLowerCase()}s of ${loc.name} — what its foes carried now carries you. ${modSummary(flavor)}.`
-        };
-        const mats = Object.assign({}, WEAPON_GEN_TIER[t].mats);
-        mats[matId] = 3;
-        ARMOR_RECIPES.push({ id: aid, materials: mats, minRealmTier: t, minLayer: 2 });
+        const gearKind = use === 3 ? "weapon" : "armor";
+        gearSinks.push({ t, matId, gearKind });
         MATERIALS[matId] = {
           name: `${noun} of ${loc.name}`,
           zh: "游珍",
           rarity: rar,
-          desc: `Carried only by the ${foes} of ${loc.name}. Forges the ${ARMOR[aid].name}.`
+          desc: `Carried only by the ${foes} of ${loc.name}. The forge folds it into ${REALMS[t].name}'s finer ${gearKind === "weapon" ? "arms" : "armor"} (rare and above).`
         };
+      }
+    });
+    const RAR_TROPHY_COUNT = { rare: 1, legendary: 2, divine: 3 };
+    const isBossGear = (id) => /^(bx|bxg_|bg_|bset_)/.test(id);
+    [0, 1, 2, 3, 4, 5, 6].forEach((t) => {
+      const wSinks = gearSinks.filter((s) => s.t === t && s.gearKind === "weapon");
+      if (wSinks.length) {
+        const recs = ARTIFACT_RECIPES.filter((r) => (r.minRealmTier || 0) === t && !isBossGear(r.id) && WEAPONS[r.id] && RAR_TROPHY_COUNT[WEAPONS[r.id].rarity]);
+        recs.forEach((r, i) => {
+          const s = wSinks[i % wSinks.length];
+          r.materials[s.matId] = (r.materials[s.matId] || 0) + RAR_TROPHY_COUNT[WEAPONS[r.id].rarity];
+        });
+      }
+      const aSinks = gearSinks.filter((s) => s.t === t && s.gearKind === "armor");
+      if (aSinks.length) {
+        const recs = ARMOR_RECIPES.filter((r) => (r.minRealmTier || 0) === t && !isBossGear(r.id) && ARMOR[r.id] && RAR_TROPHY_COUNT[ARMOR[r.id].rarity]);
+        recs.forEach((r, i) => {
+          const s = aSinks[i % aSinks.length];
+          r.materials[s.matId] = (r.materials[s.matId] || 0) + RAR_TROPHY_COUNT[ARMOR[r.id].rarity];
+        });
       }
     });
   })();
@@ -30738,6 +30705,17 @@
         if (parsed.vitality === void 0) parsed.vitality = null;
         if (parsed.lastDiffuseVit == null) parsed.lastDiffuseVit = 0;
         if (parsed.concVitUses == null) parsed.concVitUses = 0;
+        const _deadJW = (id) => /^jw_/.test(String(id || "")) && !WEAPONS[id];
+        const _deadJA = (id) => /^ja_/.test(String(id || "")) && !ARMOR[id];
+        if (parsed.weapons && Array.isArray(parsed.weapons.owned)) parsed.weapons.owned = parsed.weapons.owned.filter((id) => !_deadJW(id));
+        if (parsed.weapons && Array.isArray(parsed.weapons.offhands)) parsed.weapons.offhands = parsed.weapons.offhands.filter((id) => !_deadJW(id));
+        if (_deadJW(parsed.weapon)) parsed.weapon = parsed.weapons && parsed.weapons.owned[0] || "iron_sword";
+        if (parsed.armor) {
+          if (Array.isArray(parsed.armor.owned)) parsed.armor.owned = parsed.armor.owned.filter((id) => !_deadJA(id));
+          Object.keys(parsed.armor.equipped || {}).forEach((sl) => {
+            if (_deadJA(parsed.armor.equipped[sl])) parsed.armor.equipped[sl] = null;
+          });
+        }
         if (parsed.realmDefeats == null) parsed.realmDefeats = 0;
         if (parsed.lifetimeInsight == null) parsed.lifetimeInsight = parsed.realm ? parsed.realm.insight || 0 : 0;
         if (!parsed.spiritRoot) {
