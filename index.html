@@ -9075,10 +9075,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Tribulation resistance, resolve under pressure." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.72';
+  var GAME_VERSION = 'v1.27.73';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "f27c224";
+  var BUILD_SHA = "60226c1";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -23705,6 +23705,36 @@
         desc: `−${pct}% incoming damage for 10 minutes (defensive soft-caps apply past −15%).`
       };
     }
+  })();
+  var POTION_COST_RATE = [0.8, 1.05, 1.2, 1.6, 1.8, 2, 2.2];
+  function consumablePotency(c) {
+    let p = 0;
+    (c.effects || []).forEach((ef) => {
+      const dur10 = (ef.durationMin || 10) / 10;
+      if (ef.kind === "weapon_mult") p += (ef.value - 1) * 100 * dur10;
+      else if (ef.kind === "incoming_mult") p += (1 - ef.value) * 100 * dur10;
+      else if (ef.kind === "cultivation_mult") p += (ef.value - 1) * 100 * dur10 * 0.15;
+      else if (ef.kind === "hp_max_add") p += (BODY_POTION_PCT[Math.min(6, c.minRealmTier || 0)] || 0.1) * 100 * dur10;
+      else if (ef.kind === "vitality_restore_pct") p += ef.value * 100 * 0.5;
+      else if (ef.kind === "lifespan_add") p += ef.value * 0.3;
+      else if (ef.kind === "stat_perm" || ef.kind === "stat_perm_all" || ef.kind === "stat_perm_random") p += ef.value * 30;
+    });
+    return p;
+  }
+  (function normalizePotionCosts() {
+    Object.values(CONSUMABLES).forEach((c) => {
+      if (!c.recipe) return;
+      const P = consumablePotency(c);
+      if (P <= 0) return;
+      const cost = Object.entries(c.recipe).reduce((s, [h, n]) => s + n * (HERBS[h] && HERBS[h].growMinutes || 10), 0);
+      if (cost <= 0) return;
+      const target = POTION_COST_RATE[Math.min(6, c.minRealmTier || 0)] * Math.pow(P, 0.9) * 1.4;
+      const f = Math.max(0.1, Math.min(3, target / cost));
+      if (Math.abs(f - 1) < 0.15) return;
+      Object.keys(c.recipe).forEach((h) => {
+        c.recipe[h] = Math.max(1, Math.round(c.recipe[h] * f));
+      });
+    });
   })();
   Object.values(CONSUMABLES).forEach((c) => (c.effects || []).forEach((ef) => {
     if (ef.kind !== "hp_max_add" || !c.desc) return;
