@@ -9062,10 +9062,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Tribulation resistance, resolve under pressure." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.78';
+  var GAME_VERSION = 'v1.27.79';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "923d9c0";
+  var BUILD_SHA = "1b35f33";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -14760,7 +14760,7 @@
     ["soulsilk_weaver", "nascent_pearl_serpent", "voidbloom_ascetic", "floating_court_bailiff", "scarwound_horror", "quiet_thunder_envoy"],
     ["frostsever_swordsage", "amber_tie_keeper", "heavenscar_leviathan", "final_abbot", "dawnscar_herald", "void_arbiter_clerk"]
   ];
-  var BOSS_TIER_POWER = [1.05, 1.08, 1.28, 1.3, 1.15, 1.15, 1.15];
+  var BOSS_TIER_POWER = [0.9, 0.95, 1.28, 1.3, 1.15, 1.15, 1.15];
   [
     ["boar_king", {
       name: "Boar-King of the Withered Wood",
@@ -20267,7 +20267,8 @@
     const slot = nextHardSetSlot(bossId);
     cost[ascMatId(bossId)] = slot === "chest" ? 10 : 5;
     Object.entries(WEAPON_GEN_TIER[tier].mats).forEach(([m, n]) => {
-      cost[m] = (cost[m] || 0) + n * 2;
+      const bulk = m === "spirit_stone" ? 2 : 5;
+      cost[m] = (cost[m] || 0) + n * bulk;
     });
     return cost;
   }
@@ -21014,7 +21015,12 @@
     const pieces = equipped.map((id) => ARMOR[id]).filter(Boolean);
     const setCount = {};
     pieces.forEach((p) => {
-      if (p.set) setCount[p.set] = (setCount[p.set] || 0) + 1;
+      if (!p.set) return;
+      setCount[p.set] = (setCount[p.set] || 0) + 1;
+      if (p.hardSet && p.bossSet) {
+        const baseSet = `bset_${p.bossSet}`;
+        if (ARMOR_SETS[baseSet]) setCount[baseSet] = (setCount[baseSet] || 0) + 1;
+      }
     });
     Object.entries(setCount).forEach(([setId, count]) => {
       const def = ARMOR_SETS[setId];
@@ -22861,10 +22867,11 @@
           char.base.materials.spirit_stone = (char.base.materials.spirit_stone || 0) + price;
           saveChar();
         },
-        dyield: disassembleYield(a.rarity, armorTierOf(id)),
+        // v1.27.79: boss/Ascendant pieces refund their FULL craft cost instead of the generic basket
+        dyield: bossPieceCraftCost(id) || disassembleYield(a.rarity, armorTierOf(id)),
         disassemble: () => {
           char.armor.owned.splice(char.armor.owned.indexOf(id), 1);
-          grantYield(disassembleYield(a.rarity, armorTierOf(id)));
+          grantYield(bossPieceCraftCost(id) || disassembleYield(a.rarity, armorTierOf(id)));
         }
       });
     });
@@ -23002,6 +23009,30 @@
       state.base.materials[m] = (state.base.materials[m] || 0) + n;
     });
     saveChar();
+  }
+  function bossPieceCraftCost(aid) {
+    const a = ARMOR[aid];
+    if (!a || !a.bossSet || !BOSSES[a.bossSet]) return null;
+    const bossId = a.bossSet;
+    const tier = BOSSES[bossId].tier;
+    const isChest = a.slot === "chest";
+    const cost = {};
+    if (a.hardSet) {
+      cost[ascMatId(bossId)] = isChest ? 10 : 5;
+      Object.entries(WEAPON_GEN_TIER[tier].mats).forEach(([m, n]) => {
+        cost[m] = (cost[m] || 0) + n * (m === "spirit_stone" ? 2 : 5);
+      });
+      const base = bossPieceCraftCost(bossSetId(bossId, a.slot));
+      if (base) Object.entries(base).forEach(([m, n]) => {
+        cost[m] = (cost[m] || 0) + n;
+      });
+    } else {
+      if (BOSS_UNIQUE_MATS[bossId]) cost[BOSS_UNIQUE_MATS[bossId][0]] = isChest ? 7 : 5;
+      Object.entries(WEAPON_GEN_TIER[tier].mats).forEach(([m, n]) => {
+        cost[m] = (cost[m] || 0) + n;
+      });
+    }
+    return cost;
   }
   function disassembleYield(rarity, itemTier) {
     const t = Math.min(6, itemTier !== void 0 ? itemTier : state.realm && state.realm.tierIdx || 0);
@@ -24977,11 +25008,14 @@
   var ENEMY_OVERSCALE_HP_FACTOR = { elite: 1.8, boss: 0.7, inquisitor: 0.7, trib: 0.15 };
   var ENEMY_OVERSCALE_DMG_FACTOR = { normal: 2, elite: 1.2, boss: 0.5, inquisitor: 0.5, trib: 0.5 };
   var ENEMY_OVERSCALE_CAP = 1.2;
+  var ENEMY_OVERSCALE_REALM_WEIGHT = [0, 0, 0.5, 0.5, 1, 1, 1];
   function enemyOverInvestScale(enemyData, enemyId, isTribFight, isElite) {
     const tier = Math.min(6, state.realm && state.realm.tierIdx || 0);
+    const realmWeight = ENEMY_OVERSCALE_REALM_WEIGHT[tier];
+    if (realmWeight <= 0) return { hp: 1, dmg: 1 };
     const baseline = ENEMY_OVERSCALE_BASELINE[tier] || 240;
     const statSum = STAT_KEYS.reduce((a, k) => a + (state.finalStats && state.finalStats[k] || 0), 0);
-    const over = Math.min(ENEMY_OVERSCALE_CAP, Math.max(0, statSum / baseline - 1));
+    const over = Math.min(ENEMY_OVERSCALE_CAP, Math.max(0, statSum / baseline - 1)) * realmWeight;
     if (over <= 0) return { hp: 1, dmg: 1 };
     const type = isTribFight ? "trib" : String(enemyId).startsWith("righteous_hunter_t") || String(enemyId).startsWith("demonic_rival_t") ? "inquisitor" : enemyData.isBoss ? "boss" : isElite ? "elite" : "normal";
     const hpF = type === "normal" ? ENEMY_OVERSCALE_HP_NORMAL[tier] : ENEMY_OVERSCALE_HP_FACTOR[type];
@@ -26238,6 +26272,21 @@
       if (_cinders > 0 && _ascMat) {
         state.base.materials[_ascMat] = (state.base.materials[_ascMat] || 0) + _cinders;
         materialDrops[_ascMat] = (materialDrops[_ascMat] || 0) + _cinders;
+      }
+    }
+    if (String(e.id || "").endsWith(HARD_BOSS_SUFFIX) && Math.random() < 0.01) {
+      const _hbBoss = String(e.id).slice(0, -HARD_BOSS_SUFFIX.length);
+      if (BOSS_LOOT[_hbBoss]) {
+        const _openSlots = BOSS_SET_SLOTS.map(([slot]) => slot).filter((slot) => !armorOwnedOrEquipped(hardSetId(_hbBoss, slot)));
+        if (_openSlots.length) {
+          const _slot = _openSlots[Math.floor(Math.random() * _openSlots.length)];
+          const _pieceId = hardSetId(_hbBoss, _slot);
+          state.armor.owned.push(_pieceId);
+          combat.rewards = combat.rewards || {};
+          combat.rewards.armorDrops = combat.rewards.armorDrops || [];
+          combat.rewards.armorDrops.push(_pieceId);
+          pushLog("reward", `The Heavenscourge's ruin cools into something wearable: <strong>${ARMOR[_pieceId] ? ARMOR[_pieceId].name : _pieceId}</strong>!`);
+        }
       }
     }
     if (combat.ventureLocId && !/^(righteous_hunter_t|demonic_rival_t)/.test(String(e.id || ""))) {
