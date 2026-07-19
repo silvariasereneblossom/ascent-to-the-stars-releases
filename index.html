@@ -9062,10 +9062,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Tribulation resistance, resolve under pressure." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.77';
+  var GAME_VERSION = 'v1.27.78';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "b1fe91d";
+  var BUILD_SHA = "923d9c0";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -19122,6 +19122,191 @@
     });
   })();
   var ARMOR_Body_BASE = [18, 41, 90, 198, 432, 840, 1560, 2400];
+  function genGearMaterials(t, costMult, seedId) {
+    const base = Object.entries(WEAPON_GEN_TIER[t].mats);
+    const h = Math.abs(hashStr(seedId));
+    const hi = h % base.length;
+    const lo = (h >> 3) % base.length;
+    const mats = {};
+    base.forEach(([m, n], i) => {
+      const lean = i === hi ? 1.6 : i === lo && i !== hi ? 0.6 : 1;
+      mats[m] = Math.max(1, Math.round(n * costMult * lean));
+    });
+    const variant = /_acc_/.test(seedId) ? 1 : 0;
+    const reagents = REALM_REAGENTS[t] || [];
+    if (reagents.length) {
+      const sig = reagents[(h >> 6) % reagents.length];
+      mats[sig] = (mats[sig] || 0) + Math.max(1, Math.round(costMult * 0.5)) + variant;
+    } else if (variant) {
+      mats[base[hi][0]] += 1;
+    }
+    return mats;
+  }
+  var GEN_ARMOR_FLAVOR = [
+    {
+      // t0 Mortal
+      rare: ["Ash-Wrapped", "裹灰", "Cloth boiled in the ashes of a burnt shrine. The villagers swore it turned a blade once; the wearer swore it was luck.", (m) => {
+        m.flatDR = (m.flatDR || 0) + 1;
+      }],
+      legendary: ["Ox-Yoke", "牛轭", "Cut down from the yoke of an ox that pulled a plough for thirty years and never once lay down in the traces.", (m) => {
+        m.hpMult = (m.hpMult || 1) * 1.04;
+      }],
+      divine: ["First-Frost", "初霜", "Kept in a cellar since the first frost anyone wrote down. It is still cold, and the cellar is long gone.", (m) => {
+        m.incomingMult = (m.incomingMult || 1) * 0.97;
+      }]
+    },
+    {
+      // t1 Qi Condensation
+      rare: ["Dew-Gathering", "聚露", "Woven loose so morning qi beads in the fibres. Disciples are told to wear it damp; most learn why only once.", (m) => {
+        m.qiRegenBonus = (m.qiRegenBonus || 0) + 1;
+      }],
+      legendary: ["Nine-Breath", "九息", "Stitched by a master who took nine breaths between each stitch. The seams have never come apart, in any weather.", (m) => {
+        m.meditateMult = (m.meditateMult || 1) * 1.1;
+      }],
+      divine: ["Cloud-Reading", "读云", "The pattern is a weather-chart of a valley that no longer exists. Wearing it, you always know which way the wind means to turn.", (m) => {
+        m.dodgeChance = (m.dodgeChance || 0) + 0.02;
+      }]
+    },
+    {
+      // t2 Foundation Establishment
+      rare: ["Pile-Driven", "夯基", "Layered like foundation-work: nothing about it is clever, and nothing about it has given way.", (m) => {
+        m.flatDR = (m.flatDR || 0) + 2;
+      }],
+      legendary: ["Bell-Metal", "钟铜", "Recast from a temple bell that cracked mid-toll. It still rings faintly when struck — one note lower than it used to be.", (m) => {
+        m.postureMult = (m.postureMult || 1) * 1.08;
+      }],
+      divine: ["Root-Deep", "根深", "Grown, not made: a lattice of roots that took the shape of a cultivator who sat too long in one place.", (m) => {
+        m.hpMult = (m.hpMult || 1) * 1.06;
+      }]
+    },
+    {
+      // t3 Core Formation
+      rare: ["Cinnabar-Sealed", "朱封", "Sealed with cinnabar drawn from a core that failed to form. The failure is what makes the seal hold.", (m) => {
+        m.spiritBonus = (m.spiritBonus || 0) + 8;
+      }],
+      legendary: ["Kiln-Patient", "窑忍", "Fired for a year and a day. The smith who started it did not live to open the kiln; his apprentice did, and said nothing for a week.", (m) => {
+        m.flatDR = (m.flatDR || 0) + 3;
+      }],
+      divine: ["Spiral-Wound", "螺纹", "Wound in a single unbroken spiral, the way a core turns. Cut it anywhere and the whole thing is still one piece.", (m) => {
+        m.techDamageMult = (m.techDamageMult || 1) * 1.06;
+      }]
+    },
+    {
+      // t4 Golden Core
+      rare: ["Resin-Gilt", "脂金", "Amber-gold resin wept from trees rooted over a buried core. Warm to the touch on the coldest mornings.", (m) => {
+        m.qiBonus = (m.qiBonus || 0) + 40;
+      }],
+      legendary: ["Sunwell-Salted", "泉盐", "Crusted with salt from a spring that runs warm at midnight. It stings the dao awake when the fight goes long.", (m) => {
+        m.lateBonus = (m.lateBonus || 0) + 0.06;
+      }],
+      divine: ["Dragonvein", "龙脉", "Chalked with lines from a dragon-vein wall. Wearing it, arrays you stand inside hum a little louder.", (m) => {
+        m.elementBoostAll = (m.elementBoostAll || 0) + 0.08;
+      }]
+    },
+    {
+      // t5 Nascent Soul
+      rare: ["Soulsilk", "魂绵", "Spun by spirits that nested too near a Nascent Soul. Weighs nothing; warms the part of you that has no temperature.", (m) => {
+        m.spiritDamageMult = (m.spiritDamageMult || 1) * 1.1;
+      }],
+      legendary: ["Second-Pearl", "双珠", "Set with a pearl that grew a smaller pearl inside it. Both of them are watching, and they do not always agree.", (m) => {
+        m.critChance = (m.critChance || 0) + 0.04;
+      }],
+      divine: ["Voidbloom", "虚花", "Petals from a flower that blooms in the gap a severed thought leaves behind. It closes when observed too closely.", (m) => {
+        m.incomingMult = (m.incomingMult || 1) * 0.94;
+      }]
+    },
+    {
+      // t6 Spirit Severing
+      rare: ["Severing-Frost", "化神霜", "Rimed with frost that forms the instant a blade cuts something immaterial. It does not melt; it forgets to.", (m) => {
+        m.lifestealPct = (m.lifestealPct || 0) + 0.04;
+      }],
+      legendary: ["Unwritten", "未书", "Every character woven into it is one that was never used. Scholars have stopped visiting; the reading is upsetting.", (m) => {
+        m.insightMult = (m.insightMult || 1) * 1.12;
+      }],
+      divine: ["Last-Dawn", "末晓", "Made from the light of a morning that has not happened yet. It is patient about this.", (m) => {
+        m.lowHpBonus = (m.lowHpBonus || 0) + 0.12;
+      }]
+    }
+  ];
+  var GEN_ACC_FLAVOR = [
+    {
+      rare: ["Knucklebone", "骨节", "A gambler's knucklebone, drilled and strung. It has been wrong exactly once.", (m) => {
+        m.critChance = (m.critChance || 0) + 0.02;
+      }],
+      legendary: ["Ferryman's", "渡子", "Payment for a crossing the ferryman refused to make. He kept the coin anyway.", (m) => {
+        m.lifestealPct = (m.lifestealPct || 0) + 0.02;
+      }],
+      divine: ["Unlit Lamp", "未燃灯", "A lamp that has never been lit, kept by someone who insists the dark is the point.", (m) => {
+        m.qiRegenBonus = (m.qiRegenBonus || 0) + 2;
+      }]
+    },
+    {
+      rare: ["Reed-Cut", "苇割", "Carved from a reed that whistled a warning the night the village burned. Nobody listened.", (m) => {
+        m.dodgeChance = (m.dodgeChance || 0) + 0.02;
+      }],
+      legendary: ["Frost-Rung", "霜鸣", "It rings when the temperature drops — and, disconcertingly, just before it does.", (m) => {
+        m.firstStrikeBonus = (m.firstStrikeBonus || 0) + 0.1;
+      }],
+      divine: ["Lotus-Hour", "莲时", "Set with a lotus that opens only at dusk, regardless of where dusk currently is.", (m) => {
+        m.meditateMult = (m.meditateMult || 1) * 1.15;
+      }]
+    },
+    {
+      rare: ["Kiln-Slag", "窑渣", "Slag pried from a foundry floor, polished by a disciple with more patience than prospects.", (m) => {
+        m.postureMult = (m.postureMult || 1) * 1.06;
+      }],
+      legendary: ["Tide-Ledger", "潮账", "Marks for every tide that came in higher than it should have. The last few marks are recent.", (m) => {
+        m.qiBonus = (m.qiBonus || 0) + 30;
+      }],
+      divine: ["Storm-Pinned", "钉雷", "A splinter of a tree the lightning chose twice. The second strike is the one that mattered.", (m) => {
+        m.strikeDamageMult = (m.strikeDamageMult || 1) * 1.08;
+      }]
+    },
+    {
+      rare: ["Hollow-Jade", "空玉", "Jade with a perfectly empty centre. Ring it and a core somewhere answers, eventually.", (m) => {
+        m.spiritBonus = (m.spiritBonus || 0) + 10;
+      }],
+      legendary: ["Phoenix-Ash", "凤烬", "Ash that reassembles itself if you leave it alone long enough. Best not to watch.", (m) => {
+        m.dotMult = (m.dotMult || 1) * 1.1;
+      }],
+      divine: ["Starlit-Ore", "星矿", "Veined with light that only shows at night, and only if nobody else is looking at it.", (m) => {
+        m.critMult = (m.critMult || 0) + 0.15;
+      }]
+    },
+    {
+      rare: ["Gold-Leaf", "金叶", "Beaten from a single flake of core-gold by a smith who charged by the hour and took her time.", (m) => {
+        m.insightMult = (m.insightMult || 1) * 1.06;
+      }],
+      legendary: ["Sun-Fragment", "日屑", "A chip of something that was briefly a sun. It has not entirely accepted the demotion.", (m) => {
+        m.elementBoostAll = (m.elementBoostAll || 0) + 0.1;
+      }],
+      divine: ["Mandate-Cut", "断命", "Cut from a mandate that was revoked mid-sentence. The sentence is still legible; the mandate is not.", (m) => {
+        m.techDamageMult = (m.techDamageMult || 1) * 1.1;
+      }]
+    },
+    {
+      rare: ["Ghost-Spring", "鬼泉", "Water from a spring where someone drowned, sealed in glass. It is always slightly agitated.", (m) => {
+        m.spiritDamageMult = (m.spiritDamageMult || 1) * 1.08;
+      }],
+      legendary: ["Marrow-Thread", "髓线", "Thread pulled from the marrow of something that had opinions about being killed.", (m) => {
+        m.lowHpBonus = (m.lowHpBonus || 0) + 0.1;
+      }],
+      divine: ["Nested-Soul", "巢魂", "Two souls sharing one setting, on the strict condition that neither speaks first.", (m) => {
+        m.qiShieldMult = (m.qiShieldMult || 1) * 1.1;
+      }]
+    },
+    {
+      rare: ["Dao-Chipped", "道屑", "A chip off a dao that broke cleanly. The break is smoother than anything made on purpose.", (m) => {
+        m.flatDR = (m.flatDR || 0) + 4;
+      }],
+      legendary: ["Thousand-Name", "千名", "Inscribed with every name its wearer will be called after death. Most are unflattering.", (m) => {
+        m.perTurnRamp = (m.perTurnRamp || 0) + 0.03;
+      }],
+      divine: ["First-Dawn", "初晓", "Held light from the first morning that ever was. It is unimpressed by every morning since.", (m) => {
+        m.incomingMult = (m.incomingMult || 1) * 0.92;
+      }]
+    }
+  ];
   (function generateArmorLadder() {
     const slotsCycle = [["helmet", "Helm", "盔"], ["chest", "Robe", "袍"], ["boots", "Boots", "靴"]];
     const hpBase = ARMOR_Body_BASE;
@@ -19138,21 +19323,19 @@
           mods.qiBonus = 10 + t * 8;
         }
         const apexA = rar === "divine" && APEX_ARMOR_NAMES[t];
+        const fl = (GEN_ARMOR_FLAVOR[t] || {})[rar];
         ARMOR[aid] = {
-          name: apexA ? apexA[0] : `${RARITY_PFX[rar][0]} ${WEAPON_GEN_TIER[t].pfx[1][0]} ${noun}`,
-          zh: apexA ? apexA[1] : `${RARITY_PFX[rar][1]}${WEAPON_GEN_TIER[t].pfx[1][1]}${nounZh}`,
+          name: apexA ? apexA[0] : fl ? `${fl[0]} ${noun}` : `${RARITY_PFX[rar][0]} ${WEAPON_GEN_TIER[t].pfx[1][0]} ${noun}`,
+          zh: apexA ? apexA[1] : fl ? `${fl[1]}${nounZh}` : `${RARITY_PFX[rar][1]}${WEAPON_GEN_TIER[t].pfx[1][1]}${nounZh}`,
           slot,
           rarity: rar,
           mods,
-          desc: apexA ? `${apexA[2]} The equal of the next realm's standard issue.` : realmGearFlavor(t, slot, rar, noun)
-          // v0.83: varied per-realm flavor
+          desc: fl ? apexA ? `${apexA[2]} ${fl[2]}` : fl[2] : apexA ? `${apexA[2]} The equal of the next realm's standard issue.` : realmGearFlavor(t, slot, rar, noun)
         };
+        if (fl && fl[3]) fl[3](ARMOR[aid].mods);
         ARMOR[aid].genArmor = true;
-        const mats = {};
         const costMult = [2, 3, 4][ri] * Math.pow(1.1, t);
-        Object.entries(WEAPON_GEN_TIER[t].mats).forEach(([m, n]) => {
-          mats[m] = Math.max(1, Math.round(n * costMult));
-        });
+        const mats = genGearMaterials(t, costMult, aid);
         if (rar === "divine" && t < 6) {
           const nextFirst = Object.keys(WEAPON_GEN_TIER[t + 1].mats)[0];
           mats[nextFirst] = (mats[nextFirst] || 0) + 1;
@@ -19358,20 +19541,19 @@
       ["rare", "legendary", "divine"].forEach((rar, ri) => {
         const [noun, nounZh] = nouns[(t + ri) % 3];
         const aid = `genr_acc_${t}_${rar}`;
+        const afl = (GEN_ACC_FLAVOR[t] || {})[rar];
         ARMOR[aid] = {
-          name: `${RARITY_PFX[rar][0]} ${WEAPON_GEN_TIER[t].pfx[0][0]} ${noun}`,
-          zh: `${RARITY_PFX[rar][1]}${WEAPON_GEN_TIER[t].pfx[0][1]}${nounZh}`,
+          name: afl ? `${afl[0]} ${noun}` : `${RARITY_PFX[rar][0]} ${WEAPON_GEN_TIER[t].pfx[0][0]} ${noun}`,
+          zh: afl ? `${afl[1]}${nounZh}` : `${RARITY_PFX[rar][1]}${WEAPON_GEN_TIER[t].pfx[0][1]}${nounZh}`,
           slot: "accessory",
           rarity: rar,
           mods: { qiBonus: 6 * (t + 1) },
           genArmor: true,
-          desc: rar === "divine" ? `The realm's apex ${noun.toLowerCase()} — a treasury of bound effects.` : `A ${rar} ${noun.toLowerCase()} of this realm.`
+          desc: afl ? afl[2] : rar === "divine" ? `The realm's apex ${noun.toLowerCase()} — a treasury of bound effects.` : `A ${rar} ${noun.toLowerCase()} of this realm.`
         };
-        const mats = {};
+        if (afl && afl[3]) afl[3](ARMOR[aid].mods);
         const costMult = [2, 3, 4][ri] * Math.pow(1.1, t);
-        Object.entries(WEAPON_GEN_TIER[t].mats).forEach(([m, n]) => {
-          mats[m] = Math.max(1, Math.round(n * costMult));
-        });
+        const mats = genGearMaterials(t, costMult, aid);
         if (rar === "divine" && t < 6) {
           const nextFirst = Object.keys(WEAPON_GEN_TIER[t + 1].mats)[0];
           mats[nextFirst] = (mats[nextFirst] || 0) + 1;
@@ -20675,6 +20857,43 @@
         a.mods.qiBonus = Math.max(a.mods.qiBonus, qFloor);
       }
     });
+  })();
+  var MAT_VALUE = { common: 1, rare: 3, legendary: 8, divine: 20 };
+  function recipeValue(mats) {
+    return Object.entries(mats).reduce((s, [m, n]) => {
+      const src = MATERIALS[m] || HERBS[m];
+      return s + n * (MAT_VALUE[src && src.rarity || "common"] || 1);
+    }, 0);
+  }
+  (function floorHandAuthoredGearCost() {
+    const RAR_MULT = { rare: 2, legendary: 3, divine: 4 };
+    const isGenerated = (id) => /^(genr_|gen_|style_|bset_|bx|bxg_|bg_)/.test(id);
+    const refValue = {};
+    const refFor = (t, rar) => {
+      const key = t + ":" + rar;
+      if (refValue[key] == null) {
+        refValue[key] = recipeValue(genGearMaterials(t, (RAR_MULT[rar] || 2) * Math.pow(1.1, t), "ref_" + key));
+      }
+      return refValue[key];
+    };
+    const pass = (recipes, registry) => {
+      recipes.forEach((r) => {
+        const item = registry[r.id];
+        if (!item || isGenerated(r.id)) return;
+        const rar = item.rarity;
+        if (!RAR_MULT[rar]) return;
+        const t = Math.min(6, r.minRealmTier || 0);
+        const have = recipeValue(r.materials);
+        const want = refFor(t, rar);
+        if (have <= 0 || have >= want) return;
+        const f = Math.min(8, want / have);
+        Object.keys(r.materials).forEach((m) => {
+          r.materials[m] = Math.max(1, Math.round(r.materials[m] * f));
+        });
+      });
+    };
+    pass(ARMOR_RECIPES, ARMOR);
+    pass(ARTIFACT_RECIPES, WEAPONS);
   })();
   function ownsBossCrossGear(id) {
     const g = BOSS_CROSS_GEAR[id];
@@ -25403,7 +25622,55 @@
     p.qi = Math.min(p.qiMax, p.qi + gain);
     if (p.qi > before) pushLog("heal", `  → +${p.qi - before} qi (the Hungry Dao drinks for the meridians too)`);
   }
-  function applyPostHitTriggers(p, res, tgt, lifestealScale) {
+  var SPIRIT_CHIP_PCT = 0.03;
+  var SPIRIT_FOCUS = {
+    // the soul-pressure signature of each school (weight × the base chip)
+    azure_third_cut: 2.5,
+    // the cut that remembers — reads the pattern, not the body
+    iron_stone: 2,
+    // Stone-Breaking Fist: force driven through the meridians
+    array_severing: 3,
+    // Dao-Severing Glyph — severing the dao IS spirit work
+    flame_ashfall: 2.5,
+    // the air itself catches; the soul feels it first
+    cold_moon_binding: 2.5,
+    // crystalline qi binds the spirit, not the limbs
+    death_mark: 3,
+    // a death-mark inscribed on the meridians
+    demon_devour: 2.5,
+    // Soul-Devouring Palm — the name is the mechanic
+    stellar_pressure: 2.5,
+    // the heavens lean on you
+    grove_bloom: 2,
+    // Verdant Communion: the patience of trees, pressed inward
+    thunder_pin: 2,
+    // thunder driven into the marrow
+    cloud_mistwalk: 2,
+    // step into the weather; something of you stays there
+    hollow_song: 3.5,
+    // Bone Reed's siphon-song — the soul school's hammer
+    ink_silence: 3,
+    // Character of Silence: silence written onto the self
+    dragon_stance: 2,
+    // Quench — armor and spirit both ruined
+    chain_litany: 3
+    // a prayer said in iron, collected from the soul
+  };
+  function applyBaseSpiritChip(p, res, tgt, techId) {
+    if (!tgt || tgt === p || res.dodged) return;
+    if (!(tgt.spiritMax > 0) || !(tgt.spirit > 0)) return;
+    const dealt = (res.hpDamage || 0) + (res.qiAbsorbed || 0);
+    if (dealt <= 0) return;
+    const weight = techId && SPIRIT_FOCUS[techId] || 1;
+    const chip = Math.round(dealt * SPIRIT_CHIP_PCT * weight * (p.mods.spiritDamageMult || 1));
+    if (chip <= 0) return;
+    const before = tgt.spirit;
+    tgt.spirit = Math.max(0, tgt.spirit - chip);
+    if (weight > 1 && before > tgt.spirit) pushLog("hurt", `  → ${before - tgt.spirit} spirit pressed away.`);
+    if (tgt.spirit <= 0 && before > 0) pushLog("posture", `  → ${tgt.name} is soul-broken! +30% damage taken.`);
+  }
+  function applyPostHitTriggers(p, res, tgt, lifestealScale, techId) {
+    applyBaseSpiritChip(p, res, tgt, techId);
     lifestealScale = lifestealScale == null ? 1 : lifestealScale;
     if ((p.mods.lifestealPct || 0) > 0 && res.hpDamage + res.qiAbsorbed > 0) {
       const rawHeal = (res.hpDamage + res.qiAbsorbed) * softCapLifesteal(p.mods.lifestealPct) * tribHealMult() * lifestealScale;
@@ -25567,7 +25834,7 @@
       const dhHf = (e.effects || []).find((ef) => ef.kind === "hellfire");
       dhHellStacks = dhHf ? dhHf.stacks || 1 : 0;
       if (techId === "demon_ascendant" && dhHellStacks >= playerStackCap("hellfire")) {
-        directSpiritAmt += Math.round(p.weaponPower * 2 * (p.mods.spiritDamageMult || 1));
+        directSpiritAmt += Math.round(p.weaponPower * 0.8 * (p.mods.spiritDamageMult || 1));
       }
       if (techId === "demon_ascendant" && dhHellStacks >= 10) {
         dhDetonateMult = 1 + 0.2 * dhHellStacks;
@@ -25619,7 +25886,7 @@
           });
           if (ctx.crit) pushLog("posture", `  → critical strike!`);
           pushLog("hurt", damageLogLine(res, tgt));
-          applyPostHitTriggers(p, res, tgt, techId === "demon_reap" ? 1.25 : void 0);
+          applyPostHitTriggers(p, res, tgt, techId === "demon_reap" ? 1.25 : void 0, techId);
           dhHpDealt += res.hpDamage;
           dhQiDrained += res.qiAbsorbed;
           if (!res.dodged) {
