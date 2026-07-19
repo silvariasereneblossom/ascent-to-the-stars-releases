@@ -7572,8 +7572,7 @@
       rarity: "rare",
       growMinutes: 15,
       minRealmTier: 1,
-      minLayer: 3,
-      desc: "A pale lotus that only opens at dusk. Unlocked at Qi Condensation Layer 3."
+      desc: "A pale lotus that only opens at dusk. Takes root once your qi condenses."
     },
     moonfire_iris: {
       name: "Moonfire Iris",
@@ -7589,7 +7588,6 @@
       rarity: "rare",
       growMinutes: 30,
       minRealmTier: 2,
-      minLayer: 2,
       desc: "A fern whose fronds crackle quietly. It grows only where old lightning struck."
     },
     dragonmint: {
@@ -7639,7 +7637,6 @@
       rarity: "common",
       growMinutes: 8,
       minRealmTier: 1,
-      minLayer: 1,
       desc: "A pale blue flower whose petals ring softly when wind passes."
     },
     windreed: {
@@ -7648,7 +7645,6 @@
       rarity: "common",
       growMinutes: 10,
       minRealmTier: 1,
-      minLayer: 3,
       desc: "A thin reed that grows in qi-warmed water. Whistles on its own in a breeze."
     },
     // ---- Rare (5 new) ----
@@ -7658,7 +7654,6 @@
       rarity: "rare",
       growMinutes: 20,
       minRealmTier: 1,
-      minLayer: 5,
       desc: "A short green herb with faintly crackling stems. A numbing taste on the tongue."
     },
     crimson_peony: {
@@ -7667,7 +7662,6 @@
       rarity: "rare",
       growMinutes: 25,
       minRealmTier: 2,
-      minLayer: 1,
       desc: "A large red peony that blooms in full only under moonlight."
     },
     moonweaver: {
@@ -7684,7 +7678,6 @@
       rarity: "rare",
       growMinutes: 30,
       minRealmTier: 2,
-      minLayer: 2,
       desc: "A translucent lily that grows on the tideline. It tastes of salt and old memory."
     },
     razorgrass: {
@@ -7693,7 +7686,6 @@
       rarity: "rare",
       growMinutes: 30,
       minRealmTier: 2,
-      minLayer: 2,
       desc: "Stiff, hollow stems sharp enough to draw blood. Cultivators chew it for focus."
     },
     // ---- Legendary (7 new) ----
@@ -7711,7 +7703,6 @@
       rarity: "legendary",
       growMinutes: 50,
       minRealmTier: 3,
-      minLayer: 2,
       desc: "An orange petal that crumbles if cut wrong, restoring itself with heat."
     },
     lotus_of_recall: {
@@ -7728,7 +7719,6 @@
       rarity: "legendary",
       growMinutes: 70,
       minRealmTier: 4,
-      minLayer: 3,
       desc: "A vine whose nodes grow in the positions of a distant constellation."
     },
     ghost_spring_orchid: {
@@ -7745,7 +7735,6 @@
       rarity: "legendary",
       growMinutes: 100,
       minRealmTier: 5,
-      minLayer: 3,
       desc: "A sage plant with three-fold leaves. Tea from it is said to clarify the soul."
     },
     silver_dew_moss: {
@@ -7754,7 +7743,6 @@
       rarity: "legendary",
       growMinutes: 110,
       minRealmTier: 5,
-      minLayer: 4,
       desc: "A moss that collects silver droplets at dawn. Each drop is worth its weight in spirit stone."
     },
     // ---- Divine (3 new) ----
@@ -7780,7 +7768,6 @@
       rarity: "divine",
       growMinutes: 240,
       minRealmTier: 6,
-      minLayer: 2,
       desc: "A sage said to have grown since the first dawn. Each leaf is heavier than it should be."
     }
   };
@@ -9075,10 +9062,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Tribulation resistance, resolve under pressure." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.75';
+  var GAME_VERSION = 'v1.27.76';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "17fe3e7";
+  var BUILD_SHA = "e7976ca";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -23743,9 +23730,45 @@
     const sigOf = (effs) => effs.map((ef) => `${ef.kind}:${ef.value}:${ef.durationMin}`).join("|");
     const takenSigs = new Set(Object.values(CONSUMABLES).map((c) => sigOf(c.effects || [])));
     const gearSinks = [];
+    const makeBrew = (loc, t, lyr, idx, h, noun, rar, foes, matId) => {
+      const use = h % 3;
+      const dur = 10 + idx % 3 * 5;
+      let effects;
+      if (use === 0) effects = [{ kind: "weapon_mult", value: +(1 + 0.08 + 0.05 * t + idx * 0.01).toFixed(3), durationMin: dur }];
+      else if (use === 1) effects = [{ kind: "incoming_mult", value: +(1 - (0.06 + 0.04 * t + idx * 0.01)).toFixed(3), durationMin: dur }];
+      else effects = [{ kind: "cultivation_mult", value: +(1 + 0.35 + 0.3 * t + idx * 0.05).toFixed(3), durationMin: dur * 2 }];
+      let guard = 0;
+      while (takenSigs.has(sigOf(effects)) && guard++ < 40) effects[0].value = +(effects[0].value + 5e-3).toFixed(3);
+      takenSigs.add(sigOf(effects));
+      const v = effects[0].value, k = effects[0].kind;
+      const blurb = k === "weapon_mult" ? `+${Math.round((v - 1) * 100)}% weapon power for ${dur} minutes.` : k === "incoming_mult" ? `−${Math.round((1 - v) * 100)}% incoming damage for ${dur} minutes.` : `+${Math.round((v - 1) * 100)}% cultivation rate for ${dur * 2} minutes.`;
+      const tierHerbs = Object.entries(HERBS).filter(([, hb]) => (hb.minRealmTier || 0) === t);
+      const herb = tierHerbs.length ? tierHerbs[idx % tierHerbs.length][0] : "qi_grass";
+      const isPill = use === 2;
+      CONSUMABLES["jt_" + loc.id] = {
+        name: `${loc.name} ${isPill ? "Pill" : "Tonic"}`,
+        zh: isPill ? "游丹" : "游酿",
+        kind: isPill ? "pill" : "potion",
+        rarity: rar,
+        recipe: { [matId]: 2, [herb]: 2 },
+        minRealmTier: t,
+        minLayer: lyr,
+        noCostNorm: true,
+        effects,
+        journeyTonic: loc.id,
+        desc: `${blurb} Brewed from the ${noun.toLowerCase()} its foes carry — a taste of ${loc.name} itself.`
+      };
+      MATERIALS[matId] = {
+        name: `${noun} of ${loc.name}`,
+        zh: "游珍",
+        rarity: rar,
+        desc: `Carried only by the ${foes} of ${loc.name}. Brews the ${CONSUMABLES["jt_" + loc.id].name}.`
+      };
+    };
     LOCATIONS.forEach((loc) => {
       if (loc.demonOnly) return;
       const t = Math.min(6, loc.minTier || 0);
+      const lyr = loc.minLayer || 1;
       const idx = perTierCount[t] = (perTierCount[t] || 0) + 1;
       const h = Math.abs(hashStr(loc.id));
       const pool = (loc.enemyPool || []).map((id) => ENEMIES[id]).filter(Boolean);
@@ -23755,40 +23778,10 @@
       const use = h % 5;
       const foes = pool.length ? pool.slice(0, 2).map((e) => e.name).join(" and ") : "foes";
       if (use <= 2) {
-        const dur = 10 + idx % 3 * 5;
-        let effects;
-        if (use === 0) effects = [{ kind: "weapon_mult", value: +(1 + 0.08 + 0.05 * t + idx * 0.01).toFixed(3), durationMin: dur }];
-        else if (use === 1) effects = [{ kind: "incoming_mult", value: +(1 - (0.06 + 0.04 * t + idx * 0.01)).toFixed(3), durationMin: dur }];
-        else effects = [{ kind: "cultivation_mult", value: +(1 + 0.35 + 0.3 * t + idx * 0.05).toFixed(3), durationMin: dur * 2 }];
-        let guard = 0;
-        while (takenSigs.has(sigOf(effects)) && guard++ < 40) effects[0].value = +(effects[0].value + 5e-3).toFixed(3);
-        takenSigs.add(sigOf(effects));
-        const v = effects[0].value, k = effects[0].kind;
-        const blurb = k === "weapon_mult" ? `+${Math.round((v - 1) * 100)}% weapon power for ${dur} minutes.` : k === "incoming_mult" ? `−${Math.round((1 - v) * 100)}% incoming damage for ${dur} minutes.` : `+${Math.round((v - 1) * 100)}% cultivation rate for ${dur * 2} minutes.`;
-        const tierHerbs = Object.entries(HERBS).filter(([, hb]) => (hb.minRealmTier || 0) === t);
-        const herb = tierHerbs.length ? tierHerbs[idx % tierHerbs.length][0] : "qi_grass";
-        const isPill = use === 2;
-        CONSUMABLES["jt_" + loc.id] = {
-          name: `${loc.name} ${isPill ? "Pill" : "Tonic"}`,
-          zh: isPill ? "游丹" : "游酿",
-          kind: isPill ? "pill" : "potion",
-          rarity: rar,
-          recipe: { [matId]: 2, [herb]: 2 },
-          minRealmTier: t,
-          noCostNorm: true,
-          effects,
-          journeyTonic: loc.id,
-          desc: `${blurb} Brewed from the ${noun.toLowerCase()} its foes carry — a taste of ${loc.name} itself.`
-        };
-        MATERIALS[matId] = {
-          name: `${noun} of ${loc.name}`,
-          zh: "游珍",
-          rarity: rar,
-          desc: `Carried only by the ${foes} of ${loc.name}. Brews the ${CONSUMABLES["jt_" + loc.id].name}.`
-        };
+        makeBrew(loc, t, lyr, idx, h, noun, rar, foes, matId);
       } else {
         const gearKind = use === 3 ? "weapon" : "armor";
-        gearSinks.push({ t, matId, gearKind });
+        gearSinks.push({ t, lyr, matId, gearKind, loc, idx, h, noun, rar, foes });
         MATERIALS[matId] = {
           name: `${noun} of ${loc.name}`,
           zh: "游珍",
@@ -23799,23 +23792,31 @@
     });
     const RAR_TROPHY_COUNT = { rare: 1, legendary: 2, divine: 3 };
     const isBossGear = (id) => /^(bx|bxg_|bg_|bset_)/.test(id);
-    [0, 1, 2, 3, 4, 5, 6].forEach((t) => {
-      const wSinks = gearSinks.filter((s) => s.t === t && s.gearKind === "weapon");
-      if (wSinks.length) {
-        const recs = ARTIFACT_RECIPES.filter((r) => (r.minRealmTier || 0) === t && !isBossGear(r.id) && WEAPONS[r.id] && RAR_TROPHY_COUNT[WEAPONS[r.id].rarity]);
-        recs.forEach((r, i) => {
-          const s = wSinks[i % wSinks.length];
-          r.materials[s.matId] = (r.materials[s.matId] || 0) + RAR_TROPHY_COUNT[WEAPONS[r.id].rarity];
+    const recipesFor = (kind, t) => kind === "weapon" ? ARTIFACT_RECIPES.filter((r) => (r.minRealmTier || 0) === t && !isBossGear(r.id) && WEAPONS[r.id] && RAR_TROPHY_COUNT[WEAPONS[r.id].rarity]) : ARMOR_RECIPES.filter((r) => (r.minRealmTier || 0) === t && !isBossGear(r.id) && ARMOR[r.id] && RAR_TROPHY_COUNT[ARMOR[r.id].rarity]);
+    const rarityOf = (kind, id) => kind === "weapon" ? WEAPONS[id].rarity : ARMOR[id].rarity;
+    ["weapon", "armor"].forEach((kind) => {
+      [0, 1, 2, 3, 4, 5, 6].forEach((t) => {
+        const sinks = gearSinks.filter((s) => s.t === t && s.gearKind === kind);
+        if (!sinks.length) return;
+        const placed = /* @__PURE__ */ new Set();
+        recipesFor(kind, t).forEach((r, i) => {
+          const ok = sinks.filter((s2) => (r.minLayer || 1) >= s2.lyr);
+          if (!ok.length) return;
+          const s = ok[i % ok.length];
+          r.materials[s.matId] = (r.materials[s.matId] || 0) + RAR_TROPHY_COUNT[rarityOf(kind, r.id)];
+          placed.add(s.matId);
         });
-      }
-      const aSinks = gearSinks.filter((s) => s.t === t && s.gearKind === "armor");
-      if (aSinks.length) {
-        const recs = ARMOR_RECIPES.filter((r) => (r.minRealmTier || 0) === t && !isBossGear(r.id) && ARMOR[r.id] && RAR_TROPHY_COUNT[ARMOR[r.id].rarity]);
-        recs.forEach((r, i) => {
-          const s = aSinks[i % aSinks.length];
-          r.materials[s.matId] = (r.materials[s.matId] || 0) + RAR_TROPHY_COUNT[ARMOR[r.id].rarity];
-        });
-      }
+        const orphans = sinks.filter((s) => !placed.has(s.matId));
+        if (!orphans.length) return;
+        if (t < 6) {
+          recipesFor(kind, t + 1).forEach((r, i) => {
+            const s = orphans[i % orphans.length];
+            r.materials[s.matId] = (r.materials[s.matId] || 0) + RAR_TROPHY_COUNT[rarityOf(kind, r.id)];
+            placed.add(s.matId);
+          });
+        }
+        orphans.filter((s) => !placed.has(s.matId)).forEach((s) => makeBrew(s.loc, s.t, s.lyr, s.idx, s.h, s.noun, s.rar, s.foes, s.matId));
+      });
     });
   })();
   Object.values(CONSUMABLES).forEach((c) => (c.effects || []).forEach((ef) => {
