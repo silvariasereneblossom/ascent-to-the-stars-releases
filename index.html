@@ -9062,10 +9062,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Tribulation resistance, resolve under pressure." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.83';
+  var GAME_VERSION = 'v1.27.84';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "e968dc1";
+  var BUILD_SHA = "fa7ac63";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -13453,6 +13453,7 @@
     applyArraysToMods(mods, char);
     applyWeaponsToMods(mods, char);
     applySchoolKitToMods(mods, char);
+    applySchoolArmsAffinity(mods, char);
     applySkillModsToMods(mods, char);
     applyBodyInscriptionsToMods(mods, char);
     applyBossRefineToMods(mods, char);
@@ -16518,6 +16519,25 @@
   function activeTribMech() {
     if (!combat || !combat.tribulation || !combat.enemyId) return null;
     return TRIB_MECHANICS[combat.enemyId] || null;
+  }
+  var SCHOOL_ARMS_TECH_MULT = 1.15;
+  var SCHOOL_ARMS_STRIKE_MULT = 1.08;
+  function schoolWeaponKind(char) {
+    const sc = SCHOOLS[(char || state || {}).selectedSchool];
+    const w = sc && WEAPONS[sc.weapon];
+    return w ? w.kind : null;
+  }
+  function hasSchoolArmsAffinity(char) {
+    const c = char || state;
+    if (!c || !c.weapon) return false;
+    const w = WEAPONS[c.weapon];
+    const want = schoolWeaponKind(c);
+    return !!(w && want && w.kind === want);
+  }
+  function applySchoolArmsAffinity(mods, char) {
+    if (!hasSchoolArmsAffinity(char)) return;
+    mods.techDamageMult = (mods.techDamageMult || 1) * SCHOOL_ARMS_TECH_MULT;
+    mods.strikeDamageMult = (mods.strikeDamageMult || 1) * SCHOOL_ARMS_STRIKE_MULT;
   }
   function playerSilenced() {
     return !!(combat && combat.player && (combat.player.effects || []).some((ef) => ef.kind === "silence"));
@@ -22833,6 +22853,8 @@
         rarity: w.rarity,
         price,
         tier: weaponTierOf(wid),
+        isJunk: w.tag === "junk",
+        // v1.27.84: drives the market's "sell all junk" button
         sell: () => {
           removeWeapon();
           char.base.materials.spirit_stone = (char.base.materials.spirit_stone || 0) + price;
@@ -24113,6 +24135,27 @@
     if (!list.length) return defaultValue;
     return buffIsAdditive(kind) ? list.reduce((s, b) => s + b.value, 0) : list.reduce((p, b) => p * b.value, 1);
   }
+  function buffValueFor(c, ef) {
+    if (ef.kind !== "hp_max_add") return ef.value;
+    const potionTier = Math.min(6, c.minRealmTier || 0);
+    const baseMax = Math.max(1, computeMaxHP(state) - activeBuffValue("hp_max_add", 0));
+    return Math.round((BODY_POTION_PCT[potionTier] || 0.1) * baseMax);
+  }
+  function consumeBlockedBy(recipeId) {
+    const c = CONSUMABLES[recipeId];
+    if (!c || !state || !state.base || !Array.isArray(c.effects) || !c.effects.length) return null;
+    if (c.effects.some((ef) => !ef.durationMin)) return null;
+    const now = Date.now();
+    let blockers = null;
+    for (const ef of c.effects) {
+      const mine = buffPotency({ kind: ef.kind, value: buffValueFor(c, ef) });
+      const others = (state.base.buffs || []).filter((b) => b.kind === ef.kind && b.sourceName !== c.name && b.expiresAt > now);
+      const stronger = others.filter((b) => buffPotency(b) >= mine).sort((a, b) => buffPotency(b) - buffPotency(a));
+      if (stronger.length < BUFF_STACK_LIMIT) return null;
+      blockers = stronger.slice(0, BUFF_STACK_LIMIT);
+    }
+    return blockers;
+  }
   function weaponSlotsForRealm(char) {
     const tierIdx = char && char.realm ? char.realm.tierIdx : 0;
     return Math.min(6, 1 + tierIdx);
@@ -24774,6 +24817,7 @@
   }
   function consume(recipeId) {
     if (!state.base.consumables[recipeId]) return;
+    if (consumeBlockedBy(recipeId)) return;
     state.base.consumables[recipeId]--;
     if (state.base.consumables[recipeId] <= 0) delete state.base.consumables[recipeId];
     const c = CONSUMABLES[recipeId];
@@ -28877,6 +28921,11 @@
     let artHTML = `<h3>Artifact — ${weapon.name} <span style="color:var(--ink-soft);font-weight:normal;font-size:0.85rem">${weapon.zh}</span>
     <span class="rarity-tag rarity-${weapon.rarity || "common"}">${weapon.rarity || "common"}</span></h3>
     <p style="font-size:0.85rem;color:var(--ink-soft);margin:0 0 0.4rem"><em>${weapon.desc}</em><br>base power ${weapon.power}${rb.weapon ? ` · +${rb.weapon} realm` : ""}${mods.weaponBonus ? ` · +${mods.weaponBonus} inscription` : ""}${wpnMult !== 1 ? ` · ×${wpnMult.toFixed(2)} tincture` : ""} · <strong>total ${wpnPower}</strong></p>
+    ${(() => {
+      const want = schoolWeaponKind(state);
+      if (!want) return "";
+      return hasSchoolArmsAffinity(state) ? `<p style="font-size:0.8rem;color:var(--jade);margin:0 0 0.4rem">✦ <strong>School Arms</strong> — this is your school's ${want}: +${Math.round((SCHOOL_ARMS_TECH_MULT - 1) * 100)}% technique damage, +${Math.round((SCHOOL_ARMS_STRIKE_MULT - 1) * 100)}% strike damage. Your forms were written for it.</p>` : `<p style="font-size:0.8rem;color:var(--crimson);margin:0 0 0.4rem">✦ <strong>School Arms</strong> — your school trains the <strong>${want}</strong>. Wielding one grants +${Math.round((SCHOOL_ARMS_TECH_MULT - 1) * 100)}% technique and +${Math.round((SCHOOL_ARMS_STRIKE_MULT - 1) * 100)}% strike damage; this ${WEAPONS[state.weapon] ? WEAPONS[state.weapon].kind : "weapon"} forfeits that.</p>`;
+    })()}
     <div style="font-size:0.85rem;margin-bottom:0.3rem"><strong>Inscription Slots</strong> (${state.inscriptions.slotted.length}/${cap})</div>
     <div class="slot-row" id="slot-row"></div>`;
     if (state.inscriptions.owned.length) {
@@ -30163,30 +30212,76 @@
       resetRow.appendChild(rBtns);
       traderP.appendChild(resetRow);
     }
+    {
+      const junk = sellRows.filter((it) => it.isJunk);
+      if (junk.length) {
+        const jRow = document.createElement("div");
+        jRow.className = "consumable-row";
+        const jTotal = junk.reduce((s, it) => s + it.price, 0);
+        jRow.innerHTML = `<div class="consumable-info">
+          <div class="consumable-name">Sell all junk <span style="color:var(--ink-soft);font-size:0.75rem">— ${junk.length} scavenged item${junk.length === 1 ? "" : "s"} in this realm filter</span></div>
+          <div class="consumable-desc">Clears the scrap the road leaves behind: +${jTotal} spirit stones.</div>
+        </div>`;
+        const jBtns = document.createElement("div");
+        jBtns.className = "consumable-buttons";
+        const jb = document.createElement("button");
+        jb.className = "ghost";
+        jb.textContent = `Sell all junk (+${jTotal})`;
+        armDestructiveButton(jb, `Sell ${junk.length}? Tap again`, () => {
+          junk.map((it) => it.sell).forEach((fn) => fn());
+          render();
+        });
+        jBtns.appendChild(jb);
+        jRow.appendChild(jBtns);
+        traderP.appendChild(jRow);
+      }
+    }
     if (!sellRows.length) {
       const empty = document.createElement("div");
       empty.style.cssText = "font-size:0.85rem;color:var(--ink-soft);font-style:italic;margin-top:0.3rem";
       empty.textContent = "Nothing in your inventory the caravan would take. (Equipped items cannot be sold.)";
       traderP.appendChild(empty);
     } else {
-      sellRows.forEach((item) => {
+      const stacks = [];
+      const byKey = {};
+      sellRows.forEach((it) => {
+        const key = `${it.kindLabel}|${it.name}|${it.rarity}|${it.price}`;
+        if (!byKey[key]) {
+          byKey[key] = { ...it, items: [it] };
+          stacks.push(byKey[key]);
+        } else byKey[key].items.push(it);
+      });
+      const kindOrder = { inscription: 0, weapon: 1, armor: 2, artifact: 3 };
+      stacks.sort((a, b) => (kindOrder[a.kindLabel] != null ? kindOrder[a.kindLabel] : 9) - (kindOrder[b.kindLabel] != null ? kindOrder[b.kindLabel] : 9) || (RARITY_RANK[b.rarity] || 0) - (RARITY_RANK[a.rarity] || 0) || a.name.localeCompare(b.name));
+      stacks.forEach((stack) => {
+        const n = stack.items.length;
         const row = document.createElement("div");
         row.className = "consumable-row";
         row.innerHTML = `
         <div class="consumable-info">
-          <div class="consumable-name">${item.name} <span style="color:var(--ink-soft);font-size:0.75rem">${item.kindLabel} · ${item.rarity}</span></div>
-          <div class="consumable-desc">Sells for ${item.price} spirit stones.</div>
+          <div class="consumable-name">${stack.name}${n > 1 ? ` <strong style="color:var(--gold)">× ${n}</strong>` : ""} <span style="color:var(--ink-soft);font-size:0.75rem">${stack.kindLabel} · ${stack.rarity}</span></div>
+          <div class="consumable-desc">Sells for ${stack.price} spirit stones${n > 1 ? ` each · ${stack.price * n} for all ${n}` : ""}.</div>
         </div>`;
         const btns = document.createElement("div");
         btns.className = "consumable-buttons";
         const b = document.createElement("button");
         b.className = "ghost";
-        b.textContent = `Sell (+${item.price})`;
+        b.textContent = `Sell (+${stack.price})`;
         b.onclick = () => {
-          item.sell();
+          stack.items[0].sell();
           render();
         };
         btns.appendChild(b);
+        if (n > 1) {
+          const ba = document.createElement("button");
+          ba.className = "ghost";
+          ba.textContent = `Sell all ${n} (+${stack.price * n})`;
+          armDestructiveButton(ba, `Sell ${n}? Tap again`, () => {
+            stack.items.map((it) => it.sell).forEach((fn) => fn());
+            render();
+          });
+          btns.appendChild(ba);
+        }
         row.appendChild(btns);
         traderP.appendChild(row);
       });
@@ -30733,12 +30828,20 @@
     if (mode !== "craft") {
       const useBtn = document.createElement("button");
       useBtn.className = "gold small";
-      useBtn.textContent = "Use";
-      useBtn.disabled = !owned;
-      useBtn.onclick = () => {
-        consume(id);
-        render();
-      };
+      const blockedBy = owned ? consumeBlockedBy(id) : null;
+      if (blockedBy) {
+        useBtn.textContent = "Won't stack";
+        useBtn.className = "ghost small tip";
+        useBtn.disabled = true;
+        useBtn.setAttribute("data-tip", `Only the TWO most potent effects of a kind apply. ${blockedBy.map((b) => b.sourceName).join(" and ")} are already stronger — drinking this would do nothing, so it is kept in your bag.`);
+      } else {
+        useBtn.textContent = "Use";
+        useBtn.disabled = !owned;
+        useBtn.onclick = () => {
+          consume(id);
+          render();
+        };
+      }
       btns.appendChild(useBtn);
     }
     row.appendChild(btns);
