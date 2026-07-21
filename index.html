@@ -9062,10 +9062,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Tribulation resistance, resolve under pressure." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.82';
+  var GAME_VERSION = 'v1.27.83';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "a534745";
+  var BUILD_SHA = "e968dc1";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -21415,16 +21415,16 @@
   function sectRankMult() {
     return 1 + sectRankIdx() * 0.05;
   }
-  var SECT_BOON_INSPIRATION_PER_RANK = 0.15;
-  var SECT_BOON_INSIGHT_PER_RANK = 0.12;
+  var SECT_BOON_CULT_INSIGHT_PER_RANK = 0.15;
+  var SECT_BOON_COMBAT_INSIGHT_PER_RANK = 0.12;
   function sectBoonsActive() {
     return !!(state && state.confirmed && !state.demonic);
   }
-  function sectInspirationMult() {
-    return sectBoonsActive() ? 1 + sectRankIdx() * SECT_BOON_INSPIRATION_PER_RANK : 1;
+  function sectCultInsightMult() {
+    return sectBoonsActive() ? 1 + sectRankIdx() * SECT_BOON_CULT_INSIGHT_PER_RANK : 1;
   }
-  function sectInsightMult() {
-    return sectBoonsActive() ? 1 + sectRankIdx() * SECT_BOON_INSIGHT_PER_RANK : 1;
+  function sectCombatInsightMult() {
+    return sectBoonsActive() ? 1 + sectRankIdx() * SECT_BOON_COMBAT_INSIGHT_PER_RANK : 1;
   }
   function slayBountyReward() {
     return (40 + (state.realm && state.realm.tierIdx || 0) * 20) * (1 + 0.5 * (state.sectBountyClaims || 0));
@@ -24864,7 +24864,7 @@
     const rootGrade = state.spiritRoot && state.spiritRoot.grade || 1;
     const foundation = state.foundationQuality || 1;
     const demonCult = isDemonHeart(state) ? 0 : state.demonic ? 0.5 : 2;
-    return (base + statBonus) * method.mult * locMult * realmMult * cultBuff * boonCultivationMult() * skillCultivationMult() * heritageCult * gearCult * rootGrade * foundation * sectRankMult() * metaCultMult() * demonCult * (1 + 0.2 * goldenCoreLevel()) * sectInspirationMult();
+    return (base + statBonus) * method.mult * locMult * realmMult * cultBuff * boonCultivationMult() * skillCultivationMult() * heritageCult * gearCult * rootGrade * foundation * sectRankMult() * metaCultMult() * demonCult * (1 + 0.2 * goldenCoreLevel()) * sectCultInsightMult();
   }
   function cultivationBoostMult() {
     if (!state || !state.confirmed) return 1;
@@ -26174,7 +26174,7 @@
     const rewardScale = e.scale && e.scale.reward || 1;
     const rawInsight = Math.round(0.25 * enemyData.insightReward * rewardScale * boonInsightMult() * skillCombatInsightMult() * (combat.player.mods.insightMult || 1) * (SCHOOLS[state.selectedSchool] && SCHOOLS[state.selectedSchool].insightFromKillsMult || 1) * (hmVictory.combatInsightMult || 1) * combatInsightMult(combat) * metaInsightMult() * (isDemonHeart(state) ? 2 : state.demonic ? 1.5 : 1) * 1.5 * (combat && combat.demonicQiVenture ? 1.5 : 1) * (state.demonic ? isDemonHeart(state) ? 1 + (cultivationBoostMult() - 1) * 0.5 : cultivationBoostMult() : 1) * (1 + 0.2 * goldenCoreLevel()) * (heritageIs("Demonic Bloodline") && isDemonHeart(state) ? 2 : 1) * (e._areaRel || 1));
     const _insightBaseline = Math.round(realmTotalInsight(state.realm.tierIdx || 0) * (enemyData.isBoss ? 0.015 : 5e-3));
-    const insight = Math.round(softCapInsight(rawInsight, _insightBaseline) * sectInsightMult());
+    const insight = Math.round(softCapInsight(rawInsight, _insightBaseline) * sectCombatInsightMult());
     addInsight(insight);
     state.sectKills = (state.sectKills || 0) + 1;
     {
@@ -30214,9 +30214,9 @@
       sectP.innerHTML += `<div class="consumable-row" style="border-color:var(--jade)"><div class="consumable-info">
       <div class="consumable-name" style="color:var(--jade)">Sect Formations <span style="color:var(--ink-soft);font-size:0.75rem">宗门阵</span> <span class="rarity-tag rarity-rare">righteous only</span></div>
       <div class="consumable-desc">The hall's standing formations answer to your rank — they cost nothing and occupy no glyph slots, and they compound on top of <em>everything</em> else:</div>
-      <div class="consumable-desc"><strong style="color:var(--gold)">Inspiration Array</strong> — ×${sectInspirationMult().toFixed(2)} cultivation rate, applied to your finished rate (after every other bonus).</div>
-      <div class="consumable-desc"><strong style="color:var(--gold)">Insight Array</strong> — ×${sectInsightMult().toFixed(2)} combat insight, applied <em>after</em> the per-kill soft cap, so your standing is never eaten by diminishing returns.</div>
-      <div class="consumable-desc" style="opacity:0.75">Each rank adds +${Math.round(SECT_BOON_INSPIRATION_PER_RANK * 100)}% Inspiration and +${Math.round(SECT_BOON_INSIGHT_PER_RANK * 100)}% Insight. The sects do not light these for the demonic.</div>
+      <div class="consumable-desc"><strong style="color:var(--gold)">Still-Mind Array</strong> — ×${sectCultInsightMult().toFixed(2)} insight from CULTIVATION, applied to your finished rate (after every other bonus).</div>
+      <div class="consumable-desc"><strong style="color:var(--gold)">Bloodied-Ledger Array</strong> — ×${sectCombatInsightMult().toFixed(2)} insight from COMBAT, applied <em>after</em> the per-kill soft cap, so your standing is never eaten by diminishing returns.</div>
+      <div class="consumable-desc" style="opacity:0.75">Each rank adds +${Math.round(SECT_BOON_CULT_INSIGHT_PER_RANK * 100)}% cultivation insight and +${Math.round(SECT_BOON_COMBAT_INSIGHT_PER_RANK * 100)}% combat insight. The sects do not light these for the demonic.</div>
     </div></div>`;
     }
     if (sectPromotionAvailable()) {
