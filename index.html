@@ -9062,10 +9062,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Tribulation resistance, resolve under pressure." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.87';
+  var GAME_VERSION = 'v1.27.88';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "4f29b63";
+  var BUILD_SHA = "faedb38";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -19137,7 +19137,7 @@
             const nextFirst = Object.keys(WEAPON_GEN_TIER[t + 1].mats)[0];
             mats[nextFirst] = (mats[nextFirst] || 0) + 1;
           }
-          ARTIFACT_RECIPES.push({ id: wid, materials: mats, minRealmTier: t });
+          ARTIFACT_RECIPES.push({ id: wid, materials: mats, minRealmTier: t, minLayer: Math.min(ri + 1, REALMS[t].layers) });
         });
       }
     });
@@ -26200,7 +26200,12 @@
     const r = REALMS[tierIdx];
     if (!r) return 0;
     const L = r.layers || 1, per = r.insightPerLayer || 0, step = r.insightPerLayerStep || 0;
-    return L * per + step * (L * (L - 1) / 2);
+    const total = L * per + step * (L * (L - 1) / 2);
+    if (total > 0) return total;
+    const next = REALMS[tierIdx + 1];
+    if (!next) return 0;
+    const icm = Math.max(1.5, 4 - 2.5 / 6 * (tierIdx || 0));
+    return Math.round((next.insightPerLayer || 0) * icm);
   }
   function softCapInsight(raw, baseline) {
     if (baseline <= 0 || raw <= baseline) return Math.round(raw);
@@ -26251,7 +26256,7 @@
       grantContribution(bossBounty);
       pushLog("reward", `The sect honors the kill: +${bossBounty} contribution.`);
       const bossTierIns = BOSSES[e.id] && BOSSES[e.id].tier || 0;
-      const bossInsight = Math.round((500 + Math.random() * 500) * 3 * (1 + bossTierIns));
+      const bossInsight = Math.max(50, Math.round(realmTotalInsight(bossTierIns) * (0.02 + Math.random() * 0.01)));
       addInsight(bossInsight);
       pushLog("reward", `The fall of something this old teaches: +${bossInsight.toLocaleString()} insight.`);
       if (!state.foundBooks) state.foundBooks = [];
@@ -28679,7 +28684,8 @@
       });
       fpHtml += `<div class="button-row" style="margin-top:0.5rem"><button class="ghost small" id="fp-respec" ${totalFreeAlloc > 0 ? "" : "disabled"}>Respec (return ${totalFreeAlloc})</button></div>`;
       fpP.innerHTML = fpHtml;
-      app.appendChild(fpP);
+      if ((state.freePoints || 0) > 0) app.appendChild(fpP);
+      else appendPanel(fpP, "self");
       STATS.forEach((s) => {
         const pb = fpP.querySelector(`[data-fpp="${s.key}"]`);
         if (pb) pb.onclick = () => {
@@ -29959,7 +29965,25 @@
     <p style="font-size:0.85rem;color:var(--ink-soft);margin:0 0 0.6rem">Each place holds its own dangers, and its own silences. Venture to fight. Meditate to gather insight at its full rate.</p>`;
     locP.appendChild(realmTabChips("journeysRealm", (t) => LOCATIONS.filter((l) => l.minTier === t).length));
     const jRealm = selectedRealmTab("journeysRealm");
-    LOCATIONS.filter((l) => realmTabShows("journeysRealm", l.minTier) && (!l.demonOnly || state.demonic)).forEach((loc) => {
+    {
+      if (!state.ui) state.ui = {};
+      const onlyOpen = !!state.ui.journeysUnlockedOnly;
+      const lockedCount = LOCATIONS.filter((l) => realmTabShows("journeysRealm", l.minTier) && (!l.demonOnly || state.demonic) && !locationUnlocked(l)).length;
+      const jbar = document.createElement("div");
+      jbar.className = "button-row";
+      jbar.style.cssText = "flex-wrap:wrap;gap:0.3rem;margin:0 0 0.5rem";
+      const jb = document.createElement("button");
+      jb.className = "small " + (onlyOpen ? "gold" : "ghost");
+      jb.textContent = onlyOpen ? `Showing only journeys open to you — show all` : `Show only journeys open to me${lockedCount ? ` (hides ${lockedCount})` : ""}`;
+      jb.onclick = () => {
+        state.ui.journeysUnlockedOnly = !onlyOpen;
+        saveChar();
+        render();
+      };
+      jbar.appendChild(jb);
+      locP.appendChild(jbar);
+    }
+    LOCATIONS.filter((l) => realmTabShows("journeysRealm", l.minTier) && (!l.demonOnly || state.demonic) && (!state.ui.journeysUnlockedOnly || locationUnlocked(l))).forEach((loc) => {
       const unlocked = locationUnlocked(loc);
       const isCult = state.cultivating && state.cultivating.locationId === loc.id;
       const card = document.createElement("div");
