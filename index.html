@@ -9114,10 +9114,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Tribulation resistance, resolve under pressure." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.92';
+  var GAME_VERSION = 'v1.27.93';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "904eb47";
+  var BUILD_SHA = "7f5f37f";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -13392,6 +13392,25 @@
       m.lateBonus += 0.06 * s;
     }, label: "+late-fight damage" }
   };
+  function riderSummary(rk, r, s) {
+    const rider = INSCR_RIDERS[rk];
+    if (!rider) return "";
+    const before = baseInscriptionMods(), after = baseInscriptionMods();
+    rider.apply(after, r || 0, s == null ? 1 : s);
+    let ch = null;
+    for (const k in after) {
+      if (typeof after[k] === "number" && after[k] !== before[k]) {
+        ch = k;
+        break;
+      }
+    }
+    if (ch == null) return rider.label;
+    const delta = after[ch] - before[ch];
+    const noun = rider.label.replace(/^[+\-]\s*/, "");
+    if (Math.abs(delta) >= 1) return `+${Math.round(delta)} ${noun}`;
+    const pct = Math.round(Math.abs(delta) * 1e3) / 10;
+    return `${delta < 0 ? "-" : "+"}${pct}% ${noun}`;
+  }
   function applyInscriptionMods(mods, id) {
     const ins = INSCRIPTIONS[id];
     if (!ins) return;
@@ -13425,7 +13444,7 @@
     const n = INSCR_RIDER_COUNT[ins.rarity] || 0;
     for (let i = 0; i < n; i++) {
       const rk = th.riders[i];
-      if (rk && INSCR_RIDERS[rk]) parts.push(INSCR_RIDERS[rk].label);
+      if (rk && INSCR_RIDERS[rk]) parts.push(riderSummary(rk, inscriptionRealm(id), 1));
     }
     return parts.join(", ") + ".";
   }
@@ -21074,7 +21093,7 @@
     const n = ARMOR_PIECE_RIDERS[p.rarity] || 0;
     for (let i = 0; i < n; i++) {
       const rk = th.riders[i];
-      if (rk && INSCR_RIDERS[rk]) parts.push(INSCR_RIDERS[rk].label);
+      if (rk && INSCR_RIDERS[rk]) parts.push(riderSummary(rk, tier || 0, ARMOR_RIDER_SCALE));
     }
     return parts.join(", ");
   }
