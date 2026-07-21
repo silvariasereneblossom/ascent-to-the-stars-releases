@@ -9062,10 +9062,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Tribulation resistance, resolve under pressure." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.84';
+  var GAME_VERSION = 'v1.27.85';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "fa7ac63";
+  var BUILD_SHA = "0b1c903";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -16520,8 +16520,7 @@
     if (!combat || !combat.tribulation || !combat.enemyId) return null;
     return TRIB_MECHANICS[combat.enemyId] || null;
   }
-  var SCHOOL_ARMS_TECH_MULT = 1.15;
-  var SCHOOL_ARMS_STRIKE_MULT = 1.08;
+  var SCHOOL_ARMS_OFFKIND_MULT = 0.75;
   function schoolWeaponKind(char) {
     const sc = SCHOOLS[(char || state || {}).selectedSchool];
     const w = sc && WEAPONS[sc.weapon];
@@ -16535,9 +16534,11 @@
     return !!(w && want && w.kind === want);
   }
   function applySchoolArmsAffinity(mods, char) {
-    if (!hasSchoolArmsAffinity(char)) return;
-    mods.techDamageMult = (mods.techDamageMult || 1) * SCHOOL_ARMS_TECH_MULT;
-    mods.strikeDamageMult = (mods.strikeDamageMult || 1) * SCHOOL_ARMS_STRIKE_MULT;
+    const c = char || state;
+    if (!c || !c.weapon || !schoolWeaponKind(c)) return;
+    if (hasSchoolArmsAffinity(c)) return;
+    mods.techDamageMult = (mods.techDamageMult || 1) * SCHOOL_ARMS_OFFKIND_MULT;
+    mods.strikeDamageMult = (mods.strikeDamageMult || 1) * SCHOOL_ARMS_OFFKIND_MULT;
   }
   function playerSilenced() {
     return !!(combat && combat.player && (combat.player.effects || []).some((ef) => ef.kind === "silence"));
@@ -28924,7 +28925,8 @@
     ${(() => {
       const want = schoolWeaponKind(state);
       if (!want) return "";
-      return hasSchoolArmsAffinity(state) ? `<p style="font-size:0.8rem;color:var(--jade);margin:0 0 0.4rem">✦ <strong>School Arms</strong> — this is your school's ${want}: +${Math.round((SCHOOL_ARMS_TECH_MULT - 1) * 100)}% technique damage, +${Math.round((SCHOOL_ARMS_STRIKE_MULT - 1) * 100)}% strike damage. Your forms were written for it.</p>` : `<p style="font-size:0.8rem;color:var(--crimson);margin:0 0 0.4rem">✦ <strong>School Arms</strong> — your school trains the <strong>${want}</strong>. Wielding one grants +${Math.round((SCHOOL_ARMS_TECH_MULT - 1) * 100)}% technique and +${Math.round((SCHOOL_ARMS_STRIKE_MULT - 1) * 100)}% strike damage; this ${WEAPONS[state.weapon] ? WEAPONS[state.weapon].kind : "weapon"} forfeits that.</p>`;
+      const _off = Math.round((1 - SCHOOL_ARMS_OFFKIND_MULT) * 100);
+      return hasSchoolArmsAffinity(state) ? `<p style="font-size:0.8rem;color:var(--jade);margin:0 0 0.4rem">✦ <strong>School Arms</strong> — this is your school's ${want}, and your forms were written for it. (An off-kind main hand would cost you −${_off}% technique and strike damage.)</p>` : `<p style="font-size:0.8rem;color:var(--crimson);margin:0 0 0.4rem">✦ <strong>Wrong Arms</strong> — your school trains the <strong>${want}</strong>; this ${WEAPONS[state.weapon] ? WEAPONS[state.weapon].kind : "weapon"} fights it. <strong>−${_off}% technique and strike damage</strong> until you carry your school's arms in the main hand. (Off-hand weapons already swing at 75% power and are exempt from this.)</p>`;
     })()}
     <div style="font-size:0.85rem;margin-bottom:0.3rem"><strong>Inscription Slots</strong> (${state.inscriptions.slotted.length}/${cap})</div>
     <div class="slot-row" id="slot-row"></div>`;
