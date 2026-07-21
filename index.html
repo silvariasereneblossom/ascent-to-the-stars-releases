@@ -9062,10 +9062,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Tribulation resistance, resolve under pressure." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.85';
+  var GAME_VERSION = 'v1.27.86';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "0b1c903";
+  var BUILD_SHA = "c4f13f8";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -20209,10 +20209,10 @@
       ]
     };
   });
-  function bossSetCost(bossId) {
+  function bossSetCost(bossId, wantSlot) {
     const tier = BOSSES[bossId].tier;
     const cost = {};
-    const slot = nextBossSetSlot(bossId);
+    const slot = wantSlot || nextBossSetSlot(bossId);
     cost[BOSS_UNIQUE_MATS[bossId][0]] = slot === "chest" ? 7 : 5;
     Object.entries(WEAPON_GEN_TIER[tier].mats).forEach(([m, n]) => {
       cost[m] = (cost[m] || 0) + n;
@@ -20233,15 +20233,16 @@
     const pair = BOSS_SET_SLOTS.find(([slot]) => !bossSetSlotFilled(bossId, slot));
     return pair ? pair[0] : null;
   }
-  function canCraftBossSetPiece(bossId) {
-    if (!nextBossSetSlot(bossId)) return false;
-    const cost = bossSetCost(bossId);
+  function canCraftBossSetPiece(bossId, wantSlot) {
+    const slot = wantSlot || nextBossSetSlot(bossId);
+    if (!slot || bossSetSlotFilled(bossId, slot)) return false;
+    const cost = bossSetCost(bossId, slot);
     return Object.entries(cost).every(([m, n]) => (state.base.materials[m] || 0) >= n);
   }
-  function craftBossSetPiece(bossId) {
-    const slot = nextBossSetSlot(bossId);
-    if (!slot || !canCraftBossSetPiece(bossId)) return false;
-    Object.entries(bossSetCost(bossId)).forEach(([m, n]) => {
+  function craftBossSetPiece(bossId, wantSlot) {
+    const slot = wantSlot || nextBossSetSlot(bossId);
+    if (!slot || !canCraftBossSetPiece(bossId, slot)) return false;
+    Object.entries(bossSetCost(bossId, slot)).forEach(([m, n]) => {
       state.base.materials[m] -= n;
       if (state.base.materials[m] <= 0) delete state.base.materials[m];
     });
@@ -21903,6 +21904,7 @@
     if (piece.kind === "weapon") state.weapons.owned.push(piece.id);
     else state.armor.owned.push(piece.id);
   }
+  var ROAD_INSIGHT_FRACTION = 3e-3;
   var FORTUNE_EVENTS = [
     { id: "quiet", good: false, base: 8, resolve() {
       return "The road is quiet. You return with little but a clearer mind.";
@@ -21920,9 +21922,13 @@
       const nm = MATERIALS[id] && MATERIALS[id].name || id;
       return `A spirit-rich hollow yields <strong>${n}× ${nm}</strong>.`;
     } },
+    // v1.27.86 (tester: "rngesus on the Open Road is more powerful than everything else in the game
+    // combined, lmao" — and the measurement agreed). This paid 6% of the NEXT LAYER's cost, which was
+    // fine until layer costs inflated (GC+ went x5 in v1.27.62): one 5-minute stroll was worth 77-119
+    // normal kills, or 11-22 HOURS of meditating, dwarfing both intended engines. Now pegged to the
+    // REALM TOTAL instead of a layer, at roughly 5-10 kills — a genuinely lucky find, not a career.
     { id: "insight", good: true, base: 8, resolve() {
-      const info = advanceInfo(state);
-      const n = Math.max(20, Math.floor((info ? info.cost : 1e3) * 0.06));
+      const n = Math.max(20, Math.round(realmTotalInsight(state.realm && state.realm.tierIdx || 0) * ROAD_INSIGHT_FRACTION));
       addInsight(n);
       return `An ancient stele gives a flash of comprehension — <strong>+${n} insight</strong>.`;
     } },
@@ -22893,9 +22899,7 @@
         }
       });
     });
-    const equippedArm = new Set(equippedArmorIds(char));
     (char.armor.owned || []).forEach((id) => {
-      if (equippedArm.has(id)) return;
       const a = ARMOR[id];
       if (!a) return;
       const price = MARKET_SELL_PRICE[a.rarity] || 5;
@@ -22918,9 +22922,15 @@
         }
       });
     });
-    const equippedArt = new Set(equippedArtifacts(char));
+    const _artEquippedCount = {};
+    equippedArtifacts(char).forEach((id) => {
+      _artEquippedCount[id] = (_artEquippedCount[id] || 0) + 1;
+    });
     (char.artifacts.owned || []).forEach((id) => {
-      if (equippedArt.has(id)) return;
+      if (_artEquippedCount[id] > 0) {
+        _artEquippedCount[id]--;
+        return;
+      }
       const a = ARTIFACTS[id];
       if (!a) return;
       const price = MARKET_SELL_PRICE[a.rarity] || 5;
@@ -29268,7 +29278,7 @@
           return `<span ${cls}>${n}× ${lbl}</span>`;
         }).join(", ");
         const modStr = modSummary(isActive ? effectiveArrayMods(aid) : a.mods) + (isActive && arrayLevel(aid) ? ` (upgraded +${arrayLevel(aid)})` : "");
-        const tierStr = a.minTier ? ` (requires ${REALMS[a.minTier].name})` : "";
+        const tierStr = a.minTier ? tierMet ? ` (requires ${REALMS[a.minTier].name})` : ` <strong style="color:var(--crimson)">— requires ${REALMS[a.minTier].name}</strong>` : "";
         row.innerHTML = `
       <div class="consumable-info">
         <div class="consumable-name">${a.name} <span style="color:var(--ink-soft);font-size:0.75rem">${a.zh}</span></div>
@@ -29553,23 +29563,24 @@
           setRow.className = "consumable-row";
           setRow.style.cssText = "display:block;font-size:0.8rem";
           const owned2 = bossSetOwnedCount(bid);
-          const nextSlot = nextBossSetSlot(bid);
-          const costStr = Object.entries(bossSetCost(bid)).map(([m, n]) => {
+          const _scoped = slotChips._selected !== "all" && BOSS_SET_SLOTS.some((s) => s[0] === slotChips._selected) ? slotChips._selected : null;
+          const nextSlot = _scoped ? bossSetSlotFilled(bid, _scoped) ? null : _scoped : nextBossSetSlot(bid);
+          const costStr = Object.entries(bossSetCost(bid, nextSlot || void 0)).map(([m, n]) => {
             const has = (state.base.materials[m] || 0) >= n;
             return `<span style="color:${has ? "var(--ink)" : "var(--crimson)"}">${n}x ${MATERIALS[m] && MATERIALS[m].name || m}</span>`;
           }).join(", ");
           setRow.innerHTML = `<strong>${L.setName}</strong> <span style="color:var(--ink-soft)">(${REALMS[BOSSES[bid].tier].name}) · ${owned2}/4 pieces · ${matInfo[1]}: ${have}</span>
           <div style="color:var(--ink-soft);margin-top:0.1rem">2pc: ${modSummary(L.set2)} · 4pc: ${modSummary(L.set4)}</div>
-          ${nextSlot ? `<div style="color:var(--ink-soft);margin-top:0.1rem">Next piece: ${costStr}</div>` : '<div style="color:var(--gold);margin-top:0.1rem">Set complete.</div>'}`;
+          ${nextSlot ? `<div style="color:var(--ink-soft);margin-top:0.1rem">${_scoped ? (BOSS_SET_SLOTS.find((s) => s[0] === _scoped) || [, "Piece"])[1] : "Next piece"}: ${costStr}</div>` : _scoped ? `<div style="color:var(--gold);margin-top:0.1rem">${(BOSS_SET_SLOTS.find((s) => s[0] === _scoped) || [, "This piece"])[1]} already forged.</div>` : '<div style="color:var(--gold);margin-top:0.1rem">Set complete.</div>'}`;
           if (nextSlot) {
             const sb = document.createElement("button");
-            sb.className = "small " + (canCraftBossSetPiece(bid) ? "gold" : "ghost");
+            sb.className = "small " + (canCraftBossSetPiece(bid, nextSlot) ? "gold" : "ghost");
             sb.style.marginTop = "0.25rem";
             const slotLabel = (BOSS_SET_SLOTS.find((s) => s[0] === nextSlot) || [, "Piece"])[1];
             sb.textContent = `Forge ${slotLabel}`;
-            sb.disabled = !canCraftBossSetPiece(bid);
+            sb.disabled = !canCraftBossSetPiece(bid, nextSlot);
             sb.onclick = () => {
-              craftBossSetPiece(bid);
+              craftBossSetPiece(bid, nextSlot);
               render();
             };
             setRow.appendChild(sb);
