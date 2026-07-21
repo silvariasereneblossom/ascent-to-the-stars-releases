@@ -9114,10 +9114,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Tribulation resistance, resolve under pressure." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.90';
+  var GAME_VERSION = 'v1.27.91';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "9126c87";
+  var BUILD_SHA = "a0591ad";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -26293,6 +26293,8 @@
     const icm = Math.max(1.5, 4 - 2.5 / 6 * (tierIdx || 0));
     return Math.round((next.insightPerLayer || 0) * icm);
   }
+  var SOFTCAP_TAIL_K = 0.5;
+  var SOFTCAP_MAX_MULT = 6;
   function softCapInsight(raw, baseline) {
     if (baseline <= 0 || raw <= baseline) return Math.round(raw);
     let result = baseline, over = raw - baseline;
@@ -26302,8 +26304,8 @@
       result += inBand * softRates[i];
       over -= inBand;
     }
-    if (over > 0) result += over * 0.08;
-    return Math.round(result);
+    if (over > 0) result += baseline * SOFTCAP_TAIL_K * Math.log(1 + over / baseline);
+    return Math.round(Math.min(result, baseline * SOFTCAP_MAX_MULT));
   }
   function rollBossGenWeapon(rarity, tier) {
     const pool = Object.keys(WEAPONS).filter((id) => {
