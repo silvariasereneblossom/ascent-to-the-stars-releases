@@ -9114,10 +9114,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Tribulation resistance, resolve under pressure." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.89';
+  var GAME_VERSION = 'v1.27.90';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "14b2f50";
+  var BUILD_SHA = "9126c87";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -23066,7 +23066,7 @@
     });
     return out.sort((a, b) => (a.tier || 0) - (b.tier || 0) || (RARITY_RANK[a.rarity] || 0) - (RARITY_RANK[b.rarity] || 0));
   }
-  var DISASSEMBLE_RARITY_MULT = { common: 0.5, rare: 1, legendary: 2, divine: 3 };
+  var DISASSEMBLE_RARITY_MULT = { common: 0.35, rare: 0.6, legendary: 1, divine: 1.5 };
   var INSCR_DISASSEMBLE_ESSENCE = { common: 10, rare: 50, legendary: 250, divine: 1250 };
   var INSCR_CRAFT_COST = { common: 50, rare: 250, legendary: 1250, divine: 6250 };
   var RARITY_RANK = { common: 0, rare: 1, legendary: 2, divine: 3 };
