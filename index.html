@@ -9062,10 +9062,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Tribulation resistance, resolve under pressure." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.80';
+  var GAME_VERSION = 'v1.27.81';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "89348d1";
+  var BUILD_SHA = "a3b9939";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -21356,6 +21356,11 @@
     { name: "Sect Pillar", zh: "宗门柱石", at: 2e6 },
     { name: "Honored Ancestor", zh: "荣誉老祖", at: 5e6 }
   ];
+  var SECT_RIGHTEOUS_DISCOUNT = 0.6;
+  function sectContribMult(char) {
+    const c = char || (typeof state !== "undefined" ? state : null);
+    return c && c.demonic ? 1 : SECT_RIGHTEOUS_DISCOUNT;
+  }
   var SLAY_BOUNTY_BASE = 10;
   function slayBountyN() {
     return SLAY_BOUNTY_BASE + 5 * (state && state.sectBountyClaims || 0);
@@ -21370,7 +21375,7 @@
   function sectRankEligibleIdx() {
     const lt = state && state.contributionLifetime || 0;
     let idx = 0;
-    for (let i = 0; i < SECT_RANKS.length; i++) if (lt >= SECT_RANKS[i].at) idx = i;
+    for (let i = 0; i < SECT_RANKS.length; i++) if (lt >= SECT_RANKS[i].at * sectContribMult()) idx = i;
     return idx;
   }
   function sectPromotionAvailable() {
@@ -22282,11 +22287,15 @@
     if (cur > floor) setVitality(Math.max(floor, cur - drain));
   }
   var VITALITY_REST_PER_MIN = 0.03;
+  var VITALITY_REST_RIGHTEOUS = 0.07;
+  function vitalityRestRate() {
+    return state && state.demonic ? VITALITY_REST_PER_MIN : VITALITY_REST_RIGHTEOUS;
+  }
   function tickVitalityRecovery(seconds) {
     if (!state || !state.confirmed) return;
     const max = maxVitality();
     const cur = getVitality();
-    if (cur < max) setVitality(Math.min(max, cur + max * VITALITY_REST_PER_MIN * (seconds / 60)));
+    if (cur < max) setVitality(Math.min(max, cur + max * vitalityRestRate() * (seconds / 60)));
   }
   function advanceAge(seconds) {
     if (!state || !state.confirmed) return;
@@ -22296,7 +22305,7 @@
     }
   }
   function bodyQuenchHPAdd() {
-    return (state.bodyQuench || 0) * 120;
+    return (state.bodyQuench || 0) * (state && state.demonic ? 120 : 320);
   }
   var ARRAYS = {
     // v0.62: boss-challenge glyphs — reduce the per-boss cooldown (multiplicative, floor 35%).
@@ -24287,7 +24296,7 @@
     return true;
   }
   function techContribCost(tech) {
-    return (tech.cost || 0) * 5;
+    return Math.round((tech.cost || 0) * 5 * sectContribMult());
   }
   function techniqueBuyable(techId) {
     if (!state || !state.confirmed) return false;
@@ -24407,7 +24416,7 @@
     const base = 63 + char.finalStats.body * 7 + Math.round(realmBonusFor(char).hp * 1.4);
     const mods = computeMods(char);
     const total = base + activeBuffValue("hp_max_add", 0) + boonHPAdd() + skillHPAdd() + (mods.hpBonus || 0) + metaHPAdd() + bodyQuenchHPAdd();
-    return Math.round(total * (mods.hpMult || 1) * cultPowerMults(char).hp * (1 + 0.05 * (char.goldenCoreQuality || 0)) * (isDemonHeart(char) ? 1.15 : char.demonic ? 1.2 : 1));
+    return Math.round(total * (mods.hpMult || 1) * cultPowerMults(char).hp * (1 + 0.05 * (char.goldenCoreQuality || 0)) * (isDemonHeart(char) ? 1.15 : char.demonic ? 1.2 : 1.3));
   }
   function cultLayers(char) {
     if (!char || !char.realm) return 0;
@@ -24843,7 +24852,7 @@
     const gearCult = computeMods(state).cultMult || 1;
     const rootGrade = state.spiritRoot && state.spiritRoot.grade || 1;
     const foundation = state.foundationQuality || 1;
-    const demonCult = isDemonHeart(state) ? 0 : state.demonic ? 0.5 : 1;
+    const demonCult = isDemonHeart(state) ? 0 : state.demonic ? 0.5 : 2;
     return (base + statBonus) * method.mult * locMult * realmMult * cultBuff * boonCultivationMult() * skillCultivationMult() * heritageCult * gearCult * rootGrade * foundation * sectRankMult() * metaCultMult() * demonCult * (1 + 0.2 * goldenCoreLevel());
   }
   function cultivationBoostMult() {
@@ -25181,8 +25190,10 @@
       // v1.27.72: fights open at CURRENT Vitality (float pool, rounded into combat)
       qiMax: computeMaxQi(state),
       qi: computeMaxQi(state),
-      qiShieldMult: softCapQiBarrier(cultPowerMults(state).qiBarrier),
-      // v0.98: qi barrier — qi soaks >1:1 before Vitality; v1.27.20: soft-capped
+      // v1.27.81 (operator): righteous qi-barrier GROWTH is 20% stronger — the shield the patient path
+      // builds by sitting with the dao. Applied to the per-layer growth term, then soft-capped as before.
+      qiShieldMult: softCapQiBarrier(cultPowerMults(state).qiBarrier * (state.demonic ? 1 : 1.2)),
+      // v0.98: qi soaks >1:1 before Vitality; v1.27.20: soft-capped
       spiritMax: computeMaxSpirit(state),
       spirit: computeMaxSpirit(state),
       // v0.64: Dao Heart (will) hardens the stance — posture max scales with it.
@@ -28202,8 +28213,8 @@
     const twistLine = state.selectedSchool && DEMONIC_TWISTS[state.selectedSchool] ? `<div style="font-size:0.8rem;margin-top:0.3rem"><strong>Your school's demonic form${demonLore ? ` — ${demonLore.name} ${demonLore.zh}` : ""}:</strong> ${DEMONIC_TWISTS[state.selectedSchool].twistDesc}${demonLore ? `<div style="color:var(--ink-soft);margin-top:0.15rem">${demonLore.flavor}</div>` : ""}</div>` : "";
     dP.innerHTML = `<strong>The Demonic Path</strong> <span style="color:var(--ink-soft);font-size:0.85rem">魔道</span>
     <p style="font-size:0.85rem;color:var(--ink-soft);margin:0.3rem 0 0.4rem">Any school can be walked as heresy — each has a demonic mirror of itself. The demonic dao grows by SLAUGHTER, not stillness.</p>
-    <div style="font-size:0.82rem"><strong style="color:var(--gold)">Gains:</strong> +4 to every stat · +20% max Vitality · +20% to ALL damage · every landed blow brands HELLFIRE (stacks to 5; each stack burns 1% of the target's MISSING health per turn) · +50% insight from kills, and righteous hunters who ambush you are worth TRIPLE · your school's passive sharpened · six demon-only grounds.</div>
-    <div style="font-size:0.82rem;margin-top:0.25rem"><strong style="color:var(--crimson)">Price:</strong> raw cultivation runs at HALF pace (this dao is fed, not sat with) · a heavenly tribulation bars EVERY breakthrough, against executioners far above your realm · righteous sects hunt you on the road.</div>
+    <div style="font-size:0.82rem"><strong style="color:var(--gold)">Gains:</strong> +4 to every stat · +20% to ALL damage · every landed blow brands HELLFIRE (stacks to 5; each stack burns 1% of the target's MISSING health per turn) · +50% insight from kills, and righteous hunters who ambush you are worth TRIPLE · your school's passive sharpened · six demon-only grounds.</div>
+    <div style="font-size:0.82rem;margin-top:0.25rem"><strong style="color:var(--crimson)">Price:</strong> cultivation crawls at a QUARTER of a righteous cultivator's pace (this dao is fed, not sat with) · you carry ~8% LESS Vitality than the righteous and a weaker qi barrier · you rest less than half as fast between fights, and lean on lifesteal instead · tribulations temper your flesh far less · the sect never discounts a heretic (full contribution for every rank and technique) · a heavenly tribulation bars EVERY breakthrough, against executioners far above your realm · righteous sects hunt you on the road.</div>
     ${twistLine}`;
     const dBtnRow = document.createElement("div");
     dBtnRow.className = "button-row";
@@ -28495,10 +28506,10 @@
     }
     {
       const _vit = Math.round(getVitality()), _vitMax = maxVitality();
-      const _restPerMin = Math.max(1, Math.round(_vitMax * VITALITY_REST_PER_MIN));
+      const _restPerMin = Math.max(1, Math.round(_vitMax * vitalityRestRate()));
       const _atSite = !!state.cultivating;
       const _restLine = _vit >= _vitMax ? '<span style="color:var(--ink-soft)">fully rested</span>' : _atSite ? `<span style="color:var(--crimson)">resting paused — meditating here taxes it instead</span>` : `<span style="color:var(--jade)">resting +${_restPerMin}/min, even while the game is closed</span>`;
-      realmHTML += `<p class="tip" data-tip="Vitality is your health BETWEEN fights — a battle opens at whatever you have left. It is not restored by fighting: a win binds back 15% of max, and the rest comes from RESTING. Resting is automatic and needs no button — it happens whenever you are not meditating at a journey location, continues while the game is closed, and mends ${Math.round(VITALITY_REST_PER_MIN * 100)}% of max Vitality per minute. Vitality potions restore it instantly." style="font-size:0.8rem;margin:0 0 0.4rem"><strong>Vitality</strong> <span style="color:var(--ink-soft);font-size:0.85em">生机</span> <strong id="vit-value" style="color:${_vit < _vitMax * 0.4 ? "var(--crimson)" : "var(--jade)"}">${_vit}</strong> / ${_vitMax} · ${_restLine}</p>`;
+      realmHTML += `<p class="tip" data-tip="Vitality is your health BETWEEN fights — a battle opens at whatever you have left. It is not restored by fighting: a win binds back 15% of max, and the rest comes from RESTING. Resting is automatic and needs no button — it happens whenever you are not meditating at a journey location, continues while the game is closed, and mends ${Math.round(vitalityRestRate() * 100)}% of max Vitality per minute (the righteous rest more than twice as fast as the demonic — their sustain is between fights, not during them). Vitality potions restore it instantly." style="font-size:0.8rem;margin:0 0 0.4rem"><strong>Vitality</strong> <span style="color:var(--ink-soft);font-size:0.85em">生机</span> <strong id="vit-value" style="color:${_vit < _vitMax * 0.4 ? "var(--crimson)" : "var(--jade)"}">${_vit}</strong> / ${_vitMax} · ${_restLine}</p>`;
     }
     realmHTML += `<p class="tip" data-tip="Lifespan is a resource. Age advances slowly and ONLY while actively cultivating (idling/offline are safe); each realm hugely extends your span. Certain pills, schools, and artifacts ADD lifespan; powerful pills SPEND it (a share of what remains) for permanent power. Running out is death by old age — which reincarnates you with your souls intact." style="font-size:0.8rem;color:var(--ink-soft);margin:0 0 0.4rem">Age <strong>${Math.floor(state.age || 16)}</strong> / lifespan <strong>${lifespanMax()}</strong> yrs &middot; <strong style="color:var(--jade)">${Math.floor(lifespanRemaining())}</strong> remaining${state.bodyQuench ? ` · body tempered ×${state.bodyQuench} (+${bodyQuenchHPAdd()} Vitality)` : ""}</p>`;
     if (destinyPicksAvailable() > 0 && eligibleDestinies().length) {
@@ -31075,7 +31086,7 @@
           parsed.sectRampV65 = true;
           parsed.contributionLifetime = (parsed.contributionLifetime || 0) * 10;
           let idx = 0;
-          for (let i = 0; i < SECT_RANKS.length; i++) if (parsed.contributionLifetime >= SECT_RANKS[i].at) idx = i;
+          for (let i = 0; i < SECT_RANKS.length; i++) if (parsed.contributionLifetime >= SECT_RANKS[i].at * sectContribMult(parsed)) idx = i;
           parsed.sectRank = idx;
         }
         if (parsed.sectRank == null) parsed.sectRank = 0;
