@@ -9062,10 +9062,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Tribulation resistance, resolve under pressure." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.86';
+  var GAME_VERSION = 'v1.27.87';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "c4f13f8";
+  var BUILD_SHA = "4f29b63";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -29264,8 +29264,52 @@
       const arrCap = arrayCapacity(state);
       arraysHeader.innerHTML = `<strong>Arrays</strong> <span style="color:var(--ink-soft);font-weight:normal;font-size:0.75rem">— fixtures built into the house. ${active.length}/${arrCap} active.</span>`;
       gP.appendChild(arraysHeader);
+      {
+        if (!state.ui) state.ui = {};
+        const myTier = state.realm.tierIdx || 0;
+        if (state.ui.arraysMaxRealm == null) state.ui.arraysMaxRealm = false;
+        const capOn = state.ui.arraysMaxRealm !== false;
+        const capTier = capOn ? Math.max(0, Math.min(6, state.ui.arraysMaxRealm)) : myTier;
+        const bar2 = document.createElement("div");
+        bar2.className = "button-row";
+        bar2.style.cssText = "flex-wrap:wrap;gap:0.3rem;margin:0.35rem 0";
+        const toggle = document.createElement("button");
+        toggle.className = "small " + (capOn ? "gold" : "ghost");
+        toggle.textContent = capOn ? `Showing arrays up to ${REALMS[capTier].name} — show all` : `Show me only arrays up to ${REALMS[myTier].name}`;
+        toggle.onclick = () => {
+          state.ui.arraysMaxRealm = capOn ? false : myTier;
+          saveChar();
+          render();
+        };
+        bar2.appendChild(toggle);
+        if (capOn) {
+          const dn = document.createElement("button");
+          dn.className = "ghost small";
+          dn.textContent = "−";
+          dn.disabled = capTier <= 0;
+          dn.onclick = () => {
+            state.ui.arraysMaxRealm = Math.max(0, capTier - 1);
+            saveChar();
+            render();
+          };
+          const up = document.createElement("button");
+          up.className = "ghost small";
+          up.textContent = "+";
+          up.disabled = capTier >= 6;
+          up.onclick = () => {
+            state.ui.arraysMaxRealm = Math.min(6, capTier + 1);
+            saveChar();
+            render();
+          };
+          bar2.appendChild(dn);
+          bar2.appendChild(up);
+        }
+        gP.appendChild(bar2);
+        gP._arrayCapTier = capOn ? capTier : null;
+      }
       Object.entries(ARRAYS).forEach(([aid, a]) => {
         if (a.demonicOnly && !state.demonic) return;
+        if (gP._arrayCapTier != null && (a.minTier || 0) > gP._arrayCapTier) return;
         const tier2 = state.realm.tierIdx;
         const isActive = active.includes(aid);
         const tierMet = tier2 >= (a.minTier || 0);
