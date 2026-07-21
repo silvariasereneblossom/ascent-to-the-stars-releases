@@ -9114,10 +9114,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Tribulation resistance, resolve under pressure." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.91';
+  var GAME_VERSION = 'v1.27.92';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "a0591ad";
+  var BUILD_SHA = "904eb47";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -24016,6 +24016,9 @@
     return out;
   }
   var allocated = (st) => STAT_KEYS.reduce((a, k) => a + st.allocation[k], 0);
+  function perStatCap(pool) {
+    return Math.max(5, Math.ceil(((pool != null ? pool : state && state.pool) || 0) / 5));
+  }
   var REALM_FREE_POINTS = 3;
   function allocFreePoint(statKey, delta) {
     if (!state) return;
@@ -25122,6 +25125,18 @@
         el.textContent = formatDuration(rem);
       }
     });
+    const reBtn = document.getElementById("random-encounter");
+    if (reBtn) {
+      const wcd = walkCooldownLeft();
+      if (wcd > 0) {
+        reBtn.textContent = `Walk a Stretch (${Math.ceil(wcd / 6e4)}m)`;
+        reBtn.disabled = true;
+      } else if (reBtn.disabled) {
+        reBtn.disabled = false;
+        reBtn.textContent = "Walk a Stretch";
+        reBtn.onclick = () => walkAStretch();
+      }
+    }
   }
   var combat = null;
   var atTitle = true;
@@ -28277,10 +28292,12 @@
     stP.className = "panel";
     const poolClass = state.poolTier === "legend" ? "legend" : state.poolTier === "big" ? "big" : state.poolTier === "spike" ? "spike" : "";
     const poolLabel = state.poolTier === "legend" ? " — HEAVEN-BLESSED" : state.poolTier === "big" ? " — exceptional" : state.poolTier === "spike" ? " — fortunate" : "";
+    const statCap = perStatCap(state.pool);
     stP.innerHTML = `<div class="roll-header">
     <strong>Roots &amp; Bones</strong>
     <div class="pool-display">Points: <span class="pool-number ${poolClass}">${remaining}</span> / ${state.pool}${poolLabel}</div>
-  </div>`;
+  </div>
+  <p style="font-size:0.78rem;color:var(--ink-soft);margin:0.1rem 0 0">Up to <strong>+${statCap}</strong> per stat.</p>`;
     STATS.forEach((s) => {
       const base = state.baseStats[s.key];
       const alloc = state.allocation[s.key];
@@ -28297,7 +28314,7 @@
       <div class="stat-controls">
         <button data-key="${s.key}" data-delta="-1" ${alloc <= 0 ? "disabled" : ""}>−</button>
         <span class="stat-value">${total}</span>
-        <button data-key="${s.key}" data-delta="1" ${remaining <= 0 || alloc >= 5 ? "disabled" : ""}>+</button>
+        <button data-key="${s.key}" data-delta="1" ${remaining <= 0 || alloc >= statCap ? "disabled" : ""}>+</button>
       </div>
       <div class="stat-breakdown">${base}${alloc ? ` +${alloc}` : ""}${hStr}</div>
     `;
@@ -28307,7 +28324,7 @@
       b.onclick = () => {
         const k = b.dataset.key;
         const d = +b.dataset.delta;
-        if (d > 0 && state.pool - allocated(state) > 0 && state.allocation[k] < 5) state.allocation[k]++;
+        if (d > 0 && state.pool - allocated(state) > 0 && state.allocation[k] < perStatCap(state.pool)) state.allocation[k]++;
         if (d < 0 && state.allocation[k] > 0) state.allocation[k]--;
         render();
       };
