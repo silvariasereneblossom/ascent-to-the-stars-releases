@@ -51,6 +51,20 @@
     text-transform: uppercase;
     margin-top: 0.3rem;
   }
+  /* v1.27.89: in-game masthead — one quiet line instead of a 168px wordmark on every tab. */
+  h1.compact {
+    font-size: 1.05rem;
+    letter-spacing: 0.06em;
+    margin: 0 0 0.1rem;
+    color: var(--ink-soft);
+    font-weight: normal;
+  }
+  h1.compact .sub {
+    display: inline;
+    font-size: 0.72rem;
+    letter-spacing: 0.15em;
+    margin: 0 0 0 0.45rem;
+  }
   h2 { margin: 0 0 0.5rem; font-size: 1.3rem; }
   h3 { margin: 0 0 0.4rem; font-size: 1.05rem; }
   .panel {
@@ -61,6 +75,8 @@
     margin: 1rem 0;
     box-shadow: 0 2px 8px rgba(0,0,0,0.08);
   }
+  /* v1.27.89: the always-visible realm strip earns tighter chrome than a content panel. */
+  .panel.status-strip { padding: 0.55rem 0.8rem; margin: 0.4rem 0 0; }
   .panel.offline-banner {
     background: rgba(58,122,92,0.12);
     border-color: var(--jade);
@@ -91,6 +107,17 @@
   button.small { padding: 0.3rem 0.6rem; font-size: 0.8rem; }
 
   /* Tabs */
+  /* v1.27.89: the strip sticks to the top of the viewport, so switching pages never costs a scroll
+     back up. The negative margin bleeds it over #app's padding so nothing shows through at the edges. */
+  .tabbar-sticky {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    background: var(--parchment);
+    margin: 0.4rem -0.5rem 0.2rem;
+    padding: 0.3rem 0.5rem 0.35rem;
+    box-shadow: 0 6px 7px -6px rgba(42,31,23,0.35);
+  }
   .tabs {
     display: flex;
     gap: 0.3rem;
@@ -98,6 +125,31 @@
     border-bottom: 1px solid var(--ink-soft);
     flex-wrap: wrap;
   }
+  .tabbar-sticky .tabs { margin: 0; }
+  .subtabs {
+    display: flex;
+    gap: 0.25rem;
+    flex-wrap: wrap;
+    margin: 0.4rem 0 0;
+  }
+  .subtab {
+    padding: 0.22rem 0.7rem;
+    font-family: inherit;
+    font-size: 0.8rem;
+    letter-spacing: 0.03em;
+    background: transparent;
+    color: var(--ink-soft);
+    border: 1px solid var(--ink-soft);
+    border-radius: 999px;
+    cursor: pointer;
+  }
+  .subtab.active {
+    background: var(--ink);
+    color: var(--parchment);
+    border-color: var(--ink);
+    font-weight: bold;
+  }
+  .subtab:hover:not(.active) { background: rgba(0,0,0,0.06); color: var(--ink); }
   .tab {
     padding: 0.5rem 1rem;
     background: transparent;
@@ -9062,10 +9114,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Tribulation resistance, resolve under pressure." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.88';
+  var GAME_VERSION = 'v1.27.89';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "faedb38";
+  var BUILD_SHA = "14b2f50";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -22839,6 +22891,32 @@
     saveChar();
     return true;
   }
+  function lockedItems() {
+    if (!state.lockedItems) state.lockedItems = [];
+    return state.lockedItems;
+  }
+  function isItemLocked(key) {
+    return !!key && lockedItems().indexOf(key) >= 0;
+  }
+  function toggleItemLock(key) {
+    if (!key) return;
+    const L = lockedItems(), i = L.indexOf(key);
+    if (i >= 0) L.splice(i, 1);
+    else L.push(key);
+    saveChar();
+  }
+  function lockToggleButton(item) {
+    const b = document.createElement("button");
+    b.className = "ghost small";
+    b.textContent = item.locked ? "🔒 Locked" : "Lock";
+    b.title = item.locked ? "Unlock — allow this to be sold and disassembled again." : "Lock — protect every copy from selling, disassembly, and all bulk buttons.";
+    if (item.locked) b.style.cssText = "color:var(--gold);border-color:var(--gold)";
+    b.onclick = () => {
+      toggleItemLock(item.lockKey);
+      render();
+    };
+    return b;
+  }
   function collectSellableItems(char) {
     const out = [];
     const equippedWids = new Set(equippedWeapons(char));
@@ -22860,6 +22938,7 @@
         rarity: w.rarity,
         price,
         tier: weaponTierOf(wid),
+        lockKey: "weapon:" + wid,
         isJunk: w.tag === "junk",
         // v1.27.84: drives the market's "sell all junk" button
         sell: () => {
@@ -22884,6 +22963,7 @@
         rarity: ins.rarity,
         price,
         tier: inscriptionRealm(id),
+        lockKey: "inscription:" + id,
         sell: () => {
           char.inscriptions.owned.splice(char.inscriptions.owned.indexOf(id), 1);
           char.base.materials.spirit_stone = (char.base.materials.spirit_stone || 0) + price;
@@ -22909,6 +22989,7 @@
         rarity: a.rarity,
         price,
         tier: armorTierOf(id),
+        lockKey: "armor:" + id,
         sell: () => {
           char.armor.owned.splice(char.armor.owned.indexOf(id), 1);
           char.base.materials.spirit_stone = (char.base.materials.spirit_stone || 0) + price;
@@ -22940,6 +23021,7 @@
         rarity: a.rarity,
         price,
         tier: artifactTierOf(id),
+        lockKey: "artifact:" + id,
         sell: () => {
           char.artifacts.owned.splice(char.artifacts.owned.indexOf(id), 1);
           char.base.materials.spirit_stone = (char.base.materials.spirit_stone || 0) + price;
@@ -22966,6 +23048,7 @@
         rarity: "common",
         price: MARKET_SELL_PRICE.common || 5,
         tier,
+        lockKey: "trophy:" + tier + ":" + tr.wname,
         sell: () => {
           remove();
           char.base.materials.spirit_stone = (char.base.materials.spirit_stone || 0) + (MARKET_SELL_PRICE.common || 5);
@@ -22977,6 +23060,9 @@
           grantYield(dyield);
         }
       });
+    });
+    out.forEach((it) => {
+      it.locked = isItemLocked(it.lockKey);
     });
     return out.sort((a, b) => (a.tier || 0) - (b.tier || 0) || (RARITY_RANK[a.rarity] || 0) - (RARITY_RANK[b.rarity] || 0));
   }
@@ -27214,44 +27300,90 @@
     wrap._selected = sel;
     return wrap;
   }
-  function renderTabBar() {
-    const bar2 = document.createElement("div");
-    bar2.className = "tabs";
-    const tabs = [
-      { id: "self", label: "Cultivator" },
-      { id: "skillload", label: "Skill Loadout" },
-      // v1.27.62 (operator): UI split
-      { id: "weaponload", label: "Weapon Loadout" },
-      { id: "armorload", label: "Armor Loadout" },
-      { id: "skills", label: "Skills" },
-      { id: "library", label: "Library" },
-      { id: "forge", label: "Forge Weapon" },
-      { id: "armor", label: "Forge Armor" },
+  var TAB_GROUPS = [
+    { id: "cultivator", label: "Cultivator", tabs: [
+      { id: "self", label: "Overview" },
+      { id: "skills", label: "Skill Tree" },
+      { id: "library", label: "Library" }
+    ] },
+    { id: "loadout", label: "Loadout", tabs: [
+      { id: "skillload", label: "Skills" },
+      { id: "weaponload", label: "Weapons" },
+      { id: "armorload", label: "Armor" }
+    ] },
+    { id: "forge", label: "Forge", tabs: [
+      { id: "forge", label: "Weapons" },
+      { id: "armor", label: "Armor" },
       { id: "materials", label: "Materials" },
-      { id: "garden", label: "House" },
-      { id: "disassembly", label: "Disassembly" },
-      { id: "market", label: "Market" },
-      { id: "sect", label: "Sect" },
+      { id: "disassembly", label: "Disassembly" }
+    ] },
+    { id: "house", label: "House", tabs: [
+      { id: "garden", label: "House" }
+    ] },
+    { id: "world", label: "World", tabs: [
       { id: "journeys", label: "Journeys" },
       { id: "bosses", label: "Bosses" },
+      { id: "sect", label: "Sect" },
+      { id: "market", label: "Market" }
+    ] },
+    { id: "settings", label: "Config", tabs: [
       { id: "config", label: "Config" }
-    ];
-    if (devModeOn()) tabs.push({ id: "dev", label: "★ Dev" });
-    tabs.forEach((t) => {
+    ] }
+  ];
+  function tabGroupsNow() {
+    const groups = TAB_GROUPS.map((g) => ({ ...g, tabs: g.tabs.slice() }));
+    if (devModeOn()) groups[groups.length - 1].tabs.push({ id: "dev", label: "★ Dev" });
+    return groups;
+  }
+  function groupOfTab(tabId) {
+    return tabGroupsNow().find((g) => g.tabs.some((t) => t.id === tabId)) || tabGroupsNow()[0];
+  }
+  function renderTabBar() {
+    const sticky = document.createElement("div");
+    sticky.className = "tabbar-sticky";
+    const groups = tabGroupsNow();
+    const current = groupOfTab(activeTab);
+    if (!state.ui) state.ui = {};
+    if (!state.ui.lastTabIn) state.ui.lastTabIn = {};
+    const bar2 = document.createElement("div");
+    bar2.className = "tabs";
+    groups.forEach((g) => {
       const b = document.createElement("button");
-      b.className = "tab" + (activeTab === t.id ? " active" : "");
-      b.textContent = t.label;
+      b.className = "tab" + (g.id === current.id ? " active" : "");
+      b.textContent = g.label;
       b.onclick = () => {
-        activeTab = t.id;
+        const remembered = state.ui.lastTabIn[g.id];
+        activeTab = g.tabs.some((t) => t.id === remembered) ? remembered : g.tabs[0].id;
+        saveChar();
         render();
       };
       bar2.appendChild(b);
     });
-    app.appendChild(bar2);
+    sticky.appendChild(bar2);
+    if (current.tabs.length > 1) {
+      const sub = document.createElement("div");
+      sub.className = "subtabs";
+      current.tabs.forEach((t) => {
+        const b = document.createElement("button");
+        b.className = "subtab" + (activeTab === t.id ? " active" : "");
+        b.textContent = t.label;
+        b.onclick = () => {
+          activeTab = t.id;
+          state.ui.lastTabIn[current.id] = t.id;
+          saveChar();
+          render();
+        };
+        sub.appendChild(b);
+      });
+      sticky.appendChild(sub);
+    }
+    state.ui.lastTabIn[current.id] = activeTab;
+    app.appendChild(sticky);
   }
   function render() {
     app.innerHTML = "";
     const h1 = document.createElement("h1");
+    if (state && state.confirmed && !atTitle) h1.className = "compact";
     h1.innerHTML = 'Ascent to the Stars<span class="sub">步步登天</span><span style="font-size:0.6rem;color:var(--ink-soft);margin-left:0.5rem;vertical-align:middle;font-weight:normal">' + GAME_VERSION + "</span>";
     app.appendChild(h1);
     syncMusicToContext();
@@ -28560,29 +28692,25 @@
     html += `<p style="margin-top:1rem;font-style:italic;color:var(--ink-soft)">${h.flavor}</p>`;
     p.innerHTML = html;
     const realmP = document.createElement("div");
-    realmP.className = "panel";
+    realmP.className = "panel status-strip";
     const info = advanceInfo(state);
     const progressPct = info ? Math.min(100, state.realm.insight / info.cost * 100) : 100;
     const tier = REALMS[state.realm.tierIdx];
     const insightInt = Math.floor(state.realm.insight);
+    const gcl = goldenCoreLevel();
+    const gcChip = gcl > 0 ? ` <span class="tip" data-tip="Your Golden Core's quality, locked in when you formed it. Per quality level: +1 to all stats, +5% Vitality, +10% Qi, +10% Spirit, +20% cultivation &amp; insight, +1.5% damage; +2 glyph slots per 5 levels." style="font-size:0.8rem;color:var(--gold)">· core ${goldenCoreGradeLabel(gcl)} (${gcl}/10)</span>` : "";
     let realmHTML = `<div class="realm-header">
-      <div><span class="realm-title">${realmLabel(state)}</span><span class="realm-zh">${tier.zh}</span></div>
+      <div><span class="realm-title tip" data-tip="${escapeTip(tier.flavor)}">${realmLabel(state)}</span><span class="realm-zh">${tier.zh}</span>${gcChip}</div>
       <div style="font-size:0.85rem">Insight: <strong id="insight-value">${insightInt}</strong>${info ? " / " + info.cost : ""}</div>
     </div>
-    <div class="realm-bar"><div class="realm-bar-fill" id="insight-bar" style="width:${progressPct}%"></div></div>
-    <p style="font-size:0.85rem;color:var(--ink-soft);margin:0.2rem 0 0.6rem;font-style:italic">${tier.flavor}</p>`;
-    if (goldenCoreLevel() > 0) {
-      const gcl = goldenCoreLevel();
-      realmHTML += `<p class="tip" data-tip="Your Golden Core's quality, locked in when you formed it. Per quality level: +1 to all stats, +5% Vitality, +10% Qi, +10% Spirit, +20% cultivation & insight, +1.5% damage; +2 glyph slots per 5 levels." style="font-size:0.85rem;color:var(--gold);margin:0 0 0.4rem">Golden Core: grade <strong>${goldenCoreGradeLabel(gcl)}</strong> <span style="color:var(--ink-soft)">(quality ${gcl}/10)</span></p>`;
-    }
+    <div class="realm-bar"><div class="realm-bar-fill" id="insight-bar" style="width:${progressPct}%"></div></div>`;
     {
       const _vit = Math.round(getVitality()), _vitMax = maxVitality();
       const _restPerMin = Math.max(1, Math.round(_vitMax * vitalityRestRate()));
       const _atSite = !!state.cultivating;
       const _restLine = _vit >= _vitMax ? '<span style="color:var(--ink-soft)">fully rested</span>' : _atSite ? `<span style="color:var(--crimson)">resting paused — meditating here taxes it instead</span>` : `<span style="color:var(--jade)">resting +${_restPerMin}/min, even while the game is closed</span>`;
-      realmHTML += `<p class="tip" data-tip="Vitality is your health BETWEEN fights — a battle opens at whatever you have left. It is not restored by fighting: a win binds back 15% of max, and the rest comes from RESTING. Resting is automatic and needs no button — it happens whenever you are not meditating at a journey location, continues while the game is closed, and mends ${Math.round(vitalityRestRate() * 100)}% of max Vitality per minute (the righteous rest more than twice as fast as the demonic — their sustain is between fights, not during them). Vitality potions restore it instantly." style="font-size:0.8rem;margin:0 0 0.4rem"><strong>Vitality</strong> <span style="color:var(--ink-soft);font-size:0.85em">生机</span> <strong id="vit-value" style="color:${_vit < _vitMax * 0.4 ? "var(--crimson)" : "var(--jade)"}">${_vit}</strong> / ${_vitMax} · ${_restLine}</p>`;
+      realmHTML += `<p style="font-size:0.8rem;margin:0 0 0.4rem"><span class="tip" data-tip="Vitality is your health BETWEEN fights — a battle opens at whatever you have left. It is not restored by fighting: a win binds back 15% of max, and the rest comes from RESTING. Resting is automatic and needs no button — it happens whenever you are not meditating at a journey location, continues while the game is closed, and mends ${Math.round(vitalityRestRate() * 100)}% of max Vitality per minute (the righteous rest more than twice as fast as the demonic — their sustain is between fights, not during them). Vitality potions restore it instantly."><strong>Vitality</strong> <strong id="vit-value" style="color:${_vit < _vitMax * 0.4 ? "var(--crimson)" : "var(--jade)"}">${_vit}</strong>/${_vitMax} · ${_restLine}</span> <span style="color:var(--ink-soft)">&middot;</span> <span class="tip" data-tip="Lifespan is a resource. Age advances slowly and ONLY while actively cultivating (idling/offline are safe); each realm hugely extends your span. Certain pills, schools, and artifacts ADD lifespan; powerful pills SPEND it (a share of what remains) for permanent power. Running out is death by old age — which reincarnates you with your souls intact." style="color:var(--ink-soft)">Age <strong>${Math.floor(state.age || 16)}</strong>, <strong style="color:var(--jade)">${Math.floor(lifespanRemaining())}</strong> of ${lifespanMax()} yrs left${state.bodyQuench ? ` · tempered ×${state.bodyQuench}` : ""}</span></p>`;
     }
-    realmHTML += `<p class="tip" data-tip="Lifespan is a resource. Age advances slowly and ONLY while actively cultivating (idling/offline are safe); each realm hugely extends your span. Certain pills, schools, and artifacts ADD lifespan; powerful pills SPEND it (a share of what remains) for permanent power. Running out is death by old age — which reincarnates you with your souls intact." style="font-size:0.8rem;color:var(--ink-soft);margin:0 0 0.4rem">Age <strong>${Math.floor(state.age || 16)}</strong> / lifespan <strong>${lifespanMax()}</strong> yrs &middot; <strong style="color:var(--jade)">${Math.floor(lifespanRemaining())}</strong> remaining${state.bodyQuench ? ` · body tempered ×${state.bodyQuench} (+${bodyQuenchHPAdd()} Vitality)` : ""}</p>`;
     if (destinyPicksAvailable() > 0 && eligibleDestinies().length) {
       realmHTML += `<div class="button-row" style="margin-top:0.4rem"><button class="gold" id="choose-destiny">Choose a Destiny (${destinyPicksAvailable()} available)</button></div>
       <p style="font-size:0.78rem;color:#c79cf0;margin-top:0.3rem">A breakthrough has opened a fork in your fate.</p>`;
@@ -28592,7 +28720,6 @@
       realmHTML += `<div class="button-row">
       <button class="gold" id="advance" ${can ? "" : "disabled"}>${info.label} (${info.cost} insight)</button>
     </div>`;
-      if (!can) realmHTML += `<p style="font-size:0.78rem;color:var(--ink-soft);margin-top:0.4rem">Gather more insight through combat and cultivation.</p>`;
     } else if (canAscend()) {
       if (state.demonic && (state.heavenConquest || 0) < 3) {
         const stage = state.heavenConquest || 0;
@@ -28617,14 +28744,11 @@
     if (state.cultivating) {
       const loc = LOCATIONS.find((l) => l.id === state.cultivating.locationId);
       realmHTML += `<div class="cult-status">
-      <div><strong>Cultivating at ${loc ? loc.name : "nowhere"}</strong> · method: ${method.name}</div>
-      <div>Gaining <span class="rate" id="cult-rate">${rate.toFixed(3)}</span> insight/sec (${Math.round(rate * 60)}/min, ${Math.round(rate * 3600)}/hour)</div>
-      <div class="button-row" style="margin-top:0.5rem"><button class="ghost small" id="stop-cult">Stop Cultivating</button></div>
+      <div class="tip" data-tip="Cultivating at a location earns far more than passive gain, but taxes Vitality while you sit. Method: ${escapeTip(method.name)}. That is ${Math.round(rate * 60)} insight/min, ${Math.round(rate * 3600)}/hour."><strong>Cultivating at ${loc ? loc.name : "nowhere"}</strong> · <span class="rate" id="cult-rate">${rate.toFixed(3)}</span>/sec <button class="ghost small" id="stop-cult" style="margin-left:0.5rem">Stop</button></div>
     </div>`;
     } else {
       realmHTML += `<div class="cult-status idle">
-      <div><strong>Passive cultivation</strong> · method: ${method.name}</div>
-      <div>Gaining <span class="rate" id="cult-rate">${rate.toFixed(3)}</span> insight/sec (${Math.round(rate * 60)}/min) just by carrying the dao with you. Meditate at a location for a larger rate.</div>
+      <div class="tip" data-tip="You gain insight just by carrying the dao with you — no action, and it continues while the game is closed. Meditating at a journey location earns much more. Method: ${escapeTip(method.name)}. That is ${Math.round(rate * 60)} insight/min."><strong>Passive cultivation</strong> · <span class="rate" id="cult-rate">${rate.toFixed(3)}</span>/sec <span style="color:var(--ink-soft)">— meditate at a location for more</span></div>
     </div>`;
     }
     realmP.innerHTML = realmHTML;
@@ -29724,14 +29848,23 @@
       bulkRow.style.cssText = "margin:0 0 0.5rem;justify-content:flex-start";
       const bulkBtn = document.createElement("button");
       bulkBtn.className = "ghost small";
-      const fns = disRows.map((it) => it.disassemble);
+      const breakable = disRows.filter((it) => !it.locked);
+      const lockedN = disRows.length - breakable.length;
+      const fns = breakable.map((it) => it.disassemble);
       const allRealms = selectedRealmTab("disassemblyRealm") === "all";
-      bulkBtn.textContent = `Disassemble All ${allRealms ? `(${disRows.length})` : `at this realm (${disRows.length})`}`;
-      armDestructiveButton(bulkBtn, `Tap again — break down all ${fns.length}`, () => {
+      bulkBtn.textContent = `Disassemble All ${allRealms ? `(${breakable.length})` : `at this realm (${breakable.length})`}`;
+      bulkBtn.disabled = !breakable.length;
+      if (breakable.length) armDestructiveButton(bulkBtn, `Tap again — break down all ${fns.length}`, () => {
         fns.forEach((fn) => fn());
         render();
       });
       bulkRow.appendChild(bulkBtn);
+      if (lockedN) {
+        const note = document.createElement("span");
+        note.style.cssText = "font-size:0.78rem;color:var(--gold);align-self:center;margin-left:0.5rem";
+        note.textContent = `🔒 ${lockedN} locked — skipped`;
+        bulkRow.appendChild(note);
+      }
       dlP.appendChild(bulkRow);
     }
     if (!disRows.length) {
@@ -29760,11 +29893,13 @@
         const db = document.createElement("button");
         db.className = "small";
         db.textContent = "Disassemble";
-        db.onclick = () => {
+        if (item.locked) db.disabled = true;
+        else db.onclick = () => {
           item.disassemble();
           render();
         };
         btns.appendChild(db);
+        btns.appendChild(lockToggleButton(item));
         row.appendChild(btns);
         dlP.appendChild(row);
       });
@@ -29967,6 +30102,7 @@
     const jRealm = selectedRealmTab("journeysRealm");
     {
       if (!state.ui) state.ui = {};
+      if (state.ui.journeysUnlockedOnly === void 0) state.ui.journeysUnlockedOnly = true;
       const onlyOpen = !!state.ui.journeysUnlockedOnly;
       const lockedCount = LOCATIONS.filter((l) => realmTabShows("journeysRealm", l.minTier) && (!l.demonOnly || state.demonic) && !locationUnlocked(l)).length;
       const jbar = document.createElement("div");
@@ -30294,7 +30430,7 @@
       traderP.appendChild(resetRow);
     }
     {
-      const junk = sellRows.filter((it) => it.isJunk);
+      const junk = sellRows.filter((it) => it.isJunk && !it.locked);
       if (junk.length) {
         const jRow = document.createElement("div");
         jRow.className = "consumable-row";
@@ -30348,7 +30484,8 @@
         const b = document.createElement("button");
         b.className = "ghost";
         b.textContent = `Sell (+${stack.price})`;
-        b.onclick = () => {
+        if (stack.locked) b.disabled = true;
+        else b.onclick = () => {
           stack.items[0].sell();
           render();
         };
@@ -30357,12 +30494,14 @@
           const ba = document.createElement("button");
           ba.className = "ghost";
           ba.textContent = `Sell all ${n} (+${stack.price * n})`;
-          armDestructiveButton(ba, `Sell ${n}? Tap again`, () => {
+          if (stack.locked) ba.disabled = true;
+          else armDestructiveButton(ba, `Sell ${n}? Tap again`, () => {
             stack.items.map((it) => it.sell).forEach((fn) => fn());
             render();
           });
           btns.appendChild(ba);
         }
+        btns.appendChild(lockToggleButton(stack));
         row.appendChild(btns);
         traderP.appendChild(row);
       });
@@ -30418,6 +30557,12 @@
       note.textContent = `Promotion to ${nextRank.name} unlocks at ${nextRank.at.toLocaleString()} lifetime contribution, then must be EARNED in an examination duel.`;
       sectP.appendChild(note);
     }
+    const sectMark = (key) => {
+      const m = document.createElement("div");
+      m.dataset.sectSection = key;
+      sectP.appendChild(m);
+    };
+    sectMark("duties");
     const dutiesHdr = document.createElement("div");
     dutiesHdr.style.cssText = "font-weight:bold;margin:0.3rem 0";
     dutiesHdr.textContent = "Sect Duties";
@@ -30467,6 +30612,7 @@
     bossNote.style.cssText = "margin:0.2rem 0 0.4rem;opacity:0.85";
     bossNote.textContent = "The sect also pays an automatic bounty for every boss slain (30 + 30 per realm of the boss).";
     sectP.appendChild(bossNote);
+    sectMark("store");
     const storeHdr = document.createElement("div");
     storeHdr.style.cssText = "font-weight:bold;margin:0.6rem 0 0.3rem";
     storeHdr.textContent = "Sect Store — spend contribution";
@@ -30520,6 +30666,7 @@
       row.appendChild(tbtns);
       sectP.appendChild(row);
     });
+    sectMark("arts");
     const artsHdr = document.createElement("div");
     artsHdr.style.cssText = "font-weight:bold;margin:0.6rem 0 0.3rem";
     artsHdr.textContent = "Sect Arts — exclusive techniques, any school";
@@ -30561,6 +30708,7 @@
       row.appendChild(btns);
       sectP.appendChild(row);
     });
+    sectMark("armory");
     const armoryHdr = document.createElement("div");
     armoryHdr.style.cssText = "font-weight:bold;margin:0.6rem 0 0.3rem";
     armoryHdr.textContent = "Sect Armory — relic weapons for contribution";
@@ -30599,6 +30747,7 @@
       row.appendChild(btns);
       sectP.appendChild(row);
     });
+    sectMark("anchor");
     {
       const dh = document.createElement("div");
       dh.style.cssText = "margin-top:0.6rem;border-top:1px solid rgba(192,96,96,0.3);padding-top:0.4rem";
@@ -30695,6 +30844,38 @@
       pBtns.appendChild(rrb);
       dh.appendChild(pBtns);
       sectP.appendChild(dh);
+    }
+    {
+      const SECT_SECTION_LABELS = { duties: "Duties", store: "Store", arts: "Sect Arts", armory: "Armory", anchor: "Soul-Anchor" };
+      const buckets = {};
+      let cur = null;
+      const pinned = [];
+      Array.prototype.slice.call(sectP.children).forEach((node) => {
+        const key = node.dataset && node.dataset.sectSection;
+        if (key) {
+          cur = key;
+          buckets[cur] = buckets[cur] || [];
+          return;
+        }
+        if (cur) buckets[cur].push(node);
+        else pinned.push(node);
+      });
+      const options = Object.keys(SECT_SECTION_LABELS).filter((k) => (buckets[k] || []).length).map((k) => ({ key: k, label: SECT_SECTION_LABELS[k], count: (buckets[k] || []).length }));
+      if (options.length > 1) {
+        const chips = filterChips("sectSection", options, "duties");
+        const sel = chips._selected;
+        Object.keys(buckets).forEach((k) => {
+          if (sel === "all" || sel === k) return;
+          buckets[k].forEach((n) => n.remove());
+        });
+        Array.prototype.slice.call(sectP.children).forEach((n) => {
+          if (n.dataset && n.dataset.sectSection) n.remove();
+        });
+        const anchorNode = pinned.length ? pinned[pinned.length - 1] : null;
+        if (anchorNode && anchorNode.nextSibling) sectP.insertBefore(chips, anchorNode.nextSibling);
+        else if (anchorNode) sectP.appendChild(chips);
+        else sectP.insertBefore(chips, sectP.firstChild);
+      }
     }
     appendPanel(sectP, "sect");
     const fortP = document.createElement("div");
@@ -30859,8 +31040,8 @@
     <button class="ghost" id="restart">Abandon This Life</button>
   </div>
   <p style="font-size:0.75rem;color:var(--ink-soft);margin-top:0.4rem">Starts character creation from the beginning. Your saved character will be erased.</p>`;
-    app.appendChild(dz);
-    armDestructiveButton(document.getElementById("restart"), "Tap again to abandon - all progress lost", () => {
+    appendPanel(dz, "config");
+    armDestructiveButton(dz.querySelector("#restart"), "Tap again to abandon - all progress lost", () => {
       localStorage.removeItem(charKey());
       state = null;
       if (cultivationTimer) {
