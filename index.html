@@ -9062,10 +9062,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Tribulation resistance, resolve under pressure." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.79';
+  var GAME_VERSION = 'v1.27.80';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "1b35f33";
+  var BUILD_SHA = "89348d1";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -9155,7 +9155,7 @@
       name: "Spirit Beast Descendant",
       rarity: "common",
       mods: { body: 4, sense: -1 },
-      extra: "Vitality tempering paths advance 20% faster.",
+      extra: "Body tempering paths advance 20% faster.",
       flavor: "Something older than men stirs in your blood."
     },
     {
@@ -17073,7 +17073,7 @@
     },
     {
       id: "stat_body_1",
-      name: "Vitality Tempering Rite",
+      name: "Body Tempering Rite",
       zh: "体炼仪",
       category: "Stats",
       cost: 4e4,
@@ -22259,16 +22259,15 @@
     return Math.max(0, Math.min(max, state.vitality));
   }
   function setVitality(v) {
-    if (state) state.vitality = Math.max(0, Math.min(maxVitality(), Math.round(v)));
+    if (state) state.vitality = Math.max(0, Math.min(maxVitality(), v));
   }
-  function tickVitalityCultivation(seconds) {
+  function tickVitalityCultivation(seconds, noAmbush) {
     if (!state || !state.cultivating) return;
     const loc = LOCATIONS.find((l) => l.id === state.cultivating.locationId);
     if (!loc) return;
     const t = state.realm.tierIdx || 0;
     if (loc.demonOnly && state.demonic && !isDemonHeart(state)) {
-      const p10 = (HUNTER_AMBUSH_CHANCE[Math.min(6, t)] || 0.05) * 0.5;
-      if (Math.random() < p10 * (seconds / 600)) {
+      if (!noAmbush && Math.random() < (HUNTER_AMBUSH_CHANCE[Math.min(6, t)] || 0.05) * 0.5 * (seconds / 600)) {
         stopCultivation();
         initCombat(["righteous_hunter_t" + Math.min(6, t)]);
         if (combat) pushLog("flavor", "The demonic qi you stirred was a beacon. An inquisitor steps out of it.");
@@ -22282,11 +22281,12 @@
     const cur = getVitality();
     if (cur > floor) setVitality(Math.max(floor, cur - drain));
   }
+  var VITALITY_REST_PER_MIN = 0.03;
   function tickVitalityRecovery(seconds) {
     if (!state || !state.confirmed) return;
     const max = maxVitality();
     const cur = getVitality();
-    if (cur < max) setVitality(Math.min(max, cur + max * 0.03 * (seconds / 60)));
+    if (cur < max) setVitality(Math.min(max, cur + max * VITALITY_REST_PER_MIN * (seconds / 60)));
   }
   function advanceAge(seconds) {
     if (!state || !state.confirmed) return;
@@ -24925,10 +24925,14 @@
     }
     const gain = cultivationRate() * elapsed;
     addInsight(gain);
+    const vitBefore = getVitality();
+    if (state.cultivating) tickVitalityCultivation(elapsed, true);
+    else tickVitalityRecovery(rawElapsed);
+    const vitGain = getVitality() - vitBefore;
     if (state.cultivating) state.cultivating.lastTick = now;
     else state.passiveTick = now;
     saveChar();
-    return { elapsed, rawElapsed, gain, capped: rawElapsed > elapsed };
+    return { elapsed, rawElapsed, gain, capped: rawElapsed > elapsed, vitGain };
   }
   function updateLiveDisplay() {
     if (combat) return;
@@ -24942,7 +24946,7 @@
     const rateEl = document.getElementById("cult-rate");
     if (rateEl) rateEl.textContent = cultivationRate().toFixed(3);
     const vitEl = document.getElementById("vit-value");
-    if (vitEl) vitEl.textContent = getVitality();
+    if (vitEl) vitEl.textContent = Math.round(getVitality());
     state.base.plots.forEach((plot, idx) => {
       const el = document.getElementById(`plot-${idx}-timer`);
       if (el && plot.herb) {
@@ -25144,11 +25148,12 @@
     if (!enemies.length) return;
     const _areaRel = locationCultRel(areaLoc);
     if (_areaRel > 1) {
+      const _powRel = 1 + (_areaRel - 1) * 0.5;
       enemies.forEach((e) => {
         if (/^(righteous_hunter_t|demonic_rival_t)/.test(String(e.id || ""))) return;
-        e.hpMax = Math.round(e.hpMax * _areaRel);
+        e.hpMax = Math.round(e.hpMax * _powRel);
         e.hp = e.hpMax;
-        e.weaponPower = Math.max(1, Math.round(e.weaponPower * (1 + (_areaRel - 1) * 0.5)));
+        e.weaponPower = Math.max(1, Math.round(e.weaponPower * (1 + (_powRel - 1) * 0.5)));
         e._areaRel = _areaRel;
       });
     }
@@ -25172,8 +25177,8 @@
     const p = {
       name: state.name,
       hpMax: computeMaxHP(state),
-      hp: Math.max(1, getVitality()),
-      // v1.27.72: fights open at CURRENT Vitality
+      hp: Math.max(1, Math.round(getVitality())),
+      // v1.27.72: fights open at CURRENT Vitality (float pool, rounded into combat)
       qiMax: computeMaxQi(state),
       qi: computeMaxQi(state),
       qiShieldMult: softCapQiBarrier(cultPowerMults(state).qiBarrier),
@@ -26441,7 +26446,7 @@
         const packHp = combat.enemies.reduce((s, en) => s + (en.hpMax || 0), 0);
         const healed = Math.round(p.hpMax * 0.15) + (state.demonic ? Math.round(packHp * 0.01) : 0);
         setVitality(Math.max(0, p.hp) + healed);
-        pushLog("heal", `  → You bind your wounds: +${healed} Vitality (${getVitality()}/${p.hpMax}).`);
+        pushLog("heal", `  → You bind your wounds: +${healed} Vitality (${Math.round(getVitality())}/${p.hpMax}).`);
       }
       saveChar();
       render();
@@ -28488,7 +28493,13 @@
       const gcl = goldenCoreLevel();
       realmHTML += `<p class="tip" data-tip="Your Golden Core's quality, locked in when you formed it. Per quality level: +1 to all stats, +5% Vitality, +10% Qi, +10% Spirit, +20% cultivation & insight, +1.5% damage; +2 glyph slots per 5 levels." style="font-size:0.85rem;color:var(--gold);margin:0 0 0.4rem">Golden Core: grade <strong>${goldenCoreGradeLabel(gcl)}</strong> <span style="color:var(--ink-soft)">(quality ${gcl}/10)</span></p>`;
     }
-    realmHTML += `<p class="tip" data-tip="Vitality is your health between fights — battles open at whatever you have. Wins bind back 15% of max; cultivating at HOME mends 3%/min; journey meditation taxes it; Vitality potions restore it." style="font-size:0.8rem;margin:0 0 0.4rem"><strong>Vitality</strong> <span style="color:var(--ink-soft);font-size:0.85em">生机</span> <strong id="vit-value" style="color:${getVitality() < maxVitality() * 0.4 ? "var(--crimson)" : "var(--jade)"}">${getVitality()}</strong> / ${maxVitality()}</p>`;
+    {
+      const _vit = Math.round(getVitality()), _vitMax = maxVitality();
+      const _restPerMin = Math.max(1, Math.round(_vitMax * VITALITY_REST_PER_MIN));
+      const _atSite = !!state.cultivating;
+      const _restLine = _vit >= _vitMax ? '<span style="color:var(--ink-soft)">fully rested</span>' : _atSite ? `<span style="color:var(--crimson)">resting paused — meditating here taxes it instead</span>` : `<span style="color:var(--jade)">resting +${_restPerMin}/min, even while the game is closed</span>`;
+      realmHTML += `<p class="tip" data-tip="Vitality is your health BETWEEN fights — a battle opens at whatever you have left. It is not restored by fighting: a win binds back 15% of max, and the rest comes from RESTING. Resting is automatic and needs no button — it happens whenever you are not meditating at a journey location, continues while the game is closed, and mends ${Math.round(VITALITY_REST_PER_MIN * 100)}% of max Vitality per minute. Vitality potions restore it instantly." style="font-size:0.8rem;margin:0 0 0.4rem"><strong>Vitality</strong> <span style="color:var(--ink-soft);font-size:0.85em">生机</span> <strong id="vit-value" style="color:${_vit < _vitMax * 0.4 ? "var(--crimson)" : "var(--jade)"}">${_vit}</strong> / ${_vitMax} · ${_restLine}</p>`;
+    }
     realmHTML += `<p class="tip" data-tip="Lifespan is a resource. Age advances slowly and ONLY while actively cultivating (idling/offline are safe); each realm hugely extends your span. Certain pills, schools, and artifacts ADD lifespan; powerful pills SPEND it (a share of what remains) for permanent power. Running out is death by old age — which reincarnates you with your souls intact." style="font-size:0.8rem;color:var(--ink-soft);margin:0 0 0.4rem">Age <strong>${Math.floor(state.age || 16)}</strong> / lifespan <strong>${lifespanMax()}</strong> yrs &middot; <strong style="color:var(--jade)">${Math.floor(lifespanRemaining())}</strong> remaining${state.bodyQuench ? ` · body tempered ×${state.bodyQuench} (+${bodyQuenchHPAdd()} Vitality)` : ""}</p>`;
     if (destinyPicksAvailable() > 0 && eligibleDestinies().length) {
       realmHTML += `<div class="button-row" style="margin-top:0.4rem"><button class="gold" id="choose-destiny">Choose a Destiny (${destinyPicksAvailable()} available)</button></div>
@@ -28777,7 +28788,7 @@
       const carved = bodyInscriptions();
       const bP = document.createElement("div");
       bP.className = "panel";
-      bP.innerHTML = `<h3>Vitality Inscriptions <span style="font-weight:normal;color:var(--ink-soft);font-size:0.85rem">刻身</span></h3>
+      bP.innerHTML = `<h3>Body Inscriptions <span style="font-weight:normal;color:var(--ink-soft);font-size:0.85rem">刻身</span></h3>
       <p style="font-size:0.85rem;color:var(--ink-soft);margin:0 0 0.4rem">Heresy carves power into the FLESH itself: <strong style="color:var(--gold)">${carved.length}/${bSlots}</strong> body slots (+1 every second realm). Each carved inscription applies its full effect — and raises <strong style="color:var(--crimson)">ALL lifespan consumption by +10%</strong> (currently ${Math.round((lifespanConsumptionMult() - 1) * 100)}%): aging, defeat tolls, and lifespan-burning pills alike.</p>`;
       carved.forEach((id, idx) => {
         const ins = INSCRIPTIONS[id];
