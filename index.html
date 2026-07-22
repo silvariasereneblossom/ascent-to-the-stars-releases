@@ -9114,10 +9114,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Tribulation resistance, resolve under pressure." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.96';
+  var GAME_VERSION = 'v1.27.98';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "aef9a12";
+  var BUILD_SHA = "d6584a2";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -20900,15 +20900,20 @@
               }
             }
           ],
+          // v1.27.98 (tester: "Cracked Mirror-Shard seems too good"): the burst ACCESSORY carried no
+          // glass-cannon fragility (that lives on the light armor, not the accessory), so it out-statted the
+          // offense accessory on weapon power AND crit while ALSO packing crit-damage + an opener — a strict
+          // upgrade. Nerfed to a crit-cannon SIDEGRADE: it now TRADES raw weapon power (below the offense
+          // accessory's) for its crit identity, so a flat-damage build still prefers Notched-Hilt.
           accMods: () => ({
             critChance: r2(0.05 + 6e-3 * t),
-            critMult: r2(1 + 0.2 + 0.04 * t),
+            critMult: r2(1 + 0.15 + 0.03 * t),
             // multiplier
-            firstStrikeBonus: r2(0.1 + 0.02 * t),
-            weaponBonus: 6 + t * 3
+            firstStrikeBonus: r2(0.06 + 0.015 * t),
+            weaponBonus: 3 + t * 2
           }),
           pieceTag: "Almost no armor at all — everything traded for the edge. Hits hardest when you have least left to lose.",
-          accTag: "Pure burst — crit, crit damage, opener, and weapon power. Nothing to protect you; that was the deal."
+          accTag: "Pure burst — high crit and crit damage with a fast opener, but LESS raw weapon power than a bruiser's tally. Pays off only when the crits land."
         }
       };
       Object.entries(AXES).forEach(([axis, A]) => {
@@ -23312,8 +23317,7 @@
     if (!lastDeath || !lastDeath.childhoodSnapshot) return;
     const bonus = Math.floor((lastDeath.lifetimeInsight || 0) * 0.15);
     state = newCharacter((Date.now() ^ Math.floor(Math.random() * 1e9)) >>> 0, lastDeath.childhoodSnapshot);
-    state.realm.insight = bonus;
-    state.lifetimeInsight = bonus;
+    state.reincarnStartInsight = bonus;
     state.realmDefeats = 0;
     state.reincarnatedFrom = { name: lastDeath.name, lifetimeInsight: lastDeath.lifetimeInsight };
     clearLastDeath();
@@ -26032,7 +26036,11 @@
       const broke = applyPosture(e, postureAmt, false, 3 + p.mods.postureBreakBonus);
       if (broke) {
         pushLog("posture", `${e.name}'s stance shatters! Qi damage doubled for ${e.broken} turns.`);
-        onPlayerPostureBreak(p, schoolKit(), null);
+        const _kit = schoolKit();
+        if (_kit.shockOnBreak && applyStatusTo(e, "shock", 0, 1, _kit.passiveName)) {
+          pushLog("posture", `  → ${e.name} is shocked — it cannot act next turn!`);
+        }
+        onPlayerPostureBreak(p, _kit, null);
       }
       if (p.mods.strikeHeal > 0 && res.qiAbsorbed + res.hpDamage > 0) {
         const before = p.hp;
@@ -28421,10 +28429,14 @@
       const keepSchool = state.selectedSchool;
       const keepRerolls = state.rerollsLeft - 1;
       const keepChildhood = state.childhood;
+      const keepReincarn = state.reincarnStartInsight;
+      const keepReincarnFrom = state.reincarnatedFrom;
       state = newCharacter((Date.now() ^ Math.floor(Math.random() * 1e9)) >>> 0, keepChildhood);
       state.name = keepName;
       state.selectedSchool = keepSchool;
       state.rerollsLeft = keepRerolls;
+      if (keepReincarn) state.reincarnStartInsight = keepReincarn;
+      if (keepReincarnFrom) state.reincarnatedFrom = keepReincarnFrom;
       render();
     };
     const hP = document.createElement("div");
@@ -28550,7 +28562,12 @@
       state.loadout = school.techniques.slice();
       state.activeSkills = school.techniques.slice();
       applyDemonicLoadoutSwap(state);
-      state.realm.insight += metaStartInsight();
+      const _reincarn = state.reincarnStartInsight || 0;
+      state.realm.insight += metaStartInsight() + _reincarn;
+      if (_reincarn) {
+        state.lifetimeInsight = (state.lifetimeInsight || 0) + _reincarn;
+        delete state.reincarnStartInsight;
+      }
       state.passiveTick = Date.now();
       applyHeritagePostConfirm(state);
       applyChildhoodPostConfirm(state);
@@ -29492,9 +29509,9 @@
       {
         if (!state.ui) state.ui = {};
         const myTier = state.realm.tierIdx || 0;
-        if (state.ui.arraysMaxRealm == null) state.ui.arraysMaxRealm = false;
+        if (state.ui.arraysMaxRealm == null) state.ui.arraysMaxRealm = true;
         const capOn = state.ui.arraysMaxRealm !== false;
-        const capTier = capOn ? Math.max(0, Math.min(6, state.ui.arraysMaxRealm)) : myTier;
+        const capTier = typeof state.ui.arraysMaxRealm === "number" ? Math.max(0, Math.min(6, state.ui.arraysMaxRealm)) : myTier;
         const bar2 = document.createElement("div");
         bar2.className = "button-row";
         bar2.style.cssText = "flex-wrap:wrap;gap:0.3rem;margin:0.35rem 0";
@@ -29502,7 +29519,7 @@
         toggle.className = "small " + (capOn ? "gold" : "ghost");
         toggle.textContent = capOn ? `Showing arrays up to ${REALMS[capTier].name} — show all` : `Show me only arrays up to ${REALMS[myTier].name}`;
         toggle.onclick = () => {
-          state.ui.arraysMaxRealm = capOn ? false : myTier;
+          state.ui.arraysMaxRealm = capOn ? false : true;
           saveChar();
           render();
         };
