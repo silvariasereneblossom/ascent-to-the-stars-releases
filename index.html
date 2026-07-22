@@ -9114,10 +9114,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Tribulation resistance, resolve under pressure." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.95';
+  var GAME_VERSION = 'v1.27.96';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "f96e87f";
+  var BUILD_SHA = "aef9a12";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -9789,7 +9789,7 @@
       zh: "雷锤炉",
       weapon: "storm_hammer",
       techniques: ["storm_smash", "thunder_pin", "anvil_fall", "forge_stance", "thunder_roll"],
-      specialty: "PURE AOE posture-breaker. Aftershock adds +25% posture damage and every stance you break also Shocks (loses its next action). Break one, stun one, repeat across the field.",
+      specialty: "PURE AOE posture-breaker. Aftershock adds +25% posture damage; every stance you break Shocks the target (loses its next action), RESETS your other cooldowns so you can unload into the opening, and you hit posture-broken foes +10% harder. Break, then bury them before they stand.",
       bestStats: ["body", "spirit"],
       flavor: "A hall of forge-priests. The great anvil at the centre has not been struck by anyone except the sect's founder in four hundred years."
     },
@@ -12661,9 +12661,15 @@
     thunder_hammer: {
       passiveName: "Aftershock",
       passiveZh: "余震",
-      passiveDesc: "+25% posture damage, and breaking a stance also Shocks the target (it loses its next action).",
+      // v1.27.96 (tester: "if stance break is its whole thing it needs to be even better at it... time in
+      // stance break is time you can't re-break, and that means no stuns"). Leaned the whole kit into the
+      // break window: breaking a stance now CLEARS all your other cooldowns (unload the moment it opens) and
+      // you deal +10% to any posture-broken foe — so the downtime while it's stunned becomes your payoff turn.
+      passiveDesc: "+25% posture damage. Breaking a stance Shocks the target (loses its next action), CLEARS all your other technique cooldowns, and you deal +10% damage to any posture-broken foe.",
       postureBonus: 0.25,
-      shockOnBreak: true
+      shockOnBreak: true,
+      resetCdsOnBreak: true,
+      postureBrokenDamageBonus: 0.1
     },
     cloud_traveler: {
       passiveName: "Like the Wind",
@@ -25624,6 +25630,17 @@
       spiritDamage: Math.round(spiritDmg)
     };
   }
+  function onPlayerPostureBreak(p, kit, exceptTechId) {
+    if (!kit || !kit.resetCdsOnBreak || !p || !p.cooldowns) return;
+    let any = false;
+    Object.keys(p.cooldowns).forEach((id) => {
+      if (id !== exceptTechId && p.cooldowns[id] > 0) {
+        p.cooldowns[id] = 0;
+        any = true;
+      }
+    });
+    if (any) pushLog("posture", "  → the aftershock rolls through your forms — all other cooldowns cleared!");
+  }
   function applyPosture(target, amount, isBreaker, breakDuration) {
     if (amount <= 0 && !isBreaker) return false;
     if (amount > 0 && target.effects) {
@@ -25823,6 +25840,7 @@
       if (postureBroken) dmg *= 1.7;
       if (!soulBroken && target.spiritMax > 0) dmg *= 1 + 0.6 * (1 - Math.max(0, target.spirit) / target.spiritMax);
     }
+    if (kit.postureBrokenDamageBonus && target && (target.broken || 0) > 0) dmg *= 1 + kit.postureBrokenDamageBonus;
     const pChill = (p.effects || []).find((ef) => ef.kind === "chill");
     if (pChill) dmg *= Math.max(0, 1 - pChill.value);
     if (p.swordIntent > 0) dmg *= 1 + 0.08 * p.swordIntent;
@@ -26012,7 +26030,10 @@
       const hmStrike = heritageMech();
       const postureAmt = Math.round(10 * PLAYER_POSTURE_MULT * playerPostureRealmScale() * p.mods.postureMult * (hmStrike.postureDamageMult || 1) * (p.buffs.postureBoostTurns > 0 ? p.buffs.postureBoost || 1 : 1));
       const broke = applyPosture(e, postureAmt, false, 3 + p.mods.postureBreakBonus);
-      if (broke) pushLog("posture", `${e.name}'s stance shatters! Qi damage doubled for ${e.broken} turns.`);
+      if (broke) {
+        pushLog("posture", `${e.name}'s stance shatters! Qi damage doubled for ${e.broken} turns.`);
+        onPlayerPostureBreak(p, schoolKit(), null);
+      }
       if (p.mods.strikeHeal > 0 && res.qiAbsorbed + res.hpDamage > 0) {
         const before = p.hp;
         p.hp = Math.min(p.hpMax, p.hp + p.mods.strikeHeal * tribHealMult());
@@ -26213,6 +26234,7 @@
           if (kit.shockOnBreak && applyStatusTo(tgt, "shock", 0, 1, kit.passiveName)) {
             pushLog("posture", `  → ${tgt.name} is shocked — it cannot act next turn!`);
           }
+          onPlayerPostureBreak(p, kit, techId);
         }
       }
       if (tech.effect) {
