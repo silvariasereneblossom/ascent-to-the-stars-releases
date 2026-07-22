@@ -9114,10 +9114,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Tribulation resistance, resolve under pressure." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.93';
+  var GAME_VERSION = 'v1.27.94';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "7f5f37f";
+  var BUILD_SHA = "4cdfdec";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -20989,6 +20989,19 @@
     pass(ARMOR_RECIPES, ARMOR);
     pass(ARTIFACT_RECIPES, WEAPONS);
   })();
+  (function normalizeGearLayerGates() {
+    const isBossGear = (id) => /^(bx|bxg_|bg_|bset_)/.test(id);
+    const norm = (recipes, registry) => recipes.forEach((r) => {
+      const item = registry[r.id];
+      if (!item || isBossGear(r.id)) return;
+      const t = Math.min(6, r.minRealmTier || 0);
+      const layers = REALMS[t] && REALMS[t].layers || 1;
+      const ri = Math.max(0, RARITY_LADDER.indexOf(item.rarity));
+      r.minLayer = Math.min(ri + 1, layers);
+    });
+    norm(ARTIFACT_RECIPES, WEAPONS);
+    norm(ARMOR_RECIPES, ARMOR);
+  })();
   function ownsBossCrossGear(id) {
     const g = BOSS_CROSS_GEAR[id];
     if (!g) return false;
@@ -23101,6 +23114,10 @@
       });
       Object.entries(BOSS_UNIQUE_MATS).forEach(([bid, [id]]) => {
         m[id] = BOSSES[bid].tier;
+      });
+      LOCATIONS.forEach((loc) => {
+        const id = "jd_" + loc.id;
+        if (id in MATERIALS) m[id] = Math.min(6, loc.minTier || 0);
       });
       Object.entries(MATERIALS).forEach(([id, mat]) => {
         if (!(id in m)) m[id] = RARITY_FALLBACK_TIER[mat.rarity] || 0;
