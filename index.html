@@ -9114,10 +9114,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Tribulation resistance, resolve under pressure." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.94';
+  var GAME_VERSION = 'v1.27.95';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "4cdfdec";
+  var BUILD_SHA = "f96e87f";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -9192,8 +9192,12 @@
     {
       name: "Mortal Born",
       rarity: "common",
-      mods: { spirit: 1, body: 1, mind: 1, sense: 1, luck: 1, will: 1 },
-      extra: "Gain one additional reroll at creation.",
+      // v1.27.95 (tester: "it is very funny that mortal born has +6 stats and so do the rares"): a blank-slate
+      // common should not tie the rares on raw stats. Trimmed +1-to-all (+6, the single highest common) to
+      // the four self-made stats (+4, the common baseline) — no inherited spirit root or luck of birth. Its
+      // edge is flexibility: the extra reroll (see ATTS_MECH), not a stat lead.
+      mods: { body: 1, mind: 1, sense: 1, will: 1 },
+      extra: "No inherited gift — but you gain one additional reroll at creation.",
       flavor: "No lineage, no legacy. Only the path ahead."
     },
     {
@@ -23280,6 +23284,10 @@
     };
     lastDeath.soulsEarned = bankSoulsOnDeath(lastDeath.lifetimeInsight);
     try {
+      localStorage.setItem(deathKey(), JSON.stringify(lastDeath));
+    } catch (e) {
+    }
+    try {
       localStorage.removeItem(charKey());
     } catch (e) {
     }
@@ -23302,7 +23310,7 @@
     state.lifetimeInsight = bonus;
     state.realmDefeats = 0;
     state.reincarnatedFrom = { name: lastDeath.name, lifetimeInsight: lastDeath.lifetimeInsight };
-    lastDeath = null;
+    clearLastDeath();
     render();
   }
   var SOUL_UPGRADES = {
@@ -23317,6 +23325,16 @@
   }
   function metaKey(n) {
     return "atts-meta-" + (n == null ? ACTIVE_SLOT : n);
+  }
+  function deathKey(n) {
+    return "atts-death-" + (n == null ? ACTIVE_SLOT : n);
+  }
+  function clearLastDeath() {
+    lastDeath = null;
+    try {
+      localStorage.removeItem(deathKey());
+    } catch (e) {
+    }
   }
   function loadActiveSlot() {
     try {
@@ -27570,7 +27588,7 @@
       nl.className = "ghost";
       nl.textContent = "Abandon & Start a New Life";
       armDestructiveButton(nl, "Tap again to abandon " + state.name, () => {
-        lastDeath = null;
+        clearLastDeath();
         state = newPreCharacter((Date.now() ^ Math.floor(Math.random() * 1e9)) >>> 0);
         atTitle = false;
         render();
@@ -27585,7 +27603,7 @@
       beg.className = "gold";
       beg.textContent = "Begin Cultivation";
       beg.onclick = () => {
-        lastDeath = null;
+        clearLastDeath();
         state = newPreCharacter((Date.now() ^ Math.floor(Math.random() * 1e9)) >>> 0);
         atTitle = false;
         render();
@@ -28190,7 +28208,7 @@
         const freshBtn = document.createElement("button");
         freshBtn.textContent = "Start Fresh";
         freshBtn.onclick = () => {
-          lastDeath = null;
+          clearLastDeath();
           state = newPreCharacter((Date.now() ^ Math.floor(Math.random() * 1e9)) >>> 0);
           render();
         };
@@ -28219,7 +28237,7 @@
   `;
     app.appendChild(p);
     document.getElementById("begin").onclick = () => {
-      lastDeath = null;
+      clearLastDeath();
       state = newPreCharacter((Date.now() ^ Math.floor(Math.random() * 1e9)) >>> 0);
       render();
     };
@@ -31561,6 +31579,17 @@
       }
     }
   } catch (e) {
+  }
+  if (!(state && state.confirmed)) {
+    try {
+      const rawDeath = localStorage.getItem(deathKey());
+      if (rawDeath) {
+        lastDeath = JSON.parse(rawDeath);
+        if (lastDeath) atTitle = false;
+      }
+    } catch (e) {
+      lastDeath = null;
+    }
   }
   if (state && state.confirmed) {
     offlineReport = applyOfflineGains();
