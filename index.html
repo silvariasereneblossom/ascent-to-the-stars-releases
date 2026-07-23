@@ -122,6 +122,13 @@
     vertical-align: baseline;
   }
   .tab .keycap, .subtab .keycap { opacity: 0.75; }
+  /* v1.27.102 (tester: "black on black"): the default keycap is dark-on-light, invisible on the DARK
+     technique buttons (.action-btn is var(--ink)). Flip it to light-on-dark there. */
+  .action-btn:not(.basic) .keycap {
+    color: var(--parchment);
+    background: rgba(255,255,255,0.14);
+    border-color: rgba(244,234,213,0.35);
+  }
 
   /* Tabs */
   /* v1.27.89: the strip sticks to the top of the viewport, so switching pages never costs a scroll
@@ -9131,10 +9138,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Tribulation resistance, resolve under pressure." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.101';
+  var GAME_VERSION = 'v1.27.102';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "6d5bf8b";
+  var BUILD_SHA = "36edbd4";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
