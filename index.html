@@ -9160,10 +9160,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Tribulation resistance, resolve under pressure." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.104';
+  var GAME_VERSION = 'v1.27.105';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "ab0cef9";
+  var BUILD_SHA = "324acc0";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -23005,27 +23005,37 @@
     return true;
   }
   function lockedItems() {
-    if (!state.lockedItems) state.lockedItems = [];
+    if (Array.isArray(state.lockedItems)) {
+      const m = {};
+      state.lockedItems.forEach((k) => {
+        m[k] = 1;
+      });
+      state.lockedItems = m;
+    }
+    if (!state.lockedItems || typeof state.lockedItems !== "object") state.lockedItems = {};
     return state.lockedItems;
   }
-  function isItemLocked(key) {
-    return !!key && lockedItems().indexOf(key) >= 0;
+  function lockedCount(key) {
+    return key && lockedItems()[key] || 0;
   }
-  function toggleItemLock(key) {
+  function setLockedCount(key, n) {
     if (!key) return;
-    const L = lockedItems(), i = L.indexOf(key);
-    if (i >= 0) L.splice(i, 1);
-    else L.push(key);
+    const L = lockedItems();
+    if (n > 0) L[key] = n;
+    else delete L[key];
     saveChar();
   }
-  function lockToggleButton(item) {
+  function lockToggleButton(item, totalCopies) {
     const b = document.createElement("button");
     b.className = "ghost small";
-    b.textContent = item.locked ? "🔒 Locked" : "Lock";
-    b.title = item.locked ? "Unlock — allow this to be sold and disassembled again." : "Lock — protect every copy from selling, disassembly, and all bulk buttons.";
+    const total = totalCopies || 1;
+    const held = lockedCount(item.lockKey);
+    b.textContent = item.locked ? total > 1 ? `🔒 ${held}/${total}` : "🔒 Locked" : "Lock";
+    b.title = item.locked ? `Unlock one copy — ${held} of ${total} currently protected from selling, disassembly and bulk buttons.` : `Lock one copy — protects it from selling, disassembly and every bulk button. Duplicates stay free.`;
     if (item.locked) b.style.cssText = "color:var(--gold);border-color:var(--gold)";
     b.onclick = () => {
-      toggleItemLock(item.lockKey);
+      const cur = lockedCount(item.lockKey);
+      setLockedCount(item.lockKey, item.locked ? cur - 1 : Math.min(total, cur + 1));
       render();
     };
     return b;
@@ -23174,9 +23184,23 @@
         }
       });
     });
-    out.forEach((it) => {
-      it.locked = isItemLocked(it.lockKey);
-    });
+    {
+      const remaining = {}, total = {};
+      out.forEach((it) => {
+        if (it.lockKey) total[it.lockKey] = (total[it.lockKey] || 0) + 1;
+      });
+      out.forEach((it) => {
+        if (!it.lockKey) {
+          it.locked = false;
+          it.copiesOf = 1;
+          return;
+        }
+        if (remaining[it.lockKey] === void 0) remaining[it.lockKey] = lockedCount(it.lockKey);
+        it.copiesOf = total[it.lockKey];
+        it.locked = remaining[it.lockKey] > 0;
+        if (it.locked) remaining[it.lockKey]--;
+      });
+    }
     return out.sort((a, b) => (a.tier || 0) - (b.tier || 0) || (RARITY_RANK[a.rarity] || 0) - (RARITY_RANK[b.rarity] || 0));
   }
   var DISASSEMBLE_RARITY_MULT = { common: 0.35, rare: 0.6, legendary: 1, divine: 1.5 };
@@ -30198,7 +30222,7 @@
           render();
         };
         btns.appendChild(db);
-        btns.appendChild(lockToggleButton(item));
+        btns.appendChild(lockToggleButton(item, item.copiesOf));
         row.appendChild(btns);
         dlP.appendChild(row);
       });
@@ -30403,13 +30427,13 @@
       if (!state.ui) state.ui = {};
       if (state.ui.journeysUnlockedOnly === void 0) state.ui.journeysUnlockedOnly = true;
       const onlyOpen = !!state.ui.journeysUnlockedOnly;
-      const lockedCount = LOCATIONS.filter((l) => realmTabShows("journeysRealm", l.minTier) && (!l.demonOnly || state.demonic) && !locationUnlocked(l)).length;
+      const lockedCount2 = LOCATIONS.filter((l) => realmTabShows("journeysRealm", l.minTier) && (!l.demonOnly || state.demonic) && !locationUnlocked(l)).length;
       const jbar = document.createElement("div");
       jbar.className = "button-row";
       jbar.style.cssText = "flex-wrap:wrap;gap:0.3rem;margin:0 0 0.5rem";
       const jb = document.createElement("button");
       jb.className = "small " + (onlyOpen ? "gold" : "ghost");
-      jb.textContent = onlyOpen ? `Showing only journeys open to you — show all` : `Show only journeys open to me${lockedCount ? ` (hides ${lockedCount})` : ""}`;
+      jb.textContent = onlyOpen ? `Showing only journeys open to you — show all` : `Show only journeys open to me${lockedCount2 ? ` (hides ${lockedCount2})` : ""}`;
       jb.onclick = () => {
         state.ui.journeysUnlockedOnly = !onlyOpen;
         saveChar();
@@ -30771,36 +30795,37 @@
       stacks.sort((a, b) => (kindOrder[a.kindLabel] != null ? kindOrder[a.kindLabel] : 9) - (kindOrder[b.kindLabel] != null ? kindOrder[b.kindLabel] : 9) || (RARITY_RANK[b.rarity] || 0) - (RARITY_RANK[a.rarity] || 0) || a.name.localeCompare(b.name));
       stacks.forEach((stack) => {
         const n = stack.items.length;
+        const free = stack.items.filter((it) => !it.locked);
+        const heldN = n - free.length;
         const row = document.createElement("div");
         row.className = "consumable-row";
         row.innerHTML = `
         <div class="consumable-info">
           <div class="consumable-name">${stack.name}${n > 1 ? ` <strong style="color:var(--gold)">× ${n}</strong>` : ""} <span style="color:var(--ink-soft);font-size:0.75rem">${stack.kindLabel} · ${stack.rarity}</span></div>
-          <div class="consumable-desc">Sells for ${stack.price} spirit stones${n > 1 ? ` each · ${stack.price * n} for all ${n}` : ""}.</div>
+          <div class="consumable-desc">Sells for ${stack.price} spirit stones${n > 1 ? ` each · ${stack.price * free.length} for the ${free.length} unlocked` : ""}.${heldN ? ` <span style="color:var(--gold)">🔒 ${heldN} kept back.</span>` : ""}</div>
         </div>`;
         const btns = document.createElement("div");
         btns.className = "consumable-buttons";
         const b = document.createElement("button");
         b.className = "ghost";
         b.textContent = `Sell (+${stack.price})`;
-        if (stack.locked) b.disabled = true;
+        if (!free.length) b.disabled = true;
         else b.onclick = () => {
-          stack.items[0].sell();
+          free[0].sell();
           render();
         };
         btns.appendChild(b);
-        if (n > 1) {
+        if (free.length > 1) {
           const ba = document.createElement("button");
           ba.className = "ghost";
-          ba.textContent = `Sell all ${n} (+${stack.price * n})`;
-          if (stack.locked) ba.disabled = true;
-          else armDestructiveButton(ba, `Sell ${n}? Tap again`, () => {
-            stack.items.map((it) => it.sell).forEach((fn) => fn());
+          ba.textContent = `Sell all ${free.length} (+${stack.price * free.length})`;
+          armDestructiveButton(ba, `Sell ${free.length}? Tap again`, () => {
+            free.map((it) => it.sell).forEach((fn) => fn());
             render();
           });
           btns.appendChild(ba);
         }
-        btns.appendChild(lockToggleButton(stack));
+        btns.appendChild(lockToggleButton({ lockKey: stack.lockKey, locked: heldN > 0 }, n));
         row.appendChild(btns);
         traderP.appendChild(row);
       });
