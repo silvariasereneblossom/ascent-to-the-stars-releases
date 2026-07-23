@@ -9180,10 +9180,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Tribulation resistance, resolve under pressure." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.109';
+  var GAME_VERSION = 'v1.27.110';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "6cce81b";
+  var BUILD_SHA = "222bfe1";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -27632,6 +27632,49 @@
     }
     return wrap;
   }
+  function sectionCollapsed(key) {
+    return !!(state.ui && state.ui.collapsed && state.ui.collapsed[key]);
+  }
+  function toggleSection(key) {
+    if (!state.ui) state.ui = {};
+    if (!state.ui.collapsed) state.ui.collapsed = {};
+    if (state.ui.collapsed[key]) delete state.ui.collapsed[key];
+    else state.ui.collapsed[key] = 1;
+    saveChar();
+    render();
+  }
+  function isPinned(id) {
+    return !!(state.ui && state.ui.pinned && state.ui.pinned[id]);
+  }
+  function togglePin(id) {
+    if (!state.ui) state.ui = {};
+    if (!state.ui.pinned) state.ui.pinned = {};
+    if (state.ui.pinned[id]) delete state.ui.pinned[id];
+    else state.ui.pinned[id] = 1;
+    saveChar();
+    render();
+  }
+  function collapsibleHeader(key, titleHtml, note) {
+    const h = document.createElement("div");
+    h.style.cssText = "font-size:0.85rem;margin-top:0.6rem;display:flex;align-items:center;gap:0.4rem;cursor:pointer;user-select:none";
+    h.innerHTML = `<span style="color:var(--ink-soft);width:0.8em">${sectionCollapsed(key) ? "▸" : "▾"}</span>
+    <span style="flex:1 1 auto;min-width:0">${titleHtml}</span>
+    ${note ? `<span style="font-size:0.72rem;color:var(--ink-soft);white-space:nowrap">${note}</span>` : ""}`;
+    h.onclick = () => toggleSection(key);
+    return h;
+  }
+  function pinButton(id) {
+    const b = document.createElement("button");
+    b.className = "ghost small";
+    b.style.cssText = "padding:0.1rem 0.4rem" + (isPinned(id) ? ";color:var(--gold);border-color:var(--gold)" : "");
+    b.textContent = isPinned(id) ? "📌" : "Pin";
+    b.title = isPinned(id) ? "Unpin — let this fall back into the list." : "Pin — keep this at the top, even when the section is collapsed.";
+    b.onclick = (ev) => {
+      ev.stopPropagation();
+      togglePin(id);
+    };
+    return b;
+  }
   function filterChips(uiKey, options, defaultKey) {
     const wrap = document.createElement("div");
     wrap.className = "button-row";
@@ -29848,23 +29891,26 @@
       gP.appendChild(herbWrap);
     }
     if (houseTab === "alchemy" && Object.keys(state.base.materials || {}).length) {
-      const matHeader = document.createElement("div");
-      matHeader.style.fontSize = "0.85rem";
-      matHeader.style.marginTop = "0.4rem";
-      matHeader.innerHTML = `<strong>Materials</strong>`;
-      gP.appendChild(matHeader);
-      const matWrap = document.createElement("div");
-      matWrap.className = "inventory-list";
-      Object.entries(state.base.materials).forEach(([id, count]) => {
-        const mat = MATERIALS[id];
-        if (!mat) return;
-        const chip = document.createElement("span");
-        chip.className = "inv-chip tip";
-        chip.setAttribute("data-tip", mat.desc);
-        chip.innerHTML = `<strong>${mat.name}</strong> × ${count}`;
-        matWrap.appendChild(chip);
-      });
-      gP.appendChild(matWrap);
+      const nMats = Object.keys(state.base.materials).filter((id) => MATERIALS[id]).length;
+      gP.appendChild(collapsibleHeader(
+        "house_materials",
+        "<strong>Materials</strong>",
+        sectionCollapsed("house_materials") ? `${nMats} hidden` : `${nMats}`
+      ));
+      if (!sectionCollapsed("house_materials")) {
+        const matWrap = document.createElement("div");
+        matWrap.className = "inventory-list";
+        Object.entries(state.base.materials).forEach(([id, count]) => {
+          const mat = MATERIALS[id];
+          if (!mat) return;
+          const chip = document.createElement("span");
+          chip.className = "inv-chip tip";
+          chip.setAttribute("data-tip", mat.desc);
+          chip.innerHTML = `<strong>${mat.name}</strong> × ${count}`;
+          matWrap.appendChild(chip);
+        });
+        gP.appendChild(matWrap);
+      }
     }
     if (houseTab === "garden") {
       const plotsHeader = document.createElement("div");
@@ -29929,17 +29975,36 @@
       gP.appendChild(plotsWrap);
     }
     const appendConsumableSection = (kind, title, blurb) => {
-      const hdr = document.createElement("div");
-      hdr.style.fontSize = "0.85rem";
-      hdr.style.marginTop = "0.6rem";
-      hdr.innerHTML = `<strong>${title}</strong> <span style="color:var(--ink-soft);font-weight:normal;font-size:0.75rem">— ${blurb}</span>`;
-      gP.appendChild(hdr);
       const rarityOrder = { common: 0, rare: 1, legendary: 2, divine: 3 };
       const visible = Object.entries(CONSUMABLES).filter(([id, c]) => c.kind === kind && c.recipe && (meetsRealmReq(c) || (state.base.consumables[id] || 0) > 0)).sort((a, b) => (a[1].minRealmTier || 0) - (b[1].minRealmTier || 0) || (a[1].minLayer || 0) - (b[1].minLayer || 0) || (rarityOrder[a[1].rarity] || 0) - (rarityOrder[b[1].rarity] || 0));
+      const secKey = "house_" + kind;
+      const collapsed = sectionCollapsed(secKey);
+      const pinned = visible.filter(([id]) => isPinned(id));
+      const note = collapsed ? `${pinned.length ? `${pinned.length} pinned · ` : ""}${visible.length - pinned.length} hidden` : `${visible.length}`;
+      gP.appendChild(collapsibleHeader(
+        secKey,
+        `<strong>${title}</strong> <span style="color:var(--ink-soft);font-weight:normal;font-size:0.75rem">— ${blurb}</span>`,
+        note
+      ));
+      const addRow = ([id, c]) => {
+        const row = renderConsumableRow(id, c, "craft");
+        const btns = row.querySelector(".consumable-buttons");
+        if (btns) btns.appendChild(pinButton(id));
+        else row.appendChild(pinButton(id));
+        gP.appendChild(row);
+      };
+      if (pinned.length) {
+        const ph = document.createElement("div");
+        ph.style.cssText = "font-size:0.72rem;color:var(--gold);margin:0.35rem 0 0.1rem";
+        ph.textContent = "📌 Pinned";
+        gP.appendChild(ph);
+        pinned.forEach(addRow);
+      }
+      if (collapsed) return;
       const cKey = "consumable_" + kind;
       gP.appendChild(realmTabChips(cKey, (t) => visible.filter(([, c]) => (c.minRealmTier || 0) === t).length));
       let lastTier = -1;
-      visible.filter(([, c]) => realmTabShows(cKey, c.minRealmTier || 0)).forEach(([id, c]) => {
+      visible.filter(([id, c]) => !isPinned(id) && realmTabShows(cKey, c.minRealmTier || 0)).forEach(([id, c]) => {
         const tier2 = c.minRealmTier || 0;
         if (tier2 !== lastTier) {
           lastTier = tier2;
@@ -29948,7 +30013,7 @@
           th.innerHTML = `<strong>${REALMS[tier2].name}</strong> ${REALMS[tier2].zh || ""}`;
           gP.appendChild(th);
         }
-        gP.appendChild(renderConsumableRow(id, c, "craft"));
+        addRow([id, c]);
       });
     };
     if (houseTab === "alchemy") {
