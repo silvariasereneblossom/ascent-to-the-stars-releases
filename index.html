@@ -77,6 +77,26 @@
   }
   /* v1.27.89: the always-visible realm strip earns tighter chrome than a content panel. */
   .panel.status-strip { padding: 0.55rem 0.8rem; margin: 0.4rem 0 0; }
+  /* v1.27.108: persistent Resources & Effects dock. Inline + compact by default (mobile keeps its scroll
+     budget); on a wide screen it moves into the empty gutter beside the centred column as a real second
+     column — fixed, independently scrollable, and present on every tab. */
+  .panel.side-dock { padding: 0.5rem 0.7rem; margin: 0.4rem 0 0; }
+  .side-dock .dock-title { font-weight: bold; font-size: 0.82rem; }
+  .side-dock .inventory-list { gap: 0.25rem; }
+  .side-dock .inv-chip, .side-dock .buff-chip { font-size: 0.75rem; }
+  @media (min-width: 1280px) {
+    .panel.side-dock {
+      position: fixed;
+      top: 4.5rem;
+      left: calc(50% + 400px);
+      width: 240px;
+      max-height: 78vh;
+      overflow-y: auto;
+      margin: 0;
+      z-index: 20;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.12);
+    }
+  }
   .panel.offline-banner {
     background: rgba(58,122,92,0.12);
     border-color: var(--jade);
@@ -9160,10 +9180,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Tribulation resistance, resolve under pressure." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.107';
+  var GAME_VERSION = 'v1.27.108';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "794fe5a";
+  var BUILD_SHA = "5104c6c";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -25367,6 +25387,8 @@
       }
     });
     state.base.buffs.forEach((buff, i) => {
+      const dockEl = document.getElementById(`dockbuff-${i}-timer`);
+      if (dockEl) dockEl.textContent = formatDuration(Math.max(0, (buff.expiresAt - Date.now()) / 1e3));
       const el = document.getElementById(`buff-${i}-timer`);
       if (el) {
         const rem = Math.max(0, (buff.expiresAt - Date.now()) / 1e3);
@@ -27637,6 +27659,78 @@
   function groupOfTab(tabId) {
     return tabGroupsNow().find((g) => g.tabs.some((t) => t.id === tabId)) || tabGroupsNow()[0];
   }
+  var BUFF_KIND_LABEL = {
+    cultivation_mult: "cultivation rate",
+    hp_max_add: "max Vitality",
+    weapon_mult: "weapon power",
+    incoming_mult: "incoming damage"
+  };
+  function dockIsWide() {
+    try {
+      return !!(window.matchMedia && window.matchMedia("(min-width: 1280px)").matches);
+    } catch (e) {
+      return false;
+    }
+  }
+  function buildResourceDock() {
+    const d = document.createElement("div");
+    d.className = "panel side-dock";
+    const stones = state.base.materials && state.base.materials.spirit_stone || 0;
+    const essence = state.inscriptions && state.inscriptions.essence || 0;
+    const contrib = state.contribution || 0;
+    const buffsNow = state.base && state.base.buffs || [];
+    if (!dockIsWide()) {
+      if (!state.ui) state.ui = {};
+      const open = !!state.ui.dockOpen;
+      if (!open) {
+        d.style.cssText = "padding:0.35rem 0.7rem;margin:0.4rem 0 0";
+        const soonest = buffsNow.reduce((a, b) => Math.min(a, b.expiresAt), Infinity);
+        const eff = buffsNow.length ? `${buffsNow.length} effect${buffsNow.length === 1 ? "" : "s"} · ${formatDuration(Math.max(0, (soonest - Date.now()) / 1e3))}` : "no effects";
+        d.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;gap:0.5rem;font-size:0.78rem">
+        <span><strong>${stones.toLocaleString()}</strong> stones <span style="color:var(--ink-soft)">·</span> ${eff}</span>
+        <button class="ghost small" id="dock-toggle" style="padding:0.1rem 0.5rem">Show</button></div>`;
+        const openBtn = d.querySelector("#dock-toggle");
+        if (openBtn) openBtn.onclick = () => {
+          state.ui.dockOpen = true;
+          saveChar();
+          render();
+        };
+        return d;
+      }
+    }
+    const chips = [];
+    chips.push(`<span class="inv-chip tip" data-tip="Spirit stones — the caravan's currency, and what buys weapon refinements."><strong>Stones</strong> ${stones.toLocaleString()}</span>`);
+    if (essence) chips.push(`<span class="inv-chip tip" data-tip="Inscription essence — spent at the workbench to forge new inscriptions."><strong>Essence</strong> ${essence.toLocaleString()}</span>`);
+    if (contrib) chips.push(`<span class="inv-chip tip" data-tip="Sect contribution — spent in the Sect Store on techniques, relics and requisitions."><strong>Contribution</strong> ${contrib.toLocaleString()}</span>`);
+    const narrowOpen = !dockIsWide();
+    let html = `<div class="dock-title" style="display:flex;justify-content:space-between;align-items:center;gap:0.5rem">
+      <span>Resources &amp; Effects <span style="font-weight:normal;color:var(--ink-soft);font-size:0.75rem">随身</span></span>
+      ${narrowOpen ? '<button class="ghost small" id="dock-toggle" style="padding:0.1rem 0.5rem;font-weight:normal">Hide</button>' : ""}
+    </div>
+    <div class="inventory-list">${chips.join("")}</div>`;
+    const buffs = state.base && state.base.buffs || [];
+    if (buffs.length) {
+      const bchips = buffs.map((buff, i) => {
+        const rem = Math.max(0, (buff.expiresAt - Date.now()) / 1e3);
+        const kind = BUFF_KIND_LABEL[buff.kind] || buff.kind;
+        const val = buff.kind === "hp_max_add" ? `+${buff.value}` : `×${buff.value.toFixed(2)}`;
+        return `<span class="buff-chip tip" data-tip="${escapeTip(`${buff.sourceName}: ${kind} ${val}`)}">${buff.sourceName} · ${val} · <span id="dockbuff-${i}-timer">${formatDuration(rem)}</span></span>`;
+      }).join("");
+      html += `<div class="dock-title" style="margin-top:0.45rem">Active Effects</div><div class="inventory-list">${bchips}</div>`;
+    } else {
+      html += `<div style="font-size:0.75rem;color:var(--ink-soft);font-style:italic;margin-top:0.35rem">No effects running. Brew in the House.</div>`;
+    }
+    d.innerHTML = html;
+    if (narrowOpen) {
+      const hideBtn = d.querySelector("#dock-toggle");
+      if (hideBtn) hideBtn.onclick = () => {
+        state.ui.dockOpen = false;
+        saveChar();
+        render();
+      };
+    }
+    return d;
+  }
   var HOUSE_SUBS = [["garden", "Garden"], ["alchemy", "Alchemy"], ["arrays", "Arrays"], ["rift", "Rift-Gates"]];
   function flatPages() {
     const out = [];
@@ -29116,6 +29210,7 @@
     realmP.innerHTML = realmHTML;
     app.appendChild(realmP);
     renderTabBar();
+    app.appendChild(buildResourceDock());
     appendPanel(p, "self");
     if (Object.values(state.statPips || {}).some((v) => v > 0)) {
       const pipP = document.createElement("div");
