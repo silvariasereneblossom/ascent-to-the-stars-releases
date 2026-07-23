@@ -9180,10 +9180,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Tribulation resistance, resolve under pressure." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.110';
+  var GAME_VERSION = 'v1.27.111';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "222bfe1";
+  var BUILD_SHA = "3a78849";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -24535,6 +24535,16 @@
     const baseMax = Math.max(1, computeMaxHP(state) - activeBuffValue("hp_max_add", 0));
     return Math.round((BODY_POTION_PCT[potionTier] || 0.1) * baseMax);
   }
+  function activeEffectsFor(c) {
+    if (!c || !state || !state.base || !Array.isArray(c.effects)) return [];
+    const now = Date.now();
+    const kinds = [...new Set(c.effects.filter((ef) => ef.durationMin).map((ef) => ef.kind))];
+    const out = [];
+    kinds.forEach((k) => {
+      (state.base.buffs || []).filter((b) => b.kind === k && b.expiresAt > now).sort((a, b) => buffPotency(b) - buffPotency(a)).forEach((b) => out.push(`${b.sourceName} ${b.kind === "hp_max_add" ? `+${b.value}` : `×${b.value.toFixed(2)}`} (${formatDuration((b.expiresAt - now) / 1e3)})`));
+    });
+    return out;
+  }
   function consumeBlockedBy(recipeId) {
     const c = CONSUMABLES[recipeId];
     if (!c || !state || !state.base || !Array.isArray(c.effects) || !c.effects.length) return null;
@@ -30537,33 +30547,54 @@
       empty.textContent = "Nothing to break down at this realm filter.";
       dlP.appendChild(empty);
     } else {
-      disRows.forEach((item) => {
+      const dStacks = [], dByKey = {};
+      disRows.forEach((it) => {
+        const k = it.lockKey || `${it.kindLabel}|${it.name}|${it.rarity}`;
+        if (!dByKey[k]) {
+          dByKey[k] = { ...it, items: [it] };
+          dStacks.push(dByKey[k]);
+        } else dByKey[k].items.push(it);
+      });
+      dStacks.forEach((stack) => {
+        const n = stack.items.length;
+        const free = stack.items.filter((i) => !i.locked);
+        const heldN = n - free.length;
         let yStr;
-        if (item.essenceYield) {
-          yStr = `+${item.essenceYield} essence`;
+        if (stack.essenceYield) {
+          yStr = `+${stack.essenceYield} essence`;
         } else {
-          const yld = item.dyield || disassembleYield(item.rarity);
-          yStr = Object.entries(yld).map(([m, n]) => `${n}x ${MATERIALS[m] && MATERIALS[m].name || m}`).join(", ");
+          const yld = stack.dyield || disassembleYield(stack.rarity);
+          yStr = Object.entries(yld).map(([m, q]) => `${q}x ${MATERIALS[m] && MATERIALS[m].name || m}`).join(", ");
         }
         const row = document.createElement("div");
         row.className = "consumable-row";
         row.innerHTML = `
         <div class="consumable-info">
-          <div class="consumable-name">${item.name} <span style="color:var(--ink-soft);font-size:0.75rem">${item.kindLabel} · ${item.rarity}</span></div>
-          <div class="consumable-desc">Yields: ${yStr}.</div>
+          <div class="consumable-name">${stack.name}${n > 1 ? ` <strong style="color:var(--gold)">× ${n}</strong>` : ""} <span style="color:var(--ink-soft);font-size:0.75rem">${stack.kindLabel} · ${stack.rarity}</span></div>
+          <div class="consumable-desc">Yields: ${yStr}${n > 1 ? " each" : ""}.${heldN ? ` <span style="color:var(--gold)">🔒 ${heldN} kept back.</span>` : ""}</div>
         </div>`;
         const btns = document.createElement("div");
         btns.className = "consumable-buttons";
         const db = document.createElement("button");
         db.className = "small";
         db.textContent = "Disassemble";
-        if (item.locked) db.disabled = true;
+        if (!free.length) db.disabled = true;
         else db.onclick = () => {
-          item.disassemble();
+          free[0].disassemble();
           render();
         };
         btns.appendChild(db);
-        btns.appendChild(lockToggleButton(item, item.copiesOf));
+        if (free.length > 1) {
+          const dall = document.createElement("button");
+          dall.className = "small ghost";
+          dall.textContent = `Disassemble all ${free.length}`;
+          armDestructiveButton(dall, `Break down ${free.length}? Tap again`, () => {
+            free.map((i) => i.disassemble).forEach((fn) => fn());
+            render();
+          });
+          btns.appendChild(dall);
+        }
+        btns.appendChild(lockToggleButton({ lockKey: stack.lockKey, locked: heldN > 0 }, n));
         row.appendChild(btns);
         dlP.appendChild(row);
       });
@@ -31734,11 +31765,19 @@
     }).join(", ");
     const reqLabel = c.minRealmTier ? `${REALMS[c.minRealmTier].name}${c.minLayer ? " L" + c.minLayer : ""}` : "";
     const reqHTML = !meetsReq ? `<div class="consumable-desc" style="color:var(--crimson)">Requires ${reqLabel}.</div>` : "";
+    const running = activeEffectsFor(c);
+    const blockNow = consumeBlockedBy(id);
+    let stackHTML = "";
+    if (blockNow) {
+      stackHTML = `<div class="consumable-desc" style="color:var(--crimson)">Won't stack — ${blockNow.map((b) => b.sourceName).join(" and ")} already outclass it. Only the two strongest of a kind apply.</div>`;
+    } else if (running.length) {
+      stackHTML = `<div class="consumable-desc" style="color:var(--jade)">Already running: ${running.join(" · ")}</div>`;
+    }
     const infoDiv = document.createElement("div");
     infoDiv.style.flex = "1 1 55%";
     infoDiv.innerHTML = `<div class="consumable-name">${c.name} <span style="color:var(--ink-soft);font-weight:normal;font-size:0.8rem">${c.zh}</span> <span class="rarity-tag rarity-${c.rarity}">${c.rarity}</span> ${owned ? `× <strong>${owned}</strong>` : ""}</div>
     <div class="consumable-desc">${c.desc}${recipeText ? "<br>Recipe: " + recipeText : ""}</div>
-    ${reqHTML}`;
+    ${reqHTML}${stackHTML}`;
     row.appendChild(infoDiv);
     const btns = document.createElement("div");
     btns.className = "plot-buttons";
