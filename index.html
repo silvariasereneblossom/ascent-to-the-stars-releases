@@ -9180,10 +9180,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Tribulation resistance, resolve under pressure." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.108';
+  var GAME_VERSION = 'v1.27.109';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "5104c6c";
+  var BUILD_SHA = "6cce81b";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -24265,6 +24265,51 @@
     return out;
   }
   var allocated = (st) => STAT_KEYS.reduce((a, k) => a + st.allocation[k], 0);
+  function bodyFracOf(char) {
+    const fs = char && char.finalStats || {};
+    const tot = STAT_KEYS.reduce((a, k) => a + (fs[k] || 0), 0);
+    return tot > 0 ? Math.min(0.6, (fs.body || 0) / tot) : 0;
+  }
+  function bodyPowerMult(char) {
+    return 1 + bodyFracOf(char) * 1.2;
+  }
+  function statPointPreview(statKey) {
+    if (!state || !state.finalStats) return [];
+    const snap = () => ({
+      hp: computeMaxHP(state),
+      qi: computeMaxQi(state),
+      spirit: computeMaxSpirit(state),
+      cult: cultivationRate(),
+      dmg: bodyPowerMult(state),
+      regen: 2 + Math.floor((state.finalStats && state.finalStats.mind || 0) / 6),
+      posture: 60 + 2 * (state.finalStats && state.finalStats.will || 0)
+    });
+    const before = snap();
+    const saved = state.finalStats[statKey];
+    let after;
+    try {
+      state.finalStats[statKey] = (saved || 0) + 1;
+      after = snap();
+    } finally {
+      state.finalStats[statKey] = saved;
+    }
+    const parts = [];
+    const dHp = Math.round(after.hp - before.hp);
+    if (dHp) parts.push(`+${dHp} Vitality`);
+    const dQi = Math.round(after.qi - before.qi);
+    if (dQi) parts.push(`+${dQi} qi`);
+    const dSp = Math.round(after.spirit - before.spirit);
+    if (dSp) parts.push(`+${dSp} spirit`);
+    const dRe = after.regen - before.regen;
+    if (dRe) parts.push(`+${dRe} qi regen/turn`);
+    const dPo = after.posture - before.posture;
+    if (dPo) parts.push(`+${dPo} posture`);
+    const dDmgPct = (after.dmg / before.dmg - 1) * 100;
+    if (Math.abs(dDmgPct) >= 0.05) parts.push(`${dDmgPct > 0 ? "+" : ""}${dDmgPct.toFixed(2)}% damage`);
+    const dCultPct = before.cult > 0 ? (after.cult / before.cult - 1) * 100 : 0;
+    if (Math.abs(dCultPct) >= 0.05) parts.push(`+${dCultPct.toFixed(2)}% cultivation`);
+    return parts;
+  }
   function perStatCap(pool) {
     return Math.max(5, Math.ceil(((pool != null ? pool : state && state.pool) || 0) / 5));
   }
@@ -26066,11 +26111,9 @@
       if (kit.ampVsDebuffed && target.effects.length > 0) dmg *= 1 + kit.ampVsDebuffed;
     }
     {
-      const fsb = state.finalStats || {};
-      const statTot = (fsb.spirit || 0) + (fsb.body || 0) + (fsb.mind || 0) + (fsb.sense || 0) + (fsb.luck || 0) + (fsb.will || 0);
-      const bodyFrac = statTot > 0 ? Math.min(0.6, (fsb.body || 0) / statTot) : 0;
+      const bodyFrac = bodyFracOf(state);
       if (bodyFrac > 0 && dmg > 0) {
-        dmg *= 1 + bodyFrac * 1.2;
+        dmg *= bodyPowerMult(state);
         if (target && target.hpMax) {
           const crush = Math.min(target.hpMax * bodyFrac * 0.03, (p.weaponPower || 0) * 2);
           if (crush > 0) dmg += crush;
@@ -29118,12 +29161,31 @@
         html += `<div style="margin:0 0 0.8rem"><span style="font-size:0.72rem;color:var(--ink-soft);margin-right:0.35rem">Soul boons</span>${schips}${pend}</div>`;
       }
     }
+    const freePtsNow = state.freePoints || 0;
+    const totalFreeAllocNow = STAT_KEYS.reduce((a, k) => a + (state.freeAlloc && state.freeAlloc[k] || 0), 0);
+    const showAlloc = freePtsNow > 0 || totalFreeAllocNow > 0;
+    if (showAlloc) {
+      html += `<p style="font-size:0.8rem;margin:0 0 0.4rem"><strong>Cultivation Points</strong> <span style="color:var(--ink-soft);font-size:0.85em">修为点</span> — unspent <strong style="color:var(--gold)">${freePtsNow}</strong>. Earned each breakthrough; respec freely.</p>`;
+    }
     STATS.forEach((s) => {
+      const a = state.freeAlloc && state.freeAlloc[s.key] || 0;
+      const prev = statPointPreview(s.key);
       html += `<div class="stat-row">
-      <div><span class="stat-name">${s.name}</span><span class="stat-zh">${s.zh}</span><div class="stat-desc">${s.desc}</div></div>
-      <div class="stat-value">${state.finalStats[s.key]}</div>
+      <div style="flex:1 1 auto;min-width:0">
+        <div><span class="stat-name">${s.name}</span><span class="stat-zh">${s.zh}</span>${a ? ` <span style="color:var(--gold)">+${a}</span>` : ""}</div>
+        <div class="stat-desc">${s.desc}</div>
+        ${prev.length ? `<div class="stat-desc" style="color:var(--jade)">+1 point → ${prev.join(" · ")}</div>` : ""}
+      </div>
+      <div style="display:flex;gap:0.3rem;align-items:center">
+        ${showAlloc ? `<button class="ghost small" data-fpm="${s.key}" ${a > 0 ? "" : "disabled"}>−</button>` : ""}
+        <div class="stat-value">${state.finalStats[s.key]}</div>
+        ${showAlloc ? `<button class="ghost small" data-fpp="${s.key}" ${freePtsNow > 0 ? "" : "disabled"}>+</button>` : ""}
+      </div>
     </div>`;
     });
+    if (showAlloc) {
+      html += `<div class="button-row" style="margin:0.3rem 0 0.2rem"><button class="ghost small" id="fp-respec" ${totalFreeAllocNow > 0 ? "" : "disabled"}>Respec (return ${totalFreeAllocNow})</button></div>`;
+    }
     const hpMax = computeMaxHP(state), qiMax = computeMaxQi(state), spMax = computeMaxSpirit(state);
     const mods = computeMods(state);
     const rb = realmBonusFor(state);
@@ -29147,6 +29209,25 @@
     }
     html += `<p style="margin-top:1rem;font-style:italic;color:var(--ink-soft)">${h.flavor}</p>`;
     p.innerHTML = html;
+    if (showAlloc) {
+      STATS.forEach((s) => {
+        const pb = p.querySelector(`[data-fpp="${s.key}"]`);
+        if (pb) pb.onclick = () => {
+          allocFreePoint(s.key, 1);
+          render();
+        };
+        const mb = p.querySelector(`[data-fpm="${s.key}"]`);
+        if (mb) mb.onclick = () => {
+          allocFreePoint(s.key, -1);
+          render();
+        };
+      });
+      const rsp = p.querySelector("#fp-respec");
+      if (rsp) rsp.onclick = () => {
+        respecFreePoints();
+        render();
+      };
+    }
     const realmP = document.createElement("div");
     realmP.className = "panel status-strip";
     const info = advanceInfo(state);
@@ -29166,6 +29247,9 @@
       const _atSite = !!state.cultivating;
       const _restLine = _vit >= _vitMax ? '<span style="color:var(--ink-soft)">fully rested</span>' : _atSite ? `<span style="color:var(--crimson)">resting paused — meditating here taxes it instead</span>` : `<span style="color:var(--jade)">resting +${_restPerMin}/min, even while the game is closed</span>`;
       realmHTML += `<p style="font-size:0.8rem;margin:0 0 0.4rem"><span class="tip" data-tip="Vitality is your health BETWEEN fights — a battle opens at whatever you have left. It is not restored by fighting: a win binds back 15% of max, and the rest comes from RESTING. Resting is automatic and needs no button — it happens whenever you are not meditating at a journey location, continues while the game is closed, and mends ${Math.round(vitalityRestRate() * 100)}% of max Vitality per minute (the righteous rest more than twice as fast as the demonic — their sustain is between fights, not during them). Vitality potions restore it instantly."><strong>Vitality</strong> <strong id="vit-value" style="color:${_vit < _vitMax * 0.4 ? "var(--crimson)" : "var(--jade)"}">${_vit}</strong>/${_vitMax} · ${_restLine}</span> <span style="color:var(--ink-soft)">&middot;</span> <span class="tip" data-tip="${escapeTip(`Lifespan is a resource. Age advances slowly and ONLY while actively cultivating (idling/offline are safe) — at your current rate that is ${lifespanHoursLeftLabel()} of ACTIVE cultivation before old age. Each realm hugely extends your span. Certain pills, schools, and artifacts ADD lifespan; powerful pills SPEND it (a share of what remains) for permanent power. Running out is death by old age — which reincarnates you with your souls intact.`)}" style="color:var(--ink-soft)">Age <strong>${Math.floor(state.age || 16)}</strong>, <strong style="color:var(--jade)">${Math.floor(lifespanRemaining())}</strong> of ${lifespanMax()} yrs left <span style="opacity:0.8">(~${lifespanHoursLeftLabel()})</span>${state.bodyQuench ? ` · tempered ×${state.bodyQuench}` : ""}</span></p>`;
+    }
+    if ((state.freePoints || 0) > 0) {
+      realmHTML += `<p style="font-size:0.8rem;margin:0 0 0.4rem;color:var(--gold)"><strong>${state.freePoints}</strong> cultivation point${state.freePoints === 1 ? "" : "s"} unspent — allocate them in the Cultivator tab's stat box.</p>`;
     }
     if (destinyPicksAvailable() > 0 && eligibleDestinies().length) {
       realmHTML += `<div class="button-row" style="margin-top:0.4rem"><button class="gold" id="choose-destiny">Choose a Destiny (${destinyPicksAvailable()} available)</button></div>
@@ -29247,44 +29331,6 @@
       stopCultivation();
       render();
     };
-    const totalFreeAlloc = STAT_KEYS.reduce((a, k) => a + (state.freeAlloc && state.freeAlloc[k] || 0), 0);
-    if ((state.freePoints || 0) > 0 || totalFreeAlloc > 0) {
-      const fpP = document.createElement("div");
-      fpP.className = "panel";
-      let fpHtml = `<h3>Cultivation Points <span style="font-weight:normal;color:var(--ink-soft);font-size:0.85rem">修为点</span></h3>
-      <p style="font-size:0.85rem;color:var(--ink-soft);margin:0 0 0.5rem">Unspent: <strong style="color:var(--gold)">${state.freePoints || 0}</strong>. Earned on each breakthrough — allocate into any stat, and respec freely anytime.</p>`;
-      STATS.forEach((s) => {
-        const a = state.freeAlloc && state.freeAlloc[s.key] || 0;
-        fpHtml += `<div class="stat-row">
-        <div><span class="stat-name">${s.name}</span> <span class="stat-zh">${s.zh}</span>${a ? ` <span style="color:var(--gold)">+${a}</span>` : ""}</div>
-        <div style="display:flex;gap:0.3rem;align-items:center">
-          <button class="ghost small" data-fpm="${s.key}" ${a > 0 ? "" : "disabled"}>−</button>
-          <button class="ghost small" data-fpp="${s.key}" ${(state.freePoints || 0) > 0 ? "" : "disabled"}>+</button>
-        </div>
-      </div>`;
-      });
-      fpHtml += `<div class="button-row" style="margin-top:0.5rem"><button class="ghost small" id="fp-respec" ${totalFreeAlloc > 0 ? "" : "disabled"}>Respec (return ${totalFreeAlloc})</button></div>`;
-      fpP.innerHTML = fpHtml;
-      if ((state.freePoints || 0) > 0) app.appendChild(fpP);
-      else appendPanel(fpP, "self");
-      STATS.forEach((s) => {
-        const pb = fpP.querySelector(`[data-fpp="${s.key}"]`);
-        if (pb) pb.onclick = () => {
-          allocFreePoint(s.key, 1);
-          render();
-        };
-        const mb = fpP.querySelector(`[data-fpm="${s.key}"]`);
-        if (mb) mb.onclick = () => {
-          allocFreePoint(s.key, -1);
-          render();
-        };
-      });
-      const rsp = document.getElementById("fp-respec");
-      if (rsp) rsp.onclick = () => {
-        respecFreePoints();
-        render();
-      };
-    }
     const skP = document.createElement("div");
     skP.className = "panel";
     skP.innerHTML = `<h3>Skills <span style="font-weight:normal;color:var(--ink-soft);font-size:0.85rem">道术</span></h3>
