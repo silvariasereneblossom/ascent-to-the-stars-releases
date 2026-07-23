@@ -9160,10 +9160,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Tribulation resistance, resolve under pressure." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.105';
+  var GAME_VERSION = 'v1.27.106';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "324acc0";
+  var BUILD_SHA = "99f3ec9";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -22457,6 +22457,18 @@
   function lifespanRemaining() {
     return Math.max(0, lifespanMax() - (state.age || 16));
   }
+  function lifespanHoursLeft() {
+    const perHour = AGE_PER_SEC * 3600 * lifespanConsumptionMult();
+    return perHour > 0 ? lifespanRemaining() / perHour : Infinity;
+  }
+  function lifespanHoursLeftLabel() {
+    if (noAgeDeathOn()) return "never — old-age death is off";
+    const h = lifespanHoursLeft();
+    if (!isFinite(h)) return "indefinite";
+    if (h < 1) return `${Math.max(1, Math.round(h * 60))} min`;
+    if (h < 100) return `${h.toFixed(1)} hrs`;
+    return `${Math.round(h).toLocaleString()} hrs`;
+  }
   function maxVitality() {
     return computeMaxHP(state);
   }
@@ -29022,7 +29034,7 @@
       const _restPerMin = Math.max(1, Math.round(_vitMax * vitalityRestRate()));
       const _atSite = !!state.cultivating;
       const _restLine = _vit >= _vitMax ? '<span style="color:var(--ink-soft)">fully rested</span>' : _atSite ? `<span style="color:var(--crimson)">resting paused — meditating here taxes it instead</span>` : `<span style="color:var(--jade)">resting +${_restPerMin}/min, even while the game is closed</span>`;
-      realmHTML += `<p style="font-size:0.8rem;margin:0 0 0.4rem"><span class="tip" data-tip="Vitality is your health BETWEEN fights — a battle opens at whatever you have left. It is not restored by fighting: a win binds back 15% of max, and the rest comes from RESTING. Resting is automatic and needs no button — it happens whenever you are not meditating at a journey location, continues while the game is closed, and mends ${Math.round(vitalityRestRate() * 100)}% of max Vitality per minute (the righteous rest more than twice as fast as the demonic — their sustain is between fights, not during them). Vitality potions restore it instantly."><strong>Vitality</strong> <strong id="vit-value" style="color:${_vit < _vitMax * 0.4 ? "var(--crimson)" : "var(--jade)"}">${_vit}</strong>/${_vitMax} · ${_restLine}</span> <span style="color:var(--ink-soft)">&middot;</span> <span class="tip" data-tip="Lifespan is a resource. Age advances slowly and ONLY while actively cultivating (idling/offline are safe); each realm hugely extends your span. Certain pills, schools, and artifacts ADD lifespan; powerful pills SPEND it (a share of what remains) for permanent power. Running out is death by old age — which reincarnates you with your souls intact." style="color:var(--ink-soft)">Age <strong>${Math.floor(state.age || 16)}</strong>, <strong style="color:var(--jade)">${Math.floor(lifespanRemaining())}</strong> of ${lifespanMax()} yrs left${state.bodyQuench ? ` · tempered ×${state.bodyQuench}` : ""}</span></p>`;
+      realmHTML += `<p style="font-size:0.8rem;margin:0 0 0.4rem"><span class="tip" data-tip="Vitality is your health BETWEEN fights — a battle opens at whatever you have left. It is not restored by fighting: a win binds back 15% of max, and the rest comes from RESTING. Resting is automatic and needs no button — it happens whenever you are not meditating at a journey location, continues while the game is closed, and mends ${Math.round(vitalityRestRate() * 100)}% of max Vitality per minute (the righteous rest more than twice as fast as the demonic — their sustain is between fights, not during them). Vitality potions restore it instantly."><strong>Vitality</strong> <strong id="vit-value" style="color:${_vit < _vitMax * 0.4 ? "var(--crimson)" : "var(--jade)"}">${_vit}</strong>/${_vitMax} · ${_restLine}</span> <span style="color:var(--ink-soft)">&middot;</span> <span class="tip" data-tip="${escapeTip(`Lifespan is a resource. Age advances slowly and ONLY while actively cultivating (idling/offline are safe) — at your current rate that is ${lifespanHoursLeftLabel()} of ACTIVE cultivation before old age. Each realm hugely extends your span. Certain pills, schools, and artifacts ADD lifespan; powerful pills SPEND it (a share of what remains) for permanent power. Running out is death by old age — which reincarnates you with your souls intact.`)}" style="color:var(--ink-soft)">Age <strong>${Math.floor(state.age || 16)}</strong>, <strong style="color:var(--jade)">${Math.floor(lifespanRemaining())}</strong> of ${lifespanMax()} yrs left <span style="opacity:0.8">(~${lifespanHoursLeftLabel()})</span>${state.bodyQuench ? ` · tempered ×${state.bodyQuench}` : ""}</span></p>`;
     }
     if (destinyPicksAvailable() > 0 && eligibleDestinies().length) {
       realmHTML += `<div class="button-row" style="margin-top:0.4rem"><button class="gold" id="choose-destiny">Choose a Destiny (${destinyPicksAvailable()} available)</button></div>
@@ -29068,7 +29080,7 @@
     app.appendChild(realmP);
     renderTabBar();
     appendPanel(p, "self");
-    {
+    if (Object.values(state.statPips || {}).some((v) => v > 0)) {
       const pipP = document.createElement("div");
       pipP.className = "panel";
       pipP.innerHTML = `<h3 style="font-size:0.95rem">Distillation Pips <span style="font-weight:normal;color:var(--ink-soft);font-size:0.8rem">丹屑</span></h3>
@@ -29145,9 +29157,27 @@
     skP.className = "panel";
     skP.innerHTML = `<h3>Skills <span style="font-weight:normal;color:var(--ink-soft);font-size:0.85rem">道术</span></h3>
     <p style="font-size:0.85rem;color:var(--ink-soft);margin:0 0 0.4rem">Spend insight to unlock permanent passive bonuses. Higher realms unlock higher nodes.</p>`;
+    if (!state.ui) state.ui = {};
+    if (state.ui.skillsMyRealmOnly === void 0) state.ui.skillsMyRealmOnly = true;
+    const skOnly = !!state.ui.skillsMyRealmOnly;
+    const myTierSk = state.realm.tierIdx || 0;
+    {
+      const hiddenN = SKILLS.filter((sk) => (!sk.demonicOnly || state.demonic) && (sk.minTier || 0) > myTierSk && !hasSkill(sk.id)).length;
+      const sb = document.createElement("button");
+      sb.className = "small " + (skOnly ? "gold" : "ghost");
+      sb.style.cssText = "margin:0 0 0.5rem";
+      sb.textContent = skOnly ? `Showing only ${REALMS[myTierSk].name} and below — show all` : `Show only skills up to my realm${hiddenN ? ` (hides ${hiddenN})` : ""}`;
+      sb.onclick = () => {
+        state.ui.skillsMyRealmOnly = !skOnly;
+        saveChar();
+        render();
+      };
+      skP.appendChild(sb);
+    }
     const categories = {};
     SKILLS.forEach((sk) => {
       if (sk.demonicOnly && !state.demonic) return;
+      if (skOnly && (sk.minTier || 0) > myTierSk && !hasSkill(sk.id)) return;
       if (!categories[sk.category]) categories[sk.category] = [];
       categories[sk.category].push(sk);
     });
@@ -29249,6 +29279,42 @@
       });
     });
     appendPanel(skP, "skills");
+    const BOOK_MOD_CAT = {
+      dotMult: "DOT",
+      strikeDamageMult: "strike",
+      techDamageMult: "technique",
+      critChance: "crit",
+      critMult: "crit",
+      dodgeChance: "evasion",
+      lifestealPct: "sustain",
+      strikeHeal: "sustain",
+      postureMult: "posture",
+      spiritDamageMult: "spirit",
+      qiRegenBonus: "qi",
+      qiBonus: "qi",
+      flatDR: "defense",
+      incomingMult: "defense",
+      hpMult: "vitality",
+      weaponBonus: "weapon",
+      firstStrikeBonus: "opener",
+      insightMult: "insight"
+    };
+    const BOOK_KIND_CAT = {
+      cultivation_mult: "cultivation",
+      hp_add: "vitality",
+      stat_add: "stats",
+      stat_add_all: "stats",
+      weapon_add: "weapon",
+      incoming_mult_perm: "defense",
+      combat_insight_mult: "insight"
+    };
+    const bookCategory = (bk) => {
+      const e = bk && bk.effect || {};
+      if (e.kind !== "mods") return BOOK_KIND_CAT[e.kind] || (e.kind || "other");
+      const keys = Object.keys(e.mods || {});
+      for (const k of keys) if (BOOK_MOD_CAT[k]) return BOOK_MOD_CAT[k];
+      return keys[0] || "other";
+    };
     const foundBooks = state.foundBooks || [];
     const libP = document.createElement("div");
     libP.className = "panel";
@@ -29260,12 +29326,44 @@
       empty.textContent = "No skill books yet. Enemies sometimes carry them — the rarer the foe, the rarer the book.";
       libP.appendChild(empty);
     } else {
-      foundBooks.slice().sort(
-        (a, b) => (
-          // v1.1.1: books sorted by rarity (common -> divine)
-          (RARITY_RANK[(SKILL_BOOKS[a] || {}).rarity] || 0) - (RARITY_RANK[(SKILL_BOOKS[b] || {}).rarity] || 0)
-        )
-      ).forEach((bookId) => {
+      if (!state.ui) state.ui = {};
+      const libSort = state.ui.librarySort || "rarity";
+      {
+        const bar2 = document.createElement("div");
+        bar2.className = "button-row";
+        bar2.style.cssText = "flex-wrap:wrap;gap:0.25rem;margin:0 0 0.5rem;justify-content:flex-start";
+        bar2.innerHTML = '<span style="font-size:0.75rem;color:var(--ink-soft);align-self:center;margin-right:0.2rem">Sort</span>';
+        [["rarity", "Rarity"], ["cost", "Cost"], ["category", "Category"]].forEach(([key, label]) => {
+          const b = document.createElement("button");
+          b.className = "small " + (libSort === key ? "gold" : "ghost");
+          b.textContent = label;
+          b.onclick = () => {
+            state.ui.librarySort = key;
+            saveChar();
+            render();
+          };
+          bar2.appendChild(b);
+        });
+        libP.appendChild(bar2);
+      }
+      const byRarity = (a, b) => (RARITY_RANK[(SKILL_BOOKS[a] || {}).rarity] || 0) - (RARITY_RANK[(SKILL_BOOKS[b] || {}).rarity] || 0);
+      const sorters = {
+        rarity: byRarity,
+        cost: (a, b) => effectiveSkillCost(SKILL_BOOKS[a] || {}) - effectiveSkillCost(SKILL_BOOKS[b] || {}),
+        category: (a, b) => bookCategory(SKILL_BOOKS[a]).localeCompare(bookCategory(SKILL_BOOKS[b])) || byRarity(a, b)
+      };
+      let lastCat = null;
+      foundBooks.slice().sort(sorters[libSort] || byRarity).forEach((bookId) => {
+        if (libSort === "category") {
+          const cat = bookCategory(SKILL_BOOKS[bookId]);
+          if (cat !== lastCat) {
+            lastCat = cat;
+            const ch = document.createElement("div");
+            ch.style.cssText = "font-size:0.75rem;color:var(--ink-soft);margin:0.4rem 0 0.1rem;text-transform:uppercase;letter-spacing:0.05em";
+            ch.textContent = cat;
+            libP.appendChild(ch);
+          }
+        }
         const bk = SKILL_BOOKS[bookId];
         if (!bk) return;
         const bkCost = effectiveSkillCost(bk);
