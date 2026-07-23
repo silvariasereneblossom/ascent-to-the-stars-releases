@@ -9114,10 +9114,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Tribulation resistance, resolve under pressure." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.99';
+  var GAME_VERSION = 'v1.27.100';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "41845af";
+  var BUILD_SHA = "e0cd47b";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -28805,6 +28805,18 @@
         return `<span class="buff-chip tip" data-tip="${escapeTip(d.desc)}" style="background:rgba(120,80,160,0.15);border-color:#9a6cc4">${d.name}${d.keystone ? " ✦" : ""}</span>`;
       }).join("");
       html += `<div style="margin:0 0 0.8rem">${dchips}</div>`;
+    }
+    {
+      const sb = typeof META !== "undefined" && META && META.soulBoons || [];
+      const pending = typeof soulBoonPicksPending === "function" ? soulBoonPicksPending() : 0;
+      if (sb.length || pending > 0) {
+        const schips = sb.map((id) => {
+          const b = SOUL_BOON_POOL[id];
+          return b ? `<span class="buff-chip tip" data-tip="${escapeTip(b.desc)}" style="background:rgba(199,156,240,0.15);border-color:#c79cf0">${b.name}</span>` : "";
+        }).filter(Boolean).join("");
+        const pend = pending > 0 ? `<span class="buff-chip tip" data-tip="Return to the Menu → Soul Altar to choose." style="background:rgba(199,156,240,0.25);border-color:#c79cf0;color:#c79cf0">✦ ${pending} soul pick${pending === 1 ? "" : "s"} waiting</span>` : "";
+        html += `<div style="margin:0 0 0.8rem"><span style="font-size:0.72rem;color:var(--ink-soft);margin-right:0.35rem">Soul boons</span>${schips}${pend}</div>`;
+      }
     }
     STATS.forEach((s) => {
       html += `<div class="stat-row">
