@@ -106,6 +106,23 @@
   button.jade:hover:not(:disabled) { background: var(--ink); }
   button.small { padding: 0.3rem 0.6rem; font-size: 0.8rem; }
 
+  /* v1.27.101: keyboard-shortcut badge on action/tab buttons (desktop + exe; hidden on touch). */
+  .keycap {
+    display: inline-block;
+    min-width: 1.05em;
+    padding: 0 0.28em;
+    font-size: 0.72em;
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    line-height: 1.5;
+    text-align: center;
+    color: var(--ink-soft);
+    background: rgba(0,0,0,0.10);
+    border: 1px solid rgba(90,74,58,0.4);
+    border-radius: 3px;
+    vertical-align: baseline;
+  }
+  .tab .keycap, .subtab .keycap { opacity: 0.75; }
+
   /* Tabs */
   /* v1.27.89: the strip sticks to the top of the viewport, so switching pages never costs a scroll
      back up. The negative margin bleeds it over #app's padding so nothing shows through at the edges. */
@@ -9114,10 +9131,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Tribulation resistance, resolve under pressure." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.100';
+  var GAME_VERSION = 'v1.27.101';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "e0cd47b";
+  var BUILD_SHA = "6d5bf8b";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -23701,6 +23718,58 @@
   if (typeof document !== "undefined" && document.addEventListener) {
     document.addEventListener("pointerup", primeMusicOnGesture);
   }
+  function keyboardLikely() {
+    try {
+      return !!(window.matchMedia && !window.matchMedia("(pointer: coarse)").matches);
+    } catch (e) {
+      return true;
+    }
+  }
+  function keyCap(k) {
+    return keyboardLikely() ? `<span class="keycap">${k}</span> ` : "";
+  }
+  function combatKeyTarget(k) {
+    if (k === " " || k === "s" || k === "S") return "strike";
+    if (k === "m" || k === "M") return "meditate";
+    if (/^[1-9]$/.test(k)) return k;
+    return null;
+  }
+  function handleGlobalKey(e) {
+    const t = e.target || {};
+    const tag = t.tagName || "";
+    if (tag === "INPUT" || tag === "TEXTAREA" || t.isContentEditable) return;
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (typeof combat !== "undefined" && combat && !combat.over) {
+      const key = combatKeyTarget(e.key);
+      if (!key) return;
+      const grid = document.querySelector(".actions-grid");
+      const btn = grid && grid.querySelector(`button[data-key="${key}"]`);
+      if (e.key === " ") e.preventDefault();
+      if (btn && !btn.disabled) {
+        e.preventDefault();
+        btn.click();
+      }
+      return;
+    }
+    if (!(typeof state !== "undefined" && state && state.confirmed) || atTitle || pendingAscension || pendingDestiny) return;
+    if (typeof state.childhood !== "undefined" && state.childhood && state.childhood.step !== "complete") return;
+    if (soulBoonPicksPending && soulBoonPicksPending() > 0) return;
+    if (/^[1-9]$/.test(e.key)) {
+      const groups = tabGroupsNow();
+      const idx = parseInt(e.key, 10) - 1;
+      if (idx < 0 || idx >= groups.length) return;
+      e.preventDefault();
+      const g = groups[idx];
+      if (!state.ui) state.ui = {};
+      if (!state.ui.lastTabIn) state.ui.lastTabIn = {};
+      const remembered = state.ui.lastTabIn[g.id];
+      activeTab = g.tabs.some((x) => x.id === remembered) ? remembered : g.tabs[0].id;
+      render();
+    }
+  }
+  if (typeof document !== "undefined" && document.addEventListener) {
+    document.addEventListener("keydown", handleGlobalKey);
+  }
   if (typeof document !== "undefined" && document.addEventListener) {
     document.addEventListener("visibilitychange", () => {
       if (document.hidden) {
@@ -27480,10 +27549,11 @@
     if (!state.ui.lastTabIn) state.ui.lastTabIn = {};
     const bar2 = document.createElement("div");
     bar2.className = "tabs";
-    groups.forEach((g) => {
+    groups.forEach((g, gi) => {
       const b = document.createElement("button");
       b.className = "tab" + (g.id === current.id ? " active" : "");
-      b.textContent = g.label;
+      if (gi < 9) b.innerHTML = `${keyCap(String(gi + 1))}${g.label}`;
+      else b.textContent = g.label;
       b.onclick = () => {
         const remembered = state.ui.lastTabIn[g.id];
         activeTab = g.tabs.some((t) => t.id === remembered) ? remembered : g.tabs[0].id;
@@ -27721,6 +27791,19 @@
     <p style="font-size:0.85rem;margin:0 0 0.4rem">Version <strong style="color:var(--gold)">${GAME_VERSION}</strong></p>
     <p style="font-size:0.82rem;color:var(--ink-soft);margin:0 0 0.5rem">Updates arrive over-the-air. If the version above looks old after a content push, <strong>fully close the app</strong> (swipe it out of recents &mdash; not just Home) and reopen; the first launch downloads the update, the next applies it. Souls persist through all of it: <strong>${META.souls}</strong> souls &middot; ${META.lives} lives.</p>
     <p style="font-size:0.78rem;margin:0 0 0.5rem"><a href="https://github.com/silvariasereneblossom/ascent-to-the-stars-releases/releases/download/live/AscentToTheStars.apk" style="color:var(--gold);text-decoration:underline">Download / update the Android APK</a> <span style="color:var(--ink-soft)">(reinstalling always pulls the newest build)</span></p>`;
+    {
+      const kb = document.createElement("div");
+      kb.style.cssText = "margin-top:0.5rem;border-top:1px solid rgba(120,120,120,0.3);padding-top:0.4rem";
+      const cap = (s) => `<span class="keycap">${s}</span>`;
+      kb.innerHTML = `<div style="font-weight:bold;font-size:0.9rem">Keyboard Shortcuts <span style="color:var(--ink-soft);font-weight:normal;font-size:0.8rem">按键</span></div>
+      <p style="font-size:0.78rem;color:var(--ink-soft);margin:0.15rem 0 0.3rem">Works on the web and Windows versions${keyboardLikely() ? "" : " — and here once a physical keyboard is connected"}.</p>
+      <div style="font-size:0.82rem;line-height:1.9">
+        <div><strong>In combat:</strong> ${cap("1")}–${cap("5")} cast your ability slots · ${cap("Spc")} or ${cap("S")} Strike · ${cap("M")} Meditate</div>
+        <div><strong>Out of combat:</strong> ${cap("1")}–${cap("6")} jump between the tab groups (Cultivator, Loadout, Forge, House, World, Config)</div>
+      </div>
+      <p style="font-size:0.72rem;color:var(--ink-soft);margin:0.3rem 0 0">Disabled actions (on cooldown, out of qi, sealed) ignore their key, just like their button.</p>`;
+      cfgP.appendChild(kb);
+    }
     if (state && state.confirmed) {
       const exP = document.createElement("div");
       exP.style.cssText = "margin-top:0.6rem;border-top:1px solid rgba(120,120,120,0.3);padding-top:0.4rem";
@@ -31410,7 +31493,8 @@
       const strikeBtn = document.createElement("button");
       strikeBtn.className = "action-btn basic tip";
       strikeBtn.setAttribute("data-tip", `Weapon strike — ${Math.round(p.weaponPower * 1.5)} damage, +10 posture, no qi cost, no cooldown. Your reliable fallback and a solid posture builder.`);
-      strikeBtn.innerHTML = `<span class="name">Strike</span><span class="meta">${Math.round(p.weaponPower * 1.5)} dmg · free</span>`;
+      strikeBtn.dataset.key = "strike";
+      strikeBtn.innerHTML = `<span class="name">${keyCap("Spc")}Strike</span><span class="meta">${Math.round(p.weaponPower * 1.5)} dmg · free</span>`;
       strikeBtn.onclick = playerStrike;
       grid2.appendChild(strikeBtn);
     }
@@ -31418,7 +31502,8 @@
     medBtn.className = "action-btn basic tip";
     const medAmount = Math.ceil(p.qiMax * 0.5 * p.mods.meditateMult);
     medBtn.setAttribute("data-tip", `Recover +${medAmount} qi immediately, and guard: −30% incoming damage until next round.`);
-    medBtn.innerHTML = `<span class="name">Meditate</span><span class="meta">+${medAmount} qi · guard</span>`;
+    medBtn.dataset.key = "meditate";
+    medBtn.innerHTML = `<span class="name">${keyCap("M")}Meditate</span><span class="meta">+${medAmount} qi · guard</span>`;
     medBtn.onclick = playerMeditate;
     grid2.appendChild(medBtn);
     if (devModeOn() && !combat.over) {
@@ -31437,7 +31522,7 @@
       grid2.appendChild(dkBtn);
     }
     if (!isSurvival) {
-      p.loadout.forEach((tid) => {
+      p.loadout.forEach((tid, slotIdx) => {
         const t = TECHNIQUES[tid];
         const cd = p.cooldowns[tid] || 0;
         const effCost = effectiveQiCost(p, t);
@@ -31463,7 +31548,9 @@
         const tgtLabel = isAoeBtn ? " · AOE" : " · ST";
         const dmgLabel = est > 0 ? `~${est}${t.hits > 1 ? ` (${t.hits} hits)` : ""} · ` : t.instant ? "instant · " : "";
         const fxLabel = fxInfo ? ` · ${fxInfo.label}` : "";
-        btn.innerHTML = `<span class="name">${t.name}</span><span class="meta">${dmgLabel}${effCost} qi${hpLabel}${fxLabel}${tgtLabel}${cdLabel}</span>`;
+        const slotKey = slotIdx < 9 ? String(slotIdx + 1) : null;
+        if (slotKey) btn.dataset.key = slotKey;
+        btn.innerHTML = `<span class="name">${slotKey ? keyCap(slotKey) : ""}${t.name}</span><span class="meta">${dmgLabel}${effCost} qi${hpLabel}${fxLabel}${tgtLabel}${cdLabel}</span>`;
         btn.disabled = disabled;
         btn.onclick = () => playerTechnique(tid);
         grid2.appendChild(btn);
