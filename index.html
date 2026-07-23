@@ -9160,10 +9160,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Tribulation resistance, resolve under pressure." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.106';
+  var GAME_VERSION = 'v1.27.107';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "99f3ec9";
+  var BUILD_SHA = "794fe5a";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -23832,6 +23832,17 @@
       const remembered = state.ui.lastTabIn[g.id];
       activeTab = g.tabs.some((x) => x.id === remembered) ? remembered : g.tabs[0].id;
       render();
+      return;
+    }
+    if (e.key === "q" || e.key === "Q" || e.key === "ArrowLeft") {
+      e.preventDefault();
+      stepPage(-1);
+      return;
+    }
+    if (e.key === "e" || e.key === "E" || e.key === "ArrowRight") {
+      e.preventDefault();
+      stepPage(1);
+      return;
     }
   }
   if (typeof document !== "undefined" && document.addEventListener) {
@@ -27626,6 +27637,31 @@
   function groupOfTab(tabId) {
     return tabGroupsNow().find((g) => g.tabs.some((t) => t.id === tabId)) || tabGroupsNow()[0];
   }
+  var HOUSE_SUBS = [["garden", "Garden"], ["alchemy", "Alchemy"], ["arrays", "Arrays"], ["rift", "Rift-Gates"]];
+  function flatPages() {
+    const out = [];
+    tabGroupsNow().forEach((g) => g.tabs.forEach((t) => {
+      if (t.id === "garden") HOUSE_SUBS.forEach(([h]) => out.push({ group: g.id, tab: t.id, house: h }));
+      else out.push({ group: g.id, tab: t.id });
+    }));
+    return out;
+  }
+  function stepPage(delta) {
+    const pages = flatPages();
+    if (!pages.length) return;
+    const house = state.ui && state.ui.houseTab || "garden";
+    let i = pages.findIndex((p) => p.tab === activeTab && (!p.house || p.house === house));
+    if (i < 0) i = 0;
+    const n = pages.length;
+    const next = pages[((i + delta) % n + n) % n];
+    if (!state.ui) state.ui = {};
+    if (!state.ui.lastTabIn) state.ui.lastTabIn = {};
+    activeTab = next.tab;
+    if (next.house) state.ui.houseTab = next.house;
+    state.ui.lastTabIn[next.group] = next.tab;
+    saveChar();
+    render();
+  }
   function renderTabBar() {
     const sticky = document.createElement("div");
     sticky.className = "tabbar-sticky";
@@ -27886,6 +27922,7 @@
       <div style="font-size:0.82rem;line-height:1.9">
         <div><strong>In combat:</strong> ${cap("1")}–${cap("5")} cast your ability slots · ${cap("Spc")} or ${cap("S")} Strike · ${cap("M")} Meditate</div>
         <div><strong>Out of combat:</strong> ${cap("1")}–${cap("6")} jump between the tab groups (Cultivator, Loadout, Forge, House, World, Config)</div>
+        <div><strong>Browsing:</strong> ${cap("Q")}/${cap("E")} — or ${cap("←")}/${cap("→")} — step through subsections; past the last one they carry you into the next section (House's Garden / Alchemy / Arrays / Rift-Gates are included)</div>
       </div>
       <p style="font-size:0.72rem;color:var(--ink-soft);margin:0.3rem 0 0">Disabled actions (on cooldown, out of qi, sealed) ignore their key, just like their button.</p>`;
       cfgP.appendChild(kb);
