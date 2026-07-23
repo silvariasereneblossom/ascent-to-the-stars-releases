@@ -4108,6 +4108,20 @@
     insc_thin_soul_thread: { name: "Thin-Soul Thread", zh: "细魂丝", rarity: "common", desc: "Spirit damage up. A single thread of divine sense.", apply: (m) => {
       m.spiritBonus += 1;
     } },
+    // v1.27.103 (tester: "the only three rare inscriptions [at QC] are offensive ones — that seems wrong"):
+    // QC's rare tier had only offensive picks (posture/strike/weapon). Add a DEFENSIVE and two UTILITY rares
+    // at the same realm so a QC cultivator can rare-inscribe a tanky/qi/sustain build too.
+    insc_ironroot_ward: { name: "Ironroot Ward", zh: "铁根护", rarity: "rare", desc: "Max Vitality up and a little armour. Roots driven into the grip-wood.", apply: (m) => {
+      m.hpBonus += 20;
+      m.flatDR += 1;
+    } },
+    insc_deepbreath_coil: { name: "Deep-Breath Coil", zh: "深息盘", rarity: "rare", desc: "Qi pool and recovery up. A coiled meridian mark that hoards each breath.", apply: (m) => {
+      m.qiBonus += 14;
+      m.qiRegenBonus += 2;
+    } },
+    insc_mendspring_seal: { name: "Mendspring Seal", zh: "愈泉印", rarity: "rare", desc: "Strikes mend more. A spring-glyph that turns each blow into a swallow of blood.", apply: (m) => {
+      m.strikeHeal += 6;
+    } },
     insc_keenfold_brand: { name: "Keenfold Brand", zh: "锐叠烙", rarity: "rare", desc: "Weapon power up. Folded steel, brand-marked.", apply: (m) => {
       m.weaponBonus += 4;
     } },
@@ -4891,6 +4905,10 @@
     insc_quickdraw_notch: 1,
     insc_clear_eye_glyph: 1,
     insc_thin_soul_thread: 1,
+    insc_ironroot_ward: 1,
+    insc_deepbreath_coil: 1,
+    insc_mendspring_seal: 1,
+    // v1.27.103: QC-realm defensive/utility rares
     insc_keenfold_brand: 2,
     insc_bastion_weave: 2,
     insc_turtleshell_seal: 2,
@@ -5019,6 +5037,10 @@
     insc_quickdraw_notch: "strike",
     insc_clear_eye_glyph: "insight",
     insc_thin_soul_thread: "spirit",
+    insc_ironroot_ward: "guard",
+    insc_deepbreath_coil: "qi",
+    insc_mendspring_seal: "sustain",
+    // v1.27.103: QC defensive + utility rares
     insc_keenfold_brand: "weapon",
     insc_bastion_weave: "guard",
     insc_turtleshell_seal: "bulwark",
@@ -9138,10 +9160,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Tribulation resistance, resolve under pressure." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.102';
+  var GAME_VERSION = 'v1.27.103';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "36edbd4";
+  var BUILD_SHA = "f2a583e";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -19004,6 +19026,7 @@
         const prey = ELEMENT_DESTROYS[el];
         const variants = [];
         const amp = 0.1 + t * 0.03;
+        const elCrit = +(0.02 + 5e-3 * t).toFixed(3);
         variants.push({
           id: `gen_${kind}_${t}_el`,
           name: `${ELEMENT_GEN_PFX[el][0]} ${noun}`,
@@ -19012,8 +19035,9 @@
           apply: ((m) => {
             if (!m.elementAmp) m.elementAmp = {};
             m.elementAmp[prey] = (m.elementAmp[prey] || 0) + amp;
+            m.critChance += elCrit;
           }),
-          desc: `A ${noun.toLowerCase()} quenched in ${ELEMENT_NAME[el] ? ELEMENT_NAME[el].toLowerCase() : el}-essence: +${Math.round(amp * 100)}% damage against ${ELEMENT_NAME[prey] ? ELEMENT_NAME[prey].toLowerCase() : prey}-aspected foes.`,
+          desc: `A ${noun.toLowerCase()} quenched in ${ELEMENT_NAME[el] ? ELEMENT_NAME[el].toLowerCase() : el}-essence: +${Math.round(amp * 100)}% damage against ${ELEMENT_NAME[prey] ? ELEMENT_NAME[prey].toLowerCase() : prey}-aspected foes, and +${Math.round(elCrit * 100)}% crit against all.`,
           element: el
         });
         if (need >= 2) {
