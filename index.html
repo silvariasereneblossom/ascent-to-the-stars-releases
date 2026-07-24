@@ -9167,6 +9167,12 @@
 
   // app/src/data/changelog.js
   var CHANGELOG = [
+    { v: "1.27.134", notes: [
+      "Endless Path milestone bonus now lands when you COMPLETE a 5-rank block (rank 5, 10, 15…), not from the first rank of it — so ranks 1–4 no longer show a milestone they hadn't earned yet.",
+      "Sect tribute now scales with your rank: both the daily contribution cap and the per-tribute donation grow a full step per sect rank, so ranking up meaningfully raises your contribution income and cuts the clicks.",
+      "The Withered-Wood Warplate and Mine-Heart Plate sets no longer overlap — Withered-Wood is now a rot-and-drain set (damage-over-time + lifesteal) and Mine-Heart is a posture-break tank (heavy DR + posture damage, fitting the golem it comes from).",
+      "Boss relic pieces now name which realm's materials their next upgrade needs, so a Qi-Condensation relic no longer looks broken when its stage-2 upgrade is simply gated behind the next realm."
+    ] },
     { v: "1.27.133", notes: [
       "The Sect Elder Blessing does not apply in a sect promotion duel — the examination ring tests you, not your patron. It isn't spent there either; the prepared blessing waits for a real fight. It still works fully everywhere else, tribulations included."
     ] },
@@ -9308,10 +9314,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Tribulation resistance, resolve under pressure." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.133';
+  var GAME_VERSION = 'v1.27.134';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "8155e2e";
+  var BUILD_SHA = "3224872";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -18240,7 +18246,7 @@
     return Math.floor(skill.cost * Math.pow(skill.costMult || 1.5, repeatableRank(skill.id)) * skillCostMult());
   }
   function endlessPathMilestoneMult(rank) {
-    return rank > 0 ? 1 + 0.1 * Math.ceil(rank / 5) : 1;
+    return rank > 0 ? 1 + 0.1 * Math.floor(rank / 5) : 1;
   }
   function endlessPathMaxRank(skill) {
     const hard = skill.maxRank || Infinity;
@@ -20297,7 +20303,8 @@
     for (let s = 1; s <= 3; s++) {
       const id = bossGearId(bossId, s);
       const stageMods = scaleBossMods(g.mods, BOSS_GEAR_STAGE_MULT[s - 1]);
-      const stageDesc = `${g.desc} [Relic stage ${s}/3${s < 3 ? " — upgradeable at the Bosses tab" : " — fully awakened"}]`;
+      const upTier = Math.min(6, tier + s);
+      const stageDesc = `${g.desc} [Relic stage ${s}/3${s < 3 ? ` — upgrade at the Bosses tab with ${REALMS[upTier].name}-tier materials (gather them once you reach that realm)` : " — fully awakened"}]`;
       if (g.kind === "weapon") {
         WEAPONS[id] = {
           name: g.names[s - 1][0],
@@ -20476,16 +20483,19 @@
     // v0.86: Mortal (t0) set numbers toned down — operator rule: a Mortal boss set should be
     // competitive with EARLY Qi Condensation gear but must NOT beat QC's divine pieces
     // (genr_armor_1_divine is ~50 Vitality + 5 DR + 18 qi per slot; the old 40/120 totals blew past it).
+    // v1.27.134 (tester: Withered-Wood and Mine-Heart felt too similar). Pulled apart: Withered-Wood is now a
+    // ROT-AND-DRAIN sustain set (damage-over-time + lifesteal, fitting the withered wood), while Mine-Heart
+    // (below) is the POSTURE-BREAK tank.
     boar_king: {
       setName: "Withered-Wood Warplate",
       setZh: "枯林战甲",
-      set: { hpBonus: 22, postureMult: 1.06 },
-      set2: { postureMult: 1.1 },
-      set4: { hpBonus: 60, lowHpBonus: 0.1 },
+      set: { hpBonus: 22, dotMult: 1.06 },
+      set2: { dotMult: 1.1 },
+      set4: { hpBonus: 60, lifestealPct: 0.06 },
       refName: "Boar-King's Fury",
       refZh: "猪王怒",
-      refine: { lowHpBonus: 0.06, postureMult: 1.04 },
-      refBlurb: "bloodied damage + posture"
+      refine: { dotMult: 1.05, lifestealPct: 0.03 },
+      refBlurb: "rot damage-over-time + lifesteal"
     },
     kiln_mother: {
       setName: "Kiln-Glaze Regalia",
@@ -20512,13 +20522,16 @@
     mine_golem: {
       setName: "Mine-Heart Plate",
       setZh: "矿心甲",
-      set: { flatDR: 3, hpBonus: 30 },
-      set2: { flatDR: 4 },
-      set4: { hpBonus: 120, weaponBonus: 6 },
+      // v1.27.134: the POSTURE-BREAK tank — heavy DR and Vitality, its offense routed through posture damage
+      // (fitting the Mine-Heart Golem's own sunder game) rather than the raw weapon power it used to share
+      // with Withered-Wood.
+      set: { flatDR: 3, postureMult: 1.08 },
+      set2: { flatDR: 4, hpBonus: 40 },
+      set4: { hpBonus: 120, postureMult: 1.2 },
       refName: "Wanting-Ore Edge",
       refZh: "欲矿锋",
-      refine: { weaponBonus: 4, flatDR: 1 },
-      refBlurb: "raw power + a little DR"
+      refine: { postureMult: 1.06, flatDR: 1 },
+      refBlurb: "posture-break + DR"
     },
     bell_abbot: {
       setName: "Nine-Echo Vestments",
@@ -22077,8 +22090,11 @@
   function tributeRate() {
     return Math.max(0.2, Math.pow(0.85, tributeToday().count));
   }
+  function tributeChunk() {
+    return 10 * (sectRankIdx() + 1);
+  }
   function tributeDailyCap() {
-    return 60 + 30 * (state.realm && state.realm.tierIdx || 0);
+    return Math.round((60 + 30 * (state.realm && state.realm.tierIdx || 0)) * (1 + sectRankIdx()));
   }
   function tributeCapLeft() {
     return Math.max(0, tributeDailyCap() - tributeToday().earned);
@@ -32260,19 +32276,20 @@
     slayRow.appendChild(slayBtns);
     sectP.appendChild(slayRow);
     const stonesHave = state.base.materials.spirit_stone || 0;
+    const tribChunk = tributeChunk();
     const tribRow = document.createElement("div");
     tribRow.className = "consumable-row";
     tribRow.innerHTML = `<div class="consumable-info">
       <div class="consumable-name">Tribute Spirit Stones <span style="color:var(--ink-soft);font-size:0.75rem">纳贡</span></div>
-      <div class="consumable-desc">Donate 10 stones. Current rate: <strong>${(tributeRate() * 10).toFixed(1)}</strong> contribution (drops with each tribute today). Daily cap remaining: <strong>${tributeCapLeft()}</strong>. You have ${stonesHave}.</div>
+      <div class="consumable-desc">Donate ${tribChunk} stones. Current rate: <strong>${(tributeRate() * tribChunk).toFixed(1)}</strong> contribution (drops with each tribute today). Daily cap remaining: <strong>${tributeCapLeft()}</strong>. <span style="color:var(--ink-soft)">Both the cap and the donation grow with your sect rank.</span> You have ${stonesHave}.</div>
     </div>`;
     const tribBtns = document.createElement("div");
     tribBtns.className = "consumable-buttons";
     const tribBtn = document.createElement("button");
-    tribBtn.textContent = `Tribute 10 (+${Math.min(Math.max(1, Math.round(10 * tributeRate())), tributeCapLeft())})`;
-    tribBtn.disabled = stonesHave < 10 || tributeCapLeft() <= 0;
+    tribBtn.textContent = `Tribute ${tribChunk} (+${Math.min(Math.max(1, Math.round(tribChunk * tributeRate())), tributeCapLeft())})`;
+    tribBtn.disabled = stonesHave < tribChunk || tributeCapLeft() <= 0;
     tribBtn.onclick = () => {
-      tributeStones(10);
+      tributeStones(tribChunk);
       render();
     };
     tribBtns.appendChild(tribBtn);
