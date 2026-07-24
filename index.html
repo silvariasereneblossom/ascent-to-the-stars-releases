@@ -9167,6 +9167,15 @@
 
   // app/src/data/changelog.js
   var CHANGELOG = [
+    { v: "1.27.132", notes: [
+      "The Spirit-Fed Brazier is now its OWN cultivation multiplier — a separate lane that stacks on top of your pills and draughts instead of fighting them for a slot. So lighting it can never erase a running Foundation Pill again. Its surge also scales +10% per realm (up to +120%) and costs more stones the higher you climb.",
+      "Sect draughts (Cultivation & War) now last a long 30 minutes, and the store says so; the live countdown shows in Resources & Effects.",
+      "The Sect Elder Blessing is halved in a promotion duel — the examination ring tests you, not your patron's favour. The store and the combat log both say so.",
+      'Resource Requisition can be batched — ×10 or "Max" — so turning contribution into stones for tempering elixirs is no longer a hundred clicks.',
+      "Consumables in the Loadout are sorted: pills then potions, each by realm, rarity, then name.",
+      "After a foe drops, a key mashed on the killing blow no longer leaks through as tab/menu movement while the victory screen is up.",
+      "Freshened the Open Road description to match what it actually pays now (layer-scaled rewards, stronger Fortune weighting, and the newer finds)."
+    ] },
     { v: "1.27.131", notes: [
       'Moving a save between the browser and the desktop app is now one file. The two run in separate sandboxes and can’t see each other’s saved cultivator, so "Save as File" on one and the new "Load from File" on the other carries it across (souls and prestige included). Pasting the snapshot text still works too.'
     ] },
@@ -9297,10 +9306,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Tribulation resistance, resolve under pressure." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.131';
+  var GAME_VERSION = 'v1.27.132';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "a2c4f4f";
+  var BUILD_SHA = "ec6032f";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -21932,6 +21941,7 @@
     });
     return { value, dur };
   }
+  var SECT_POTION_DURATION_MIN = 30;
   var SECT_POTIONS = {
     cult: { kind: "cultivation_mult", name: "Sect Elder's Cultivation Draught", zh: "宗酿·养气", label: "Cultivation" },
     damage: { kind: "weapon_mult", name: "Sect Elder's War Draught", zh: "宗酿·战意", label: "Damage" }
@@ -21963,7 +21973,12 @@
     state.sectPots[t][key] = (state.sectPots[t][key] || 0) + 1;
     const val = +(best.value + 0.05).toFixed(3);
     state.base.buffs = state.base.buffs.filter((b) => !(b.kind === pot.kind && b.sourceName === pot.name));
-    state.base.buffs.push({ kind: pot.kind, value: val, expiresAt: Date.now() + best.dur * 6e4, sourceName: pot.name });
+    state.base.buffs.push({ kind: pot.kind, value: val, expiresAt: Date.now() + SECT_POTION_DURATION_MIN * 6e4, sourceName: pot.name });
+    const sameKind = state.base.buffs.filter((b) => b.kind === pot.kind).sort((a, b) => buffPotency(b) - buffPotency(a));
+    if (sameKind.length > BUFF_STACK_LIMIT) {
+      const keep = new Set(sameKind.slice(0, BUFF_STACK_LIMIT));
+      state.base.buffs = state.base.buffs.filter((b) => b.kind !== pot.kind || keep.has(b));
+    }
     saveChar();
     return true;
   }
@@ -22079,12 +22094,18 @@
     grantContribution(earn, { raw: true });
     saveChar();
   }
-  function exchangeContribForStones() {
-    const cost = 50;
-    if ((state.contribution || 0) < cost) return;
-    state.contribution -= cost;
-    state.base.materials.spirit_stone = (state.base.materials.spirit_stone || 0) + 20;
+  var CONTRIB_REQUISITION = { cost: 50, stones: 20 };
+  function maxRequisitions() {
+    return Math.floor((state.contribution || 0) / CONTRIB_REQUISITION.cost);
+  }
+  function exchangeContribForStones(times) {
+    const { cost, stones } = CONTRIB_REQUISITION;
+    const n = times === "max" ? maxRequisitions() : Math.min(times || 1, maxRequisitions());
+    if (n <= 0) return 0;
+    state.contribution -= cost * n;
+    state.base.materials.spirit_stone = (state.base.materials.spirit_stone || 0) + stones * n;
     saveChar();
+    return n;
   }
   function sectTechCost(t) {
     return Math.max(20, Math.round((t.cost || 100) * 0.8));
@@ -23530,14 +23551,18 @@
     saveChar();
     return true;
   }
+  function brazierBuffValue() {
+    return +(1.6 + 0.1 * (state.realm && state.realm.tierIdx || 0)).toFixed(2);
+  }
   function brazierCost() {
-    return 50 * ((state.realm && state.realm.tierIdx || 0) + 1);
+    const t = (state.realm && state.realm.tierIdx || 0) + 1;
+    return 50 * t * t;
   }
   function burnStonesInBrazier() {
     if ((state.base.materials.spirit_stone || 0) < brazierCost()) return false;
     state.base.materials.spirit_stone -= brazierCost();
     if (state.base.materials.spirit_stone <= 0) delete state.base.materials.spirit_stone;
-    pushStackedBuff({ kind: "cultivation_mult", value: 1.6, expiresAt: Date.now() + 30 * 6e4, sourceName: "Spirit-Fed Brazier" });
+    pushStackedBuff({ kind: "brazier_mult", value: brazierBuffValue(), expiresAt: Date.now() + 30 * 6e4, sourceName: "Spirit-Fed Brazier" });
     saveChar();
     return true;
   }
@@ -24406,6 +24431,7 @@
       }
       return;
     }
+    if (typeof combat !== "undefined" && combat) return;
     if (!(typeof state !== "undefined" && state && state.confirmed) || atTitle || pendingAscension || pendingDestiny) return;
     if (typeof state.childhood !== "undefined" && state.childhood && state.childhood.step !== "complete") return;
     if (soulBoonPicksPending && soulBoonPicksPending() > 0) return;
@@ -25949,13 +25975,14 @@
       locMult = 0.4;
     }
     const cultBuff = activeBuffValue("cultivation_mult", 1);
+    const brazierBuff = activeBuffValue("brazier_mult", 1);
     const hm = heritageMech();
     const heritageCult = (hm.cultivationMult || 1) * (hm.cultInsightMult || 1) * (hm.schoolCultMult && hm.schoolCultMult[state.selectedSchool] || 1);
     const gearCult = computeMods(state).cultMult || 1;
     const rootGrade = state.spiritRoot && state.spiritRoot.grade || 1;
     const foundation = state.foundationQuality || 1;
     const demonCult = isDemonHeart(state) ? 0 : state.demonic ? 0.5 : 2;
-    return (base + statBonus) * method.mult * locMult * realmMult * cultBuff * boonCultivationMult() * skillCultivationMult() * heritageCult * gearCult * rootGrade * foundation * sectRankMult() * metaCultMult() * demonCult * (1 + 0.2 * goldenCoreLevel()) * sectCultInsightMult();
+    return (base + statBonus) * method.mult * locMult * realmMult * cultBuff * brazierBuff * boonCultivationMult() * skillCultivationMult() * heritageCult * gearCult * rootGrade * foundation * sectRankMult() * metaCultMult() * demonCult * (1 + 0.2 * goldenCoreLevel()) * sectCultInsightMult();
   }
   function cultivationBoostMult() {
     if (!state || !state.confirmed) return 1;
@@ -25964,7 +25991,7 @@
     const gearCult = computeMods(state).cultMult || 1;
     const rootGrade = state.spiritRoot && state.spiritRoot.grade || 1;
     const foundation = state.foundationQuality || 1;
-    return activeBuffValue("cultivation_mult", 1) * boonCultivationMult() * skillCultivationMult() * heritageCult * gearCult * rootGrade * foundation * sectRankMult() * metaCultMult();
+    return activeBuffValue("cultivation_mult", 1) * activeBuffValue("brazier_mult", 1) * boonCultivationMult() * skillCultivationMult() * heritageCult * gearCult * rootGrade * foundation * sectRankMult() * metaCultMult();
   }
   function startCultivation(locationId) {
     const loc = LOCATIONS.find((l) => l.id === locationId);
@@ -26389,15 +26416,19 @@
       // v0.50: the area's cultivation multiplier — a defeat here costs that much more lifespan
     };
     if (state.pendingBlessing) {
-      p.hpMax = Math.max(1, Math.round(p.hpMax * 2));
-      p.hp = Math.min(p.hpMax, Math.max(1, Math.round(p.hp * 2)));
-      p.qiShieldMult *= 2;
-      combat.blessingDmgMult = 1.5;
+      const promo = enemies.some((e) => e.id === "sect_promotion_elder");
+      const mul = promo ? 1.5 : 2;
+      const dmg = promo ? 1.25 : 1.5;
+      p.hpMax = Math.max(1, Math.round(p.hpMax * mul));
+      p.hp = Math.min(p.hpMax, Math.max(1, Math.round(p.hp * mul)));
+      p.qiShieldMult *= mul;
+      combat.blessingDmgMult = dmg;
+      combat.blessingDampened = promo;
       state.pendingBlessing = false;
       saveChar();
     }
     pushLog("turn", `— Turn 1 —`);
-    if (combat.blessingDmgMult > 1) pushLog("flavor", "A Sect Elder's blessing settles over you — flesh doubled, barrier doubled, every strike half again as heavy.");
+    if (combat.blessingDmgMult > 1) pushLog("flavor", combat.blessingDampened ? "A Sect Elder's blessing settles over you — but the examination ring dampens it to half: the duel must test you, not your patron." : "A Sect Elder's blessing settles over you — flesh doubled, barrier doubled, every strike half again as heavy.");
     if (enemies.length === 1) {
       pushLog("flavor", ENEMIES[enemies[0].id].intro);
     } else {
@@ -28477,7 +28508,9 @@
     cultivation_mult: "cultivation rate",
     hp_max_add: "max Vitality",
     weapon_mult: "weapon power",
-    incoming_mult: "incoming damage"
+    incoming_mult: "incoming damage",
+    brazier_mult: "cultivation rate (brazier)"
+    // v1.27.132: own lane, stacks with cultivation_mult
   };
   function dockIsWide() {
     try {
@@ -30947,15 +30980,16 @@
     if (houseTab === "alchemy") {
       const brRow = document.createElement("div");
       brRow.className = "consumable-row";
-      const active = (state.base.buffs || []).find((b) => b.kind === "cultivation_mult" && b.sourceName === "Spirit-Fed Brazier" && b.expiresAt > Date.now());
+      const active = (state.base.buffs || []).find((b) => b.kind === "brazier_mult" && b.sourceName === "Spirit-Fed Brazier" && b.expiresAt > Date.now());
+      const brPct = Math.round((brazierBuffValue() - 1) * 100);
       brRow.innerHTML = `<div class="consumable-info">
         <div class="consumable-name">Spirit-Fed Brazier <span style="color:var(--ink-soft);font-size:0.75rem">灵焚炉</span></div>
-        <div class="consumable-desc">Burn ${brazierCost()} spirit stones for +60% cultivation rate, 30 minutes.${active ? ` <strong style="color:var(--gold)">Burning (${Math.ceil((active.expiresAt - Date.now()) / 6e4)}m left).</strong>` : ""}</div>
+        <div class="consumable-desc">Burn ${brazierCost().toLocaleString()} spirit stones for <strong>+${brPct}% cultivation rate</strong>, 30 minutes. Its own surge — <strong>stacks on top of</strong> your pills and draughts (+10% per realm, costs more as you climb).${active ? ` <strong style="color:var(--gold)">Burning (${Math.ceil((active.expiresAt - Date.now()) / 6e4)}m left).</strong>` : ""}</div>
       </div>`;
       const brBtns = document.createElement("div");
       brBtns.className = "consumable-buttons";
       const brb = document.createElement("button");
-      brb.textContent = `Burn (${brazierCost()})`;
+      brb.textContent = `Burn (${brazierCost().toLocaleString()})`;
       brb.disabled = (state.base.materials.spirit_stone || 0) < brazierCost();
       brb.onclick = () => {
         burnStonesInBrazier();
@@ -31700,7 +31734,12 @@
       noneC.textContent = "No pills or potions on hand. Brew them in the House.";
       useP.appendChild(noneC);
     } else {
-      ownedCons.sort((a, b) => (CONSUMABLES[a[0]].minRealmTier || 0) - (CONSUMABLES[b[0]].minRealmTier || 0)).forEach(([cid]) => useP.appendChild(renderConsumableRow(cid, CONSUMABLES[cid], "use")));
+      const rarityOrder = { common: 0, rare: 1, legendary: 2, divine: 3 };
+      const kindOrder = { pill: 0, potion: 1 };
+      ownedCons.sort((a, b) => {
+        const ca = CONSUMABLES[a[0]], cb = CONSUMABLES[b[0]];
+        return (kindOrder[ca.kind] ?? 2) - (kindOrder[cb.kind] ?? 2) || (ca.minRealmTier || 0) - (cb.minRealmTier || 0) || (rarityOrder[ca.rarity] || 0) - (rarityOrder[cb.rarity] || 0) || (ca.name || "").localeCompare(cb.name || "");
+      }).forEach(([cid]) => useP.appendChild(renderConsumableRow(cid, CONSUMABLES[cid], "use")));
     }
     appendPanel(useP, "self");
     const locP = document.createElement("div");
@@ -32141,7 +32180,7 @@
     const walkLuck = state.finalStats && state.finalStats.luck || 0;
     const walkCombatPct = Math.round(walkAStretchCombatChance(walkLuck) * 100);
     roadP.innerHTML = `<h3>Open Road <span style="font-weight:normal;color:var(--ink-soft);font-size:0.85rem">远路</span></h3>
-    <p style="font-size:0.85rem;color:var(--ink-soft);margin:0 0 0.4rem">Wander the road for whatever fate brings — spirit stones, materials, a spring's blessing, a rare wandering stall, or a fight. Your <strong>Fortune (${walkLuck})</strong> makes hostile encounters rarer (~<strong>${walkCombatPct}%</strong> now, 0% at 16+) and good finds more likely.</p>
+    <p style="font-size:0.85rem;color:var(--ink-soft);margin:0 0 0.4rem">Wander the road for whatever fate brings — spirit stones, materials, dropped elixirs, inscription essence, a spring's blessing or an exposed spirit vein, longevity dew, a rare wandering stall, or a fight. Payouts grow the <strong>deeper into a realm</strong> you are. Your <strong>Fortune (${walkLuck})</strong> closes out the dead "quiet road" rolls, unlocks the richer finds, and nudges up every reward — and it makes hostile encounters rarer (~<strong>${walkCombatPct}%</strong> now, 0% at 16+).</p>
     ${state.lastWalkResult ? `<p style="font-size:0.88rem;margin:0 0 0.4rem;color:var(--gold)">${state.lastWalkResult}</p>` : ""}
     <div class="button-row"><button id="random-encounter">Walk a Stretch</button></div>`;
     appendPanel(roadP, "market");
@@ -32249,17 +32288,24 @@
     sectP.appendChild(storeHdr);
     const exRow = document.createElement("div");
     exRow.className = "consumable-row";
-    exRow.innerHTML = `<div class="consumable-info"><div class="consumable-name">Resource Requisition <span style="color:var(--ink-soft);font-size:0.75rem">领资</span></div><div class="consumable-desc">Spend 50 contribution for 20 spirit stones.</div></div>`;
+    const maxReq = maxRequisitions();
+    exRow.innerHTML = `<div class="consumable-info"><div class="consumable-name">Resource Requisition <span style="color:var(--ink-soft);font-size:0.75rem">领资</span></div><div class="consumable-desc">Spend 50 contribution for 20 spirit stones. Batch it so you're not clicking a hundred times.${maxReq > 0 ? ` <span style="color:var(--ink-soft)">All in: ${(maxReq * CONTRIB_REQUISITION.cost).toLocaleString()}c → ${(maxReq * CONTRIB_REQUISITION.stones).toLocaleString()} stones.</span>` : ""}</div></div>`;
     const exBtns = document.createElement("div");
     exBtns.className = "consumable-buttons";
-    const exBtn = document.createElement("button");
-    exBtn.textContent = "Requisition (50)";
-    exBtn.disabled = contrib < 50;
-    exBtn.onclick = () => {
-      exchangeContribForStones();
-      render();
+    const mkReqBtn = (label, n) => {
+      const b = document.createElement("button");
+      b.className = "small";
+      b.textContent = label;
+      b.disabled = maxReq < (n === "max" ? 1 : n);
+      b.onclick = () => {
+        exchangeContribForStones(n);
+        render();
+      };
+      return b;
     };
-    exBtns.appendChild(exBtn);
+    exBtns.appendChild(mkReqBtn("×1 (50)", 1));
+    exBtns.appendChild(mkReqBtn("×10 (500)", 10));
+    exBtns.appendChild(mkReqBtn("Max", "max"));
     exRow.appendChild(exBtns);
     sectP.appendChild(exRow);
     {
@@ -32284,7 +32330,7 @@
         const bought2 = sectPotionBought(key);
         mkSectRow(
           `${pot.name} <span style="color:var(--ink-soft);font-size:0.75rem">${pot.zh}</span>`,
-          `A timed <strong>+${pct}% ${key === "cult" ? "cultivation rate" : "weapon damage"}</strong> — always 5% above the best brew of your realm. ${c.stones.toLocaleString()} stones + ${c.contribution.toLocaleString()} contribution${bought2 ? ` · ${bought2} bought this realm` : ""} (doubles each buy this realm).`,
+          `A <strong>${SECT_POTION_DURATION_MIN}-minute +${pct}% ${key === "cult" ? "cultivation rate" : "weapon damage"}</strong> — always 5% above the best brew of your realm, and it shows a live timer in Resources &amp; Effects. ${c.stones.toLocaleString()} stones + ${c.contribution.toLocaleString()} contribution${bought2 ? ` · ${bought2} bought this realm` : ""} (doubles each buy this realm).`,
           `Buy (${c.stones.toLocaleString()}s + ${c.contribution.toLocaleString()}c)`,
           canBuySectPotion(key),
           () => {
@@ -32294,7 +32340,7 @@
       });
       {
         const cost = sectBlessingCost(), left = Math.max(0, SECT_BLESSING_CAP - blessingsBoughtThisRealm());
-        const desc = state.pendingBlessing ? "A blessing is already prepared — it takes hold on your next fight." : `Your next fight only: <strong>×2 Vitality, ×2 qi barrier, +50% damage</strong> (stacks with everything else). ${cost.toLocaleString()} stones · ${left}/${SECT_BLESSING_CAP} left this realm.`;
+        const desc = state.pendingBlessing ? "A blessing is already prepared — it takes hold on your next fight." : `Your next fight only: <strong>×2 Vitality, ×2 qi barrier, +50% damage</strong> (stacks with everything else). <span style="color:var(--ink-soft)">Halved in a promotion duel — the ring tests you, not your patron.</span> ${cost.toLocaleString()} stones · ${left}/${SECT_BLESSING_CAP} left this realm.`;
         mkSectRow(
           `Sect Elder Blessing <span style="color:var(--ink-soft);font-size:0.75rem">长老加持</span>`,
           desc,
