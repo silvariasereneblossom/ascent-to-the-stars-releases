@@ -3749,7 +3749,7 @@
       logHit: (a, t) => `${a} draws a single line; nine glyphs ignite in a perfect ring under everyone present.`
     },
     // ============ v0.45: school signature techniques (5th base slot). Each delivers the
-    // school's signature status effect / gameplan piece. effectPower scales DOT ticks off
+    // school's signature status effect / strategy piece. effectPower scales DOT ticks off
     // the player's weapon power; effectStacks applies N stacks at once. ============
     azure_third_cut: {
       name: "Third Cut Remembers",
@@ -5746,14 +5746,34 @@
       postureBuild: 22,
       logHit: (a, t) => `Black qi lashes out — warm where it touches, cold after.`
     },
+    // v1.27.124/125 (operator): nerfed 3.4x -> 2.0x and given SUNDER (2 stacks) — the Mine-Heart Golem's
+    // middle combo beat is a guard-grinder now, not a one-shot. (Shared with the iron-body monk, which is
+    // fine: 3.4x qi-pierce was too hot on any chassis, and a stagger-construct wanting sunder is on-theme.)
     mountain_press: {
       name: "Mountain-Press Palm",
       qi: 32,
       cd: 3,
-      damage: 3.4,
+      damage: 2,
       postureBuild: 34,
       pierceQi: 0.3,
-      logHit: (a, t) => `The weight of a mountain settles briefly on ${t}'s chest.`
+      effect: "sunder",
+      effectValue: 0.1,
+      effectTurns: 4,
+      effectStacks: 2,
+      logHit: (a, t) => `The weight of a mountain settles on ${t}'s chest — guard-plates buckle and split.`
+    },
+    // v1.27.125 (operator): the Mine-Heart Golem's opening combo beat — a fast jab that cracks the guard twice.
+    stone_punch: {
+      name: "Stone Punch",
+      qi: 8,
+      cd: 0,
+      damage: 1.5,
+      postureBuild: 18,
+      effect: "sunder",
+      effectValue: 0.1,
+      effectTurns: 4,
+      effectStacks: 2,
+      logHit: (a, t) => `${a} drives a granite fist into ${t}'s guard — two plates crack and slew apart.`
     },
     immortal_cut: {
       name: "Immortal Cut",
@@ -8572,9 +8592,12 @@
       desc: "+25% weapon power for 12 minutes. Rings faintly in the cup before it is drunk."
     },
     windreed_pill: {
-      name: "Windreed Pill",
-      zh: "风苇丹",
-      kind: "pill",
+      // v1.27.121 (tester: "windreed pill seems misplaced — everything else that's a combat buff is in
+      // potions"). It's a timed max-Vitality combat buff, so it belongs with the potions, not the
+      // cultivation/body pills. Recategorized to a draught (kept the id so existing stacks carry over).
+      name: "Windreed Draught",
+      zh: "风苇饮",
+      kind: "potion",
       rarity: "common",
       recipe: { windreed: 2, body_root: 2 },
       minRealmTier: 1,
@@ -9142,6 +9165,94 @@
     }
   };
 
+  // app/src/data/changelog.js
+  var CHANGELOG = [
+    { v: "1.27.129", notes: [
+      "The demonic control schools (Whispering Array, Jade Inkwell, Chain-Saint) now lock enemies down harder — their statuses last noticeably longer and bind more completely — but their control techniques cool down a turn slower, so the power comes at a tempo cost (and, from the skill-tree pass, they stay squishy).",
+      "Demonic Verdant's roots now truly sap: Root-Bind and Greenwave plant a Vitality-draining bleed as they bind, on top of everything else."
+    ] },
+    { v: "1.27.128", notes: [
+      "Demonic Verdant Monastery no longer gives up its healing. It keeps Sap of the Grove and its lifesteal, and trades only its pure-armor line for Bramble Heresy: thorns that lash back a share of your MAX Vitality every hit, reflect, flat DR, and deeper roots — a reflect-and-rot tank, a more defensive cousin of the Demon-Heart."
+    ] },
+    { v: "1.27.127", notes: [
+      "The demonic path now has its own skill identity — lean into strengths, amplify weaknesses. Walking a school demonic swaps its defensive line for a heretical one: offensive schools gain a brutal glass-cannon branch (more damage, but you take more too), defensive schools trade armor for a reflect-and-bloodlust branch, and control schools grind the bound harder while staying squishy. On top of that, the Heretical Arts tree grew from three nodes into three full risk/reward branches (Blood Covenant, Reckless Ascension, Devourer's Path) open to every demonic cultivator. Anything you already bought in the old Heretical Arts still works."
+    ] },
+    { v: "1.27.126", notes: [
+      "The Combat Arts skill tree is now PER-SCHOOL. Instead of one shared list where half the nodes were dead weight for your style, every school has three branches drawn from its own strategy (a posture school gets posture/anvil/stance lines; a poison assassin gets crit/venom/opening lines; a soul-breaker gets spirit/grief/attunement, and so on) — one node per realm, chaining deeper as you climb. Any old shared node you already bought still works."
+    ] },
+    { v: "1.27.125", notes: [
+      "The Mine-Heart Golem now fights to a readable 3-beat combo: Stone Punch (Sunder ×2) → Mountain-Press Palm (Sunder ×2) → Gallery Collapse. The two openers grind your guard; the Collapse cashes it in — taken UNGUARDED it hits +10% harder per Sunder stack, so Meditate/guard the third beat. You can also break its posture (it takes +30% posture damage) or burst it for 25% of its health during the setup to make the Collapse land half-strength."
+    ] },
+    { v: "1.27.124", notes: [
+      "Lighting the Spirit-Fed Brazier (and the roadside springs) no longer wipes your other cultivation buffs — they stack under the usual two-strongest rule instead."
+    ] },
+    { v: "1.27.123", notes: [
+      "Crafted weapons and armor now auto-lock when forged, so a bulk sell or disassemble never shreds a piece you just spent materials on.",
+      "The disassemble screen is sorted best-first (rarity, then realm, then kind) — matching the Loadout lists."
+    ] },
+    { v: "1.27.122", notes: [
+      "Loadout weapons and inscriptions are sorted best-first (by rarity, then power) so your strongest options are at the top.",
+      "Sect Armory weapons now come locked by default when claimed, so a bulk sell or disassemble never accidentally shreds a hard-earned sect weapon."
+    ] },
+    { v: "1.27.121", notes: [
+      "Journey tonics are now worth the hunt — a site's regional tonic clearly beats the herb-tea you can craft at home (the Old Kiln Hollow Tonic, and its kind, were quietly worse than Riverstone Tea). Weapon/ward journey brews got a magnitude and duration bump.",
+      "Every incoming-damage-reduction potion now notes the −15% defensive soft cap consistently (it was only on the mist draughts before).",
+      "Windreed Pill is now the Windreed Draught, listed with the combat-buff potions instead of the cultivation pills.",
+      "Fixed the pin and craft buttons being vertically misaligned on recipe rows."
+    ] },
+    { v: "1.27.120", notes: [
+      "Sect weapons are no longer stuck at their rank power — their base power now scales with your realm (a shade under a rare of it), so the sect-issued blade stays relevant as you climb. They also pay sect dues: +20 contribution on every kill, doubled from bosses."
+    ] },
+    { v: "1.27.119", notes: [
+      "The sect promotion duel is now a mirror test: the examiner always has 5× your Vitality and 1.5× your damage.",
+      "Sect Store additions: exclusive Cultivation and War draughts (always 5% above the best brew of your realm), a Sect Elder Blessing (one fight: ×2 Vitality, ×2 qi barrier, +50% damage — 3 per realm), and direct stat elixirs (+1 to a random stat with no pips, 5 per realm). Costs scale with realm and escalate as you buy.",
+      "You can buy an extra realm death outright with stones + contribution — the price triples with each one you buy in a realm.",
+      "The market now lets you requisition more of a stocked material past the daily cap, at a price that doubles with each requisition in the realm."
+    ] },
+    { v: "1.27.118", notes: [
+      "Ambush insight now rewards investment: an ambush kill floors at 10× the base per-kill insight and scales up from there with your insight multipliers (up to ~60× for a maxed build), instead of sitting at a flat floor."
+    ] },
+    { v: "1.27.117", notes: [
+      "Ambushes (inquisitors and rival demons) pay off again: an ambush kill now yields a floor of 10× the base per-kill insight — the soft cap used to swallow their bonus. The higher the realm, the bigger the payout, matching the threat.",
+      'Each journey card has a "Drops" dropdown listing its materials, and tapping a material shows what it crafts.'
+    ] },
+    { v: "1.27.116", notes: [
+      "Climbing layers now also raises your sect standing: sect work (kills and bounties) pays +4% contribution per layer within the realm, so you reach the rank cultivation buffs sooner. Shown in the layer strip."
+    ] },
+    { v: "1.27.115", notes: [
+      "Combat momentum now cools slower — one stack every 10 minutes (was every minute), so a good fight streak keeps your recovery warm far longer.",
+      "Your insight (with the next-layer target) and age now show during combat, so auto-combat can be stopped right at a breakthrough mark. Fighting never ages you — only active cultivation does.",
+      'Wandering the Open Road pays more the deeper into a realm you are, and Fortune now matters much more: higher Fortune closes out the dead "quiet road" rolls, unlocks stronger finds, and nudges up the size of every reward. New finds too — inscription essence, dropped elixirs, exposed spirit veins, and longevity dew.'
+    ] },
+    { v: "1.27.114", notes: [
+      "Winning a fight no longer heals you. Instead each foe felled builds COMBAT MOMENTUM — +10% recovery rate per kill, up to +100%, shedding one stack every 10 minutes. Fighting warms your recovery; resting still does the mending.",
+      "Every layer within a realm now visibly grants: Vitality, Qi, weapon power, +2% cultivation speed, AND +1 to your realm death cap. The realm strip spells out what this layer gave and what the next one adds.",
+      "New Changelog button under Config (you are reading it)."
+    ] },
+    { v: "1.27.113", notes: [
+      "The trader caravan rotates its stock each market window, prices its goods a little differently every time, and its wagons roll on once you have bought it out — with a live countdown to the next one."
+    ] },
+    { v: "1.27.112", notes: ['Optional "pause before dying of old age" — a Config toggle that halts you one breath short of the end instead of letting age take you mid-meditation.'] },
+    { v: "1.27.111", notes: [`The disassembly list stacks duplicates, and the "won't stack" verdict on a consumable is always visible.`] },
+    { v: "1.27.110", notes: ["Collapsible sub-sections and pinned recipes across the House tabs — less scrolling, your favourites on top."] },
+    { v: "1.27.109", notes: ["The stat box shows what +1 in a stat actually buys, and now holds the cultivation-point allocator directly."] },
+    { v: "1.27.108", notes: ["A persistent Resources & Effects dock — a side column on wide screens, a compact summary on phones."] },
+    { v: "1.27.107", notes: ["q/e and the arrow keys walk between sub-sections, rolling into the next section at the edges."] },
+    { v: "1.27.106", notes: ["Age shown as hours of cultivation left, distillation pips hidden until earned, a skill-tree realm filter, and library sorting."] },
+    { v: "1.27.105", notes: ["Locking one copy of an item no longer freezes its duplicates — lock 1 of 3 and the other two stay sellable."] },
+    { v: "1.27.104", notes: ["Spirit stones buy weapon refinements directly, starting at 2,000 and doubling."] },
+    { v: "1.27.101", notes: ["Keyboard shortcuts for combat and tab navigation on web and desktop."] },
+    { v: "1.27.99", notes: ["A thorns option for the regen tank, a claim-all on the Hunt Bounty, and finer Vitality-% precision."] },
+    { v: "1.27.98", notes: ["The Cracked Mirror-Shard is now a crit-focused sidegrade rather than a strict upgrade."] },
+    { v: "1.27.92", notes: ["The stat-allocation cap scales with your roll, and the Open Road button re-arms itself when its cooldown lapses."] },
+    { v: "1.27.91", notes: ["Bounded the per-kill insight soft cap — no more 22-million-insight single kills."] },
+    { v: "1.27.90", notes: ["Disassembly can no longer out-fund crafting, closing the cheap divine-gear loop."] },
+    { v: "1.27.89", notes: ["Lockable items, grouped sticky tabs, and a much shorter page overall."] },
+    { v: "1.27.84", notes: ['Pill-stacking guard, sell-list stacking with a "sell all junk" button, and weapon-school affinity.'] },
+    { v: "1.27.80", notes: ["Vitality rest fixed and accrues offline, made discoverable; rich-qi mob power halved."] },
+    { v: "1.27.74", notes: ["Every non-demonic journey drops a unique material with a unique use."] }
+  ];
+
   // app/src/main.js
   Object.assign(AI, { enemyBasicStrike, enemyTickCDs, enemyCanUse, enemyUseTech, enemyMeditate });
   for (const fn of AI_REQUIRED) {
@@ -9180,10 +9291,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Tribulation resistance, resolve under pressure." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.111';
+  var GAME_VERSION = 'v1.27.129';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "3a78849";
+  var BUILD_SHA = "6773113";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -12781,21 +12892,22 @@
   var DEMONIC_TWISTS = {
     azure_sword: { intentCap: 7, twistDesc: "Sword Intent stacks to 7." },
     iron_body: { reflectPct: 0.25, twistDesc: "Iron Skin reflects 25%." },
-    whispering_array: { debuffTurnsBonus: 2, twistDesc: "Your statuses last +2 turns." },
+    whispering_array: { debuffTurnsBonus: 3, techCdBonus: 1, twistDesc: "Your statuses last +3 turns and bind more completely — but your control techniques cool +1 turn slower. Total lockdown, at a tempo price." },
     crimson_flame: { onTechHit: { kind: "burn", power: 0.18, turns: 3 }, twistDesc: "Burns tick half again harder." },
     moonlit_water: { onTechHit: { kind: "chill", value: 0.3, turns: 2 }, twistDesc: "Chill saps -30% damage." },
     silent_daggers: { critBonus: 0.15, onTechHit: { kind: "poison", power: 0.12, turns: 4 }, twistDesc: "+15% crit; deadlier venom." },
     demon_heart: { lifestealBonus: 0.3, twistDesc: "Hungry Dao drinks 30% (35% at Golden Core)." },
     // v1.27.33: small early buff (+5%)
     starfall: { critBonus: 0.05, twistDesc: "+5% crit on top of Celestial Sight." },
-    verdant_monastery: { regenPct: 0.05, twistDesc: "Regrow 5% max Vitality per round." },
+    verdant_monastery: { regenPct: 0.05, twistDesc: "Regrow 5% max Vitality per round, and your roots (Root-Bind, Greenwave) SAP — planting a Vitality-draining bleed as they bind." },
     thunder_hammer: { postureBonus: 0.4, twistDesc: "+40% posture damage." },
     cloud_traveler: { dodgeChance: 0.2, twistDesc: "20% innate dodge." },
     bone_reed: { spiritDamageBonus: 0.45, twistDesc: "Spirit damage +45%." },
-    jade_inkwell: { ampVsDebuffed: 0.25, twistDesc: "+25% vs debuffed foes." },
+    jade_inkwell: { ampVsDebuffed: 0.25, debuffTurnsBonus: 2, techCdBonus: 1, twistDesc: "+25% vs debuffed foes; your seals and silences hold +2 turns longer, but every writ costs +1 turn of cooldown." },
     dragonforge: { onTechHit: { kind: "sunder", value: 0.09, turns: 3 }, twistDesc: "Sunder bites +9% per stack." },
-    chain_saint: { onTechHit: { kind: "oathbound", power: 0.4, turns: 2 }, twistDesc: "Backlash collects at 40% weapon power." }
+    chain_saint: { onTechHit: { kind: "oathbound", power: 0.4, turns: 2 }, debuffTurnsBonus: 2, techCdBonus: 1, twistDesc: "Backlash collects at 40% weapon power, and your binds hold +2 turns longer — but the chains are slower to throw (+1 cooldown)." }
   };
+  var DEMONIC_ROOT_SAP = /* @__PURE__ */ new Set(["root_bind", "greenwave_sweep"]);
   var DEMONIC_SCHOOL_LORE = {
     azure_sword: {
       name: "Asura Blade Pavilion",
@@ -15800,6 +15912,38 @@
       return enemyBasicStrike(e, p);
     };
   });
+  {
+    const G = ENEMIES.mine_golem;
+    if (G) {
+      if (ENEMY_TECHS.stone_punch && !G.techIds.includes("stone_punch")) G.techIds = ["stone_punch"].concat(G.techIds);
+      const SEQ = ["stone_punch", "mountain_press", "gallery_collapse"];
+      G.ai = (e, p) => {
+        enemyTickCDs(e);
+        const step = e._golemStep || 0;
+        if (step === 0) {
+          e._comboPunished = false;
+          e._comboLastHp = e.hp;
+        }
+        const techId = SEQ[step];
+        const tech = ENEMY_TECHS[techId];
+        const up = e.effects.find((ef) => ef.kind === "qi_cost_up");
+        const cost = up ? Math.ceil(tech.qi * up.value) : tech.qi;
+        if (e.effects.some((ef) => ef.kind === "silence") || e.qi < cost) {
+          pushLog("posture", `${e.name} grinds still, ore-heart dimming — it gathers itself.`);
+          return enemyMeditate(e);
+        }
+        if (step > 0) {
+          const lost = (e._comboLastHp != null ? e._comboLastHp : e.hp) - e.hp;
+          if (lost >= 0.25 * (e.hpMax || 1)) e._comboPunished = true;
+          if ((e.broken || 0) > 0) e._comboPunished = true;
+        }
+        e._comboLastHp = e.hp;
+        e._golemStep = (step + 1) % SEQ.length;
+        if (techId === "gallery_collapse" && e._comboPunished) e._halveNextHeavy = true;
+        return enemyUseTech(e, p, techId);
+      };
+    }
+  }
   var ENEMY_TECH_EFFECT_PATCH = {
     serpent_strike: { effect: "poison", effectValue: 3, effectTurns: 3 },
     // t0-1 serpents
@@ -17371,6 +17515,153 @@
       desc: "-1% damage taken per rank, with a realm-scaled milestone bonus every 5 ranks (floor -90%). Cost doubles each rank; max 5 ranks per realm (35 total)."
     }
   ];
+  (function buildSchoolCombatArts() {
+    SKILLS.forEach((s) => {
+      if (s.category === "Combat Arts" && !s.school) s.legacy = true;
+    });
+    const CA_COST = [0, 2500, 3e4, 15e4, 6e5, 25e5, 9e6];
+    const CA_ARCH = {
+      crit: { mods: () => ({ critChance: 0.025, critMult: 1.05 }), blurb: "+2.5% crit chance, and crits land 5% harder" },
+      dot: { mods: () => ({ dotMult: 1.1 }), blurb: "your damage-over-time effects (burn / poison / bleed / leech) tick 10% harder" },
+      posture: { mods: () => ({ postureMult: 1.1 }), blurb: "+10% posture damage — stances end sooner" },
+      dodge: { mods: () => ({ dodgeChance: 0.02 }), blurb: "+2% chance to evade an attack outright" },
+      spirit: { mods: () => ({ spiritDamageMult: 1.1 }), blurb: "+10% spirit damage — aimed past the body" },
+      lifesteal: { mods: () => ({ lifestealPct: 0.025 }), blurb: "heal 2.5% of the damage you deal" },
+      dr: { mods: () => ({ flatDR: 4, hpMult: 1.02 }), blurb: "+4 flat damage reduction and +2% max Vitality" },
+      firstStrike: { mods: () => ({ firstStrikeBonus: 0.06 }), blurb: "+6% damage on the opening turn of a fight" },
+      element: { mods: () => ({ elementBoostAll: 0.15 }), blurb: "your five-element OVERCOME bonus is amplified a further 15%" },
+      techDmg: { mods: () => ({ techDamageMult: 1.06, strikeDamageMult: 1.06 }), blurb: "+6% to all strike and technique damage" },
+      regen: { mods: () => ({ hpMult: 1.03, flatDR: 2 }), blurb: "+3% max Vitality and +2 flat damage reduction — outlast them" },
+      ramp: { mods: (t) => t >= 4 ? { perTurnRamp: 0.01, lateBonus: 0.05 } : { perTurnRamp: 0.01 }, blurb: "+1% damage per combat turn elapsed (and +5% from turn 4 on, at Golden Core and beyond)" }
+    };
+    const SCHOOL_CA = {
+      azure_sword: [["ramp", "Rising Blade", "升锋"], ["techDmg", "Severing Doctrine", "断诀"], ["crit", "Still-Point Eye", "静心目"]],
+      iron_body: [["dr", "Iron Root", "铁根"], ["lifesteal", "Bloodbone Draw", "血骨引"], ["posture", "Immovable Form", "不动式"]],
+      whispering_array: [["dot", "Lingering Glyph", "滞符"], ["spirit", "Meridian Knot", "经结"], ["dr", "Warded Circle", "护阵"]],
+      crimson_flame: [["dot", "Everburn Study", "常燃学"], ["techDmg", "Pyre Discipline", "焚律"], ["element", "Fire-Aspect Rite", "火相仪"]],
+      moonlit_water: [["dr", "Deep-Cold Ward", "深寒护"], ["dodge", "Mirror Step", "镜步"], ["techDmg", "Undertow Craft", "暗涌技"]],
+      silent_daggers: [["crit", "Killing Calm", "杀静"], ["dot", "Coated Blades", "淬刃"], ["firstStrike", "Opening Cut", "开锋"]],
+      demon_heart: [["lifesteal", "Hungry Dao", "饥道"], ["spirit", "Soul-Render", "裂魂"], ["crit", "Heretic Edge", "逆锋"]],
+      starfall: [["crit", "Hunter's Eye", "猎目"], ["firstStrike", "Opening Volley", "开弦"], ["element", "Starfall Alignment", "星列"]],
+      verdant_monastery: [["regen", "Sap of the Grove", "林液"], ["dr", "Heartwood Bark", "心木皮"], ["lifesteal", "Rooted Draw", "根引"]],
+      thunder_hammer: [["posture", "Aftershock Path", "余震道"], ["techDmg", "Anvil Doctrine", "砧诀"], ["dr", "Forge-Set Stance", "定炉式"]],
+      cloud_traveler: [["dodge", "Windward Step", "迎风步"], ["ramp", "Gathering Gale", "聚风"], ["techDmg", "Skyline Craft", "天际技"]],
+      bone_reed: [["spirit", "Hollow Resonance", "空鸣"], ["dot", "Grieving Note", "哀音"], ["element", "Reed Attunement", "苇调"]],
+      jade_inkwell: [["techDmg", "Red-Ink Authority", "朱笔权"], ["spirit", "Binding Character", "缚字"], ["dr", "Scholar's Ward", "书护"]],
+      dragonforge: [["posture", "Moltenwake Path", "熔迹道"], ["techDmg", "Heatfold Doctrine", "叠热诀"], ["dr", "Slag Hide", "渣皮"]],
+      chain_saint: [["posture", "Oathbreaker's Toll", "破誓课"], ["spirit", "Soul-Pull Litany", "引魂咒"], ["dr", "Bound Ward", "缚护"]]
+    };
+    const ROM = ["I", "II", "III", "IV", "V", "VI"];
+    const CN = ["一", "二", "三", "四", "五", "六"];
+    Object.entries(SCHOOL_CA).forEach(([sid, branches]) => {
+      branches.forEach(([arch, bname, bzh], bi) => {
+        const a = CA_ARCH[arch];
+        if (!a) return;
+        let prev = null;
+        for (let tier = 1; tier <= 6; tier++) {
+          const id = `sca_${sid}_${bi}_${tier}`;
+          SKILLS.push({
+            id,
+            name: `${bname} ${ROM[tier - 1]}`,
+            zh: `${bzh}·${CN[tier - 1]}`,
+            category: "Combat Arts",
+            school: sid,
+            arch,
+            cost: CA_COST[tier],
+            minTier: tier,
+            // v1.27.127: the defensive line is hidden on the demonic path (demonic def/support are meant to
+            // be LESS tanky) — flagged here so the demonic pass can find and swap it.
+            notDemonic: arch === "dr" || arch === "regen" || void 0,
+            requires: prev ? [prev] : void 0,
+            effect: { kind: "mods", mods: a.mods(tier) },
+            desc: `${a.blurb}. (${bname} chain — stacks each realm you carve it deeper.)`
+          });
+          prev = id;
+        }
+      });
+    });
+  })();
+  (function buildDemonicArts() {
+    SKILLS.forEach((s) => {
+      if (s.category === "Heretical Arts" && /^ha_/.test(s.id)) s.legacy = true;
+    });
+    const DEM_COST = [0, 2500, 3e4, 15e4, 6e5, 25e5, 9e6];
+    const ROM = ["I", "II", "III", "IV", "V", "VI"];
+    const CN = ["一", "二", "三", "四", "五", "六"];
+    const ROLE = {
+      azure_sword: "off",
+      iron_body: "def",
+      whispering_array: "sup",
+      crimson_flame: "off",
+      moonlit_water: "def",
+      silent_daggers: "off",
+      demon_heart: "off",
+      starfall: "off",
+      verdant_monastery: "def",
+      thunder_hammer: "off",
+      cloud_traveler: "def",
+      bone_reed: "off",
+      jade_inkwell: "sup",
+      dragonforge: "off",
+      chain_saint: "sup"
+    };
+    const DEM_SWAP = {
+      off: { name: "Reckless Heresy", zh: "逆狂", mods: () => ({ techDamageMult: 1.07, strikeDamageMult: 1.07, incomingMult: 1.03 }), blurb: "+7% strike & technique damage, but you take +3% more damage — a demon spends its own body" },
+      def: { name: "Vengeful Hide", zh: "反噬皮", mods: () => ({ reflectPct: 0.05, lowHpBonus: 0.04, spiritDamageMult: 1.04 }), blurb: "return 5% of the damage you take, hit +4% harder while bloodied, +4% spirit damage — no new armor, just teeth" },
+      sup: { name: "Binding Heresy", zh: "缚逆", mods: () => ({ dotMult: 1.09, spiritDamageMult: 1.06, incomingMult: 1.02 }), blurb: "+9% DOT and +6% spirit damage to grind the bound to nothing, but you take +2% more damage — the trap costs the trapper" }
+    };
+    const DEM_SCHOOL = {
+      verdant_monastery: { name: "Bramble Heresy", zh: "棘逆", mods: () => ({ thornsVitPct: 6e-3, reflectPct: 0.04, flatDR: 4, dotMult: 1.08 }), blurb: "each hit you take lashes back thorns worth 0.6% of your MAX Vitality, you return 4% of damage taken, +4 flat DR, and your roots bite 8% deeper — a tank that answers in kind and saps" }
+    };
+    SKILLS.forEach((s) => {
+      if (/^sca_verdant_monastery_0_/.test(s.id)) delete s.notDemonic;
+    });
+    Object.entries(ROLE).forEach(([sid, role]) => {
+      const br = DEM_SCHOOL[sid] || DEM_SWAP[role];
+      let prev = null;
+      for (let t = 1; t <= 6; t++) {
+        const id = `dca_${sid}_${t}`;
+        SKILLS.push({
+          id,
+          name: `${br.name} ${ROM[t - 1]}`,
+          zh: `${br.zh}·${CN[t - 1]}`,
+          category: "Combat Arts",
+          school: sid,
+          demonicOnly: true,
+          cost: DEM_COST[t],
+          minTier: t,
+          requires: prev ? [prev] : void 0,
+          effect: { kind: "mods", mods: br.mods(t) },
+          desc: `DEMONIC. ${br.blurb}. (${br.name} chain.)`
+        });
+        prev = id;
+      }
+    });
+    const HA_BRANCH = [
+      { name: "Blood Covenant", zh: "血约", mods: () => ({ lifestealPct: 0.03, lowHpBonus: 0.04 }), blurb: "heal 3% of the damage you deal and strike +4% harder while bloodied — live on the wound" },
+      { name: "Reckless Ascension", zh: "逆天升", mods: () => ({ techDamageMult: 1.06, strikeDamageMult: 1.06, incomingMult: 1.03 }), blurb: "+6% strike & technique damage, but +3% more damage taken — the heresy always collects" },
+      { name: "Devourer's Path", zh: "吞噬道", mods: () => ({ spiritDamageMult: 1.08, dotMult: 1.06 }), blurb: "+8% spirit damage and +6% DOT — eat the soul, then the rest" }
+    ];
+    HA_BRANCH.forEach((br, bi) => {
+      let prev = null;
+      for (let t = 1; t <= 6; t++) {
+        const id = `ha2_${bi}_${t}`;
+        SKILLS.push({
+          id,
+          name: `${br.name} ${ROM[t - 1]}`,
+          zh: `${br.zh}·${CN[t - 1]}`,
+          category: "Heretical Arts",
+          demonicOnly: true,
+          cost: DEM_COST[t],
+          minTier: t,
+          requires: prev ? [prev] : void 0,
+          effect: { kind: "mods", mods: br.mods(t) },
+          desc: `DEMONIC. ${br.blurb}. (${br.name} chain.)`
+        });
+        prev = id;
+      }
+    });
+  })();
   var SKILL_BOOKS = {
     // ---- v1.27.9: new skill books across the realm ladder ----
     book_crane_step: {
@@ -21555,9 +21846,14 @@
   function slayBountyN() {
     return SLAY_BOUNTY_BASE + 5 * (state && state.sectBountyClaims || 0);
   }
-  function grantContribution(n) {
-    state.contribution = (state.contribution || 0) + n;
-    state.contributionLifetime = (state.contributionLifetime || 0) + n;
+  function layerContribMult() {
+    return 1 + 0.04 * Math.max(0, (state && state.realm && state.realm.layer || 1) - 1);
+  }
+  function grantContribution(n, opts) {
+    const amt = opts && opts.raw ? n : Math.round(n * layerContribMult());
+    state.contribution = (state.contribution || 0) + amt;
+    state.contributionLifetime = (state.contributionLifetime || 0) + amt;
+    return amt;
   }
   function sectRankIdx() {
     return Math.min(state && state.sectRank || 0, SECT_RANKS.length - 1);
@@ -21599,11 +21895,117 @@
       defeat: 'The elder helps you up. "The style is there. The weight behind it is not. Return when it is."'
     });
     initCombat(["sect_promotion_elder"], 1);
-    if (combat) combat.sectDuel = targetRank;
+    if (combat) {
+      combat.sectDuel = targetRank;
+      const p = combat.player, en = combat.enemies && combat.enemies[0];
+      if (p && en) {
+        en.hpMax = Math.max(1, Math.round((p.hpMax || 1) * 5));
+        en.hp = en.hpMax;
+        en.weaponPower = Math.max(1, Math.round((p.weaponPower || 1) * 1.5));
+      }
+    }
     render();
   }
   function sectRankMult() {
     return 1 + sectRankIdx() * 0.05;
+  }
+  function realmLevel() {
+    return (state.realm && state.realm.tierIdx || 0) + 1;
+  }
+  function bestBuffAtRealm(kind) {
+    const t = state.realm && state.realm.tierIdx || 0;
+    let value = 1, dur = 30;
+    Object.values(CONSUMABLES).forEach((c) => {
+      if ((c.minRealmTier || 0) > t) return;
+      (c.effects || []).forEach((ef) => {
+        if (ef.kind === kind && ef.durationMin && ef.value > value) {
+          value = ef.value;
+          dur = ef.durationMin;
+        }
+      });
+    });
+    return { value, dur };
+  }
+  var SECT_POTIONS = {
+    cult: { kind: "cultivation_mult", name: "Sect Elder's Cultivation Draught", zh: "宗酿·养气", label: "Cultivation" },
+    damage: { kind: "weapon_mult", name: "Sect Elder's War Draught", zh: "宗酿·战意", label: "Damage" }
+  };
+  function sectPotionBought(key) {
+    const t = Math.min(6, state.realm && state.realm.tierIdx || 0);
+    return state.sectPots && state.sectPots[t] && state.sectPots[t][key] || 0;
+  }
+  function sectPotionCost(key) {
+    const m = Math.pow(2, sectPotionBought(key));
+    return { stones: 500 * realmLevel() * m, contribution: 250 * realmLevel() * m };
+  }
+  function sectPotionValue(key) {
+    return +(bestBuffAtRealm(SECT_POTIONS[key].kind).value + 0.05).toFixed(3);
+  }
+  function canBuySectPotion(key) {
+    const c = sectPotionCost(key);
+    return (state.base.materials.spirit_stone || 0) >= c.stones && (state.contribution || 0) >= c.contribution;
+  }
+  function buySectPotion(key) {
+    if (!canBuySectPotion(key)) return false;
+    const c = sectPotionCost(key), pot = SECT_POTIONS[key], best = bestBuffAtRealm(pot.kind);
+    state.base.materials.spirit_stone -= c.stones;
+    if (state.base.materials.spirit_stone <= 0) delete state.base.materials.spirit_stone;
+    state.contribution -= c.contribution;
+    const t = Math.min(6, state.realm && state.realm.tierIdx || 0);
+    state.sectPots = state.sectPots || {};
+    state.sectPots[t] = state.sectPots[t] || {};
+    state.sectPots[t][key] = (state.sectPots[t][key] || 0) + 1;
+    const val = +(best.value + 0.05).toFixed(3);
+    state.base.buffs = state.base.buffs.filter((b) => !(b.kind === pot.kind && b.sourceName === pot.name));
+    state.base.buffs.push({ kind: pot.kind, value: val, expiresAt: Date.now() + best.dur * 6e4, sourceName: pot.name });
+    saveChar();
+    return true;
+  }
+  var SECT_STAT_POT_CAP = 5;
+  function sectStatPotsBought() {
+    const t = Math.min(6, state.realm && state.realm.tierIdx || 0);
+    return state.sectStatPots && state.sectStatPots[t] || 0;
+  }
+  function sectStatPotCost() {
+    return 5e3 * realmLevel() * Math.pow(2, sectStatPotsBought());
+  }
+  function canBuySectStatPot() {
+    return sectStatPotsBought() < SECT_STAT_POT_CAP && (state.base.materials.spirit_stone || 0) >= sectStatPotCost();
+  }
+  function buySectStatPot() {
+    if (!canBuySectStatPot()) return null;
+    state.base.materials.spirit_stone -= sectStatPotCost();
+    if (state.base.materials.spirit_stone <= 0) delete state.base.materials.spirit_stone;
+    const t = Math.min(6, state.realm && state.realm.tierIdx || 0);
+    state.sectStatPots = state.sectStatPots || {};
+    state.sectStatPots[t] = (state.sectStatPots[t] || 0) + 1;
+    const k = STAT_KEYS[Math.floor(Math.random() * STAT_KEYS.length)];
+    state.baseStats[k] = (state.baseStats[k] || 10) + 1;
+    state.finalStats = finalStats(state);
+    saveChar();
+    return k;
+  }
+  var SECT_BLESSING_CAP = 3;
+  function blessingsBoughtThisRealm() {
+    const t = Math.min(6, state.realm && state.realm.tierIdx || 0);
+    return state.blessingBought && state.blessingBought[t] || 0;
+  }
+  function sectBlessingCost() {
+    return 2e3 * realmLevel();
+  }
+  function canBuySectBlessing() {
+    return !state.pendingBlessing && blessingsBoughtThisRealm() < SECT_BLESSING_CAP && (state.base.materials.spirit_stone || 0) >= sectBlessingCost();
+  }
+  function buySectBlessing() {
+    if (!canBuySectBlessing()) return false;
+    state.base.materials.spirit_stone -= sectBlessingCost();
+    if (state.base.materials.spirit_stone <= 0) delete state.base.materials.spirit_stone;
+    const t = Math.min(6, state.realm && state.realm.tierIdx || 0);
+    state.blessingBought = state.blessingBought || {};
+    state.blessingBought[t] = (state.blessingBought[t] || 0) + 1;
+    state.pendingBlessing = true;
+    saveChar();
+    return true;
   }
   var SECT_BOON_CULT_INSIGHT_PER_RANK = 0.15;
   var SECT_BOON_COMBAT_INSIGHT_PER_RANK = 0.12;
@@ -21624,8 +22026,7 @@
     while ((state.sectKills || 0) >= slayBountyN() && guard++ < 1e4) {
       state.sectKills -= slayBountyN();
       const r = Math.round(slayBountyReward());
-      grantContribution(r);
-      reward += r;
+      reward += grantContribution(r);
       state.sectBountyClaims = (state.sectBountyClaims || 0) + 1;
       claimed++;
     }
@@ -21636,9 +22037,10 @@
     let kills = state.sectKills || 0, claims = state.sectBountyClaims || 0, count = 0, reward = 0, guard = 0;
     const needAt = (c) => SLAY_BOUNTY_BASE + 5 * c;
     const rewardAt = (c) => (40 + (state.realm && state.realm.tierIdx || 0) * 20) * (1 + 0.5 * c);
+    const lm = layerContribMult();
     while (kills >= needAt(claims) && guard++ < 1e4) {
       kills -= needAt(claims);
-      reward += Math.round(rewardAt(claims));
+      reward += Math.round(Math.round(rewardAt(claims)) * lm);
       claims++;
       count++;
     }
@@ -21668,7 +22070,7 @@
     const t = tributeToday();
     t.earned += earn;
     t.count += 1;
-    grantContribution(earn);
+    grantContribution(earn, { raw: true });
     saveChar();
   }
   function exchangeContribForStones() {
@@ -21918,7 +22320,7 @@
         slots: r.slots,
         kind: kindNoun[0],
         rarity: r.rarity,
-        desc: `${school.name} issue, rank-bound. Built to amplify ${kit.passiveName || "the school style"}: ${modSummary(mods)}.`,
+        desc: `${school.name} issue, rank-bound. Built to amplify ${kit.passiveName || "the school style"}: ${modSummary(mods)}. Sect arms: base power tracks your realm (a shade under a rare of it), +20 contribution per kill, doubled from bosses.`,
         apply: (m) => mergeMods(m, mods),
         sectSchool: sid
       };
@@ -21927,6 +22329,22 @@
   });
   function sectWeaponsForSchool(sid) {
     return Object.entries(SECT_WEAPONS).filter(([, w]) => w.school === sid);
+  }
+  var SECT_WEAPON_CONTRIB = 20;
+  var SECT_WEAPON_BOSS_MULT = 2;
+  function isSectWeaponId(id) {
+    return /^sect_/.test(String(id || ""));
+  }
+  function sectWeaponEquipped() {
+    return isSectWeaponId(state && state.weapon);
+  }
+  function effectiveWeaponBasePower(char) {
+    const w = WEAPONS[char.weapon];
+    if (!w) return 0;
+    if (!isSectWeaponId(char.weapon)) return w.power;
+    const t = Math.min(6, char.realm && char.realm.tierIdx || 0);
+    const rareRef = WEAPON_GEN_TIER[t] && WEAPON_GEN_TIER[t].power || w.power;
+    return Math.max(w.power || 0, Math.round(rareRef * 0.95));
   }
   function randomSchoolWeaponName() {
     const ids = Object.keys(SECT_WEAPONS || {});
@@ -22049,6 +22467,7 @@
     if ((state.contribution || 0) < w.contribCost) return false;
     state.contribution -= w.contribCost;
     state.weapons.owned.push(wid);
+    setLockedCount("weapon:" + wid, lockedCount("weapon:" + wid) + 1);
     saveChar();
     return true;
   }
@@ -22090,19 +22509,27 @@
     else state.armor.owned.push(piece.id);
   }
   var ROAD_INSIGHT_FRACTION = 3e-3;
+  function fortunePayoutMult() {
+    const layer = playerLayerScale(state).reward;
+    const luck = state.finalStats && state.finalStats.luck || 0;
+    return layer * (1 + luck * 0.02);
+  }
+  function fortuneScaled(n) {
+    return Math.max(1, Math.round(n * fortunePayoutMult()));
+  }
   var FORTUNE_EVENTS = [
     { id: "quiet", good: false, base: 8, resolve() {
       return "The road is quiet. You return with little but a clearer mind.";
     } },
     { id: "stones", good: true, base: 10, resolve() {
-      const n = 5 + (state.realm.tierIdx || 0) * 6;
+      const n = fortuneScaled(5 + (state.realm.tierIdx || 0) * 6);
       state.base.materials.spirit_stone = (state.base.materials.spirit_stone || 0) + n;
       return `You stumble on a hidden cache — <strong>${n} spirit stones</strong>.`;
     } },
     { id: "materials", good: true, base: 8, resolve() {
       const ids = ["spirit_iron", "qi_wood", "spirit_stone"];
       const id = ids[Math.floor(Math.random() * ids.length)];
-      const n = 3 + (state.realm.tierIdx || 0) * 2;
+      const n = fortuneScaled(3 + (state.realm.tierIdx || 0) * 2);
       state.base.materials[id] = (state.base.materials[id] || 0) + n;
       const nm = MATERIALS[id] && MATERIALS[id].name || id;
       return `A spirit-rich hollow yields <strong>${n}× ${nm}</strong>.`;
@@ -22121,18 +22548,17 @@
     { id: "herbs", good: true, base: 7, resolve() {
       const unlocked = Object.keys(HERBS).filter(herbUnlocked);
       const id = unlocked[Math.floor(Math.random() * unlocked.length)] || "qi_grass";
-      const n = 2 + Math.floor(Math.random() * 3);
+      const n = fortuneScaled(2 + Math.floor(Math.random() * 3));
       state.base.herbs[id] = (state.base.herbs[id] || 0) + n;
       return `A wild patch, untouched — you gather <strong>${n}× ${HERBS[id].name}</strong>.`;
     } },
     { id: "spring", good: true, base: 5, resolve() {
-      state.base.buffs = state.base.buffs.filter((b) => b.kind !== "cultivation_mult");
-      state.base.buffs.push({ kind: "cultivation_mult", value: 1.5, expiresAt: Date.now() + 30 * 6e4, sourceName: "Spirit Spring" });
+      pushStackedBuff({ kind: "cultivation_mult", value: 1.5, expiresAt: Date.now() + 30 * 6e4, sourceName: "Spirit Spring" });
       return "You bathe in a hidden spirit spring — <strong>+50% cultivation rate for 30 minutes</strong>.";
     } },
     { id: "spar", good: true, base: 5, resolve() {
-      const c = 5 + (state.realm.tierIdx || 0) * 3;
-      grantContribution(c);
+      const c = fortuneScaled(5 + (state.realm.tierIdx || 0) * 3);
+      grantContribution(c, { raw: true });
       return `A wandering disciple of your own sect challenges you to a friendly spar. Win or lose, the tale travels — <strong>+${c} contribution</strong>.`;
     } },
     { id: "weapon_find", good: true, base: 3, resolve() {
@@ -22183,9 +22609,34 @@
       }
       const mats = ["star_iron", "dragon_scale", "heavenly_jade"];
       const id = mats[Math.floor(Math.random() * mats.length)];
-      const n = 2 + (state.realm.tierIdx || 0);
+      const n = fortuneScaled(2 + (state.realm.tierIdx || 0));
       state.base.materials[id] = (state.base.materials[id] || 0) + n;
       return `A rare wandering stall, here and gone — you barter for <strong>${n}× ${MATERIALS[id].name}</strong>.`;
+    } },
+    // ---- v1.27.115: more KINDS of reward (tester: "way more kinds of rewards"), and stronger good
+    // options that a Fortune build unlocks. All bounded / non-farmable-into-brokenness.
+    { id: "essence_motes", good: true, base: 5, resolve() {
+      const n = fortuneScaled(3 + (state.realm.tierIdx || 0) * 2);
+      state.inscriptions.essence = (state.inscriptions.essence || 0) + n;
+      return `Motes of half-formed meaning drift on the wind; you gather them into <strong>${n} inscription essence</strong>.`;
+    } },
+    { id: "elixir_cache", good: true, base: 4, resolve() {
+      const pool = ["diffuse_vitality_draught", "minor_qi_pill", "iron_bone_pill", "foundation_pill"].filter((id2) => CONSUMABLES[id2]);
+      const id = pool[Math.floor(Math.random() * pool.length)] || "minor_qi_pill";
+      const n = Math.max(1, Math.round(fortunePayoutMult()));
+      state.base.consumables[id] = (state.base.consumables[id] || 0) + n;
+      return `A field-alchemist's dropped satchel — <strong>${n}× ${CONSUMABLES[id].name}</strong>, still sealed.`;
+    } },
+    { id: "spirit_vein", good: true, base: 3, luckGate: 6, resolve() {
+      const n = fortuneScaled(20 + (state.realm.tierIdx || 0) * 20);
+      state.base.materials.spirit_stone = (state.base.materials.spirit_stone || 0) + n;
+      pushStackedBuff({ kind: "cultivation_mult", value: 1.5, expiresAt: Date.now() + 30 * 6e4, sourceName: "Exposed Spirit Vein" });
+      return `The road cuts across an exposed spirit vein — <strong>${n} spirit stones</strong> and <strong>+50% cultivation for 30 minutes</strong>.`;
+    } },
+    { id: "longevity_dew", good: true, base: 2, luckGate: 12, resolve() {
+      const yrs = 20 + (state.realm.tierIdx || 0) * 20;
+      state.lifespanBonus = (state.lifespanBonus || 0) + yrs;
+      return `You drink from a spring beaded with longevity dew — <strong>+${yrs} years of lifespan</strong>.`;
     } }
   ];
   function seekOpportunity() {
@@ -22206,8 +22657,8 @@
     const pool = FORTUNE_EVENTS.filter((ev) => !ev.luckGate || luck >= ev.luckGate);
     const weighted = pool.map((ev) => {
       let w = ev.base;
-      if (ev.good) w *= 1 + luck * 0.04;
-      else w *= 1 / (1 + luck * 0.03);
+      if (ev.good) w *= 1 + luck * 0.06;
+      else w *= 1 / (1 + luck * 0.08);
       return { ev, w };
     });
     const total = weighted.reduce((s, x) => s + x.w, 0);
@@ -22224,7 +22675,7 @@
     saveChar();
     render();
   }
-  var WALK_EVENT_IDS = /* @__PURE__ */ new Set(["stones", "materials", "insight", "herbs", "spring", "spar", "wandering_market"]);
+  var WALK_EVENT_IDS = /* @__PURE__ */ new Set(["stones", "materials", "insight", "herbs", "spring", "spar", "wandering_market", "essence_motes", "elixir_cache"]);
   function walkAStretchCombatChance(luck) {
     return Math.max(0, (16 - luck) / 16) * 0.5;
   }
@@ -22526,16 +22977,42 @@
   function vitalityRestRate() {
     return state && state.demonic ? VITALITY_REST_PER_MIN : VITALITY_REST_RIGHTEOUS;
   }
+  var MOMENTUM_PER_KILL = 0.1;
+  var MOMENTUM_MAX_STACKS = 10;
+  var MOMENTUM_DECAY_MS = 10 * 60 * 1e3;
+  function combatMomentumStacks() {
+    const m = state && state.combatMomentum;
+    if (!m || !m.stacks) return 0;
+    const shed = Math.floor((Date.now() - (m.lastKill || 0)) / MOMENTUM_DECAY_MS);
+    return Math.max(0, Math.min(MOMENTUM_MAX_STACKS, m.stacks - shed));
+  }
+  function vitalityMomentumMult() {
+    return 1 + MOMENTUM_PER_KILL * combatMomentumStacks();
+  }
+  function addCombatMomentum(kills) {
+    if (!state) return;
+    const cur = combatMomentumStacks();
+    state.combatMomentum = { stacks: Math.min(MOMENTUM_MAX_STACKS, cur + Math.max(1, kills || 1)), lastKill: Date.now() };
+  }
   function tickVitalityRecovery(seconds) {
     if (!state || !state.confirmed) return;
     const max = maxVitality();
     const cur = getVitality();
-    if (cur < max) setVitality(Math.min(max, cur + max * vitalityRestRate() * (seconds / 60)));
+    if (cur < max) setVitality(Math.min(max, cur + max * vitalityRestRate() * vitalityMomentumMult() * (seconds / 60)));
   }
   function advanceAge(seconds) {
     if (!state || !state.confirmed) return;
     state.age = (state.age || 16) + seconds * AGE_PER_SEC * lifespanConsumptionMult();
     if (state.age >= lifespanMax() && !noAgeDeathOn()) {
+      if (pauseBeforeAgeDeathOn()) {
+        state.age = Math.max(16, lifespanMax() - 0.01);
+        if (state.cultivating) {
+          state.cultivating = null;
+          state.ageBrinkNotice = "You stop, one breath short of the end. Your span is spent — meditation is halted so age cannot take you unawares. Extend your lifespan, or resume knowing what it costs.";
+        }
+        saveChar();
+        return;
+      }
       dieRun("the weight of years", "No pill bought another breath. The body returned to dust at the end of its span — but the dao, and the soul, remember.", state.name);
     }
   }
@@ -22967,19 +23444,66 @@
   function offerPrice(matId) {
     const offer = MARKET_OFFERS[matId];
     if (!offer) return Infinity;
-    return (offer.price || 0) + (offer.pricePerRealm || 0) * (state.realm && state.realm.tierIdx || 0);
+    const base = (offer.price || 0) + (offer.pricePerRealm || 0) * (state.realm && state.realm.tierIdx || 0);
+    return Math.max(1, Math.round(base * offerHaggle(matId)));
+  }
+  function offerHaggle(matId) {
+    const offer = MARKET_OFFERS[matId];
+    if (!offer || offer.supplyMs) return 1;
+    return 0.8 + marketHash(marketWindowSeed() + 7, matId) % 41 / 100;
   }
   function marketDailyCap(char) {
     const tier = char && char.realm ? char.realm.tierIdx : 0;
     return 5 + tier * 3;
   }
+  var MARKET_WINDOW_MS = 3600 * 1e3;
   function marketRefreshIfDue() {
     ensureMarketState();
     const now = Date.now();
-    if (now - state.market.lastRefresh >= 3600 * 1e3) {
+    if (now - state.market.lastRefresh >= MARKET_WINDOW_MS) {
       state.market.lastRefresh = now;
       state.market.boughtToday = {};
     }
+  }
+  function marketRefreshMsLeft() {
+    ensureMarketState();
+    return Math.max(0, MARKET_WINDOW_MS - (Date.now() - state.market.lastRefresh));
+  }
+  function marketCountdownLabel() {
+    const ms = marketRefreshMsLeft();
+    const mins = Math.floor(ms / 6e4), secs = Math.floor(ms % 6e4 / 1e3);
+    return mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+  }
+  function marketWindowSeed() {
+    ensureMarketState();
+    return Math.floor((state.market.lastRefresh || 0) / 1e3);
+  }
+  function marketHash(seed, id) {
+    let h = (seed ^ 2654435769) >>> 0;
+    for (let i = 0; i < id.length; i++) h = Math.imul(h ^ id.charCodeAt(i), 16777619) >>> 0;
+    return h >>> 0;
+  }
+  var MARKET_STAPLES = ["qi_wood", "spirit_iron", "qi_grass", "body_root"];
+  function marketRotationSize(tier) {
+    return 4 + tier;
+  }
+  function marketStockedOffers(char) {
+    const tier = char && char.realm ? char.realm.tierIdx : 0;
+    const seed = marketWindowSeed();
+    const eligible = marketOffers(char);
+    const rotating = eligible.filter(([id, o]) => !o.supplyMs && MARKET_STAPLES.indexOf(id) < 0);
+    const picked = new Set(
+      rotating.map(([id]) => id).sort((a, b) => marketHash(seed, a) - marketHash(seed, b)).slice(0, marketRotationSize(tier))
+    );
+    return eligible.filter(([id, o]) => o.supplyMs || MARKET_STAPLES.indexOf(id) >= 0 || picked.has(id));
+  }
+  function marketInStock(matId) {
+    return marketStockedOffers(state).some(([id]) => id === matId);
+  }
+  function marketSoldOut(char) {
+    ensureMarketState();
+    const used = Object.values(state.market.boughtToday).reduce((a, b) => a + b, 0);
+    return used >= marketDailyCap(char);
   }
   function marketResetCost() {
     return Math.max(100, 250 * (state.realm && state.realm.tierIdx || 0));
@@ -23007,8 +23531,7 @@
     if ((state.base.materials.spirit_stone || 0) < brazierCost()) return false;
     state.base.materials.spirit_stone -= brazierCost();
     if (state.base.materials.spirit_stone <= 0) delete state.base.materials.spirit_stone;
-    state.base.buffs = state.base.buffs.filter((b) => b.kind !== "cultivation_mult");
-    state.base.buffs.push({ kind: "cultivation_mult", value: 1.6, expiresAt: Date.now() + 30 * 6e4, sourceName: "Spirit-Fed Brazier" });
+    pushStackedBuff({ kind: "cultivation_mult", value: 1.6, expiresAt: Date.now() + 30 * 6e4, sourceName: "Spirit-Fed Brazier" });
     saveChar();
     return true;
   }
@@ -23019,6 +23542,7 @@
     if (!offer) return false;
     const tier = state.realm && state.realm.tierIdx || 0;
     if ((offer.minTier || 0) > tier) return false;
+    if (!marketInStock(matId)) return false;
     if ((state.base.materials.spirit_stone || 0) < offerPrice(matId)) return false;
     if (offer.supplyMs) {
       if (!offerSupplyReady(matId)) return false;
@@ -23033,6 +23557,41 @@
     else state.base.materials[matId] = (state.base.materials[matId] || 0) + 1;
     if (offer.supplyMs) state.market.supplyBought[matId] = Date.now();
     else state.market.boughtToday[matId] = (state.market.boughtToday[matId] || 0) + 1;
+    saveChar();
+    return true;
+  }
+  function marketOverbuyBook() {
+    ensureMarketState();
+    const t = Math.min(6, state.realm && state.realm.tierIdx || 0);
+    state.market.overbuy = state.market.overbuy || {};
+    state.market.overbuy[t] = state.market.overbuy[t] || {};
+    return state.market.overbuy[t];
+  }
+  function marketOverbuyCount(matId) {
+    return marketOverbuyBook()[matId] || 0;
+  }
+  function marketOverbuyCost(matId) {
+    return offerPrice(matId) * Math.pow(2, marketOverbuyCount(matId));
+  }
+  function marketCanOverbuy(matId) {
+    const offer = MARKET_OFFERS[matId];
+    if (!offer || offer.supplyMs) return false;
+    if ((offer.minTier || 0) > (state.realm && state.realm.tierIdx || 0)) return false;
+    if (!marketInStock(matId)) return false;
+    return (state.base.materials.spirit_stone || 0) >= marketOverbuyCost(matId);
+  }
+  function marketOverbuy(matId) {
+    const offer = MARKET_OFFERS[matId];
+    if (!offer || offer.supplyMs || !marketInStock(matId)) return false;
+    const cost = marketOverbuyCost(matId);
+    if ((state.base.materials.spirit_stone || 0) < cost) return false;
+    state.base.materials.spirit_stone -= cost;
+    if (state.base.materials.spirit_stone <= 0) delete state.base.materials.spirit_stone;
+    if (offer.kind === "consumable") state.base.consumables[matId] = (state.base.consumables[matId] || 0) + 1;
+    else if (HERBS[matId]) state.base.herbs[matId] = (state.base.herbs[matId] || 0) + 1;
+    else state.base.materials[matId] = (state.base.materials[matId] || 0) + 1;
+    const book = marketOverbuyBook();
+    book[matId] = (book[matId] || 0) + 1;
     saveChar();
     return true;
   }
@@ -23606,6 +24165,9 @@
   }
   function noAgeDeathOn() {
     return !!(META.settings && META.settings.noAgeDeath);
+  }
+  function pauseBeforeAgeDeathOn() {
+    return !!(META.settings && META.settings.pauseBeforeAgeDeath);
   }
   var META = loadMeta();
   var MUSIC_BASE = "https://github.com/silvariasereneblossom/ascent-to-the-stars-releases/releases/download/audio/";
@@ -24377,7 +24939,7 @@
         recipe: { [h1]: 1, [h2]: 2 },
         minRealmTier: t,
         effects: [{ kind: "incoming_mult", value: 1 - pct / 100, durationMin: 10 }],
-        desc: `−${pct}% incoming damage for 10 minutes (defensive soft-caps apply past −15%).`
+        desc: `−${pct}% incoming damage for 10 minutes.`
       };
     }
   })();
@@ -24420,10 +24982,10 @@
     const gearSinks = [];
     const makeBrew = (loc, t, lyr, idx, h, noun, rar, foes, matId) => {
       const use = h % 3;
-      const dur = 10 + idx % 3 * 5;
+      const dur = 15 + idx % 3 * 5;
       let effects;
-      if (use === 0) effects = [{ kind: "weapon_mult", value: +(1 + 0.08 + 0.05 * t + idx * 0.01).toFixed(3), durationMin: dur }];
-      else if (use === 1) effects = [{ kind: "incoming_mult", value: +(1 - (0.06 + 0.04 * t + idx * 0.01)).toFixed(3), durationMin: dur }];
+      if (use === 0) effects = [{ kind: "weapon_mult", value: +(1 + 0.22 + 0.05 * t + idx * 0.01).toFixed(3), durationMin: dur }];
+      else if (use === 1) effects = [{ kind: "incoming_mult", value: +(1 - (0.2 + 0.04 * t + idx * 0.01)).toFixed(3), durationMin: dur }];
       else effects = [{ kind: "cultivation_mult", value: +(1 + 0.35 + 0.3 * t + idx * 0.05).toFixed(3), durationMin: dur * 2 }];
       let guard = 0;
       while (takenSigs.has(sigOf(effects)) && guard++ < 40) effects[0].value = +(effects[0].value + 5e-3).toFixed(3);
@@ -24507,6 +25069,50 @@
       });
     });
   })();
+  var _matUseIndex = null;
+  function materialUseIndex() {
+    if (_matUseIndex) return _matUseIndex;
+    const idx = {};
+    const add = (matId, name) => {
+      if (!matId || !name) return;
+      idx[matId] = idx[matId] || [];
+      if (!idx[matId].includes(name)) idx[matId].push(name);
+    };
+    ARTIFACT_RECIPES.forEach((r) => {
+      if (r.materials && WEAPONS[r.id]) Object.keys(r.materials).forEach((m) => add(m, WEAPONS[r.id].name));
+    });
+    ARMOR_RECIPES.forEach((r) => {
+      if (r.materials && ARMOR[r.id]) Object.keys(r.materials).forEach((m) => add(m, ARMOR[r.id].name));
+    });
+    Object.values(CONSUMABLES).forEach((c) => {
+      if (c.recipe) Object.keys(c.recipe).forEach((m) => add(m, c.name));
+    });
+    _matUseIndex = idx;
+    return idx;
+  }
+  function materialDropChip(matId, chanceNote) {
+    const mat = MATERIALS[matId];
+    if (!mat) return "";
+    const uses = materialUseIndex()[matId] || [];
+    const shown = uses.slice(0, 12);
+    const extra = uses.length - shown.length;
+    const usedTip = uses.length ? `Used in: ${shown.join(", ")}${extra > 0 ? `, +${extra} more` : ""}` : "No craft uses this one yet — sell or hoard it.";
+    const rar = mat.rarity ? ` <span class="rarity-tag rarity-${mat.rarity}">${mat.rarity}</span>` : "";
+    return `<div style="margin:0.15rem 0">
+    <span class="tip" data-tip="${escapeTip(usedTip)}" style="color:var(--jade);cursor:help;text-decoration:underline dotted">${mat.name}</span>${rar}
+    <span style="color:var(--ink-soft);font-size:0.72rem">— ${chanceNote} · used in ${uses.length} craft${uses.length === 1 ? "" : "s"}</span>
+  </div>`;
+  }
+  function locationDropsHTML(loc) {
+    const drops = [];
+    const jd = "jd_" + loc.id;
+    if (MATERIALS[jd]) drops.push({ id: jd, note: "30% per foe felled" });
+    const rg = locationReagent(loc);
+    if (rg && MATERIALS[rg] && rg !== jd) drops.push({ id: rg, note: "45% per fight" });
+    if (!drops.length) return "";
+    const rows = drops.map((d) => materialDropChip(d.id, d.note)).join("");
+    return `<details style="margin-top:0.25rem"><summary style="font-size:0.78rem;color:var(--ink-soft);cursor:pointer;user-select:none">Drops (${drops.length}) — tap a material to see what it crafts</summary><div style="margin:0.2rem 0 0.1rem;font-size:0.82rem">${rows}</div></details>`;
+  }
   Object.values(CONSUMABLES).forEach((c) => (c.effects || []).forEach((ef) => {
     if (ef.kind !== "hp_max_add" || !c.desc) return;
     const pct = Math.round((BODY_POTION_PCT[Math.min(6, c.minRealmTier || 0)] || 0.1) * 100);
@@ -24517,6 +25123,16 @@
   }
   function buffPotency(b) {
     return buffIsAdditive(b.kind) ? Math.abs(b.value || 0) : Math.abs((b.value || 1) - 1);
+  }
+  function pushStackedBuff(buff) {
+    if (!state.base.buffs) state.base.buffs = [];
+    state.base.buffs = state.base.buffs.filter((b) => !(b.kind === buff.kind && b.sourceName === buff.sourceName));
+    state.base.buffs.push(buff);
+    const sameKind = state.base.buffs.filter((b) => b.kind === buff.kind).sort((a, b) => buffPotency(b) - buffPotency(a));
+    if (sameKind.length > BUFF_STACK_LIMIT) {
+      const keep = new Set(sameKind.slice(0, BUFF_STACK_LIMIT));
+      state.base.buffs = state.base.buffs.filter((b) => b.kind !== buff.kind || keep.has(b));
+    }
   }
   function topBuffsOfKind(kind) {
     if (!state || !state.base || !state.base.buffs) return [];
@@ -25167,6 +25783,7 @@
     state.weapons.owned.push(recipe.id);
     if (!state.weapons.crafted) state.weapons.crafted = [];
     if (!state.weapons.crafted.includes(recipe.id)) state.weapons.crafted.push(recipe.id);
+    setLockedCount("weapon:" + recipe.id, lockedCount("weapon:" + recipe.id) + 1);
     saveChar();
   }
   function craftArmor(recipe) {
@@ -25178,6 +25795,7 @@
       if (state.base.materials[mat] <= 0) delete state.base.materials[mat];
     }
     state.armor.owned.push(recipe.id);
+    setLockedCount("armor:" + recipe.id, lockedCount("armor:" + recipe.id) + 1);
     saveChar();
   }
   function equipArmor(slot, id) {
@@ -25346,6 +25964,7 @@
     const loc = LOCATIONS.find((l) => l.id === locationId);
     if (!loc || !locationUnlocked(loc)) return;
     tickCultivation();
+    delete state.ageBrinkNotice;
     state.cultivating = { locationId, lastTick: Date.now() };
     saveChar();
     scheduleCultivationTick();
@@ -25461,6 +26080,18 @@
         reBtn.textContent = "Walk a Stretch";
         reBtn.onclick = () => walkAStretch();
       }
+    }
+    const cdEl = document.getElementById("market-countdown");
+    if (cdEl) {
+      if (marketRefreshMsLeft() <= 0) {
+        marketRefreshIfDue();
+        render();
+        return;
+      }
+      const label = marketCountdownLabel();
+      cdEl.textContent = label;
+      const cdEl2 = document.getElementById("market-countdown-2");
+      if (cdEl2) cdEl2.textContent = label;
     }
   }
   var combat = null;
@@ -25692,7 +26323,8 @@
       postureMax: 60 + 2 * (state.finalStats && state.finalStats.will || 0),
       posture: 0,
       broken: 0,
-      weaponPower: Math.round((weapon.power + secondaryWeaponPowerBonus(state) + refineWeaponBonus(state) + rb.weapon + mods.weaponBonus + boonWeaponAdd() + skillWeaponAdd()) * weaponMult * (mods.weaponMultFlat || 1)),
+      weaponPower: Math.round((effectiveWeaponBasePower(state) + secondaryWeaponPowerBonus(state) + refineWeaponBonus(state) + rb.weapon + mods.weaponBonus + boonWeaponAdd() + skillWeaponAdd()) * weaponMult * (mods.weaponMultFlat || 1)),
+      // v1.27.119: sect weapons scale their base power with realm
       loadout,
       cooldowns: Object.fromEntries(loadout.map((id) => [id, 0])),
       buffs: {
@@ -25745,10 +26377,21 @@
       over: false,
       victory: null,
       rewards: null,
+      blessingDmgMult: 1,
+      // v1.27.119: Sect Elder Blessing outgoing-damage multiplier (1 = none)
       areaCultMult: areaCultMult || 1
       // v0.50: the area's cultivation multiplier — a defeat here costs that much more lifespan
     };
+    if (state.pendingBlessing) {
+      p.hpMax = Math.max(1, Math.round(p.hpMax * 2));
+      p.hp = Math.min(p.hpMax, Math.max(1, Math.round(p.hp * 2)));
+      p.qiShieldMult *= 2;
+      combat.blessingDmgMult = 1.5;
+      state.pendingBlessing = false;
+      saveChar();
+    }
     pushLog("turn", `— Turn 1 —`);
+    if (combat.blessingDmgMult > 1) pushLog("flavor", "A Sect Elder's blessing settles over you — flesh doubled, barrier doubled, every strike half again as heavy.");
     if (enemies.length === 1) {
       pushLog("flavor", ENEMIES[enemies[0].id].intro);
     } else {
@@ -25919,6 +26562,8 @@
     if (amount > 0 && typeof combat !== "undefined" && combat && target !== combat.player && target.id) {
       if (target.id === "bell_abbot") {
         amount = Math.round(amount * 1.25);
+      } else if (target.id === "mine_golem") {
+        amount = Math.round(amount * 1.3);
       } else {
         const _ed = ENEMIES[target.id];
         if (_ed && _ed.isBoss) {
@@ -26093,6 +26738,7 @@
     if (m.lateBonus > 0 && turn >= 4) dmg *= 1 + m.lateBonus;
     if (combat && combat.mightDamageBonus) dmg *= 1 + combat.mightDamageBonus;
     if (combat && combat.cultDmgMult) dmg *= combat.cultDmgMult;
+    if (combat && combat.blessingDmgMult > 1) dmg *= combat.blessingDmgMult;
     if (isDemonHeart(state)) dmg *= 1.3;
     else if (state.demonic) dmg *= 1.2;
     const _dsRate = { crimson_flame: 0.06, jade_inkwell: 0.06 }[state.selectedSchool];
@@ -26360,7 +27006,9 @@
     if (hpCost && p.hp <= hpCost) return;
     p.qi -= qiCost;
     if (hpCost) p.hp -= hpCost;
-    p.cooldowns[techId] = tech.cd + 1;
+    const _cdKit = schoolKit();
+    const _ctrlCd = tech.effect || tech.statusList ? _cdKit.techCdBonus || 0 : 0;
+    p.cooldowns[techId] = tech.cd + 1 + _ctrlCd;
     let dmg = p.weaponPower * (tech.damage || 0) * (p.mods.techDamageMult || 1);
     const hm0 = heritageMech();
     const sDmg = techSchoolOf(tech);
@@ -26516,6 +27164,12 @@
           if (applied && STATUS_INFO[tech.effect]) {
             pushLog("flavor", `  → ${tgt.name}: ${STATUS_INFO[tech.effect].label}${n > 1 ? ` ×${n}` : ""}.`);
           }
+        }
+      }
+      if (state.demonic && DEMONIC_ROOT_SAP.has(techId) && tgt.hp > 0) {
+        const sap = Math.max(1, Math.round(p.weaponPower * 0.2));
+        if (applyStatusTo(tgt, "bleed", sap, 3, "Strangler Root", playerStackCap("bleed"))) {
+          pushLog("flavor", `  → ${tgt.name}: the roots take hold and begin to sap Vitality.`);
         }
       }
       if (isDemonHeart(state) && techId === "dem_sig_demon") {
@@ -26686,16 +27340,23 @@
     const rewardScale = e.scale && e.scale.reward || 1;
     const rawInsight = Math.round(0.25 * enemyData.insightReward * rewardScale * boonInsightMult() * skillCombatInsightMult() * (combat.player.mods.insightMult || 1) * (SCHOOLS[state.selectedSchool] && SCHOOLS[state.selectedSchool].insightFromKillsMult || 1) * (hmVictory.combatInsightMult || 1) * combatInsightMult(combat) * metaInsightMult() * (isDemonHeart(state) ? 2 : state.demonic ? 1.5 : 1) * 1.5 * (combat && combat.demonicQiVenture ? 1.5 : 1) * (state.demonic ? isDemonHeart(state) ? 1 + (cultivationBoostMult() - 1) * 0.5 : cultivationBoostMult() : 1) * (1 + 0.2 * goldenCoreLevel()) * (heritageIs("Demonic Bloodline") && isDemonHeart(state) ? 2 : 1) * (e._areaRel || 1));
     const _insightBaseline = Math.round(realmTotalInsight(state.realm.tierIdx || 0) * (enemyData.isBoss ? 0.015 : 5e-3));
-    const insight = Math.round(softCapInsight(rawInsight, _insightBaseline) * sectCombatInsightMult());
+    const _isAmbush = /^(righteous_hunter_t|demonic_rival_t)/.test(String(e.id || ""));
+    const _ambBaseline = 10 * _insightBaseline;
+    const _capped = _isAmbush ? Math.max(_ambBaseline, softCapInsight(rawInsight, _ambBaseline)) : softCapInsight(rawInsight, _insightBaseline);
+    const insight = Math.round(_capped * sectCombatInsightMult());
     addInsight(insight);
     state.sectKills = (state.sectKills || 0) + 1;
+    if (sectWeaponEquipped()) {
+      const dues = grantContribution(SECT_WEAPON_CONTRIB);
+      pushLog("reward", `Sect arms sing your name to the register: +${dues} contribution.`);
+    }
     {
       const foeKind = e.kind || enemyKindFor(e.id);
       const playerDemonic = !!state.demonic;
       if (playerDemonic && foeKind === "human" || !playerDemonic && foeKind === "demonic") {
         const xp = 50 * ((state.realm.tierIdx || 0) + 1);
-        grantContribution(xp);
-        pushLog("reward", `${playerDemonic ? "A righteous cultivator falls to your heresy" : "A demon is put down"}: +${xp} contribution.`);
+        const got = grantContribution(xp);
+        pushLog("reward", `${playerDemonic ? "A righteous cultivator falls to your heresy" : "A demon is put down"}: +${got} contribution.`);
       }
     }
     if (enemyData.isBoss) {
@@ -26704,9 +27365,9 @@
       if (!state.bossRampKills) state.bossRampKills = {};
       state.bossRampKills[e.id] = (state.bossRampKills[e.id] || 0) + 1;
       consumeBossCharge(e.id);
-      const bossBounty = 100 * ((BOSSES[e.id] && BOSSES[e.id].tier || 0) + 1);
-      grantContribution(bossBounty);
-      pushLog("reward", `The sect honors the kill: +${bossBounty} contribution.`);
+      const bossBounty = 100 * ((BOSSES[e.id] && BOSSES[e.id].tier || 0) + 1) * (sectWeaponEquipped() ? SECT_WEAPON_BOSS_MULT : 1);
+      const bossGot = grantContribution(bossBounty);
+      pushLog("reward", `The sect honors the kill: +${bossGot} contribution${sectWeaponEquipped() ? " (sect arms — doubled)" : ""}.`);
       const bossTierIns = BOSSES[e.id] && BOSSES[e.id].tier || 0;
       const bossInsight = Math.max(50, Math.round(realmTotalInsight(bossTierIns) * (0.02 + Math.random() * 0.01)));
       addInsight(bossInsight);
@@ -26977,10 +27638,11 @@
         pushLog("heal", `  → World-Tree Scion: body and qi restored.`);
       }
       {
-        const packHp = combat.enemies.reduce((s, en) => s + (en.hpMax || 0), 0);
-        const healed = Math.round(p.hpMax * 0.15) + (state.demonic ? Math.round(packHp * 0.01) : 0);
-        setVitality(Math.max(0, p.hp) + healed);
-        pushLog("heal", `  → You bind your wounds: +${healed} Vitality (${Math.round(getVitality())}/${p.hpMax}).`);
+        setVitality(Math.max(0, p.hp));
+        const kills = combat.enemies && combat.enemies.length || 1;
+        addCombatMomentum(kills);
+        const stacks = combatMomentumStacks();
+        pushLog("heal", `  → Combat momentum: recovery +${Math.round(MOMENTUM_PER_KILL * stacks * 100)}% (${stacks}/${MOMENTUM_MAX_STACKS}). Rest to mend — the fighting has quickened it.`);
       }
       saveChar();
       render();
@@ -27056,8 +27718,36 @@
     const base = 1 + Math.random() * 14;
     return Math.min(cap, base * (areaCultMult || 1));
   }
+  function layerDeathCapBonus() {
+    return Math.max(0, (state.realm && state.realm.layer || 1) - 1);
+  }
+  function deathsBoughtThisRealm() {
+    const t = Math.min(6, state.realm && state.realm.tierIdx || 0);
+    return state.deathBought && state.deathBought[t] || 0;
+  }
+  function extraDeathCost(nextCount) {
+    const rl = (state.realm && state.realm.tierIdx || 0) + 1;
+    const mult = Math.pow(3, nextCount || 0);
+    return { stones: 500 * rl * mult, contribution: 200 * rl * mult };
+  }
+  function canBuyExtraDeath() {
+    const c = extraDeathCost(deathsBoughtThisRealm());
+    return (state.base.materials.spirit_stone || 0) >= c.stones && (state.contribution || 0) >= c.contribution;
+  }
+  function buyExtraDeath() {
+    const t = Math.min(6, state.realm && state.realm.tierIdx || 0);
+    const c = extraDeathCost(deathsBoughtThisRealm());
+    if ((state.base.materials.spirit_stone || 0) < c.stones || (state.contribution || 0) < c.contribution) return false;
+    state.base.materials.spirit_stone -= c.stones;
+    if (state.base.materials.spirit_stone <= 0) delete state.base.materials.spirit_stone;
+    state.contribution -= c.contribution;
+    state.deathBought = state.deathBought || {};
+    state.deathBought[t] = (state.deathBought[t] || 0) + 1;
+    saveChar();
+    return true;
+  }
   function realmDeathCap() {
-    return 15 + Math.min(7, state.deathCapArray || 0);
+    return 15 + Math.min(7, state.deathCapArray || 0) + layerDeathCapBonus() + deathsBoughtThisRealm();
   }
   function rollCombatDeath(combat2, p) {
     state.realmDefeats = (state.realmDefeats || 0) + 1;
@@ -27206,12 +27896,14 @@
     const p = combat.player;
     let pct = schoolKit().reflectPct || 0;
     if (p.buffs && p.buffs.reflectTurns > 0) pct += p.buffs.reflectPct || 0;
+    if (p.mods && p.mods.reflectPct) pct += p.mods.reflectPct;
     const taken = (res.hpDamage || 0) + (res.qiAbsorbed || 0);
     if (res.dodged || e.hp <= 0) return;
     let r = Math.round(taken * pct);
     let vitThorns = 0;
-    if (p.buffs && p.buffs.thornsVitTurns > 0 && taken > 0) {
-      vitThorns = Math.round((p.hpMax || 0) * (p.buffs.thornsVitPct || 0));
+    const thornsPct = (p.buffs && p.buffs.thornsVitTurns > 0 ? p.buffs.thornsVitPct || 0 : 0) + (p.mods && p.mods.thornsVitPct || 0);
+    if (thornsPct > 0 && taken > 0) {
+      vitThorns = Math.round((p.hpMax || 0) * thornsPct);
       r += vitThorns;
     }
     if (r <= 0) return;
@@ -27250,7 +27942,23 @@
       }
     }
     const enr = enemyEnrageMult(e);
-    const dmg = e.weaponPower * (tech.damage || 0) * chillMult(e) * enr;
+    let dmg = e.weaponPower * (tech.damage || 0) * chillMult(e) * enr;
+    if (techId === "gallery_collapse") {
+      const guarded = !!(p.buffs && p.buffs.incomingMult < 1);
+      if (!guarded) {
+        const su = (p.effects || []).find((ef) => ef.kind === "sunder");
+        const stacks = su ? su.stacks || 1 : 0;
+        if (stacks > 0) {
+          dmg *= 1 + 0.1 * stacks;
+          pushLog("posture", `  → unguarded — the collapse drives all ${stacks} Sunder stacks home (+${stacks * 10}% damage).`);
+        }
+      }
+    }
+    if (e._halveNextHeavy) {
+      dmg *= 0.5;
+      e._halveNextHeavy = false;
+      pushLog("posture", `  → ${e.name}'s collapse comes down half-formed — you broke its footing during the combo.`);
+    }
     pushLog("line", tech.logHit(e.name, p.name));
     if (dmg > 0 || tech.directHP || tech.directSpirit) {
       const cm = chillMult(e) * enr;
@@ -27279,16 +27987,20 @@
       if (tech.effect === "qi_cost_up" && hm.qiCostUpDurationMult) {
         turns = Math.max(1, Math.ceil(turns * hm.qiCostUpDurationMult));
       }
-      p.effects.push({
-        kind: tech.effect,
-        value: tech.effectValue,
-        turns,
-        name: tech.name,
-        // v1.0.1: boss DOTs may carry %-of-max riders (Vitality / qi / spirit) so they scale with the realm.
-        pctHp: tech.effectPctHp || 0,
-        pctQi: tech.effectPctQi || 0,
-        pctSpirit: tech.effectPctSpirit || 0
-      });
+      if (tech.effectStacks) {
+        for (let s = 0; s < tech.effectStacks; s++) applyStatusTo(p, tech.effect, tech.effectValue, turns, tech.name);
+      } else {
+        p.effects.push({
+          kind: tech.effect,
+          value: tech.effectValue,
+          turns,
+          name: tech.name,
+          // v1.0.1: boss DOTs may carry %-of-max riders (Vitality / qi / spirit) so they scale with the realm.
+          pctHp: tech.effectPctHp || 0,
+          pctQi: tech.effectPctQi || 0,
+          pctSpirit: tech.effectPctSpirit || 0
+        });
+      }
       if (tech.effect === "qi_drain") pushLog("flavor", `A glyph sticks to you, drinking your qi.`);
       if (tech.effect === "bleed") pushLog("flavor", `The wound will not close on its own.`);
     }
@@ -28117,6 +28829,17 @@
       <p style="font-size:0.72rem;color:var(--ink-soft);margin:0.3rem 0 0">Disabled actions (on cooldown, out of qi, sealed) ignore their key, just like their button.</p>`;
       cfgP.appendChild(kb);
     }
+    {
+      const cl = document.createElement("details");
+      cl.style.cssText = "margin-top:0.5rem;border-top:1px solid rgba(120,120,120,0.3);padding-top:0.4rem";
+      const rows = CHANGELOG.map((e) => {
+        const notes = e.notes.map((n) => `<li style="margin:0.12rem 0">${n}</li>`).join("");
+        return `<div style="margin:0.3rem 0 0.55rem"><div style="font-weight:bold;color:var(--gold);font-size:0.82rem">v${e.v}</div><ul style="margin:0.15rem 0 0;padding-left:1.1rem;font-size:0.8rem;color:var(--ink-soft);line-height:1.5">${notes}</ul></div>`;
+      }).join("");
+      cl.innerHTML = `<summary style="font-weight:bold;font-size:0.9rem;cursor:pointer;user-select:none">Changelog <span style="color:var(--ink-soft);font-weight:normal;font-size:0.8rem">更新记录 — what's new</span></summary>
+      <div style="margin-top:0.4rem;max-height:340px;overflow-y:auto">${rows}</div>`;
+      cfgP.appendChild(cl);
+    }
     if (state && state.confirmed) {
       const exP = document.createElement("div");
       exP.style.cssText = "margin-top:0.6rem;border-top:1px solid rgba(120,120,120,0.3);padding-top:0.4rem";
@@ -28264,6 +28987,29 @@
     lsBtns.appendChild(lsBtn);
     lsRow.appendChild(lsBtns);
     cfgP.appendChild(lsRow);
+    {
+      const pRow = document.createElement("div");
+      pRow.className = "consumable-row";
+      const pOn = pauseBeforeAgeDeathOn();
+      pRow.innerHTML = `<div class="consumable-info">
+        <div class="consumable-name">Pause Before Old Age <span style="color:var(--ink-soft);font-weight:normal;font-size:0.8rem">驻颜</span></div>
+        <div class="consumable-desc">When ON, reaching the end of your span <strong>halts meditation</strong> instead of ending the life — age holds a breath short of the end so you can extend your lifespan or break through first. Old-age death still exists; you just won't walk into it unattended. Global, persists across lives.</div>
+      </div>`;
+      const pBtns = document.createElement("div");
+      pBtns.className = "consumable-buttons";
+      const pBtn = document.createElement("button");
+      pBtn.className = pOn ? "gold" : "ghost";
+      pBtn.textContent = pOn ? "ON — disable" : "OFF — enable";
+      pBtn.onclick = () => {
+        if (!META.settings) META.settings = {};
+        META.settings.pauseBeforeAgeDeath = !META.settings.pauseBeforeAgeDeath;
+        saveMeta();
+        render();
+      };
+      pBtns.appendChild(pBtn);
+      pRow.appendChild(pBtns);
+      cfgP.appendChild(pRow);
+    }
     const devOn = devModeOn();
     const dvRow = document.createElement("div");
     dvRow.className = "consumable-row";
@@ -29294,12 +30040,37 @@
       <div style="font-size:0.85rem">Insight: <strong id="insight-value">${insightInt}</strong>${info ? " / " + info.cost : ""}</div>
     </div>
     <div class="realm-bar"><div class="realm-bar-fill" id="insight-bar" style="width:${progressPct}%"></div></div>`;
+    if (tier && tier.layers > 1) {
+      const perksNow = [];
+      if (tier.hpBonus) perksNow.push(`+${tier.hpBonus * state.realm.layer} Vit`);
+      if (tier.qiBonus) perksNow.push(`+${tier.qiBonus * state.realm.layer} Qi`);
+      if (tier.weaponBonus) perksNow.push(`+${tier.weaponBonus * state.realm.layer} wpn`);
+      perksNow.push(`+${state.realm.layer * 2}% cult`);
+      perksNow.push(`+${layerDeathCapBonus()} death cap`);
+      const sectPct = Math.round((layerContribMult() - 1) * 100);
+      if (sectPct > 0) perksNow.push(`+${sectPct}% sect contrib`);
+      const nextPerks = [];
+      if (tier.hpBonus) nextPerks.push(`+${tier.hpBonus} Vit`);
+      if (tier.qiBonus) nextPerks.push(`+${tier.qiBonus} Qi`);
+      if (tier.weaponBonus) nextPerks.push(`+${tier.weaponBonus} wpn`);
+      nextPerks.push("+2% cult");
+      nextPerks.push("+1 death cap");
+      nextPerks.push("+4% sect contrib");
+      const atCap = state.realm.layer >= tier.layers;
+      realmHTML += `<p style="font-size:0.76rem;margin:0.15rem 0 0.4rem;color:var(--ink-soft)"><span class="tip" data-tip="Every layer within a realm permanently adds these — they stack as you climb. Pushing layers first, then buying library/skill-tree upgrades, is a valid plan.">Layer ${state.realm.layer}/${tier.layers} grants so far: <strong style="color:var(--jade)">${perksNow.join(" · ")}</strong>${atCap ? ' <span style="color:var(--gold)">— realm maxed; break through for the next tier</span>' : ` · next layer: <strong style="color:var(--gold)">${nextPerks.join(" · ")}</strong>`}</span></p>`;
+    }
     {
       const _vit = Math.round(getVitality()), _vitMax = maxVitality();
-      const _restPerMin = Math.max(1, Math.round(_vitMax * vitalityRestRate()));
+      const _momStacks = combatMomentumStacks();
+      const _momMult = vitalityMomentumMult();
+      const _restPerMin = Math.max(1, Math.round(_vitMax * vitalityRestRate() * _momMult));
+      const _momTag = _momStacks > 0 ? ` <span style="color:var(--gold)" class="tip" data-tip="Combat momentum: each foe felled adds +${Math.round(MOMENTUM_PER_KILL * 100)}% to your recovery rate (to +100%), shedding one stack every 10 minutes since your last kill. Keep fighting to keep it hot.">気 +${Math.round(MOMENTUM_PER_KILL * _momStacks * 100)}% (${_momStacks}/${MOMENTUM_MAX_STACKS})</span>` : "";
       const _atSite = !!state.cultivating;
-      const _restLine = _vit >= _vitMax ? '<span style="color:var(--ink-soft)">fully rested</span>' : _atSite ? `<span style="color:var(--crimson)">resting paused — meditating here taxes it instead</span>` : `<span style="color:var(--jade)">resting +${_restPerMin}/min, even while the game is closed</span>`;
-      realmHTML += `<p style="font-size:0.8rem;margin:0 0 0.4rem"><span class="tip" data-tip="Vitality is your health BETWEEN fights — a battle opens at whatever you have left. It is not restored by fighting: a win binds back 15% of max, and the rest comes from RESTING. Resting is automatic and needs no button — it happens whenever you are not meditating at a journey location, continues while the game is closed, and mends ${Math.round(vitalityRestRate() * 100)}% of max Vitality per minute (the righteous rest more than twice as fast as the demonic — their sustain is between fights, not during them). Vitality potions restore it instantly."><strong>Vitality</strong> <strong id="vit-value" style="color:${_vit < _vitMax * 0.4 ? "var(--crimson)" : "var(--jade)"}">${_vit}</strong>/${_vitMax} · ${_restLine}</span> <span style="color:var(--ink-soft)">&middot;</span> <span class="tip" data-tip="${escapeTip(`Lifespan is a resource. Age advances slowly and ONLY while actively cultivating (idling/offline are safe) — at your current rate that is ${lifespanHoursLeftLabel()} of ACTIVE cultivation before old age. Each realm hugely extends your span. Certain pills, schools, and artifacts ADD lifespan; powerful pills SPEND it (a share of what remains) for permanent power. Running out is death by old age — which reincarnates you with your souls intact.`)}" style="color:var(--ink-soft)">Age <strong>${Math.floor(state.age || 16)}</strong>, <strong style="color:var(--jade)">${Math.floor(lifespanRemaining())}</strong> of ${lifespanMax()} yrs left <span style="opacity:0.8">(~${lifespanHoursLeftLabel()})</span>${state.bodyQuench ? ` · tempered ×${state.bodyQuench}` : ""}</span></p>`;
+      const _restLine = _vit >= _vitMax ? '<span style="color:var(--ink-soft)">fully rested</span>' : _atSite ? `<span style="color:var(--crimson)">resting paused — meditating here taxes it instead</span>` : `<span style="color:var(--jade)">resting +${_restPerMin}/min, even while the game is closed</span>${_momTag}`;
+      realmHTML += `<p style="font-size:0.8rem;margin:0 0 0.4rem"><span class="tip" data-tip="Vitality is your health BETWEEN fights — a battle opens at whatever you have left, and a win does NOT heal it: the pool carries forward exactly as the fight ended. Healing comes from RESTING, which is automatic and needs no button — it happens whenever you are not meditating at a journey location, continues while the game is closed, and mends ${Math.round(vitalityRestRate() * 100)}% of max Vitality per minute (the righteous rest more than twice as fast as the demonic — their sustain is between fights, not during them). Every foe you fell adds COMBAT MOMENTUM: +${Math.round(MOMENTUM_PER_KILL * 100)}% recovery rate per kill, up to +100% (2×), cooling by one stack every 10 minutes — so fighting warms your recovery instead of instantly refilling it. Vitality potions restore it instantly."><strong>Vitality</strong> <strong id="vit-value" style="color:${_vit < _vitMax * 0.4 ? "var(--crimson)" : "var(--jade)"}">${_vit}</strong>/${_vitMax} · ${_restLine}</span> <span style="color:var(--ink-soft)">&middot;</span> <span class="tip" data-tip="${escapeTip(`Lifespan is a resource. Age advances slowly and ONLY while actively cultivating (idling/offline are safe) — at your current rate that is ${lifespanHoursLeftLabel()} of ACTIVE cultivation before old age. Each realm hugely extends your span. Certain pills, schools, and artifacts ADD lifespan; powerful pills SPEND it (a share of what remains) for permanent power. Running out is death by old age — which reincarnates you with your souls intact.`)}" style="color:var(--ink-soft)">Age <strong>${Math.floor(state.age || 16)}</strong>, <strong style="color:var(--jade)">${Math.floor(lifespanRemaining())}</strong> of ${lifespanMax()} yrs left <span style="opacity:0.8">(~${lifespanHoursLeftLabel()})</span>${state.bodyQuench ? ` · tempered ×${state.bodyQuench}` : ""}</span></p>`;
+    }
+    if (state.ageBrinkNotice) {
+      realmHTML += `<p style="font-size:0.8rem;margin:0 0 0.4rem;color:var(--crimson)"><strong>Meditation halted.</strong> ${state.ageBrinkNotice}</p>`;
     }
     if ((state.freePoints || 0) > 0) {
       realmHTML += `<p style="font-size:0.8rem;margin:0 0 0.4rem;color:var(--gold)"><strong>${state.freePoints}</strong> cultivation point${state.freePoints === 1 ? "" : "s"} unspent — allocate them in the Cultivator tab's stat box.</p>`;
@@ -29393,7 +30164,7 @@
     const skOnly = !!state.ui.skillsMyRealmOnly;
     const myTierSk = state.realm.tierIdx || 0;
     {
-      const hiddenN = SKILLS.filter((sk) => (!sk.demonicOnly || state.demonic) && (sk.minTier || 0) > myTierSk && !hasSkill(sk.id)).length;
+      const hiddenN = SKILLS.filter((sk) => (!sk.demonicOnly || state.demonic) && !(sk.notDemonic && state.demonic) && (!sk.legacy || hasSkill(sk.id)) && (!sk.school || sk.school === state.selectedSchool) && (sk.minTier || 0) > myTierSk && !hasSkill(sk.id)).length;
       const sb = document.createElement("button");
       sb.className = "small " + (skOnly ? "gold" : "ghost");
       sb.style.cssText = "margin:0 0 0.5rem";
@@ -29408,6 +30179,9 @@
     const categories = {};
     SKILLS.forEach((sk) => {
       if (sk.demonicOnly && !state.demonic) return;
+      if (sk.notDemonic && state.demonic) return;
+      if (sk.legacy && !hasSkill(sk.id)) return;
+      if (sk.school && sk.school !== state.selectedSchool) return;
       if (skOnly && (sk.minTier || 0) > myTierSk && !hasSkill(sk.id)) return;
       if (!categories[sk.category]) categories[sk.category] = [];
       categories[sk.category].push(sk);
@@ -29773,7 +30547,7 @@
     if (ownedList) {
       const slotFull = state.inscriptions.slotted.length >= cap;
       state.inscriptions.owned.slice().filter((id) => INSCRIPTIONS[id] && inscriptionCategory(id) === inscSel).sort(
-        (a, b) => inscriptionRealm(a) - inscriptionRealm(b) || (RARITY_RANK[(INSCRIPTIONS[a] || {}).rarity] || 0) - (RARITY_RANK[(INSCRIPTIONS[b] || {}).rarity] || 0)
+        (a, b) => (RARITY_RANK[(INSCRIPTIONS[b] || {}).rarity] || 0) - (RARITY_RANK[(INSCRIPTIONS[a] || {}).rarity] || 0) || inscriptionRealm(b) - inscriptionRealm(a) || ((INSCRIPTIONS[a].name || "") < (INSCRIPTIONS[b].name || "") ? -1 : 1)
       ).forEach((id) => {
         const ins = INSCRIPTIONS[id];
         if (!ins) return;
@@ -29791,7 +30565,11 @@
     }
     const wList = document.getElementById("weapon-list");
     if (wList) {
-      state.weapons.owned.forEach((id) => {
+      const _wRar = (id) => RARITY_RANK[(WEAPONS[id] || {}).rarity] || 0;
+      const _wPow = (id) => isSectWeaponId(id) ? effectiveWeaponBasePower({ weapon: id, realm: state.realm }) : (WEAPONS[id] || {}).power || 0;
+      state.weapons.owned.slice().sort(
+        (a, b) => _wRar(b) - _wRar(a) || _wPow(b) - _wPow(a) || (((WEAPONS[a] || {}).name || "") < ((WEAPONS[b] || {}).name || "") ? -1 : 1)
+      ).forEach((id) => {
         const w = WEAPONS[id];
         const item = document.createElement("div");
         item.className = "weapon-card tip";
@@ -29998,7 +30776,7 @@
       ));
       const addRow = ([id, c]) => {
         const row = renderConsumableRow(id, c, "craft");
-        const btns = row.querySelector(".consumable-buttons");
+        const btns = row.querySelector(".plot-buttons") || row.querySelector(".consumable-buttons");
         if (btns) btns.appendChild(pinButton(id));
         else row.appendChild(pinButton(id));
         gP.appendChild(row);
@@ -30512,10 +31290,10 @@
     const dlP = document.createElement("div");
     dlP.className = "panel";
     dlP.innerHTML = `<h3>Break Down Items <span style="font-weight:normal;color:var(--ink-soft);font-size:0.85rem">拆物</span></h3>
-    <p style="font-size:0.82rem;color:var(--ink-soft);margin:0 0 0.4rem">Sorted by realm, then rarity. Equipped gear and slotted inscriptions are safe.</p>`;
+    <p style="font-size:0.82rem;color:var(--ink-soft);margin:0 0 0.4rem">Sorted best-first — rarity, then realm, then kind. Equipped gear and slotted inscriptions are safe; locked items are skipped.</p>`;
     const disAll = collectSellableItems(state).filter((it) => it.disassemble);
     dlP.appendChild(realmTabChips("disassemblyRealm", (t) => disAll.filter((it) => (it.tier || 0) === t).length));
-    const disRows = disAll.filter((it) => realmTabShows("disassemblyRealm", it.tier || 0));
+    const disRows = disAll.filter((it) => realmTabShows("disassemblyRealm", it.tier || 0)).sort((a, b) => (RARITY_RANK[b.rarity] || 0) - (RARITY_RANK[a.rarity] || 0) || (b.tier || 0) - (a.tier || 0) || String(a.kindLabel || "").localeCompare(String(b.kindLabel || "")) || String(a.name || "").localeCompare(String(b.name || "")));
     if (disRows.length) {
       const bulkRow = document.createElement("div");
       bulkRow.className = "button-row";
@@ -30827,10 +31605,7 @@
       <div class="location-name">${loc.name} <span style="color:var(--ink-soft);font-weight:normal;font-size:0.85rem">${loc.zh}</span>${loc.demonOnly ? ' <span class="rarity-tag rarity-legendary" style="color:#c06">demonic ground</span>' : ""}${isCult ? ' <span class="rarity-tag rarity-rare">cultivating here</span>' : ""}</div>
       <div class="location-desc">${loc.desc}</div>
       <div style="font-size:0.8rem;color:var(--ink-soft);margin-top:0.3rem">You may meet: ${enemies}</div>
-      ${(() => {
-        const rg = locationReagent(loc);
-        return rg && MATERIALS[rg] ? `<div style="font-size:0.78rem;color:var(--jade);margin-top:0.15rem">Signature reagent: ${MATERIALS[rg].name}</div>` : "";
-      })()}
+      ${locationDropsHTML(loc)}
       <div style="font-size:0.78rem;color:var(--ink-soft);margin-top:0.15rem">Cultivation multiplier: ×${cultMult.toFixed(1)}</div>
       ${loc.demonOnly ? `<div style="font-size:0.78rem;color:#c06;margin-top:0.15rem"><strong>Demonic Qi venture:</strong> foes ×10 Vitality / ×2.5 damage, insight +50%, no hunter ambush — but a rival demon of the realm above may contest it, a defeat costs 10% of this realm's insight, and the ground only bears <strong>${DEMONIC_VENTURE_CAP} ventures per hour</strong> (the rest of the grind walks the hunted roads).</div>` : ""}
       ${reqHTML}
@@ -31051,8 +31826,18 @@
     const dailyCap = marketDailyCap(state);
     const bought = state.market && state.market.boughtToday || {};
     const usedCount = Object.values(bought).reduce((a, b) => a + b, 0);
-    traderP.innerHTML += `<div style="font-size:0.78rem;color:var(--ink-soft);margin-bottom:0.4rem">Market window: ${usedCount}/${dailyCap} units this hour. Refreshes hourly; the caravan's stock grows each realm.</div>`;
-    marketOffers(state).forEach(([matId, offer]) => {
+    const soldOut = marketSoldOut(state);
+    traderP.innerHTML += `<div style="font-size:0.78rem;color:var(--ink-soft);margin-bottom:0.4rem">Market window: ${usedCount}/${dailyCap} units this hour · next caravan in <span id="market-countdown">${marketCountdownLabel()}</span>. Each caravan carries a different spread of goods at its own prices; the stock grows each realm.</div>`;
+    if (soldOut) {
+      const gone = document.createElement("div");
+      gone.className = "consumable-row";
+      gone.innerHTML = `<div class="consumable-info">
+        <div class="consumable-name">The goods wagons roll on <span style="color:var(--ink-soft);font-size:0.75rem">车马已去</span></div>
+        <div class="consumable-desc">You have bought this caravan out. Its wagons are already dust on the western road — a new one arrives in <span id="market-countdown-2">${marketCountdownLabel()}</span>, carrying different goods. The apothecary's wagon and the scrap-buyer stay behind — or flag the next caravan down early with stones, below.</div>
+      </div>`;
+      traderP.appendChild(gone);
+    }
+    marketStockedOffers(state).filter(([, o]) => !soldOut || o.supplyMs).forEach(([matId, offer]) => {
       const have = offerHave(matId, offer);
       const sold = bought[matId] || 0;
       const remaining = dailyCap - usedCount;
@@ -31086,6 +31871,18 @@
         if (marketBuyMaterial(matId)) render();
       };
       btns.appendChild(b);
+      if (!isSupply) {
+        const oc = marketOverbuyCost(matId);
+        const ob = document.createElement("button");
+        ob.className = "ghost small";
+        ob.textContent = `Requisition +1 (${oc.toLocaleString()})`;
+        ob.title = "Bypasses the market window — the price doubles with each requisition this realm, resetting when you break through.";
+        ob.disabled = !marketCanOverbuy(matId);
+        ob.onclick = () => {
+          if (marketOverbuy(matId)) render();
+        };
+        btns.appendChild(ob);
+      }
       row.appendChild(btns);
       traderP.appendChild(row);
     });
@@ -31101,7 +31898,7 @@
       resetRow.className = "consumable-row";
       resetRow.innerHTML = `<div class="consumable-info">
         <div class="consumable-name">Summon a Fresh Caravan <span style="color:var(--ink-soft);font-size:0.75rem">换商队</span></div>
-        <div class="consumable-desc">Pay ${marketResetCost()} spirit stones to reset the caravan's purchase limits immediately. Once per hour.</div>
+        <div class="consumable-desc">Pay ${marketResetCost()} spirit stones to flag down the next caravan early — fresh purchase limits and a fresh spread of goods at fresh prices. Once per hour.</div>
       </div>`;
       const rBtns = document.createElement("div");
       rBtns.className = "consumable-buttons";
@@ -31329,6 +32126,62 @@
     exBtns.appendChild(exBtn);
     exRow.appendChild(exBtns);
     sectP.appendChild(exRow);
+    {
+      const mkSectRow = (nameHTML, descHTML, btnLabel, enabled, onClick) => {
+        const row = document.createElement("div");
+        row.className = "consumable-row";
+        row.innerHTML = `<div class="consumable-info"><div class="consumable-name">${nameHTML}</div><div class="consumable-desc">${descHTML}</div></div>`;
+        const bwrap = document.createElement("div");
+        bwrap.className = "consumable-buttons";
+        const b = document.createElement("button");
+        b.className = "gold small";
+        b.textContent = btnLabel;
+        b.disabled = !enabled;
+        if (enabled) b.onclick = onClick;
+        bwrap.appendChild(b);
+        row.appendChild(bwrap);
+        sectP.appendChild(row);
+      };
+      ["cult", "damage"].forEach((key) => {
+        const pot = SECT_POTIONS[key], c = sectPotionCost(key);
+        const pct = Math.round((sectPotionValue(key) - 1) * 100);
+        const bought2 = sectPotionBought(key);
+        mkSectRow(
+          `${pot.name} <span style="color:var(--ink-soft);font-size:0.75rem">${pot.zh}</span>`,
+          `A timed <strong>+${pct}% ${key === "cult" ? "cultivation rate" : "weapon damage"}</strong> — always 5% above the best brew of your realm. ${c.stones.toLocaleString()} stones + ${c.contribution.toLocaleString()} contribution${bought2 ? ` · ${bought2} bought this realm` : ""} (doubles each buy this realm).`,
+          `Buy (${c.stones.toLocaleString()}s + ${c.contribution.toLocaleString()}c)`,
+          canBuySectPotion(key),
+          () => {
+            if (buySectPotion(key)) render();
+          }
+        );
+      });
+      {
+        const cost = sectBlessingCost(), left = Math.max(0, SECT_BLESSING_CAP - blessingsBoughtThisRealm());
+        const desc = state.pendingBlessing ? "A blessing is already prepared — it takes hold on your next fight." : `Your next fight only: <strong>×2 Vitality, ×2 qi barrier, +50% damage</strong> (stacks with everything else). ${cost.toLocaleString()} stones · ${left}/${SECT_BLESSING_CAP} left this realm.`;
+        mkSectRow(
+          `Sect Elder Blessing <span style="color:var(--ink-soft);font-size:0.75rem">长老加持</span>`,
+          desc,
+          state.pendingBlessing ? "Prepared" : `Request (${cost.toLocaleString()})`,
+          canBuySectBlessing(),
+          () => {
+            if (buySectBlessing()) render();
+          }
+        );
+      }
+      {
+        const cost = sectStatPotCost(), left = Math.max(0, SECT_STAT_POT_CAP - sectStatPotsBought());
+        mkSectRow(
+          `Elder's Tempering Elixir <span style="color:var(--ink-soft);font-size:0.75rem">淬体丹</span>`,
+          `<strong>+1 to a random stat, directly</strong> — no distillation pips, no soft cap. ${cost.toLocaleString()} stones · ${left}/${SECT_STAT_POT_CAP} left this realm (doubles each buy).`,
+          left > 0 ? `Buy (${cost.toLocaleString()})` : "Spent this realm",
+          canBuySectStatPot(),
+          () => {
+            if (buySectStatPot()) render();
+          }
+        );
+      }
+    }
     Object.entries(TECHNIQUES).filter(([, t]) => t.minRealmTier && t.school === state.selectedSchool).sort((a, b) => a[1].minRealmTier - b[1].minRealmTier || (a[1].cost || 0) - (b[1].cost || 0)).forEach(([tid, tech]) => {
       const owned2 = state.loadout.includes(tid);
       const tierMet = state.realm.tierIdx >= tech.minRealmTier;
@@ -31416,9 +32269,10 @@
       const rankMet = rankIdx >= sw.sectRank;
       const row = document.createElement("div");
       row.className = "consumable-row";
+      const effPow = Math.max(w.power || 0, Math.round(((WEAPON_GEN_TIER[Math.min(6, state.realm.tierIdx || 0)] || {}).power || w.power) * 0.95));
       row.innerHTML = `<div class="consumable-info">
         <div class="consumable-name">${w.name} <span style="color:var(--ink-soft);font-size:0.75rem">${w.zh}</span> <span class="rarity-tag rarity-${w.rarity}">${w.rarity}</span></div>
-        <div class="consumable-desc">Power ${w.power} · ${w.kind} · ${w.desc}</div>
+        <div class="consumable-desc">Power <strong style="color:var(--jade)">${effPow}</strong> at your realm · ${w.kind} · ${w.desc}</div>
         <div class="consumable-desc"><strong>${SECT_RANKS[sw.sectRank].name}+</strong> · ${sw.contribCost.toLocaleString()} contribution</div>
       </div>`;
       const btns = document.createElement("div");
@@ -31510,6 +32364,24 @@
           }
         }
         pBtns.appendChild(gb);
+      }
+      {
+        const bought2 = deathsBoughtThisRealm();
+        const c = extraDeathCost(bought2);
+        const db = document.createElement("button");
+        db.className = "ghost small";
+        const costStr = `${c.stones.toLocaleString()} stones + ${c.contribution.toLocaleString()} contribution`;
+        if (canBuyExtraDeath()) {
+          db.textContent = `Buy an extra death (+1 cap) — ${costStr}${bought2 ? ` · ${bought2} bought this realm` : ""}`;
+          db.onclick = () => {
+            if (buyExtraDeath()) render();
+          };
+        } else {
+          db.textContent = `Buy an extra death (+1 cap) — need ${costStr}`;
+          db.disabled = true;
+          db.style.opacity = "0.6";
+        }
+        pBtns.appendChild(db);
       }
       const RENEWAL_CAP = 3;
       const renewalLeft = Math.max(0, RENEWAL_CAP - (state.renewalUses && state.renewalUses[tier2] || 0));
@@ -31773,10 +32645,12 @@
     } else if (running.length) {
       stackHTML = `<div class="consumable-desc" style="color:var(--jade)">Already running: ${running.join(" · ")}</div>`;
     }
+    const _incEf = (c.effects || []).some((ef) => ef.kind === "incoming_mult");
+    const defNote = _incEf ? ' <span style="color:var(--ink-soft)">(stacked incoming reduction soft-caps past −15%)</span>' : "";
     const infoDiv = document.createElement("div");
     infoDiv.style.flex = "1 1 55%";
     infoDiv.innerHTML = `<div class="consumable-name">${c.name} <span style="color:var(--ink-soft);font-weight:normal;font-size:0.8rem">${c.zh}</span> <span class="rarity-tag rarity-${c.rarity}">${c.rarity}</span> ${owned ? `× <strong>${owned}</strong>` : ""}</div>
-    <div class="consumable-desc">${c.desc}${recipeText ? "<br>Recipe: " + recipeText : ""}</div>
+    <div class="consumable-desc">${c.desc}${defNote}${recipeText ? "<br>Recipe: " + recipeText : ""}</div>
     ${reqHTML}${stackHTML}`;
     row.appendChild(infoDiv);
     const btns = document.createElement("div");
@@ -31933,6 +32807,15 @@
       mb.style.cssText = "grid-column: 1 / -1; background: rgba(192,96,96,0.12); border: 1px solid var(--crimson); padding: 0.5rem 0.6rem; border-radius: 3px; font-size: 0.82rem; text-align: center;";
       mb.innerHTML = `<strong style="color:var(--crimson)">${tmech.label}${meter}</strong> — ${tmech.blurb}`;
       grid2.appendChild(mb);
+    }
+    if (!combat.tribulation) {
+      const adv = advanceInfo(state);
+      const ins = Math.floor(state.realm && state.realm.insight || 0);
+      const insTxt = adv ? `Insight <strong style="color:var(--jade)">${ins.toLocaleString()}</strong> / ${adv.cost.toLocaleString()} → <strong>${adv.label}</strong>` : `Insight <strong style="color:var(--jade)">${ins.toLocaleString()}</strong> — realm maxed`;
+      const infoLine = document.createElement("div");
+      infoLine.style.cssText = "grid-column: 1 / -1; font-size:0.76rem; color:var(--ink-soft); text-align:center; padding:0.1rem 0;";
+      infoLine.innerHTML = `${insTxt} <span style="opacity:0.5">·</span> Age <strong>${Math.floor(state.age || 16)}</strong>, ${Math.floor(lifespanRemaining()).toLocaleString()} yrs left <span style="opacity:0.7">— fighting doesn't age you</span>`;
+      grid2.appendChild(infoLine);
     }
     if (!isSurvival && !combat.tribulation) {
       tickAutoCombatReset();
