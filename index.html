@@ -9167,6 +9167,9 @@
 
   // app/src/data/changelog.js
   var CHANGELOG = [
+    { v: "1.27.136", notes: [
+      "The Exposed Spirit Vein now has its own cultivation lane — its +50% always stacks on top of your pills, draughts, and the Spirit-Fed Brazier instead of being crowded out of the two-most-potent pool. A rare road-find that finally pulls its weight."
+    ] },
     { v: "1.27.135", notes: [
       `The Resources & Effects dock has a new "Coming Up" line under Active Effects — your next breakthrough (insight to go) and your next sect rank (contribution to go), so what you're climbing toward is always in view.`,
       "The Weapon and Armor loadout tabs now show a Loadout Summary at the top — Might, Vitality, weapon power, qi, and your combat channels (DR, crit, dodge, lifesteal) — for comparing equipment sets at a glance."
@@ -9318,10 +9321,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Tribulation resistance, resolve under pressure." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.135';
+  var GAME_VERSION = 'v1.27.136';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "0e65969";
+  var BUILD_SHA = "1556a30";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -22679,8 +22682,8 @@
     { id: "spirit_vein", good: true, base: 3, luckGate: 6, resolve() {
       const n = fortuneScaled(20 + (state.realm.tierIdx || 0) * 20);
       state.base.materials.spirit_stone = (state.base.materials.spirit_stone || 0) + n;
-      pushStackedBuff({ kind: "cultivation_mult", value: 1.5, expiresAt: Date.now() + 30 * 6e4, sourceName: "Exposed Spirit Vein" });
-      return `The road cuts across an exposed spirit vein — <strong>${n} spirit stones</strong> and <strong>+50% cultivation for 30 minutes</strong>.`;
+      pushStackedBuff({ kind: "vein_mult", value: 1.5, expiresAt: Date.now() + 30 * 6e4, sourceName: "Exposed Spirit Vein" });
+      return `The road cuts across an exposed spirit vein — <strong>${n} spirit stones</strong> and <strong>+50% cultivation for 30 minutes</strong> (stacks on top of your other cultivation bonuses).`;
     } },
     { id: "longevity_dew", good: true, base: 2, luckGate: 12, resolve() {
       const yrs = 20 + (state.realm.tierIdx || 0) * 20;
@@ -26023,13 +26026,14 @@
     }
     const cultBuff = activeBuffValue("cultivation_mult", 1);
     const brazierBuff = activeBuffValue("brazier_mult", 1);
+    const veinBuff = activeBuffValue("vein_mult", 1);
     const hm = heritageMech();
     const heritageCult = (hm.cultivationMult || 1) * (hm.cultInsightMult || 1) * (hm.schoolCultMult && hm.schoolCultMult[state.selectedSchool] || 1);
     const gearCult = computeMods(state).cultMult || 1;
     const rootGrade = state.spiritRoot && state.spiritRoot.grade || 1;
     const foundation = state.foundationQuality || 1;
     const demonCult = isDemonHeart(state) ? 0 : state.demonic ? 0.5 : 2;
-    return (base + statBonus) * method.mult * locMult * realmMult * cultBuff * brazierBuff * boonCultivationMult() * skillCultivationMult() * heritageCult * gearCult * rootGrade * foundation * sectRankMult() * metaCultMult() * demonCult * (1 + 0.2 * goldenCoreLevel()) * sectCultInsightMult();
+    return (base + statBonus) * method.mult * locMult * realmMult * cultBuff * brazierBuff * veinBuff * boonCultivationMult() * skillCultivationMult() * heritageCult * gearCult * rootGrade * foundation * sectRankMult() * metaCultMult() * demonCult * (1 + 0.2 * goldenCoreLevel()) * sectCultInsightMult();
   }
   function cultivationBoostMult() {
     if (!state || !state.confirmed) return 1;
@@ -26038,7 +26042,7 @@
     const gearCult = computeMods(state).cultMult || 1;
     const rootGrade = state.spiritRoot && state.spiritRoot.grade || 1;
     const foundation = state.foundationQuality || 1;
-    return activeBuffValue("cultivation_mult", 1) * activeBuffValue("brazier_mult", 1) * boonCultivationMult() * skillCultivationMult() * heritageCult * gearCult * rootGrade * foundation * sectRankMult() * metaCultMult();
+    return activeBuffValue("cultivation_mult", 1) * activeBuffValue("brazier_mult", 1) * activeBuffValue("vein_mult", 1) * boonCultivationMult() * skillCultivationMult() * heritageCult * gearCult * rootGrade * foundation * sectRankMult() * metaCultMult();
   }
   function startCultivation(locationId) {
     const loc = LOCATIONS.find((l) => l.id === locationId);
@@ -28556,8 +28560,10 @@
     hp_max_add: "max Vitality",
     weapon_mult: "weapon power",
     incoming_mult: "incoming damage",
-    brazier_mult: "cultivation rate (brazier)"
+    brazier_mult: "cultivation rate (brazier)",
     // v1.27.132: own lane, stacks with cultivation_mult
+    vein_mult: "cultivation rate (vein)"
+    // v1.27.136: own lane, stacks with everything
   };
   function dockIsWide() {
     try {
