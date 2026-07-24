@@ -9167,10 +9167,12 @@
 
   // app/src/data/changelog.js
   var CHANGELOG = [
+    { v: "1.27.133", notes: [
+      "The Sect Elder Blessing does not apply in a sect promotion duel — the examination ring tests you, not your patron. It isn't spent there either; the prepared blessing waits for a real fight. It still works fully everywhere else, tribulations included."
+    ] },
     { v: "1.27.132", notes: [
       "The Spirit-Fed Brazier is now its OWN cultivation multiplier — a separate lane that stacks on top of your pills and draughts instead of fighting them for a slot. So lighting it can never erase a running Foundation Pill again. Its surge also scales +10% per realm (up to +120%) and costs more stones the higher you climb.",
       "Sect draughts (Cultivation & War) now last a long 30 minutes, and the store says so; the live countdown shows in Resources & Effects.",
-      "The Sect Elder Blessing is halved in a promotion duel — the examination ring tests you, not your patron's favour. The store and the combat log both say so.",
       'Resource Requisition can be batched — ×10 or "Max" — so turning contribution into stones for tempering elixirs is no longer a hundred clicks.',
       "Consumables in the Loadout are sorted: pills then potions, each by realm, rarity, then name.",
       "After a foe drops, a key mashed on the killing blow no longer leaks through as tab/menu movement while the victory screen is up.",
@@ -9306,10 +9308,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Tribulation resistance, resolve under pressure." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.132';
+  var GAME_VERSION = 'v1.27.133';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "ec6032f";
+  var BUILD_SHA = "8155e2e";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -26415,20 +26417,20 @@
       areaCultMult: areaCultMult || 1
       // v0.50: the area's cultivation multiplier — a defeat here costs that much more lifespan
     };
-    if (state.pendingBlessing) {
-      const promo = enemies.some((e) => e.id === "sect_promotion_elder");
-      const mul = promo ? 1.5 : 2;
-      const dmg = promo ? 1.25 : 1.5;
-      p.hpMax = Math.max(1, Math.round(p.hpMax * mul));
-      p.hp = Math.min(p.hpMax, Math.max(1, Math.round(p.hp * mul)));
-      p.qiShieldMult *= mul;
-      combat.blessingDmgMult = dmg;
-      combat.blessingDampened = promo;
+    const _promoDuel = enemies.some((e) => e.id === "sect_promotion_elder");
+    if (state.pendingBlessing && !_promoDuel) {
+      p.hpMax = Math.max(1, Math.round(p.hpMax * 2));
+      p.hp = Math.min(p.hpMax, Math.max(1, Math.round(p.hp * 2)));
+      p.qiShieldMult *= 2;
+      combat.blessingDmgMult = 1.5;
       state.pendingBlessing = false;
       saveChar();
+    } else if (state.pendingBlessing && _promoDuel) {
+      combat.blessingWithheld = true;
     }
     pushLog("turn", `— Turn 1 —`);
-    if (combat.blessingDmgMult > 1) pushLog("flavor", combat.blessingDampened ? "A Sect Elder's blessing settles over you — but the examination ring dampens it to half: the duel must test you, not your patron." : "A Sect Elder's blessing settles over you — flesh doubled, barrier doubled, every strike half again as heavy.");
+    if (combat.blessingDmgMult > 1) pushLog("flavor", "A Sect Elder's blessing settles over you — flesh doubled, barrier doubled, every strike half again as heavy.");
+    else if (combat.blessingWithheld) pushLog("flavor", "The examination ring brooks no borrowed strength — your Elder's blessing withdraws, and waits for a fight of your own making.");
     if (enemies.length === 1) {
       pushLog("flavor", ENEMIES[enemies[0].id].intro);
     } else {
@@ -32340,7 +32342,7 @@
       });
       {
         const cost = sectBlessingCost(), left = Math.max(0, SECT_BLESSING_CAP - blessingsBoughtThisRealm());
-        const desc = state.pendingBlessing ? "A blessing is already prepared — it takes hold on your next fight." : `Your next fight only: <strong>×2 Vitality, ×2 qi barrier, +50% damage</strong> (stacks with everything else). <span style="color:var(--ink-soft)">Halved in a promotion duel — the ring tests you, not your patron.</span> ${cost.toLocaleString()} stones · ${left}/${SECT_BLESSING_CAP} left this realm.`;
+        const desc = state.pendingBlessing ? "A blessing is already prepared — it takes hold on your next fight." : `Your next fight only: <strong>×2 Vitality, ×2 qi barrier, +50% damage</strong> (stacks with everything else). <span style="color:var(--ink-soft)">Does not apply in a promotion duel — the ring tests you, not your patron; the blessing waits for another fight.</span> ${cost.toLocaleString()} stones · ${left}/${SECT_BLESSING_CAP} left this realm.`;
         mkSectRow(
           `Sect Elder Blessing <span style="color:var(--ink-soft);font-size:0.75rem">长老加持</span>`,
           desc,
