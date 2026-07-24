@@ -9167,6 +9167,10 @@
 
   // app/src/data/changelog.js
   var CHANGELOG = [
+    { v: "1.27.135", notes: [
+      `The Resources & Effects dock has a new "Coming Up" line under Active Effects — your next breakthrough (insight to go) and your next sect rank (contribution to go), so what you're climbing toward is always in view.`,
+      "The Weapon and Armor loadout tabs now show a Loadout Summary at the top — Might, Vitality, weapon power, qi, and your combat channels (DR, crit, dodge, lifesteal) — for comparing equipment sets at a glance."
+    ] },
     { v: "1.27.134", notes: [
       "Endless Path milestone bonus now lands when you COMPLETE a 5-rank block (rank 5, 10, 15…), not from the first rank of it — so ranks 1–4 no longer show a milestone they hadn't earned yet.",
       "Sect tribute now scales with your rank: both the daily contribution cap and the per-tribute donation grow a full step per sect rank, so ranking up meaningfully raises your contribution income and cuts the clicks.",
@@ -9314,10 +9318,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Tribulation resistance, resolve under pressure." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.134';
+  var GAME_VERSION = 'v1.27.135';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "3224872";
+  var BUILD_SHA = "0e65969";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -22843,6 +22847,31 @@
     const statSum = state.finalStats ? Object.values(state.finalStats).reduce((a, b) => a + b, 0) : 0;
     return Math.round(wp + computeMaxHP(state) / 15 + statSum);
   }
+  function playerWeaponPowerNow() {
+    const w = WEAPONS[state.weapon];
+    const mods = computeMods(state);
+    return (w ? w.power : 0) + refineWeaponBonus(state) + realmBonusFor(state).weapon + (mods.weaponBonus || 0) + boonWeaponAdd() + skillWeaponAdd();
+  }
+  function loadoutStatSummaryPanel() {
+    const p = document.createElement("div");
+    p.className = "panel";
+    const mods = computeMods(state);
+    const pct = (v) => `${Math.round(v * 100)}%`;
+    const chip = (label, val, tip) => `<span class="inv-chip tip" data-tip="${escapeTip(tip)}"><strong>${label}</strong> ${val}</span>`;
+    const chips = [
+      chip("Might", cultivatorMight().toLocaleString(), "Overall power score — weapon power + Vitality/15 + total stats."),
+      chip("Vitality", computeMaxHP(state).toLocaleString(), "Max Vitality — your health pool."),
+      chip("Weapon", playerWeaponPowerNow().toLocaleString(), "Effective weapon power — base + refine + realm + gear + boons + skills."),
+      chip("Qi", computeMaxQi(state).toLocaleString(), "Max qi — technique fuel and barrier.")
+    ];
+    if (mods.flatDR) chips.push(chip("DR", Math.round(mods.flatDR), "Flat damage reduction on every hit taken."));
+    if (mods.critChance) chips.push(chip("Crit", pct(mods.critChance), "Critical-hit chance."));
+    if (mods.dodgeChance) chips.push(chip("Dodge", pct(mods.dodgeChance), "Chance to avoid a hit entirely."));
+    if (mods.lifestealPct) chips.push(chip("Lifesteal", pct(mods.lifestealPct), "Vitality restored as a share of damage dealt."));
+    p.innerHTML = `<div class="dock-title">Loadout Summary <span style="font-weight:normal;color:var(--ink-soft);font-size:0.75rem">总览</span></div>
+    <div class="inventory-list" style="margin-top:0.3rem">${chips.join("")}</div>`;
+    return p;
+  }
   var RIFT_MIGHT_REF = [260, 300, 550, 1100, 3400, 6800, 16e3];
   function realmRunDifficulty(floor) {
     const t = state.realm.tierIdx || 0;
@@ -28585,6 +28614,22 @@
     } else {
       html += `<div style="font-size:0.75rem;color:var(--ink-soft);font-style:italic;margin-top:0.35rem">No effects running. Brew in the House.</div>`;
     }
+    const upcoming = [];
+    const adv = typeof advanceInfo === "function" ? advanceInfo(state) : null;
+    if (adv) {
+      const need = Math.max(0, adv.cost - (state.realm && state.realm.insight || 0));
+      upcoming.push(`<span class="inv-chip tip" data-tip="${escapeTip(`Insight remaining to your next ${adv.kind === "breakthrough" ? "realm breakthrough" : "layer"}.`)}"><strong>${adv.label}</strong> · ${need > 0 ? need.toLocaleString() + " insight" : "ready"}</span>`);
+    }
+    const _rIdx = sectRankIdx();
+    const _nextRank = SECT_RANKS[_rIdx + 1];
+    if (_nextRank) {
+      const at = Math.round(_nextRank.at * sectContribMult());
+      const needC = Math.max(0, at - (state.contributionLifetime || 0));
+      upcoming.push(`<span class="inv-chip tip" data-tip="${escapeTip("Lifetime contribution to your next sect rank — unlocks its store tier and cultivation bonus.")}"><strong>${_nextRank.name}</strong> · ${needC > 0 ? needC.toLocaleString() + " contribution" : "duel ready"}</span>`);
+    }
+    if (upcoming.length) {
+      html += `<div class="dock-title" style="margin-top:0.45rem">Coming Up <span style="font-weight:normal;color:var(--ink-soft);font-size:0.75rem">将至</span></div><div class="inventory-list">${upcoming.join("")}</div>`;
+    }
     d.innerHTML = html;
     if (narrowOpen) {
       const hideBtn = d.querySelector("#dock-toggle");
@@ -30686,6 +30731,7 @@
       <div id="weapon-list"></div>`;
     }
     artP.innerHTML = artHTML;
+    appendPanel(loadoutStatSummaryPanel(), "weaponload");
     appendPanel(artP, "weaponload");
     const slotRow = document.getElementById("slot-row");
     if (slotRow) {
@@ -31739,6 +31785,7 @@
         aP.appendChild(row);
       });
     }
+    appendPanel(loadoutStatSummaryPanel(), "armorload");
     appendPanel(aP, "armorload");
     const useP = document.createElement("div");
     useP.className = "panel";
