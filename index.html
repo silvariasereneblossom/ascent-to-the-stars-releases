@@ -9167,6 +9167,12 @@
 
   // app/src/data/changelog.js
   var CHANGELOG = [
+    { v: "1.27.138", notes: [
+      "Every layer within a realm now also grants a little lifespan (3% of the realm's span per layer), shown in the layer-perks line — so climbing layers, not just pills, buys you years.",
+      'The "Coming Up" dock no longer shows fractional insight — it rounds to whole numbers.',
+      'Fixed the Sect "Duties" chip counting the section header and flavor note as duties (it read "(4)" for two actual duties); it now counts only the real entries.',
+      'Arrays that boost damage versus a creature-kind (e.g. the Beast-Bane Glyph) now show their effect instead of "(no stats)".'
+    ] },
     { v: "1.27.137", notes: [
       `Every weapon and armor piece in the Loadout now shows an "If equipped:" line — the exact stat change (Might, Vitality, weapon power, qi, DR, crit, dodge) you'd get, green for gains and red for losses. It runs a real dry-run of the swap, so it accounts for set bonuses completing or breaking and inscriptions unslotting.`
     ] },
@@ -9324,10 +9330,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Tribulation resistance, resolve under pressure." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.137';
+  var GAME_VERSION = 'v1.27.138';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "9b5a88b";
+  var BUILD_SHA = "12cb609";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -21605,6 +21611,10 @@
         Object.entries(v).forEach(([el, ev]) => {
           parts.push(`${k === "elementWard" ? "-" : "+"}${Math.round(ev * 100)}% ${k === "elementWard" ? "from" : "vs"} ${el}`);
         });
+      } else if (k === "vsKindMult" && v && typeof v === "object") {
+        Object.entries(v).forEach(([kind, kv]) => {
+          if (kv) parts.push(`+${Math.round(kv * 100)}% vs ${kind}-kind`);
+        });
       }
     });
     return parts.length ? parts.join(", ") : "(no stats)";
@@ -23039,10 +23049,15 @@
     }
     return total;
   }
+  function layerLifespanBonus() {
+    const t = state.realm && state.realm.tierIdx || 0;
+    const layer = state.realm && state.realm.layer || 1;
+    return Math.round((REALM_LIFESPAN[t] || 0) * 0.03 * Math.max(0, layer - 1));
+  }
   function lifespanMax() {
     const t = state.realm && state.realm.tierIdx || 0;
     const base = REALM_LIFESPAN[t] || REALM_LIFESPAN[REALM_LIFESPAN.length - 1];
-    return base + (state.lifespanBonus || 0) + schoolLifespanBonus(state) + weaponLifespanBonus(state);
+    return base + layerLifespanBonus() + (state.lifespanBonus || 0) + schoolLifespanBonus(state) + weaponLifespanBonus(state);
   }
   function lifespanRemaining() {
     return Math.max(0, lifespanMax() - (state.age || 16));
@@ -28665,7 +28680,7 @@
     const upcoming = [];
     const adv = typeof advanceInfo === "function" ? advanceInfo(state) : null;
     if (adv) {
-      const need = Math.max(0, adv.cost - (state.realm && state.realm.insight || 0));
+      const need = Math.ceil(Math.max(0, adv.cost - (state.realm && state.realm.insight || 0)));
       upcoming.push(`<span class="inv-chip tip" data-tip="${escapeTip(`Insight remaining to your next ${adv.kind === "breakthrough" ? "realm breakthrough" : "layer"}.`)}"><strong>${adv.label}</strong> · ${need > 0 ? need.toLocaleString() + " insight" : "ready"}</span>`);
     }
     const _rIdx = sectRankIdx();
@@ -30327,6 +30342,7 @@
       if (tier.weaponBonus) perksNow.push(`+${tier.weaponBonus * state.realm.layer} wpn`);
       perksNow.push(`+${state.realm.layer * 2}% cult`);
       perksNow.push(`+${layerDeathCapBonus()} death cap`);
+      if (layerLifespanBonus() > 0) perksNow.push(`+${layerLifespanBonus().toLocaleString()} yrs lifespan`);
       const sectPct = Math.round((layerContribMult() - 1) * 100);
       if (sectPct > 0) perksNow.push(`+${sectPct}% sect contrib`);
       const nextPerks = [];
@@ -30335,6 +30351,8 @@
       if (tier.weaponBonus) nextPerks.push(`+${tier.weaponBonus} wpn`);
       nextPerks.push("+2% cult");
       nextPerks.push("+1 death cap");
+      const _nextLifespan = Math.round((REALM_LIFESPAN[state.realm.tierIdx] || 0) * 0.03);
+      if (_nextLifespan > 0) nextPerks.push(`+${_nextLifespan.toLocaleString()} yrs`);
       nextPerks.push("+4% sect contrib");
       const atCap = state.realm.layer >= tier.layers;
       realmHTML += `<p style="font-size:0.76rem;margin:0.15rem 0 0.4rem;color:var(--ink-soft)"><span class="tip" data-tip="Every layer within a realm permanently adds these — they stack as you climb. Pushing layers first, then buying library/skill-tree upgrades, is a valid plan.">Layer ${state.realm.layer}/${tier.layers} grants so far: <strong style="color:var(--jade)">${perksNow.join(" · ")}</strong>${atCap ? ' <span style="color:var(--gold)">— realm maxed; break through for the next tier</span>' : ` · next layer: <strong style="color:var(--gold)">${nextPerks.join(" · ")}</strong>`}</span></p>`;
@@ -32729,7 +32747,11 @@
         if (cur) buckets[cur].push(node);
         else pinned.push(node);
       });
-      const options = Object.keys(SECT_SECTION_LABELS).filter((k) => (buckets[k] || []).length).map((k) => ({ key: k, label: SECT_SECTION_LABELS[k], count: (buckets[k] || []).length }));
+      const options = Object.keys(SECT_SECTION_LABELS).filter((k) => (buckets[k] || []).length).map((k) => {
+        const nodes = buckets[k] || [];
+        const acted = nodes.filter((n) => n.querySelector && n.querySelector("button")).length;
+        return { key: k, label: SECT_SECTION_LABELS[k], count: acted || nodes.length };
+      });
       if (options.length > 1) {
         const chips = filterChips("sectSection", options, "duties");
         const sel = chips._selected;
