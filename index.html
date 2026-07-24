@@ -9167,6 +9167,15 @@
 
   // app/src/data/changelog.js
   var CHANGELOG = [
+    { v: "1.27.141", notes: [
+      "FIXED A NASTY ONE: the Keen-Edge Array was CUTTING your crit damage by 85% instead of adding 15% — a typo in its data (a multiplier written as 0.15 instead of 1.15). If you built it, it was quietly making your crits far worse. It now does what it says.",
+      "Arrays are sorted and filterable by Offense / Defense / Utility, with the ones you've built listed first.",
+      "Upgrading an array now costs seriously more at each level (it escalates ×2.5 per level instead of creeping up linearly) — a maxed array is meant to be an investment, not pocket change.",
+      "The garden's plantable herbs are sorted by realm, then grow time.",
+      "Road and wandering finds now scale with your realm properly (×2 per realm instead of a flat trickle), and the insight stele pays double — no more finds worth a couple of seconds of cultivation.",
+      `Destiny offers now prefer ones that suit your build — you won't be offered a damage-over-time keystone when you have no damage-over-time. The destiny screen also explains what "keystone" means.`,
+      "Returning home from a fight puts you back where you were on the page, instead of at the top."
+    ] },
     { v: "1.27.140", notes: [
       'Fixed a serious bug from the last couple of updates: Disassemble and Sell buttons had stopped doing anything. The new "if equipped" stat preview was quietly swapping your live save for a throwaway copy on every screen, so those buttons were changing a discarded copy. Fixed — they work again, and the equip preview still does too.'
     ] },
@@ -9338,10 +9347,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Tribulation resistance, resolve under pressure." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.140';
+  var GAME_VERSION = 'v1.27.141';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "c40ba78";
+  var BUILD_SHA = "a37ac1f";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -21832,7 +21841,10 @@
     d_crescendo: { name: "Crescendo", zh: "渐强", rarity: "rare", minTier: 1, keystone: true, mods: { perTurnRamp: 0.05 }, desc: "Keystone: +5% damage per combat turn elapsed (caps at +45%). Long fights become your fights." },
     d_patient_hunter: { name: "Patient Hunter", zh: "伏猎", rarity: "rare", minTier: 2, mods: { lateBonus: 0.3 }, desc: "+30% damage from turn 4 onward. The first three turns are reconnaissance." },
     d_storm_momentum: { name: "Storm Momentum", zh: "风势", rarity: "legendary", minTier: 3, keystone: true, mods: { critChance: 0.05, perTurnRamp: 0.03 }, desc: "Keystone: +5% crit chance, and +3% damage per combat turn elapsed." },
-    d_dot_savant: { name: "Lingering Ruin", zh: "余殃", rarity: "legendary", minTier: 3, keystone: true, mods: { dotMult: 1.35 }, desc: "Keystone: your damage-over-time effects (burn / poison / bleed / leech) tick 35% harder." },
+    // v1.27.141 (tester: "don't give me low-prio destinies, what do I care about Lingering Ruin, I'm not doing
+    // DOTs"). `needs` marks a destiny as build-gated: the roll fills its three slots from destinies that FIT
+    // your build first, and only falls back to these if the relevant pool runs dry.
+    d_dot_savant: { name: "Lingering Ruin", zh: "余殃", rarity: "legendary", minTier: 3, keystone: true, mods: { dotMult: 1.35 }, needs: () => playerHasDoT(), desc: "Keystone: your damage-over-time effects (burn / poison / bleed / leech) tick 35% harder." },
     d_posture_tide: { name: "Tide of Posture", zh: "势潮", rarity: "rare", minTier: 2, mods: { postureMult: 1.3, postureBreakBonus: 1 }, desc: "+30% posture damage and broken stances stay broken 1 turn longer." },
     d_element_resonance: { name: "Elemental Resonance", zh: "五行共鸣", rarity: "legendary", minTier: 4, keystone: true, mods: { elementBoostAll: 0.75 }, desc: "Keystone: your five-element OVERCOME bonus is amplified by 75% (+20% becomes +35%)." }
   };
@@ -21857,14 +21869,28 @@
     });
   }
   function rollDestinyChoices() {
+    const shuffle = (arr) => {
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        const t = arr[i];
+        arr[i] = arr[j];
+        arr[j] = t;
+      }
+      return arr;
+    };
     const pool = eligibleDestinies();
-    for (let i = pool.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      const t = pool[i];
-      pool[i] = pool[j];
-      pool[j] = t;
-    }
-    return pool.slice(0, 3);
+    const fits = (id) => {
+      const n = DESTINIES[id] && DESTINIES[id].needs;
+      if (!n) return true;
+      try {
+        return !!n();
+      } catch (e) {
+        return true;
+      }
+    };
+    const relevant = shuffle(pool.filter(fits));
+    const filler = shuffle(pool.filter((id) => !fits(id)));
+    return relevant.concat(filler).slice(0, 3);
   }
   function openDestinyChoice() {
     if (destinyPicksAvailable() <= 0) return;
@@ -22581,11 +22607,12 @@
     if (piece.kind === "weapon") state.weapons.owned.push(piece.id);
     else state.armor.owned.push(piece.id);
   }
-  var ROAD_INSIGHT_FRACTION = 3e-3;
+  var ROAD_INSIGHT_FRACTION = 6e-3;
   function fortunePayoutMult() {
     const layer = playerLayerScale(state).reward;
     const luck = state.finalStats && state.finalStats.luck || 0;
-    return layer * (1 + luck * 0.02);
+    const realm = Math.pow(2, state.realm && state.realm.tierIdx || 0);
+    return realm * layer * (1 + luck * 0.02);
   }
   function fortuneScaled(n) {
     return Math.max(1, Math.round(n * fortunePayoutMult()));
@@ -23342,7 +23369,9 @@
       zh: "锋锐阵",
       desc: "A whetting-circle that hones the killing angle. +3% crit chance and +15% crit damage.",
       cost: { star_iron: 3, thunder_shard: 1, spirit_stone: 12 },
-      mods: { critChance: 0.03, critMult: 0.15 },
+      // v1.27.141 (tester: "+3% crit, -85% crit dmg — wat"): critMult is a MULTIPLIER (1.15 = +15%), so 0.15
+      // was multiplying crit damage by 0.15 — an 85% CUT. The array was actively crippling anyone who built it.
+      mods: { critChance: 0.03, critMult: 1.15 },
       minTier: 3
     },
     bulwark_mandala: {
@@ -23452,7 +23481,42 @@
   }
   function arrayUpgradeCost(aid) {
     const a = ARRAYS[aid];
-    return 25 * (arrayLevel(aid) + 1) * ((a && a.minTier || 0) + 1);
+    return Math.round(80 * ((a && a.minTier || 0) + 1) * Math.pow(2.5, arrayLevel(aid)));
+  }
+  var ARRAY_OFFENSE_KEYS = /* @__PURE__ */ new Set([
+    "critChance",
+    "critMult",
+    "dotMult",
+    "techDamageMult",
+    "strikeDamageMult",
+    "spiritDamageMult",
+    "postureMult",
+    "postureBreakBonus",
+    "weaponBonus",
+    "firstStrikeBonus",
+    "perTurnRamp",
+    "lateBonus",
+    "lowHpBonus",
+    "vsKindMult",
+    "elementAmp",
+    "elementBoostAll",
+    "qiDamageMult"
+  ]);
+  var ARRAY_DEFENSE_KEYS = /* @__PURE__ */ new Set([
+    "flatDR",
+    "incomingMult",
+    "hpMult",
+    "hpBonus",
+    "dodgeChance",
+    "lifestealPct",
+    "elementWard",
+    "strikeHeal"
+  ]);
+  function arrayCategory(aid) {
+    const keys = Object.keys(ARRAYS[aid] && ARRAYS[aid].mods || {});
+    if (keys.some((k) => ARRAY_OFFENSE_KEYS.has(k))) return "offensive";
+    if (keys.some((k) => ARRAY_DEFENSE_KEYS.has(k))) return "defensive";
+    return "utility";
   }
   function canUpgradeArray(aid) {
     if (!activeArrays(state).includes(aid)) return false;
@@ -26264,6 +26328,7 @@
     }
   }
   var combat = null;
+  var preCombatScroll = 0;
   var atTitle = true;
   var LOCATION_CULT_BASELINE = (() => {
     const byTier = {};
@@ -26444,6 +26509,11 @@
     return ELEMENTS[Math.abs(hashStr(enemyId)) % ELEMENTS.length];
   }
   function initCombat(enemyIdOrIds, areaCultMult, areaLoc) {
+    try {
+      preCombatScroll = window.scrollY || window.pageYOffset || 0;
+    } catch (e) {
+      preCombatScroll = 0;
+    }
     const ids = Array.isArray(enemyIdOrIds) ? enemyIdOrIds.slice() : [enemyIdOrIds];
     const enemies = ids.map(buildEnemyCombat).filter(Boolean);
     if (!enemies.length) return;
@@ -28886,7 +28956,7 @@
     p.className = "panel offline-banner";
     p.innerHTML = `<h2 style="color:var(--gold)">A Fork in Fate</h2>
     <p>The breakthrough has loosened the threads of your destiny. Choose one path — it binds to your soul for this life.</p>
-    <p style="font-size:0.85rem;color:var(--ink-soft)">Destinies last this life only (re-chosen each rebirth). Rarity is the dao's whisper, not a measure of worth.</p>`;
+    <p style="font-size:0.85rem;color:var(--ink-soft)">Destinies last this life only (re-chosen each rebirth). Rarity is the dao's whisper, not a measure of worth. A <span class="rarity-tag" style="border-color:#9a6cc4;color:#c79cf0">keystone</span> is a build-defining destiny — one big, style-shaping effect you plan around; the rest are steady all-round gains.</p>`;
     app.appendChild(p);
     pendingDestiny.choices.forEach((id) => {
       const d = DESTINIES[id];
@@ -31072,8 +31142,9 @@
       <div class="plot-timer">Plant a herb — it takes the next free plot and auto-replants on harvest.</div>`;
         const btns = document.createElement("div");
         btns.className = "plot-buttons";
-        Object.entries(HERBS).forEach(([hid, herb]) => {
-          if (!herbUnlocked(hid)) return;
+        Object.entries(HERBS).filter(([hid]) => herbUnlocked(hid)).sort(
+          (x, y) => (x[1].minRealmTier || 0) - (y[1].minRealmTier || 0) || effectiveGrowSeconds(x[0]) - effectiveGrowSeconds(y[0]) || String(x[1].name || "").localeCompare(String(y[1].name || ""))
+        ).forEach(([hid, herb]) => {
           const b = document.createElement("button");
           b.className = "tip";
           const effMin = Math.round(effectiveGrowSeconds(hid) / 60);
@@ -31208,9 +31279,28 @@
         gP.appendChild(bar2);
         gP._arrayCapTier = capOn ? capTier : null;
       }
-      Object.entries(ARRAYS).forEach(([aid, a]) => {
+      let _arrCat = "all";
+      {
+        const visible = Object.entries(ARRAYS).filter(([, a]) => (!a.demonicOnly || state.demonic) && !(gP._arrayCapTier != null && (a.minTier || 0) > gP._arrayCapTier));
+        const counts = { offensive: 0, defensive: 0, utility: 0 };
+        visible.forEach(([aid]) => {
+          counts[arrayCategory(aid)]++;
+        });
+        const chips = filterChips("arrayCat", [
+          { key: "offensive", label: "Offense", count: counts.offensive },
+          { key: "defensive", label: "Defense", count: counts.defensive },
+          { key: "utility", label: "Utility", count: counts.utility }
+        ], "all");
+        _arrCat = chips._selected;
+        gP.appendChild(chips);
+      }
+      const _activeNow = activeArrays(state);
+      Object.entries(ARRAYS).sort(
+        (x, y) => (_activeNow.includes(y[0]) ? 1 : 0) - (_activeNow.includes(x[0]) ? 1 : 0) || (x[1].minTier || 0) - (y[1].minTier || 0) || String(x[1].name || "").localeCompare(String(y[1].name || ""))
+      ).forEach(([aid, a]) => {
         if (a.demonicOnly && !state.demonic) return;
         if (gP._arrayCapTier != null && (a.minTier || 0) > gP._arrayCapTier) return;
+        if (_arrCat !== "all" && arrayCategory(aid) !== _arrCat) return;
         const tier2 = state.realm.tierIdx;
         const isActive = active.includes(aid);
         const tierMet = tier2 >= (a.minTier || 0);
@@ -33135,6 +33225,13 @@
         combat = null;
         saveChar();
         render();
+        const _y = preCombatScroll;
+        if (_y > 0) requestAnimationFrame(() => {
+          try {
+            window.scrollTo(0, _y);
+          } catch (e) {
+          }
+        });
       };
       return;
     }
