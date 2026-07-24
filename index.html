@@ -9167,6 +9167,9 @@
 
   // app/src/data/changelog.js
   var CHANGELOG = [
+    { v: "1.27.131", notes: [
+      'Moving a save between the browser and the desktop app is now one file. The two run in separate sandboxes and can’t see each other’s saved cultivator, so "Save as File" on one and the new "Load from File" on the other carries it across (souls and prestige included). Pasting the snapshot text still works too.'
+    ] },
     { v: "1.27.130", notes: [
       'Your save is now portable. The Cultivator Snapshot in Config carries your souls and prestige too, and a new "Load / Transfer a Save" box right below it pastes a snapshot back in — so you can back up your cultivator or move it to another device (phone ↔ desktop ↔ web) by copying the snapshot across. Loading replaces the active slot and asks you to tap twice to confirm.'
     ] },
@@ -9294,10 +9297,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Tribulation resistance, resolve under pressure." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.130';
+  var GAME_VERSION = 'v1.27.131';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "3452edd";
+  var BUILD_SHA = "a2c4f4f";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -28965,7 +28968,7 @@
       const imP = document.createElement("div");
       imP.style.cssText = "margin-top:0.6rem;border-top:1px solid rgba(120,120,120,0.3);padding-top:0.4rem";
       imP.innerHTML = `<div style="font-weight:bold;font-size:0.9rem">Load / Transfer a Save <span style="color:var(--ink-soft);font-weight:normal;font-size:0.8rem">读取存档</span></div>
-      <p style="font-size:0.78rem;color:var(--ink-soft);margin:0.15rem 0 0.3rem">Paste a Cultivator Snapshot (from this device or another) to load it here. This <strong style="color:var(--crimson)">replaces the cultivator in the active save slot</strong> — export your current one first if you want to keep it. Souls and prestige come across too.</p>`;
+      <p style="font-size:0.78rem;color:var(--ink-soft);margin:0.15rem 0 0.3rem">Paste a Cultivator Snapshot — or <strong>Load from File</strong> a snapshot saved by the browser or desktop app — to restore it here. This <strong style="color:var(--crimson)">replaces the cultivator in the active save slot</strong> — export your current one first if you want to keep it. Souls and prestige come across too.</p>`;
       const imTa = document.createElement("textarea");
       imTa.placeholder = "Paste an ATTS1… snapshot here";
       imTa.style.cssText = "width:100%;height:64px;font-size:0.68rem;margin-top:0.2rem";
@@ -29009,25 +29012,26 @@
         loadBtn.style.color = "";
         loadBtn.style.borderColor = "";
       };
-      loadBtn.onclick = () => {
-        if (!armed) {
-          let d;
-          try {
-            d = decodeSnapshot(imTa.value);
-          } catch (e) {
-            imStatus.textContent = "Can’t read that: " + e.message + ".";
-            return;
-          }
-          armed = d;
-          const when = d.exportedAt ? " from " + String(d.exportedAt).slice(0, 10) : "";
-          const ver = d.version !== GAME_VERSION ? ` · built ${d.version}, you’re on ${GAME_VERSION} (it will migrate)` : "";
-          imStatus.textContent = `Loading “${d.name}”${when} will OVERWRITE this slot${ver}. Tap again to confirm.`;
-          loadBtn.textContent = "Tap again to overwrite";
-          loadBtn.style.color = "var(--crimson)";
-          loadBtn.style.borderColor = "var(--crimson)";
-          armTimer = setTimeout(disarm, 5e3);
-          return;
+      const armWith = (str) => {
+        let d;
+        try {
+          d = decodeSnapshot(str);
+        } catch (e) {
+          imStatus.textContent = "Can’t read that: " + e.message + ".";
+          return false;
         }
+        armed = d;
+        const when = d.exportedAt ? " from " + String(d.exportedAt).slice(0, 10) : "";
+        const ver = d.version !== GAME_VERSION ? ` · built ${d.version}, you’re on ${GAME_VERSION} (it will migrate)` : "";
+        imStatus.textContent = `Loading “${d.name}”${when} will OVERWRITE this slot${ver}. Tap again to confirm.`;
+        loadBtn.textContent = "Tap again to overwrite";
+        loadBtn.style.color = "var(--crimson)";
+        loadBtn.style.borderColor = "var(--crimson)";
+        if (armTimer) clearTimeout(armTimer);
+        armTimer = setTimeout(disarm, 5e3);
+        return true;
+      };
+      const commit = () => {
         try {
           localStorage.setItem(charKey(), JSON.stringify(armed.save));
           if (armed.meta && typeof armed.meta === "object") localStorage.setItem(metaKey(), JSON.stringify(armed.meta));
@@ -29038,16 +29042,49 @@
           imStatus.textContent = "Import failed: " + e.message;
         }
       };
+      loadBtn.onclick = () => {
+        if (!armed) armWith(imTa.value);
+        else commit();
+      };
       imTa.oninput = () => {
         if (armed) {
           disarm();
           imStatus.textContent = "";
         }
       };
+      const fileInput = document.createElement("input");
+      fileInput.type = "file";
+      fileInput.accept = ".txt,.json,text/plain,application/json";
+      fileInput.style.display = "none";
+      fileInput.onchange = () => {
+        const f = fileInput.files && fileInput.files[0];
+        if (!f) return;
+        const rdr = new FileReader();
+        rdr.onload = () => {
+          imTa.value = String(rdr.result || "");
+          disarm();
+          armWith(imTa.value);
+        };
+        rdr.onerror = () => {
+          imStatus.textContent = "Could not read that file.";
+        };
+        try {
+          rdr.readAsText(f);
+        } catch (e) {
+          imStatus.textContent = "Could not read that file.";
+        }
+        fileInput.value = "";
+      };
+      const fileBtn = document.createElement("button");
+      fileBtn.className = "ghost small";
+      fileBtn.textContent = "Load from File";
+      fileBtn.onclick = () => fileInput.click();
       imRow.appendChild(loadBtn);
+      imRow.appendChild(fileBtn);
       imP.appendChild(imTa);
       imP.appendChild(imRow);
       imP.appendChild(imStatus);
+      imP.appendChild(fileInput);
       cfgP.appendChild(imP);
     }
     if (window.AttsNative && typeof window.AttsNative.checkForUpdate === "function") {
