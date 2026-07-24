@@ -9167,6 +9167,12 @@
 
   // app/src/data/changelog.js
   var CHANGELOG = [
+    { v: "1.27.142", notes: [
+      `PERFORMANCE: fixed the heavy lag. Two causes — the new "if equipped" preview was cloning your entire save once per item on the Loadout tabs, and a maxed auto-replanting garden was forcing a full screen rebuild every few seconds on EVERY tab. Your herbs still harvest exactly as before; the screen just stops rebuilding itself when you aren't looking at the garden.`,
+      "The Garden of Eternity ascension boon actually grants its +3 plots now. It never could before: the extra plots were added to the array and then silently absorbed by the plot cap, so you ended up with exactly as many as someone without the boon. Existing characters pick the plots up automatically.",
+      "A tribulation no longer pays out spirit stones — surviving your heart-demon is the reward, not a handful of coins.",
+      "The Heaven-Defying Pill sits with the pills in the market instead of among the elixirs."
+    ] },
     { v: "1.27.141", notes: [
       "FIXED A NASTY ONE: the Keen-Edge Array was CUTTING your crit damage by 85% instead of adding 15% — a typo in its data (a multiplier written as 0.15 instead of 1.15). If you built it, it was quietly making your crits far worse. It now does what it says.",
       "Arrays are sorted and filterable by Offense / Defense / Utility, with the ones you've built listed first.",
@@ -9347,10 +9353,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Tribulation resistance, resolve under pressure." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.141';
+  var GAME_VERSION = 'v1.27.142';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "a37ac1f";
+  var BUILD_SHA = "0ea7756";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -18397,7 +18403,6 @@
         char.base.materials.spirit_stone = (char.base.materials.spirit_stone || 0) + 5;
       }
       if (id === "garden_of_eternity") {
-        for (let i = 0; i < 3; i++) char.base.plots.push({ herb: null, plantedAt: 0 });
         char.base.herbs.qi_grass = (char.base.herbs.qi_grass || 0) + 5;
         char.base.herbs.body_root = (char.base.herbs.body_root || 0) + 5;
         char.base.herbs.jade_lotus = (char.base.herbs.jade_lotus || 0) + 2;
@@ -22936,15 +22941,34 @@
       Dodge: Math.round((m.dodgeChance || 0) * 100)
     };
   }
+  var _equipSnapCache = null;
+  function equipSandboxState(src) {
+    const w = src.weapons || {}, i = src.inscriptions || {}, a = src.armor || {};
+    return Object.assign({}, src, {
+      weapons: Object.assign({}, w, {
+        owned: (w.owned || []).slice(),
+        offhands: (w.offhands || []).slice(),
+        crafted: (w.crafted || []).slice()
+      }),
+      inscriptions: Object.assign({}, i, {
+        owned: (i.owned || []).slice(),
+        slotted: (i.slotted || []).slice()
+      }),
+      armor: Object.assign({}, a, {
+        owned: (a.owned || []).slice(),
+        equipped: Object.assign({}, a.equipped || {})
+      })
+    });
+  }
   function equipDeltaHTML(doEquip) {
     const realState = state;
-    const before = equipPreviewSnap();
+    const before = _equipSnapCache || (_equipSnapCache = equipPreviewSnap());
     const origSave = saveChar;
     saveChar = function() {
     };
     let after = null;
     try {
-      state = JSON.parse(JSON.stringify(realState));
+      state = equipSandboxState(realState);
       doEquip();
       after = equipPreviewSnap();
     } catch (e) {
@@ -23606,11 +23630,15 @@
     iron_bone_pill: { price: 8, minTier: 0, kind: "consumable" },
     fire_tincture: { price: 12, minTier: 1, kind: "consumable" },
     foundation_pill: { price: 28, minTier: 1, kind: "consumable" },
+    // v1.27.142 (tester: "the heaven-defying pill is with the elixirs when it should be with the
+    // pills/draughts"). The market lists offers in DEFINITION ORDER, and this ordinary (non-supply-gated) pill
+    // was defined inside the supply-gated permanent-power block, so it rendered among the elixirs. Moved up
+    // with the other everyday pills; its price/tier are unchanged.
+    heaven_defying_pill: { price: 160, minTier: 4, kind: "consumable" },
     // v1.27.28: permanent stat / longevity pills are HIGH-COST + 1-per-12h supply-gated (like the stat elixirs)
     // — they were a cheap, unlimited market source of permanent power/lifespan. (Still craftable; see recipes.)
     longevity_pill: { price: 6e3, minTier: 2, kind: "consumable", supplyMs: 12 * 3600 * 1e3 },
     blood_forging_pill: { price: 8e3, minTier: 3, kind: "consumable", supplyMs: 12 * 3600 * 1e3 },
-    heaven_defying_pill: { price: 160, minTier: 4, kind: "consumable" },
     millennium_peach: { price: 2e4, minTier: 5, kind: "consumable", supplyMs: 12 * 3600 * 1e3 },
     // v1.27: random-stat elixirs — each on its OWN 12h supply timer (supplyMs), outside the daily cap.
     // Tiers gate at start / Foundation Establishment (t2) / Nascent Soul (t5); 5000 / 10000 / 20000 stones.
@@ -24767,7 +24795,7 @@
     };
   }
   function maxPlots(char) {
-    return 6 + char.realm.tierIdx * 2;
+    return 6 + char.realm.tierIdx * 2 + ((char.ascensionBoons || []).includes("garden_of_eternity") ? 3 : 0);
   }
   function ensurePlots() {
     const max = maxPlots(state);
@@ -26232,9 +26260,10 @@
         tickVitalityRecovery(elapsed);
       }
     }
+    const _onGardenTab = activeTab === "garden" && (state.ui && state.ui.houseTab || "garden") === "garden";
     let needsRerender = false;
     state.base.plots.forEach((plot) => {
-      if (plot.herb && collectPlotCycles(plot) > 0) needsRerender = true;
+      if (plot.herb && collectPlotCycles(plot) > 0 && _onGardenTab) needsRerender = true;
     });
     const beforeBuffCount = state.base.buffs.length;
     cleanupBuffs();
@@ -27748,10 +27777,13 @@
         materialDrops[reagent] = (materialDrops[reagent] || 0) + rn;
       }
     }
+    const _isTribKill = !!(typeof combat !== "undefined" && combat && combat.tribulation);
     const _stoneLuck = state.finalStats && state.finalStats.luck || 0;
-    const stoneAmount = Math.max(1, Math.round((5 + Math.floor(_stoneLuck / 5)) * Math.pow(2, state.realm.tierIdx || 0) * rewardScale));
-    state.base.materials.spirit_stone = (state.base.materials.spirit_stone || 0) + stoneAmount;
-    materialDrops.spirit_stone = (materialDrops.spirit_stone || 0) + stoneAmount;
+    const stoneAmount = _isTribKill ? 0 : Math.max(1, Math.round((5 + Math.floor(_stoneLuck / 5)) * Math.pow(2, state.realm.tierIdx || 0) * rewardScale));
+    if (stoneAmount > 0) {
+      state.base.materials.spirit_stone = (state.base.materials.spirit_stone || 0) + stoneAmount;
+      materialDrops.spirit_stone = (materialDrops.spirit_stone || 0) + stoneAmount;
+    }
     const _isInquisitor = String(e.id || "").startsWith("righteous_hunter_t");
     const bookChance = _isInquisitor ? 0.2 : enemyData.bookDropChance != null ? enemyData.bookDropChance : 0.08;
     const bookDrop = rollBookDrop(bookChance);
@@ -28871,6 +28903,7 @@
     app.appendChild(sticky);
   }
   function render() {
+    _equipSnapCache = null;
     app.innerHTML = "";
     const h1 = document.createElement("h1");
     if (state && state.confirmed && !atTitle) h1.className = "compact";
