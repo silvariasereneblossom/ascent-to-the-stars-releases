@@ -9188,6 +9188,9 @@
 
   // app/src/data/changelog.js
   var CHANGELOG = [
+    { v: "1.27.146", notes: [
+      `Loading a save no longer wipes that device's settings. Transferring a cultivator between two machines was overwriting the receiving device's music, volume and toggles with the sending device's — so your sound kept "resetting" every time you moved a save across. Souls and prestige still travel with the save; the settings on the device you're playing on now stay exactly as you left them.`
+    ] },
     { v: "1.27.145", notes: [
       "DRAGONFORGE IS NOW ALL-IN. The school is built around one idea: one shot, or nearly one shot, or bust. Every technique brands the target with 3 stacks of forge-fire (burning a share of their MISSING Vitality each turn) and bites 5% through the qi barrier on top of whatever it already pierced. The price is real: every Dragonforge technique cools down 1–2 turns slower than any other school's, and on any turn you do NOT use a technique the furnace eats you instead — 15% of your maximum Vitality, burned away. Feed it or be fuel.",
       "Anvilbreak is the commitment: it cleaves a clean HALF of the qi shield, but the recoil locks you out of meditation for 2 turns — you can't swing it and immediately fold inward to refill.",
@@ -9390,10 +9393,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Tribulation resistance, resolve under pressure." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.145';
+  var GAME_VERSION = 'v1.27.146';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "5d13ff6";
+  var BUILD_SHA = "2174ec8";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -29390,7 +29393,7 @@
       const imP = document.createElement("div");
       imP.style.cssText = "margin-top:0.6rem;border-top:1px solid rgba(120,120,120,0.3);padding-top:0.4rem";
       imP.innerHTML = `<div style="font-weight:bold;font-size:0.9rem">Load / Transfer a Save <span style="color:var(--ink-soft);font-weight:normal;font-size:0.8rem">读取存档</span></div>
-      <p style="font-size:0.78rem;color:var(--ink-soft);margin:0.15rem 0 0.3rem">Paste a Cultivator Snapshot — or <strong>Load from File</strong> a snapshot saved by the browser or desktop app — to restore it here. This <strong style="color:var(--crimson)">replaces the cultivator in the active save slot</strong> — export your current one first if you want to keep it. Souls and prestige come across too.</p>`;
+      <p style="font-size:0.78rem;color:var(--ink-soft);margin:0.15rem 0 0.3rem">Paste a Cultivator Snapshot — or <strong>Load from File</strong> a snapshot saved by the browser or desktop app — to restore it here. This <strong style="color:var(--crimson)">replaces the cultivator in the active save slot</strong> — export your current one first if you want to keep it. Souls and prestige come across too; <span style="color:var(--ink-soft)">this device's own settings (music, volume, toggles) stay as you have them.</span></p>`;
       const imTa = document.createElement("textarea");
       imTa.placeholder = "Paste an ATTS1… snapshot here";
       imTa.style.cssText = "width:100%;height:64px;font-size:0.68rem;margin-top:0.2rem";
@@ -29456,7 +29459,17 @@
       const commit = () => {
         try {
           localStorage.setItem(charKey(), JSON.stringify(armed.save));
-          if (armed.meta && typeof armed.meta === "object") localStorage.setItem(metaKey(), JSON.stringify(armed.meta));
+          if (armed.meta && typeof armed.meta === "object") {
+            let localMeta = null;
+            try {
+              localMeta = JSON.parse(localStorage.getItem(metaKey()) || "null");
+            } catch (e) {
+              localMeta = null;
+            }
+            const merged = Object.assign({}, armed.meta);
+            if (localMeta && localMeta.settings) merged.settings = localMeta.settings;
+            localStorage.setItem(metaKey(), JSON.stringify(merged));
+          }
           localStorage.removeItem(deathKey());
           imStatus.textContent = "Loaded. Rebooting…";
           if (typeof location !== "undefined" && location.reload) location.reload();
