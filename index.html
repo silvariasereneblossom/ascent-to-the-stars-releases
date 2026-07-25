@@ -3040,13 +3040,21 @@
       name: "Heatfold Cleave",
       zh: "热折",
       school: "dragonforge",
+      // v1.27.144 (operator): the free filler now SUNDERS as it folds heat in, like the Mine-Heart Golem's
+      // openers do — trading a little raw damage (3.1 -> 2.7) for armour-shredding utility. One EXTRA stack on
+      // top of the one Moltenwake already lands per hit, so Slagrender stays the burst-sunder (2 extra).
+      // Per-stack value matches the school's own convention (+6%/stack, 3 turns), not the golem's enemy-side 10%.
       qi: 0,
       hpCost: 10,
       cd: 2,
-      damage: 3.1,
+      damage: 2.7,
       directHP: 6,
       postureBuild: 22,
-      desc: "Pay vitality to fold heat into the blade. Burns past qi.",
+      effect: "sunder",
+      effectValue: 0.06,
+      effectTurns: 3,
+      effectStacks: 1,
+      desc: "Pay vitality to fold heat into the blade. Burns past qi, and folds the armour open with it — 1 EXTRA Sunder stack beyond what your hits already build.",
       logHit: (a, t) => `${a} drives their own blood into the edge; the cut sears.`
     },
     anvilbreak: {
@@ -3055,9 +3063,10 @@
       school: "dragonforge",
       qi: 18,
       cd: 3,
-      damage: 4.6,
+      damage: 5,
       pierceQi: 0.55,
       postureBuild: 33,
+      // v1.27.144 (operator): 4.6 -> 5.0, the finisher pulls further ahead
       desc: "A decisive downswing that cleaves qi shields in half and CRUSHES stance (+25% posture).",
       logHit: (a, t) => `${a}'s greatsword falls. Nothing in its line holds up.`
     },
@@ -3538,7 +3547,8 @@
       qi: 10,
       cd: 2,
       damage: 3.2,
-      postureBuild: 40,
+      postureBuild: 48,
+      // v1.27.144 (operator): 40 -> 48 posture — lean harder into the posture-engine role
       desc: "Raise the blade as an anvil-pillar, then drop it. The school's posture engine: heavy stance damage for little qi — build the break, then cash it with Anvilbreak.",
       logHit: (a, t) => `${a}'s greatsword rises like a pillar, falls like a floor.`
     },
@@ -9175,6 +9185,10 @@
 
   // app/src/data/changelog.js
   var CHANGELOG = [
+    { v: "1.27.144", notes: [
+      "Golden Core costs more again — 250× Core Formation rather than 150×. The runaway figures that prompted the re-costing came from Golden Core LAYER 7, not layer 1, so income at the top of the realm was well past what the first pass was sized against. Nascent Soul and Spirit Severing keep their 5× / 10× steps on top.",
+      "Dragonforge sharpened: Heatfold Cleave now folds the armour open as it burns — one EXTRA Sunder stack beyond what your hits already build — for slightly less raw damage (3.1 → 2.7). Anvilbreak hits harder as the finisher (4.6 → 5.0), and Forge Pillar leans further into its posture-engine role (40 → 48 stance damage)."
+    ] },
     { v: "1.27.143", notes: [
       "THE LATE GAME NO LONGER OUTRUNS ITSELF. Income compounds every realm while layer costs barely grew, so by Golden Core people were earning hundreds of millions of insight an hour against layers costing single-digit millions. The late realms are re-costed to the intended shape: Golden Core is 150× Core Formation, Nascent Soul 5× that, Spirit Severing 10× again. Earlier realms are untouched.",
       "Fixed a loot bug: armour drops were filtered only by RARITY, so a low-realm character could be handed a Spirit-Severing piece and quadruple their Vitality out of nowhere. Drops are now capped to your own realm, and boss-set/relic pieces no longer appear as random loot — those are the reward for killing the boss.",
@@ -9368,10 +9382,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Tribulation resistance, resolve under pressure." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.143';
+  var GAME_VERSION = 'v1.27.144';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "7a49b6d";
+  var BUILD_SHA = "f1a83d1";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -9903,15 +9917,17 @@
     // single digit millions to break a layer"): the late realms were a RUNAWAY. Income compounds geometrically
     // (the righteous 1.6^realm term x GC-level x gear x arrays x sect x soul upgrades) while layer costs only
     // grew ~2x per realm, so relative progress accelerated instead of slowing. Operator's target shape, applied
-    // to the realm TOTALS: Golden Core = 150x Core Formation, Nascent Soul = 5x GC, Spirit Severing = 10x NS.
-    // (Verified: x150.0 / x5.0 / x10.0.) insightCap is deliberately NOT scaled — it is the per-kill income
+    // to the realm TOTALS: Golden Core = 250x Core Formation, Nascent Soul = 5x GC, Spirit Severing = 10x NS.
+    // v1.27.144 (operator): GC raised 150x -> 250x — the 534M/hr reading came from Golden Core LAYER 7, not
+    // layer 1, so the real income at the top of the realm was well above what 150x was sized against.
+    // (Verified: x250.0 / x5.0 / x10.0.) insightCap is deliberately NOT scaled — it is the per-kill income
     // reference, and raising it would hand the wall straight back to cap-riding builds (see v1.27.62).
     {
       name: "Golden Core",
       zh: "金丹",
       layers: 9,
-      insightPerLayer: 3739e3,
-      insightPerLayerStep: 1496e3,
+      insightPerLayer: 6231e3,
+      insightPerLayerStep: 2493e3,
       insightCap: 52e3,
       hpBonus: 70,
       qiBonus: 50,
@@ -9922,8 +9938,8 @@
       name: "Nascent Soul",
       zh: "元婴",
       layers: 9,
-      insightPerLayer: 22759e3,
-      insightPerLayerStep: 9104e3,
+      insightPerLayer: 37931e3,
+      insightPerLayerStep: 15173e3,
       insightCap: 12e4,
       hpBonus: 73,
       qiBonus: 53,
@@ -9935,8 +9951,8 @@
       name: "Spirit Severing",
       zh: "化神",
       layers: 9,
-      insightPerLayer: 290813e3,
-      insightPerLayerStep: 116325e3,
+      insightPerLayer: 484688e3,
+      insightPerLayerStep: 193875e3,
       insightCap: 22e4,
       hpBonus: 85,
       qiBonus: 60,
