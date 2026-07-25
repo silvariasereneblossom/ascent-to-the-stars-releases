@@ -3061,13 +3061,16 @@
       name: "Anvilbreak",
       zh: "砧破",
       school: "dragonforge",
+      // v1.27.145 (operator): the finisher's price — it cleaves HALF the barrier (0.55 -> 0.50, a clean 50%)
+      // but the swing leaves you wide open: no meditating for 2 turns, so you cannot swing it and immediately
+      // fold inward to refill. Commit to the kill.
       qi: 18,
       cd: 3,
       damage: 5,
-      pierceQi: 0.55,
+      pierceQi: 0.5,
       postureBuild: 33,
-      // v1.27.144 (operator): 4.6 -> 5.0, the finisher pulls further ahead
-      desc: "A decisive downswing that cleaves qi shields in half and CRUSHES stance (+25% posture).",
+      blocksMeditateTurns: 2,
+      desc: "A decisive downswing that cleaves HALF the qi shield and CRUSHES stance (+25% posture). The recoil locks you out of meditation for 2 turns.",
       logHit: (a, t) => `${a}'s greatsword falls. Nothing in its line holds up.`
     },
     dragon_stance: {
@@ -9185,6 +9188,11 @@
 
   // app/src/data/changelog.js
   var CHANGELOG = [
+    { v: "1.27.145", notes: [
+      "DRAGONFORGE IS NOW ALL-IN. The school is built around one idea: one shot, or nearly one shot, or bust. Every technique brands the target with 3 stacks of forge-fire (burning a share of their MISSING Vitality each turn) and bites 5% through the qi barrier on top of whatever it already pierced. The price is real: every Dragonforge technique cools down 1–2 turns slower than any other school's, and on any turn you do NOT use a technique the furnace eats you instead — 15% of your maximum Vitality, burned away. Feed it or be fuel.",
+      "Anvilbreak is the commitment: it cleaves a clean HALF of the qi shield, but the recoil locks you out of meditation for 2 turns — you can't swing it and immediately fold inward to refill.",
+      "The Demonic Bloodline no longer weakens forge-fire. Its reduced-strength brand was written for cultivators who had no hellfire of their own; it now only ever adds to a school that brands natively, never downgrades it."
+    ] },
     { v: "1.27.144", notes: [
       "Golden Core costs more again — 250× Core Formation rather than 150×. The runaway figures that prompted the re-costing came from Golden Core LAYER 7, not layer 1, so income at the top of the realm was well past what the first pass was sized against. Nascent Soul and Spirit Severing keep their 5× / 10× steps on top.",
       "Dragonforge sharpened: Heatfold Cleave now folds the armour open as it burns — one EXTRA Sunder stack beyond what your hits already build — for slightly less raw damage (3.1 → 2.7). Anvilbreak hits harder as the finisher (4.6 → 5.0), and Forge Pillar leans further into its posture-engine role (40 → 48 stance damage)."
@@ -9382,10 +9390,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Tribulation resistance, resolve under pressure." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.144';
+  var GAME_VERSION = 'v1.27.145';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "f1a83d1";
+  var BUILD_SHA = "5d13ff6";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -12972,15 +12980,27 @@
       qiDrainBonus: 0.06
       // v1.27.2: the signature qi-drain school
     },
+    // v1.27.145 (operator): DRAGONFORGE IDENTITY PASS — "one shot, or nearly one shot, or bust". The school
+    // is now the all-in burst artillery: every technique brands the foe with forge-fire and bites the barrier,
+    // cooldowns run 1-2 turns longer than anyone else's, and the body BURNS on any turn you don't swing a
+    // technique. You are a furnace: fed, you melt anything; idle, you consume yourself.
     dragonforge: {
       passiveName: "Moltenwake",
       passiveZh: "熔迹",
-      passiveDesc: "EVERY hit — strikes included — Sunders: +6% damage taken AND +10% posture damage taken per stack (max 5), and a Sundered foe&rsquo;s flat damage reduction is ignored. Moltenwake also bites +45% harder into a foe's qi barrier.",
+      passiveDesc: "EVERY hit — strikes included — Sunders: +6% damage taken AND +10% posture damage taken per stack (max 5), and a Sundered foe&rsquo;s flat damage reduction is ignored. Moltenwake also bites +45% harder into a foe's qi barrier. EVERY TECHNIQUE brands 3 stacks of forge-fire (burns a share of the target's MISSING Vitality each turn) and pierces 5% of the qi barrier. THE PRICE: the forge must be fed — on any turn you do NOT use a technique you burn 15% of your own Vitality, and every technique cools down 1-2 turns slower than another school's.",
       onTechHit: { kind: "sunder", value: 0.06, turns: 3 },
       strikeAppliesOnHit: true,
       // v0.68: basic strikes sunder too (operator)
-      qiPressureBonus: 0.45
+      qiPressureBonus: 0.45,
       // v1.27.2: barrier-shred specialist (complements sunder)
+      techHellfireStacks: 3,
+      // v1.27.145: every technique hit brands 3 hellfire stacks (see applySchoolOnHit)
+      techPierceBonus: 0.05,
+      // v1.27.145: +5% qi pierce on every technique (see the pierce calc)
+      idleVitalityBurn: 0.15,
+      // v1.27.145: 15% of MAX Vitality burned on any turn without a technique
+      longCooldowns: true
+      // v1.27.145: +1 (light) / +2 (heavy) turns on top of the global cd pass
     },
     chain_saint: {
       passiveName: "Oathbrand",
@@ -22363,7 +22383,9 @@
     if (!t || t.instant || t.passive || t.cd == null || t.noCdScale) return;
     const impact = t.cd <= 1 ? 4 : t.cd === 2 ? 5 : 6;
     const demonic = t.school === "demon_heart" || t.demonicOnly || /^dem_sig_/.test(id);
-    t.cd = impact + (demonic ? 2 : 0);
+    const forge = t.school === "dragonforge";
+    const forgeAdd = forge ? impact <= 4 ? 1 : 2 : 0;
+    t.cd = impact + (demonic ? 2 : 0) + forgeAdd;
   });
   function techStatSuffix(t) {
     if (!t) return "";
@@ -27143,12 +27165,19 @@
   }
   function applySchoolOnHit(p, tgt) {
     const kit = schoolKit();
-    if (!kit.onTechHit || !tgt || tgt.hp <= 0) return;
-    const h = kit.onTechHit;
-    const dotAmp = DOT_KINDS.has(h.kind) ? p.mods && p.mods.dotMult || 1 : 1;
-    const value = h.power ? Math.max(1, Math.round(p.weaponPower * h.power * dotAmp)) : h.value;
-    const turns = h.turns + (kit.debuffTurnsBonus || 0);
-    applyStatusTo(tgt, h.kind, value, turns, kit.passiveName, playerStackCap(h.kind));
+    if (!tgt || tgt.hp <= 0) return;
+    if (kit.onTechHit) {
+      const h = kit.onTechHit;
+      const dotAmp = DOT_KINDS.has(h.kind) ? p.mods && p.mods.dotMult || 1 : 1;
+      const value = h.power ? Math.max(1, Math.round(p.weaponPower * h.power * dotAmp)) : h.value;
+      const turns = h.turns + (kit.debuffTurnsBonus || 0);
+      applyStatusTo(tgt, h.kind, value, turns, kit.passiveName, playerStackCap(h.kind));
+    }
+    if (kit.techHellfireStacks && !p._schoolOnHitFromStrike) {
+      for (let i = 0; i < kit.techHellfireStacks; i++) {
+        applyStatusTo(tgt, "hellfire", 0, 3, "Forge-Fire", playerStackCap("hellfire"));
+      }
+    }
   }
   function playerStatusValue(p, tech) {
     const dotAmp = p.mods && p.mods.dotMult || 1;
@@ -27276,7 +27305,11 @@
       pushLog("hurt", damageLogLine(res, e));
       applyPostHitTriggers(p, res, e, si === 0 ? 1 : 0.5);
       if (!res.dodged) {
-        if (schoolKit().strikeAppliesOnHit) applySchoolOnHit(p, e);
+        if (schoolKit().strikeAppliesOnHit) {
+          p._schoolOnHitFromStrike = true;
+          applySchoolOnHit(p, e);
+          p._schoolOnHitFromStrike = false;
+        }
         if (isDemonHeart(state)) {
           const qd = Math.round(e.qi * 0.15);
           if (qd > 0) {
@@ -27353,6 +27386,8 @@
     if (hpCost && p.hp <= hpCost) return;
     p.qi -= qiCost;
     if (hpCost) p.hp -= hpCost;
+    combat._techThisTurn = true;
+    if (tech.blocksMeditateTurns) p.noMeditateTurns = Math.max(p.noMeditateTurns || 0, tech.blocksMeditateTurns + 1);
     const _cdKit = schoolKit();
     const _ctrlCd = tech.effect || tech.statusList ? _cdKit.techCdBonus || 0 : 0;
     p.cooldowns[techId] = tech.cd + 1 + _ctrlCd;
@@ -27384,6 +27419,10 @@
     }
     let pierce = tech.pierceQi || 0;
     if (hm0.schoolPierceBonus && hm0.schoolPierceBonus[sDmg]) pierce = Math.min(1, pierce + hm0.schoolPierceBonus[sDmg]);
+    {
+      const _k = schoolKit();
+      if (_k.techPierceBonus) pierce = Math.min(1, pierce + _k.techPierceBonus);
+    }
     let directSpiritAmt = (tech.directSpirit || 0) * (p.mods.spiritDamageMult || 1);
     let dhHellStacks = 0, dhDetonateMult = 1, dhDetonated = false;
     if (isDemonHeart(state) && !isAoe) {
@@ -27619,6 +27658,11 @@
       endPlayerAction();
       return;
     }
+    if (p.noMeditateTurns > 0) {
+      pushLog("line", `${p.name} tries to fold inward, but the arms still ring from the downswing — the breath will not settle (${p.noMeditateTurns} turn${p.noMeditateTurns === 1 ? "" : "s"} left).`);
+      endPlayerAction();
+      return;
+    }
     const hm = heritageMech();
     const schoolMed = hm.schoolMeditateMult && hm.schoolMeditateMult[state.selectedSchool] || 1;
     let regen = Math.ceil(p.qiMax * 0.5 * p.mods.meditateMult * schoolMed);
@@ -27638,6 +27682,17 @@
     endPlayerAction();
   }
   function endPlayerAction() {
+    {
+      const _p = combat && combat.player;
+      const _kit = schoolKit();
+      if (_p && _kit.idleVitalityBurn && !combat._techThisTurn && !combat.over && _p.hp > 0) {
+        const burn = Math.max(1, Math.round((_p.hpMax || 0) * _kit.idleVitalityBurn));
+        const before = _p.hp;
+        _p.hp = Math.max(1, _p.hp - burn);
+        if (before !== _p.hp) pushLog("hurt", `  → The forge goes unfed: ${before - _p.hp} Vitality burns away (${Math.round(_kit.idleVitalityBurn * 100)}% — use a technique to bank it).`);
+      }
+      if (combat) combat._techThisTurn = false;
+    }
     capBossTribToFloor();
     if (checkDeath()) return;
     enemyTurn();
@@ -28171,7 +28226,8 @@
         const _blood = heritageIs("Demonic Bloodline");
         const _dhStrength = isDemonHeart(state) || _blood && state.demonic;
         const hfBase = Math.max(0, (c.hpMax || 0) - c.hp);
-        const _potency = _dhStrength ? 1.5 : _blood ? 0.75 : 1;
+        const _nativeBrand = !!schoolKit().techHellfireStacks;
+        const _potency = _dhStrength ? 1.5 : _blood && !_nativeBrand ? 0.75 : 1;
         const _pBroken = (c.broken || 0) > 0, _sBroken = (c.spiritMax || 0) > 0 && c.spirit <= 0;
         const _breakMult = _pBroken && _sBroken ? 2 : _pBroken ? 1.5 : 1;
         const hfMag = hellfireBaseMag() * _breakMult * _potency;
@@ -28537,6 +28593,7 @@
     Object.keys(p.cooldowns).forEach((k) => {
       if (p.cooldowns[k] > 0) p.cooldowns[k]--;
     });
+    if (p.noMeditateTurns > 0) p.noMeditateTurns--;
     tickCombatantEffects(p);
     if (isDemonHeart(state) && p.hp > 1) {
       const postureBroken = p.broken > 0, spiritBroken = p.spiritMax > 0 && p.spirit <= 0;
@@ -33388,9 +33445,11 @@
     const medBtn = document.createElement("button");
     medBtn.className = "action-btn basic tip";
     const medAmount = Math.ceil(p.qiMax * 0.5 * p.mods.meditateMult);
-    medBtn.setAttribute("data-tip", `Recover +${medAmount} qi immediately, and guard: −30% incoming damage until next round.`);
+    const _medLock = combat.player && combat.player.noMeditateTurns || 0;
+    medBtn.setAttribute("data-tip", _medLock ? `Locked out of meditation for ${_medLock} more turn${_medLock === 1 ? "" : "s"} — the recoil of Anvilbreak. Strike or use a technique instead.` : `Recover +${medAmount} qi immediately, and guard: −30% incoming damage until next round.`);
     medBtn.dataset.key = "meditate";
-    medBtn.innerHTML = `<span class="name">${keyCap("M")}Meditate</span><span class="meta">+${medAmount} qi · guard</span>`;
+    medBtn.innerHTML = _medLock ? `<span class="name">${keyCap("M")}Meditate</span><span class="meta" style="color:var(--crimson)">locked ${_medLock}t</span>` : `<span class="name">${keyCap("M")}Meditate</span><span class="meta">+${medAmount} qi · guard</span>`;
+    medBtn.disabled = _medLock > 0;
     medBtn.onclick = playerMeditate;
     grid2.appendChild(medBtn);
     if (devModeOn() && !combat.over) {
