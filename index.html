@@ -3527,14 +3527,19 @@
     },
     // --- Dragonforge (2 extra) ---
     forge_pillar: {
+      // v1.27.143 (tester: "forge pillar is in a weird place, it's barely more damage than heatfold cleave and
+      // costs 16 qi... I'm not sure it's worth it"). It was dominated from BOTH sides: Heatfold Cleave costs no
+      // qi for 3.1 damage, and Anvilbreak gives 4.6 + qi-pierce for only 2 more qi. Rather than a middling
+      // middle, it becomes the school's POSTURE ENGINE — cheaper (16 -> 10 qi) and far more posture per qi
+      // (1.75 -> 4.0), leaving Anvilbreak as the finisher and Heatfold as the free filler.
       name: "Forge Pillar",
       zh: "炉柱",
       school: "dragonforge",
-      qi: 16,
+      qi: 10,
       cd: 2,
       damage: 3.2,
-      postureBuild: 28,
-      desc: "Raise the blade as an anvil-pillar, then drop it.",
+      postureBuild: 40,
+      desc: "Raise the blade as an anvil-pillar, then drop it. The school's posture engine: heavy stance damage for little qi — build the break, then cash it with Anvilbreak.",
       logHit: (a, t) => `${a}'s greatsword rises like a pillar, falls like a floor.`
     },
     dragon_inheritance: {
@@ -3952,7 +3957,10 @@
       effectValue: 0.06,
       effectTurns: 3,
       effectStacks: 2,
-      desc: "Strike the armor as if it were ore. Applies 2 Sunder stacks: +6% damage taken each, and armor stops counting.",
+      // v1.27.143 (tester: "where skills say 'applies N sunder' they should say 'applies N EXTRA sunder'", and
+      // "what does sundered armor stops counting even mean?"). Dragonforge already Sunders on every hit, so this
+      // adds to that stack; and "armour stops counting" now says the mechanic plainly.
+      desc: "Strike the armor as if it were ore. Applies 2 EXTRA Sunder stacks on top of the ones your hits already build — their armour's flat damage reduction is ignored while Sundered.",
       logHit: (a, t) => `${a}'s blade treats ${t}'s guard as raw material, and begins refining.`
     },
     chain_litany: {
@@ -9167,6 +9175,13 @@
 
   // app/src/data/changelog.js
   var CHANGELOG = [
+    { v: "1.27.143", notes: [
+      "THE LATE GAME NO LONGER OUTRUNS ITSELF. Income compounds every realm while layer costs barely grew, so by Golden Core people were earning hundreds of millions of insight an hour against layers costing single-digit millions. The late realms are re-costed to the intended shape: Golden Core is 150× Core Formation, Nascent Soul 5× that, Spirit Severing 10× again. Earlier realms are untouched.",
+      "Fixed a loot bug: armour drops were filtered only by RARITY, so a low-realm character could be handed a Spirit-Severing piece and quadruple their Vitality out of nowhere. Drops are now capped to your own realm, and boss-set/relic pieces no longer appear as random loot — those are the reward for killing the boss.",
+      'The cross-realm Vanquisher set is forged in the Forge Armor tab now, instead of being listed as a "weapon" under the weapon forge.',
+      "Forge Pillar has a job again: it was dominated on both sides (Heatfold Cleave costs no qi for nearly the same damage; Anvilbreak hits far harder for 2 more qi). It is now the school's posture engine — 10 qi instead of 16, and much heavier stance damage.",
+      `Clearer wording throughout: Bellows Stance says the breath nearly pays for itself (net +2 qi) instead of looking like a typo; support Sect Arts no longer claim your passive "rides on its hits" when they aren't attacks; "armour stops counting" now says what it means (flat damage reduction is ignored); Slag says it applies EXTRA Sunder on top of what your hits already build; "stances end sooner" is now "you break their guard sooner"; and your spirit root reads "+15% cultivation speed" with a tooltip explaining the grade.`
+    ] },
     { v: "1.27.142", notes: [
       `PERFORMANCE: fixed the heavy lag. Two causes — the new "if equipped" preview was cloning your entire save once per item on the Loadout tabs, and a maxed auto-replanting garden was forcing a full screen rebuild every few seconds on EVERY tab. Your herbs still harvest exactly as before; the screen just stops rebuilding itself when you aren't looking at the garden.`,
       "The Garden of Eternity ascension boon actually grants its +3 plots now. It never could before: the extra plots were added to the array and then silently absorbed by the plot cap, so you ended up with exactly as many as someone without the boon. Existing characters pick the plots up automatically.",
@@ -9353,10 +9368,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Tribulation resistance, resolve under pressure." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.142';
+  var GAME_VERSION = 'v1.27.143';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "0ea7756";
+  var BUILD_SHA = "7a49b6d";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -9884,12 +9899,19 @@
     // T1-3 core (ACS-style: not optimizing = hard wall). insightCap deliberately NOT x5 (it's the per-kill income
     // reference — scaling it would hand the x5 back to cap-riding optimized builds' income, which is the point:
     // optimizers ride the softcap up, casual builds feel the full wall).
+    // v1.27.143 (operator, on tester "I am earning 534,385,723 insight/hour at golden core 7 where it takes
+    // single digit millions to break a layer"): the late realms were a RUNAWAY. Income compounds geometrically
+    // (the righteous 1.6^realm term x GC-level x gear x arrays x sect x soul upgrades) while layer costs only
+    // grew ~2x per realm, so relative progress accelerated instead of slowing. Operator's target shape, applied
+    // to the realm TOTALS: Golden Core = 150x Core Formation, Nascent Soul = 5x GC, Spirit Severing = 10x NS.
+    // (Verified: x150.0 / x5.0 / x10.0.) insightCap is deliberately NOT scaled — it is the per-kill income
+    // reference, and raising it would hand the wall straight back to cap-riding builds (see v1.27.62).
     {
       name: "Golden Core",
       zh: "金丹",
       layers: 9,
-      insightPerLayer: 233500,
-      insightPerLayerStep: 93400,
+      insightPerLayer: 3739e3,
+      insightPerLayerStep: 1496e3,
       insightCap: 52e3,
       hpBonus: 70,
       qiBonus: 50,
@@ -9900,10 +9922,9 @@
       name: "Nascent Soul",
       zh: "元婴",
       layers: 9,
-      insightPerLayer: 521250,
-      insightPerLayerStep: 208500,
+      insightPerLayer: 22759e3,
+      insightPerLayerStep: 9104e3,
       insightCap: 12e4,
-      // v1.27.62: x5
       hpBonus: 73,
       qiBonus: 53,
       weaponBonus: 7,
@@ -9914,10 +9935,9 @@
       name: "Spirit Severing",
       zh: "化神",
       layers: 9,
-      insightPerLayer: 1150500,
-      insightPerLayerStep: 460200,
+      insightPerLayer: 290813e3,
+      insightPerLayerStep: 116325e3,
       insightCap: 22e4,
-      // v1.27.62: x5
       hpBonus: 85,
       qiBonus: 60,
       weaponBonus: 9,
@@ -10064,7 +10084,7 @@
       zh: "龙炉阁",
       weapon: "forge_greatsword",
       techniques: ["forge_slash", "heatfold_cleave", "anvilbreak", "dragon_stance", "forge_slag"],
-      specialty: "PURE SINGLE-TARGET posture-breaker. Moltenwake Sunders on EVERY hit (strikes too): +6% damage taken and +10% posture damage taken per stack, armor stops counting. Melt the guard, crush the stance, Quench the wreckage.",
+      specialty: "PURE SINGLE-TARGET posture-breaker. Moltenwake Sunders on EVERY hit (strikes too): +6% damage taken and +10% posture damage taken per stack, and their armour&rsquo;s flat damage reduction is ignored. Melt the guard, crush the stance, Quench the wreckage.",
       bestStats: ["body", "spirit"],
       flavor: "A sect-forge built around a caldera. The greatswords they make are said to still remember the mountain they came from."
     },
@@ -12368,7 +12388,9 @@
       instant: true,
       qiRestore: 12,
       buff: { postureBoost: 1.5, turns: 2 },
-      desc: "Free action. Breathe like the forge breathes: +50% posture damage for 2 rounds and +12 qi.",
+      // v1.27.143 (tester: "Bellows Stance doesn't make sense, +12 qi but it costs 10 qi?"). It does cost 10 and
+      // return 12 — the qi is near-free, the POSTURE buff is the point. Say the net so it stops reading as a typo.
+      desc: "Free action. Breathe like the forge breathes: +50% posture damage for 2 rounds. The breath pays for itself — it spends 10 qi and draws 12 back (net +2).",
       logHit: (a, t) => `${a} exhales, and the air arrives pre-heated.`
     },
     forge_p2_slag_eye: {
@@ -12937,7 +12959,7 @@
     dragonforge: {
       passiveName: "Moltenwake",
       passiveZh: "熔迹",
-      passiveDesc: "EVERY hit — strikes included — Sunders: +6% damage taken AND +10% posture damage taken per stack (max 5), and Sundered armor stops counting. Moltenwake also bites +45% harder into a foe's qi barrier.",
+      passiveDesc: "EVERY hit — strikes included — Sunders: +6% damage taken AND +10% posture damage taken per stack (max 5), and a Sundered foe&rsquo;s flat damage reduction is ignored. Moltenwake also bites +45% harder into a foe's qi barrier.",
       onTechHit: { kind: "sunder", value: 0.06, turns: 3 },
       strikeAppliesOnHit: true,
       // v0.68: basic strikes sunder too (operator)
@@ -17585,7 +17607,8 @@
     const CA_ARCH = {
       crit: { mods: () => ({ critChance: 0.025, critMult: 1.05 }), blurb: "+2.5% crit chance, and crits land 5% harder" },
       dot: { mods: () => ({ dotMult: 1.1 }), blurb: "your damage-over-time effects (burn / poison / bleed / leech) tick 10% harder" },
-      posture: { mods: () => ({ postureMult: 1.1 }), blurb: "+10% posture damage — stances end sooner" },
+      posture: { mods: () => ({ postureMult: 1.1 }), blurb: "+10% posture damage — you break their guard sooner" },
+      // v1.27.143 (tester: "'stances end sooner' is weird, enemies don't have stances, they just have posture")
       dodge: { mods: () => ({ dodgeChance: 0.02 }), blurb: "+2% chance to evade an attack outright" },
       spirit: { mods: () => ({ spiritDamageMult: 1.1 }), blurb: "+10% spirit damage — aimed past the body" },
       lifesteal: { mods: () => ({ lifestealPct: 0.025 }), blurb: "heal 2.5% of the damage you deal" },
@@ -21444,6 +21467,41 @@
     norm(ARTIFACT_RECIPES, WEAPONS);
     norm(ARMOR_RECIPES, ARMOR);
   })();
+  function crossRelicRow(gid, g) {
+    const item = g.kind === "weapon" ? WEAPONS[gid] : ARMOR[gid];
+    if (!item) return null;
+    const owned = ownsBossCrossGear(gid);
+    const costStr = Object.entries(g.mats).map(([m, n]) => {
+      const has = (state.base.materials[m] || 0) >= n;
+      return `<span style="color:${has ? "var(--ink)" : "var(--crimson)"}">${n}x ${MATERIALS[m] && MATERIALS[m].name || m}</span>`;
+    }).join(", ");
+    const statStr = g.kind === "weapon" ? `power ${item.power} · ${item.kind}` : `${ARMOR_SLOT_LABELS[item.slot] || item.slot}${item.set ? " · " + ARMOR_SETS[item.set].name + " set" : ""}`;
+    const row = document.createElement("div");
+    row.className = "consumable-row";
+    row.innerHTML = `<div class="consumable-info">
+      <div class="consumable-name">${item.name} <span style="color:var(--ink-soft);font-size:0.75rem">${item.zh}</span> <span class="rarity-tag rarity-${item.rarity}">${item.rarity}</span></div>
+      <div class="consumable-desc">${item.desc} (${statStr})</div>
+      <div class="consumable-desc"><strong>Mats:</strong> ${costStr}</div>
+    </div>`;
+    const btns = document.createElement("div");
+    btns.className = "consumable-buttons";
+    const b = document.createElement("button");
+    if (owned) {
+      b.textContent = "Forged";
+      b.disabled = true;
+    } else {
+      b.textContent = "Forge";
+      b.className = canCraftBossCrossGear(gid) ? "gold" : "";
+      b.disabled = !canCraftBossCrossGear(gid);
+      b.onclick = () => {
+        craftBossCrossGear(gid);
+        render();
+      };
+    }
+    btns.appendChild(b);
+    row.appendChild(btns);
+    return row;
+  }
   function ownsBossCrossGear(id) {
     const g = BOSS_CROSS_GEAR[id];
     if (!g) return false;
@@ -21504,7 +21562,8 @@
       ["legendary", "divine"]
     ];
     const rarities = rarityByTier[tier] || ["common"];
-    const pool = Object.keys(ARMOR).filter((id) => rarities.includes(ARMOR[id].rarity));
+    const myTier = state.realm && state.realm.tierIdx || 0;
+    const pool = Object.keys(ARMOR).filter((id) => rarities.includes(ARMOR[id].rarity) && (armorTierOf(id) || 0) <= myTier && !ARMOR[id].bossSet && !ARMOR[id].bossGear && !(typeof BOSS_CROSS_GEAR !== "undefined" && BOSS_CROSS_GEAR[id]));
     if (!pool.length) return null;
     return pool[Math.floor(Math.random() * pool.length)];
   }
@@ -21705,7 +21764,7 @@
     if (gcl > 0) chips.push(`<span class="buff-chip" style="border-color:var(--gold)">Golden Core ${goldenCoreGradeLabel(gcl)} (qual ${gcl})</span>`);
     if (char.spiritRoot) {
       const sr = char.spiritRoot;
-      chips.push(`<span class="buff-chip">Root ${sr.gradeName || "Common"} (+${Math.round(((sr.grade || 1) - 1) * 100)}% cult)</span>`);
+      chips.push(`<span class="buff-chip tip" data-tip="${escapeTip(`Your spirit root's grade — ${sr.gradeName || "Common"}. It is fixed at birth (rerollable only at creation) and permanently multiplies your cultivation SPEED by +${Math.round(((sr.grade || 1) - 1) * 100)}%. Upside only; it never slows you down.`)}">Root ${sr.gradeName || "Common"} (+${Math.round(((sr.grade || 1) - 1) * 100)}% cultivation speed)</span>`);
     }
     const grp = (title, arr) => arr.length ? `<div style="margin-top:0.35rem"><span style="color:var(--gold);font-weight:bold;font-size:0.78rem">${title}</span> <span style="color:var(--ink-soft);font-size:0.8rem">${arr.join(" · ")}</span></div>` : "";
     return `<div class="panel" style="background:rgba(0,0,0,0.12);padding:0.5rem 0.6rem;margin:0 0 0.6rem">
@@ -22281,7 +22340,7 @@
   };
   Object.entries(SECT_ARTS).forEach(([id, t]) => {
     t.sect = true;
-    t.desc += " Counts as a technique of YOUR school: school bonuses apply, and your passive (Everburn, Sword Intent, Oathbrand...) rides on its hits.";
+    t.desc += t.damage > 0 ? " Counts as a technique of YOUR school: school bonuses apply, and your passive (Everburn, Sword Intent, Oathbrand...) rides on its hits." : " Counts as a technique of YOUR school, so your school's bonuses apply to it.";
     TECHNIQUES[id] = t;
   });
   Object.entries(TECHNIQUES).forEach(([id, t]) => {
@@ -31509,7 +31568,7 @@
     } else {
       const xHdr = document.createElement("div");
       xHdr.innerHTML = `<div style="font-weight:bold;margin:0.2rem 0">Cross-Realm Relics <span style="color:var(--ink-soft);font-weight:normal;font-size:0.8rem">跨界铸</span></div>
-      <p style="font-size:0.8rem;color:var(--ink-soft);margin:0 0 0.4rem">Forged from the unique essence of tyrants of <strong>two realms</strong> (this one and the one below). Every relic is <strong>divine</strong>: the full divine attribute stack, AND raw power a shade <strong>past this realm's apex</strong>. One of each; the Vanquisher set is here too.</p>`;
+      <p style="font-size:0.8rem;color:var(--ink-soft);margin:0 0 0.4rem">Forged from the unique essence of tyrants of <strong>two realms</strong> (this one and the one below). Every relic is <strong>divine</strong>: the full divine attribute stack, AND raw power a shade <strong>past this realm's apex</strong>. One of each. <span style="color:var(--ink-soft)">(The cross-realm <strong>Vanquisher armour set</strong> is forged in the Forge Armor tab.)</span></p>`;
       fP.appendChild(xHdr);
       const schoolForgeX = SCHOOLS[state.selectedSchool];
       const myKindX = schoolForgeX && WEAPONS[schoolForgeX.weapon] ? WEAPONS[schoolForgeX.weapon].kind : null;
@@ -31526,42 +31585,11 @@
         };
         fP.appendChild(fb);
       }
-      const xShows = ([gid, g]) => !mineOnlyX || !myKindX || g.kind !== "weapon" || g.wkind === myKindX;
+      const xShows = ([gid, g]) => g.kind === "weapon" && (!mineOnlyX || !myKindX || g.wkind === myKindX);
       fP.appendChild(realmTabChips("forgeCrossRealm", (t) => Object.entries(BOSS_CROSS_GEAR).filter((e) => (e[1].tier || 0) === t && xShows(e)).length));
-      Object.entries(BOSS_CROSS_GEAR).filter((e) => realmTabShows("forgeCrossRealm", e[1].tier || 0) && xShows(e)).sort((a, b) => (a[1].tier || 0) - (b[1].tier || 0) || (a[1].kind === b[1].kind ? 0 : a[1].kind === "weapon" ? -1 : 1)).forEach(([gid, g]) => {
-        const item = g.kind === "weapon" ? WEAPONS[gid] : ARMOR[gid];
-        if (!item) return;
-        const owned2 = ownsBossCrossGear(gid);
-        const costStr = Object.entries(g.mats).map(([m, n]) => {
-          const has = (state.base.materials[m] || 0) >= n;
-          return `<span style="color:${has ? "var(--ink)" : "var(--crimson)"}">${n}x ${MATERIALS[m] && MATERIALS[m].name || m}</span>`;
-        }).join(", ");
-        const statStr = g.kind === "weapon" ? `power ${item.power} · ${item.kind}` : `${ARMOR_SLOT_LABELS[item.slot] || item.slot}${item.set ? " · " + ARMOR_SETS[item.set].name + " set" : ""}`;
-        const row = document.createElement("div");
-        row.className = "consumable-row";
-        row.innerHTML = `<div class="consumable-info">
-            <div class="consumable-name">${item.name} <span style="color:var(--ink-soft);font-size:0.75rem">${item.zh}</span> <span class="rarity-tag rarity-${item.rarity}">${item.rarity}</span></div>
-            <div class="consumable-desc">${item.desc} (${statStr})</div>
-            <div class="consumable-desc"><strong>Mats:</strong> ${costStr}</div>
-          </div>`;
-        const btns = document.createElement("div");
-        btns.className = "consumable-buttons";
-        const b = document.createElement("button");
-        if (owned2) {
-          b.textContent = "Forged";
-          b.disabled = true;
-        } else {
-          b.textContent = "Forge";
-          b.className = canCraftBossCrossGear(gid) ? "gold" : "";
-          b.disabled = !canCraftBossCrossGear(gid);
-          b.onclick = () => {
-            craftBossCrossGear(gid);
-            render();
-          };
-        }
-        btns.appendChild(b);
-        row.appendChild(btns);
-        fP.appendChild(row);
+      Object.entries(BOSS_CROSS_GEAR).filter((e) => realmTabShows("forgeCrossRealm", e[1].tier || 0) && xShows(e)).sort((a, b) => (a[1].tier || 0) - (b[1].tier || 0)).forEach(([gid, g]) => {
+        const row = crossRelicRow(gid, g);
+        if (row) fP.appendChild(row);
       });
     }
     appendPanel(fP, "forge");
@@ -31691,6 +31719,19 @@
             }
             acP.appendChild(hRow);
           }
+        });
+      }
+    }
+    {
+      const xArmor = Object.entries(BOSS_CROSS_GEAR).filter(([, g]) => g.kind === "armor");
+      if (xArmor.length) {
+        const xaHdr = document.createElement("div");
+        xaHdr.innerHTML = `<div style="font-weight:bold;margin:0.5rem 0 0.2rem">Cross-Realm Armour <span style="color:var(--ink-soft);font-weight:normal;font-size:0.8rem">跨界甲</span></div>
+        <p style="font-size:0.8rem;color:var(--ink-soft);margin:0 0 0.4rem">Forged from the unique essence of tyrants of <strong>two realms</strong>. The four-piece <strong>${ARMOR_SETS.vanquisher && ARMOR_SETS.vanquisher.name || "Vanquisher"}</strong> set — one of each, divine.</p>`;
+        acP.appendChild(xaHdr);
+        xArmor.sort((a, b) => (a[1].tier || 0) - (b[1].tier || 0)).forEach(([gid, g]) => {
+          const row = crossRelicRow(gid, g);
+          if (row) acP.appendChild(row);
         });
       }
     }
