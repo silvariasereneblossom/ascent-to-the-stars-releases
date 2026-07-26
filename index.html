@@ -9188,6 +9188,9 @@
 
   // app/src/data/changelog.js
   var CHANGELOG = [
+    { v: "1.27.148", notes: [
+      'Fixed weapons that could never be disassembled or sold. If you owned several copies of a weapon and had one equipped as an off-hand, EVERY copy was treated as "in use" — so the spares sat in your pack forever, refusing to break down. Only the copies actually in your hands are protected now; the rest are free. Any weapons that were stuck become available again immediately, no action needed.'
+    ] },
     { v: "1.27.147", notes: [
       'The game now updates itself while you play. Until now the desktop and web versions only picked up new content when you launched them — so a session left open for hours could sit on an old build through several fixes without any sign. It now checks for a new version every 10 minutes and applies it quietly the moment you are out of combat. If one arrives mid-fight it waits, and shows a small "a new version is ready" bar with an Update now button.',
       '"Check for Updates Now" is in Config on every platform, not just Android.'
@@ -9397,10 +9400,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Tribulation resistance, resolve under pressure." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.147';
+  var GAME_VERSION = 'v1.27.148';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "b2dec6a";
+  var BUILD_SHA = "2d9e67c";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -23976,9 +23979,15 @@
   }
   function collectSellableItems(char) {
     const out = [];
-    const equippedWids = new Set(equippedWeapons(char));
+    const _wpnReserved = {};
+    equippedWeapons(char).filter((id) => id !== char.weapon).forEach((id) => {
+      _wpnReserved[id] = (_wpnReserved[id] || 0) + 1;
+    });
     (char.weapons.owned || []).forEach((wid, idx) => {
-      if (equippedWids.has(wid)) return;
+      if (_wpnReserved[wid] > 0) {
+        _wpnReserved[wid]--;
+        return;
+      }
       const w = WEAPONS[wid];
       if (!w) return;
       const price = MARKET_SELL_PRICE[w.rarity] || 5;
@@ -24780,7 +24789,7 @@
   var updateApplying = false;
   function runningShaKnown() {
     const s = typeof window !== "undefined" && window.BUILD_SHA;
-    return !!s && s !== "b2dec6a" && s !== "dev" && s !== "live";
+    return !!s && s !== "2d9e67c" && s !== "dev" && s !== "live";
   }
   function safeToApplyUpdate() {
     try {
