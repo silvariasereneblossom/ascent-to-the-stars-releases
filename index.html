@@ -9188,6 +9188,10 @@
 
   // app/src/data/changelog.js
   var CHANGELOG = [
+    { v: "1.27.147", notes: [
+      'The game now updates itself while you play. Until now the desktop and web versions only picked up new content when you launched them — so a session left open for hours could sit on an old build through several fixes without any sign. It now checks for a new version every 10 minutes and applies it quietly the moment you are out of combat. If one arrives mid-fight it waits, and shows a small "a new version is ready" bar with an Update now button.',
+      '"Check for Updates Now" is in Config on every platform, not just Android.'
+    ] },
     { v: "1.27.146", notes: [
       `Loading a save no longer wipes that device's settings. Transferring a cultivator between two machines was overwriting the receiving device's music, volume and toggles with the sending device's — so your sound kept "resetting" every time you moved a save across. Souls and prestige still travel with the save; the settings on the device you're playing on now stay exactly as you left them.`
     ] },
@@ -9393,10 +9397,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Tribulation resistance, resolve under pressure." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.146';
+  var GAME_VERSION = 'v1.27.147';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "2174ec8";
+  var BUILD_SHA = "b2dec6a";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -24770,6 +24774,94 @@
   if (typeof document !== "undefined" && document.addEventListener) {
     document.addEventListener("keydown", handleGlobalKey);
   }
+  var UPDATE_VERSION_URL = "https://raw.githubusercontent.com/silvariasereneblossom/ascent-to-the-stars-releases/main/version.json";
+  var UPDATE_CHECK_MS = 10 * 60 * 1e3;
+  var updateReadySha = null;
+  var updateApplying = false;
+  function runningShaKnown() {
+    const s = typeof window !== "undefined" && window.BUILD_SHA;
+    return !!s && s !== "b2dec6a" && s !== "dev" && s !== "live";
+  }
+  function safeToApplyUpdate() {
+    try {
+      if (combat) return false;
+      if (atTitle || pendingAscension || pendingDestiny) return false;
+      if (state && state.childhood && state.childhood.step && state.childhood.step !== "complete") return false;
+      if (soulBoonPicksPending && soulBoonPicksPending() > 0) return false;
+      const ae = document.activeElement;
+      if (ae && (ae.tagName === "INPUT" || ae.tagName === "TEXTAREA" || ae.isContentEditable)) return false;
+    } catch (e) {
+      return false;
+    }
+    return true;
+  }
+  var UPDATE_TRIED_KEY = "atts-update-tried";
+  function updateTriedSha() {
+    try {
+      return localStorage.getItem(UPDATE_TRIED_KEY);
+    } catch (e) {
+      return null;
+    }
+  }
+  if (typeof window !== "undefined" && runningShaKnown && window.BUILD_SHA && updateTriedSha() === window.BUILD_SHA) {
+    try {
+      localStorage.removeItem(UPDATE_TRIED_KEY);
+    } catch (e) {
+    }
+  }
+  function applyUpdateNow() {
+    if (updateApplying) return;
+    updateApplying = true;
+    try {
+      if (updateReadySha) localStorage.setItem(UPDATE_TRIED_KEY, updateReadySha);
+    } catch (e) {
+    }
+    if (typeof window !== "undefined" && window.AttsNative && typeof window.AttsNative.checkForUpdate === "function") {
+      try {
+        window.AttsNative.checkForUpdate();
+        updateApplying = false;
+        return;
+      } catch (e) {
+      }
+    }
+    try {
+      saveChar();
+    } catch (e) {
+    }
+    try {
+      saveMeta();
+    } catch (e) {
+    }
+    try {
+      location.reload();
+    } catch (e) {
+      updateApplying = false;
+    }
+  }
+  function checkForContentUpdate() {
+    if (updateReadySha || !runningShaKnown()) return;
+    const ctrl = typeof AbortController !== "undefined" ? new AbortController() : null;
+    const timer = setTimeout(() => {
+      if (ctrl) ctrl.abort();
+    }, 8e3);
+    fetch(UPDATE_VERSION_URL, { cache: "no-store", signal: ctrl ? ctrl.signal : void 0 }).then((r) => r.ok ? r.json() : null).then((j) => {
+      clearTimeout(timer);
+      if (!j || !j.sha || j.sha === window.BUILD_SHA) return;
+      updateReadySha = j.sha;
+      if (updateTriedSha() === j.sha) {
+        render();
+        return;
+      }
+      if (safeToApplyUpdate()) applyUpdateNow();
+      else render();
+    }).catch(() => {
+      clearTimeout(timer);
+    });
+  }
+  if (typeof window !== "undefined" && typeof fetch === "function") {
+    setInterval(checkForContentUpdate, UPDATE_CHECK_MS);
+    setTimeout(checkForContentUpdate, 60 * 1e3);
+  }
   if (typeof document !== "undefined" && document.addEventListener) {
     document.addEventListener("visibilitychange", () => {
       if (document.hidden) {
@@ -29040,6 +29132,22 @@
   function render() {
     _equipSnapCache = null;
     app.innerHTML = "";
+    if (updateReadySha && !updateApplying) {
+      if (safeToApplyUpdate()) {
+        applyUpdateNow();
+        return;
+      }
+      const ub = document.createElement("div");
+      ub.className = "panel";
+      ub.style.cssText = "border-color:var(--gold);padding:0.5rem 0.7rem;margin:0 0 0.5rem";
+      ub.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;gap:0.6rem;flex-wrap:wrap">
+        <span style="font-size:0.85rem"><strong style="color:var(--gold)">A new version is ready.</strong> <span style="color:var(--ink-soft)">It will apply on its own once you're out of combat — or take it now.</span></span>
+        <button class="gold small" id="apply-update">Update now</button>
+      </div>`;
+      app.appendChild(ub);
+      const ubBtn = ub.querySelector("#apply-update");
+      if (ubBtn) ubBtn.onclick = () => applyUpdateNow();
+    }
     const h1 = document.createElement("h1");
     if (state && state.confirmed && !atTitle) h1.className = "compact";
     h1.innerHTML = 'Ascent to the Stars<span class="sub">步步登天</span><span style="font-size:0.6rem;color:var(--ink-soft);margin-left:0.5rem;vertical-align:middle;font-weight:normal">' + GAME_VERSION + "</span>";
@@ -29522,20 +29630,50 @@
       imP.appendChild(fileInput);
       cfgP.appendChild(imP);
     }
-    if (window.AttsNative && typeof window.AttsNative.checkForUpdate === "function") {
+    {
       const updRow = document.createElement("div");
       updRow.className = "button-row";
       const updBtn = document.createElement("button");
       updBtn.className = "gold";
       updBtn.textContent = "Check for Updates Now";
+      const updNote = document.createElement("div");
+      updNote.style.cssText = "font-size:0.75rem;color:var(--ink-soft);margin-top:0.2rem";
+      updNote.textContent = "The game also checks on its own every 10 minutes and updates itself when you are out of combat.";
       updBtn.onclick = () => {
-        try {
-          window.AttsNative.checkForUpdate();
-        } catch (e) {
+        if (window.AttsNative && typeof window.AttsNative.checkForUpdate === "function") {
+          try {
+            window.AttsNative.checkForUpdate();
+          } catch (e) {
+          }
+          return;
         }
+        updBtn.disabled = true;
+        updBtn.textContent = "Checking…";
+        const done = (msg) => {
+          updBtn.disabled = false;
+          updBtn.textContent = "Check for Updates Now";
+          updNote.textContent = msg;
+        };
+        if (!runningShaKnown()) {
+          done("This is a local build — nothing to compare against.");
+          return;
+        }
+        fetch(UPDATE_VERSION_URL, { cache: "no-store" }).then((r) => r.ok ? r.json() : null).then((j) => {
+          if (!j || !j.sha) {
+            done("Could not reach the update server.");
+            return;
+          }
+          if (j.sha === window.BUILD_SHA) {
+            done("You are on the newest version.");
+            return;
+          }
+          updateReadySha = j.sha;
+          applyUpdateNow();
+        }).catch(() => done("Could not reach the update server (offline?)."));
       };
       updRow.appendChild(updBtn);
       cfgP.appendChild(updRow);
+      cfgP.appendChild(updNote);
     }
     const noDeath = noAgeDeathOn();
     const lsRow = document.createElement("div");
@@ -33157,20 +33295,50 @@
     cfgP.innerHTML = `<h3>Config <span style="font-weight:normal;color:var(--ink-soft);font-size:0.85rem">设置</span></h3>
     <p style="font-size:0.85rem;margin:0 0 0.4rem">Version <strong style="color:var(--gold)">${GAME_VERSION}</strong></p>
     <p style="font-size:0.82rem;color:var(--ink-soft);margin:0 0 0.5rem">Updates arrive over-the-air. If the version above looks old after a content push, <strong>fully close the app</strong> (swipe it out of recents — not just Home) and reopen; the first launch downloads the update, the next applies it. Souls persist through all of it: <strong>${META.souls}</strong> souls · ${META.lives} lives.</p>`;
-    if (window.AttsNative && typeof window.AttsNative.checkForUpdate === "function") {
+    {
       const updRow = document.createElement("div");
       updRow.className = "button-row";
       const updBtn = document.createElement("button");
       updBtn.className = "gold";
       updBtn.textContent = "Check for Updates Now";
+      const updNote = document.createElement("div");
+      updNote.style.cssText = "font-size:0.75rem;color:var(--ink-soft);margin-top:0.2rem";
+      updNote.textContent = "The game also checks on its own every 10 minutes and updates itself when you are out of combat.";
       updBtn.onclick = () => {
-        try {
-          window.AttsNative.checkForUpdate();
-        } catch (e) {
+        if (window.AttsNative && typeof window.AttsNative.checkForUpdate === "function") {
+          try {
+            window.AttsNative.checkForUpdate();
+          } catch (e) {
+          }
+          return;
         }
+        updBtn.disabled = true;
+        updBtn.textContent = "Checking…";
+        const done = (msg) => {
+          updBtn.disabled = false;
+          updBtn.textContent = "Check for Updates Now";
+          updNote.textContent = msg;
+        };
+        if (!runningShaKnown()) {
+          done("This is a local build — nothing to compare against.");
+          return;
+        }
+        fetch(UPDATE_VERSION_URL, { cache: "no-store" }).then((r) => r.ok ? r.json() : null).then((j) => {
+          if (!j || !j.sha) {
+            done("Could not reach the update server.");
+            return;
+          }
+          if (j.sha === window.BUILD_SHA) {
+            done("You are on the newest version.");
+            return;
+          }
+          updateReadySha = j.sha;
+          applyUpdateNow();
+        }).catch(() => done("Could not reach the update server (offline?)."));
       };
       updRow.appendChild(updBtn);
       cfgP.appendChild(updRow);
+      cfgP.appendChild(updNote);
     }
     const noDeath = noAgeDeathOn();
     const lsRow = document.createElement("div");
