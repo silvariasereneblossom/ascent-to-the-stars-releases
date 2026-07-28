@@ -9188,6 +9188,14 @@
 
   // app/src/data/changelog.js
   var CHANGELOG = [
+    { v: "1.27.151", notes: [
+      "Your Vitality no longer reads 0 while you are still standing. Pools are tracked in fractions, and anything below half a point was being rounded down to a flat zero — so a cultivator clinging on at a fraction of a point looked dead. Zero now means empty, and nothing else.",
+      "Sound and config settings no longer reset. They were stored INSIDE each save slot, so deleting a save deleted them, and switching slots swapped them. They describe your device, not your cultivator, so they now live on their own — your existing settings are carried over automatically.",
+      "DEMONIC PATHS: cultivation-rate bonuses are no longer a mystery. Pills, braziers, arrays and gear that raise cultivation speed are CONVERTED INTO INSIGHT FROM BATTLE for you — at full value on the demonic path, half for a Demon-Heart. That was always true, but nothing said so, so the items looked like dead weight. Every one of them now tells you where the value goes.",
+      'A Demon-Heart no longer sees "0.000/sec" next to an invitation to go and meditate. Your dao does not gain from sitting still at all, so the Meditate action is gone from journey sites and the cultivation readout says plainly what you actually gain from. The Demon-Feast Breath description no longer claims you cultivate FASTER than the righteous while the school says you cannot cultivate at all.',
+      "The sect menu now explains the heretic's duty. Righteous enforcers hunting you is not harassment — it is your contribution track: 5× insight, a 20% skill-book drop, and an Inquisitor's weapon that breaks down for rich scrap.",
+      "Combat action tooltips: the explanation of where the damage number comes from is gone, replaced with your crit chance. Tooltips across the game have been cut down to what you can act on — the Vitality hover text alone dropped from a paragraph to a line."
+    ] },
     { v: "1.27.150", notes: [
       "The damage number on your action buttons is now the real one. It was being worked out by a separate, much shorter calculation that stopped after your weapon and school and ignored everything else your build does — cultivator might, body cultivation, weapon refinement, elemental matchups, the demonic bonus, turn-by-turn ramps, and the execute bonuses for breaking a foe’s stance or soul. The more you had invested, the more wrong it got: roughly a quarter low at Qi Condensation and up to four times low at Golden Core.",
       "It now runs the exact same code the strike itself runs, against the foe you are actually facing — so it accounts for their qi barrier and defences, and it moves as the fight moves: watch it climb as you pile on debuffs, tear down a spirit, or shatter a stance. The tooltip breaks out how much lands on Vitality versus the barrier. Critical strikes are still not included, since those are a roll rather than a promise.",
@@ -9408,10 +9416,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Tribulation resistance, resolve under pressure." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.150';
+  var GAME_VERSION = 'v1.27.151';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "2cc383e";
+  var BUILD_SHA = "931987a";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -13576,7 +13584,9 @@
       mult: 1.35,
       schools: ["demon_heart"],
       scales: "spirit",
-      desc: "Heresy, refined. Every death nourishes the dao — and the demonic path cultivates FASTER than the righteous one. The heavens have noticed."
+      // v1.27.151 (tester: "does cultivation go faster, or does it not go at all?"). It claimed FASTER while the
+      // school's own specialty said "no cultivation at all" — and the code says a Demon-Heart's rate is 0.
+      desc: "Heresy, refined. Every death nourishes the dao — and nothing else does: you do not gain by sitting still. Cultivation-rate bonuses convert into insight from battle instead. The heavens have noticed."
     },
     starfall_method: {
       name: "Starfall Method",
@@ -21818,7 +21828,7 @@
     if (gcl > 0) chips.push(`<span class="buff-chip" style="border-color:var(--gold)">Golden Core ${goldenCoreGradeLabel(gcl)} (qual ${gcl})</span>`);
     if (char.spiritRoot) {
       const sr = char.spiritRoot;
-      chips.push(`<span class="buff-chip tip" data-tip="${escapeTip(`Your spirit root's grade — ${sr.gradeName || "Common"}. It is fixed at birth (rerollable only at creation) and permanently multiplies your cultivation SPEED by +${Math.round(((sr.grade || 1) - 1) * 100)}%. Upside only; it never slows you down.`)}">Root ${sr.gradeName || "Common"} (+${Math.round(((sr.grade || 1) - 1) * 100)}% cultivation speed)</span>`);
+      chips.push(`<span class="buff-chip tip" data-tip="${escapeTip(`+${Math.round(((sr.grade || 1) - 1) * 100)}% cultivation speed, permanently. Fixed at birth — rerollable only at creation.`)}">Root ${sr.gradeName || "Common"} (+${Math.round(((sr.grade || 1) - 1) * 100)}% cultivation speed)</span>`);
     }
     const grp = (title, arr) => arr.length ? `<div style="margin-top:0.35rem"><span style="color:var(--gold);font-weight:bold;font-size:0.78rem">${title}</span> <span style="color:var(--ink-soft);font-size:0.8rem">${arr.join(" · ")}</span></div>` : "";
     return `<div class="panel" style="background:rgba(0,0,0,0.12);padding:0.5rem 0.6rem;margin:0 0 0.6rem">
@@ -24523,13 +24533,45 @@
   function metaStartInsight() {
     return (META.up.memory || 0) * SOUL_UPGRADES.memory.per;
   }
+  var META = loadMeta();
+  var SETTINGS_KEY = "atts-settings";
+  function defaultSettings() {
+    return { noAgeDeath: false, pauseBeforeAgeDeath: false, music: true, musicVol: 0.6 };
+  }
+  function loadSettings() {
+    try {
+      const raw = localStorage.getItem(SETTINGS_KEY);
+      if (raw) {
+        const s = JSON.parse(raw);
+        if (s && typeof s === "object") return Object.assign(defaultSettings(), s);
+      }
+      const order = [ACTIVE_SLOT];
+      for (let i = 0; i < SAVE_SLOTS; i++) if (i !== ACTIVE_SLOT) order.push(i);
+      for (const n of order) {
+        const m = JSON.parse(localStorage.getItem(metaKey(n)) || "null");
+        if (m && m.settings && typeof m.settings === "object" && Object.keys(m.settings).length) {
+          const s = Object.assign(defaultSettings(), m.settings);
+          localStorage.setItem(SETTINGS_KEY, JSON.stringify(s));
+          return s;
+        }
+      }
+    } catch (e) {
+    }
+    return defaultSettings();
+  }
+  var SETTINGS = loadSettings();
+  function saveSettings() {
+    try {
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify(SETTINGS));
+    } catch (e) {
+    }
+  }
   function noAgeDeathOn() {
-    return !!(META.settings && META.settings.noAgeDeath);
+    return !!SETTINGS.noAgeDeath;
   }
   function pauseBeforeAgeDeathOn() {
-    return !!(META.settings && META.settings.pauseBeforeAgeDeath);
+    return !!SETTINGS.pauseBeforeAgeDeath;
   }
-  var META = loadMeta();
   var MUSIC_BASE = "https://github.com/silvariasereneblossom/ascent-to-the-stars-releases/releases/download/audio/";
   var TRACKS = {
     menu: [
@@ -24611,10 +24653,10 @@
     return !!(MUSIC.el && !MUSIC.el.paused);
   }
   function musicEnabled() {
-    return !!(META.settings && META.settings.music);
+    return !!SETTINGS.music;
   }
   function musicVolume() {
-    return META.settings && typeof META.settings.musicVol === "number" ? META.settings.musicVol : 0.6;
+    return typeof SETTINGS.musicVol === "number" ? SETTINGS.musicVol : 0.6;
   }
   function musicList() {
     if (MUSIC.cat && MUSIC.cat.indexOf("boss:") === 0) {
@@ -24696,11 +24738,10 @@
     playCurrentTrack();
   }
   function toggleMusic() {
-    if (!META.settings) META.settings = {};
-    META.settings.music = !META.settings.music;
-    saveMeta();
+    SETTINGS.music = !SETTINGS.music;
+    saveSettings();
     MUSIC.started = true;
-    if (META.settings.music) startMusic();
+    if (SETTINGS.music) startMusic();
     else stopMusic();
     render();
   }
@@ -24714,9 +24755,8 @@
     }
   }
   function setMusicVolume(v) {
-    if (!META.settings) META.settings = {};
-    META.settings.musicVol = v;
-    saveMeta();
+    SETTINGS.musicVol = v;
+    saveSettings();
     if (MUSIC.el) MUSIC.el.volume = v;
   }
   function primeMusicOnGesture() {
@@ -24797,7 +24837,7 @@
   var updateApplying = false;
   function runningShaKnown() {
     const s = typeof window !== "undefined" && window.BUILD_SHA;
-    return !!s && s !== "2cc383e" && s !== "dev" && s !== "live";
+    return !!s && s !== "931987a" && s !== "dev" && s !== "live";
   }
   function verTuple(v) {
     return String(v || "").replace(/^v/, "").split(".").map((n) => parseInt(n, 10) || 0);
@@ -26442,6 +26482,17 @@
     const demonCult = isDemonHeart(state) ? 0 : state.demonic ? 0.5 : 2;
     return (base + statBonus) * method.mult * locMult * realmMult * cultBuff * brazierBuff * veinBuff * boonCultivationMult() * skillCultivationMult() * heritageCult * gearCult * rootGrade * foundation * sectRankMult() * metaCultMult() * demonCult * (1 + 0.2 * goldenCoreLevel()) * sectCultInsightMult();
   }
+  function cultConvertsToInsight() {
+    return !!(state && state.demonic);
+  }
+  function cultConversionShort() {
+    if (!cultConvertsToInsight()) return "";
+    return isDemonHeart(state) ? " → insight from battle (half rate)" : " → insight from battle";
+  }
+  function cultConversionNote() {
+    if (!cultConvertsToInsight()) return "";
+    return isDemonHeart(state) ? "Your dao does not cultivate in stillness AT ALL — but cultivation-rate bonuses are not wasted on you: they are converted into INSIGHT FROM BATTLE at half value. Kill more, gain more." : "Your dao cultivates in stillness at HALF pace — but cultivation-rate bonuses are not wasted on you: they are converted into INSIGHT FROM BATTLE at full value on top. Kill more, gain more.";
+  }
   function cultivationBoostMult() {
     if (!state || !state.confirmed) return 1;
     const hm = heritageMech();
@@ -27285,6 +27336,7 @@
       critChance += 0.15 + 0.05 * tierC + (0.03 + 0.02 * tierC) * (combat.celestialHits || 0);
       if (!_preview) combat.celestialHits = (combat.celestialHits || 0) + 1;
     }
+    if (ctx) ctx.critChance = critChance;
     if (!_preview && critChance > 0 && Math.random() < critChance) {
       dmg *= m.critMult || 1.5;
       ctx.crit = true;
@@ -27568,9 +27620,10 @@
       if (_k.techPierceBonus) pierce = Math.min(1, pierce + _k.techPierceBonus);
     }
     const clone = previewTargetClone(tgt);
+    const ctx = { instant: tech.instant, preview: true };
     let hp = 0, qi = 0;
     for (let h = 0; h < (tech.hits || 1); h++) {
-      const outgoing = applyPlayerOutgoingMods(p, dmg, clone, { instant: tech.instant, preview: true });
+      const outgoing = applyPlayerOutgoingMods(p, dmg, clone, ctx);
       const res = dealDamage(clone, outgoing, {
         directHP: h === 0 ? tech.directHP || 0 : 0,
         directSpirit: h === 0 ? (tech.directSpirit || 0) * (p.mods.spiritDamageMult || 1) : 0,
@@ -27579,7 +27632,7 @@
       hp += res.hpDamage;
       qi += res.qiAbsorbed;
     }
-    return { total: Math.round(hp + qi), hp: Math.round(hp), qi: Math.round(qi) };
+    return { total: Math.round(hp + qi), hp: Math.round(hp), qi: Math.round(qi), crit: ctx.critChance || 0 };
   }
   function strikeDamageEstimate(p) {
     if (!combat) return 0;
@@ -29801,9 +29854,8 @@
     lsBtn.className = noDeath ? "ghost" : "gold";
     lsBtn.textContent = noDeath ? "OFF — enable" : "ON — disable";
     lsBtn.onclick = () => {
-      if (!META.settings) META.settings = {};
-      META.settings.noAgeDeath = !META.settings.noAgeDeath;
-      saveMeta();
+      SETTINGS.noAgeDeath = !SETTINGS.noAgeDeath;
+      saveSettings();
       render();
     };
     lsBtns.appendChild(lsBtn);
@@ -29823,9 +29875,8 @@
       pBtn.className = pOn ? "gold" : "ghost";
       pBtn.textContent = pOn ? "ON — disable" : "OFF — enable";
       pBtn.onclick = () => {
-        if (!META.settings) META.settings = {};
-        META.settings.pauseBeforeAgeDeath = !META.settings.pauseBeforeAgeDeath;
-        saveMeta();
+        SETTINGS.pauseBeforeAgeDeath = !SETTINGS.pauseBeforeAgeDeath;
+        saveSettings();
         render();
       };
       pBtns.appendChild(pBtn);
@@ -29845,9 +29896,8 @@
     dvBtn.className = devOn ? "gold" : "ghost";
     dvBtn.textContent = devOn ? "ON — disable" : "OFF — enable";
     dvBtn.onclick = () => {
-      if (!META.settings) META.settings = {};
-      META.settings.devMode = !META.settings.devMode;
-      saveMeta();
+      SETTINGS.devMode = !SETTINGS.devMode;
+      saveSettings();
       render();
     };
     dvBtns.appendChild(dvBtn);
@@ -29867,9 +29917,8 @@
       lgBtn.className = lgOn ? "gold" : "ghost";
       lgBtn.textContent = lgOn ? "ON — disable" : "OFF — enable";
       lgBtn.onclick = () => {
-        if (!META.settings) META.settings = {};
-        META.settings.logMode = !META.settings.logMode;
-        saveMeta();
+        SETTINGS.logMode = !SETTINGS.logMode;
+        saveSettings();
         render();
       };
       lgBtns.appendChild(lgBtn);
@@ -29967,10 +30016,10 @@
     return cfgP;
   }
   function devModeOn() {
-    return !!(META.settings && META.settings.devMode);
+    return !!SETTINGS.devMode;
   }
   function logModeOn() {
-    return !!(META.settings && META.settings.logMode);
+    return !!SETTINGS.logMode;
   }
   var FIGHTLOG_KEY = "atts-fightlogs";
   var FIGHTLOG_MAX_FIGHTS = 40;
@@ -30824,7 +30873,7 @@
       const gradePct = Math.round(((sr.grade || 1) - 1) * 100);
       const foundPct = Math.round(((state.foundationQuality || 1) - 1) * 100);
       html += `<div style="margin-top:0.4rem;font-size:0.88rem">
-      <strong>Spirit Root</strong> <span class="tip" data-tip="Your innate element drives Five-Element combat counters: +${Math.round(ELEMENT_COUNTER_BONUS * 100)}% damage when you overcome a foe's element, -${Math.round(ELEMENT_COUNTER_MALUS * 100)}% when overcome. Grade is a gentle, upside-only cultivation multiplier.">${rootEls} &middot; ${sr.gradeName || "Common"} (${gradePct >= 0 ? "+" : ""}${gradePct}% cult)</span> &middot;
+      <strong>Spirit Root</strong> <span class="tip" data-tip="+${Math.round(ELEMENT_COUNTER_BONUS * 100)}% damage against elements you overcome, -${Math.round(ELEMENT_COUNTER_MALUS * 100)}% against those that overcome you. Grade adds cultivation speed; never a penalty.">${rootEls} &middot; ${sr.gradeName || "Common"} (${gradePct >= 0 ? "+" : ""}${gradePct}% cult)</span> &middot;
       <strong>Foundation</strong> <span class="tip" data-tip="Quality of your cultivation base, set when you break through. A permanent, upside-only multiplier on cultivation speed — better breakthrough prep raises it, and it never drops.">+${foundPct}% cult</span>
     </div>`;
     }
@@ -30856,7 +30905,7 @@
     const tier = REALMS[state.realm.tierIdx];
     const insightInt = Math.floor(state.realm.insight);
     const gcl = goldenCoreLevel();
-    const gcChip = gcl > 0 ? ` <span class="tip" data-tip="Your Golden Core's quality, locked in when you formed it. Per quality level: +1 to all stats, +5% Vitality, +10% Qi, +10% Spirit, +20% cultivation &amp; insight, +1.5% damage; +2 glyph slots per 5 levels." style="font-size:0.8rem;color:var(--gold)">· core ${goldenCoreGradeLabel(gcl)} (${gcl}/10)</span>` : "";
+    const gcChip = gcl > 0 ? ` <span class="tip" data-tip="Per quality level: +1 all stats, +5% Vitality, +10% Qi, +10% Spirit, +20% cultivation &amp; insight, +1.5% damage, +2 glyph slots per 5. Locked in when you formed the core." style="font-size:0.8rem;color:var(--gold)">· core ${goldenCoreGradeLabel(gcl)} (${gcl}/10)</span>` : "";
     let realmHTML = `<div class="realm-header">
       <div><span class="realm-title tip" data-tip="${escapeTip(tier.flavor)}">${realmLabel(state)}</span><span class="realm-zh">${tier.zh}</span>${gcChip}</div>
       <div style="font-size:0.85rem">Insight: <strong id="insight-value">${insightInt}</strong>${info ? " / " + info.cost : ""}</div>
@@ -30892,7 +30941,7 @@
       const _momTag = _momStacks > 0 ? ` <span style="color:var(--gold)" class="tip" data-tip="Combat momentum: each foe felled adds +${Math.round(MOMENTUM_PER_KILL * 100)}% to your recovery rate (to +100%), shedding one stack every 10 minutes since your last kill. Keep fighting to keep it hot.">気 +${Math.round(MOMENTUM_PER_KILL * _momStacks * 100)}% (${_momStacks}/${MOMENTUM_MAX_STACKS})</span>` : "";
       const _atSite = !!state.cultivating;
       const _restLine = _vit >= _vitMax ? '<span style="color:var(--ink-soft)">fully rested</span>' : _atSite ? `<span style="color:var(--crimson)">resting paused — meditating here taxes it instead</span>` : `<span style="color:var(--jade)">resting +${_restPerMin}/min, even while the game is closed</span>${_momTag}`;
-      realmHTML += `<p style="font-size:0.8rem;margin:0 0 0.4rem"><span class="tip" data-tip="Vitality is your health BETWEEN fights — a battle opens at whatever you have left, and a win does NOT heal it: the pool carries forward exactly as the fight ended. Healing comes from RESTING, which is automatic and needs no button — it happens whenever you are not meditating at a journey location, continues while the game is closed, and mends ${Math.round(vitalityRestRate() * 100)}% of max Vitality per minute (the righteous rest more than twice as fast as the demonic — their sustain is between fights, not during them). Every foe you fell adds COMBAT MOMENTUM: +${Math.round(MOMENTUM_PER_KILL * 100)}% recovery rate per kill, up to +100% (2×), cooling by one stack every 10 minutes — so fighting warms your recovery instead of instantly refilling it. Vitality potions restore it instantly."><strong>Vitality</strong> <strong id="vit-value" style="color:${_vit < _vitMax * 0.4 ? "var(--crimson)" : "var(--jade)"}">${_vit}</strong>/${_vitMax} · ${_restLine}</span> <span style="color:var(--ink-soft)">&middot;</span> <span class="tip" data-tip="${escapeTip(`Lifespan is a resource. Age advances slowly and ONLY while actively cultivating (idling/offline are safe) — at your current rate that is ${lifespanHoursLeftLabel()} of ACTIVE cultivation before old age. Each realm hugely extends your span. Certain pills, schools, and artifacts ADD lifespan; powerful pills SPEND it (a share of what remains) for permanent power. Running out is death by old age — which reincarnates you with your souls intact.`)}" style="color:var(--ink-soft)">Age <strong>${Math.floor(state.age || 16)}</strong>, <strong style="color:var(--jade)">${Math.floor(lifespanRemaining())}</strong> of ${lifespanMax()} yrs left <span style="opacity:0.8">(~${lifespanHoursLeftLabel()})</span>${state.bodyQuench ? ` · tempered ×${state.bodyQuench}` : ""}</span></p>`;
+      realmHTML += `<p style="font-size:0.8rem;margin:0 0 0.4rem"><span class="tip" data-tip="Carries over between fights — winning does not heal you. Rests automatically at ${Math.round(vitalityRestRate() * 100)}%/min whenever you are not meditating, including offline. Each kill adds +${Math.round(MOMENTUM_PER_KILL * 100)}% recovery (up to 2×, decaying every 10 min). Potions restore instantly."><strong>Vitality</strong> <strong id="vit-value" style="color:${_vit < _vitMax * 0.4 ? "var(--crimson)" : "var(--jade)"}">${_vit}</strong>/${_vitMax} · ${_restLine}</span> <span style="color:var(--ink-soft)">&middot;</span> <span class="tip" data-tip="${escapeTip(`Age advances only while actively cultivating — idling and offline cost nothing. About ${lifespanHoursLeftLabel()} of cultivation left. Each realm extends it; some pills add lifespan, others spend it for permanent power. Running out reincarnates you, souls intact.`)}" style="color:var(--ink-soft)">Age <strong>${Math.floor(state.age || 16)}</strong>, <strong style="color:var(--jade)">${Math.floor(lifespanRemaining())}</strong> of ${lifespanMax()} yrs left <span style="opacity:0.8">(~${lifespanHoursLeftLabel()})</span>${state.bodyQuench ? ` · tempered ×${state.bodyQuench}` : ""}</span></p>`;
     }
     if (state.ageBrinkNotice) {
       realmHTML += `<p style="font-size:0.8rem;margin:0 0 0.4rem;color:var(--crimson)"><strong>Meditation halted.</strong> ${state.ageBrinkNotice}</p>`;
@@ -30930,14 +30979,18 @@
     }
     const method = getCultivationMethod();
     const rate = cultivationRate();
-    if (state.cultivating) {
+    if (isDemonHeart(state)) {
+      realmHTML += `<div class="cult-status idle">
+      <div class="tip" data-tip="${escapeTip(cultConversionNote())}"><strong>No cultivation</strong> <span style="color:var(--ink-soft)">— a demon does not gain by sitting still. Insight comes from battle and the rift-gate; cultivation-rate bonuses convert into battle insight at half value.</span></div>
+    </div>`;
+    } else if (state.cultivating) {
       const loc = LOCATIONS.find((l) => l.id === state.cultivating.locationId);
       realmHTML += `<div class="cult-status">
-      <div class="tip" data-tip="Cultivating at a location earns far more than passive gain, but taxes Vitality while you sit. Method: ${escapeTip(method.name)}. That is ${Math.round(rate * 60)} insight/min, ${Math.round(rate * 3600)}/hour."><strong>Cultivating at ${loc ? loc.name : "nowhere"}</strong> · <span class="rate" id="cult-rate">${rate.toFixed(3)}</span>/sec <button class="ghost small" id="stop-cult" style="margin-left:0.5rem">Stop</button></div>
+      <div class="tip" data-tip="${escapeTip(`${Math.round(rate * 60)}/min, ${Math.round(rate * 3600)}/hour. Costs Vitality while you sit. Method: ${method.name}.` + (cultConvertsToInsight() ? " " + cultConversionNote() : ""))}"><strong>Cultivating at ${loc ? loc.name : "nowhere"}</strong> · <span class="rate" id="cult-rate">${rate.toFixed(3)}</span>/sec <button class="ghost small" id="stop-cult" style="margin-left:0.5rem">Stop</button></div>
     </div>`;
     } else {
       realmHTML += `<div class="cult-status idle">
-      <div class="tip" data-tip="You gain insight just by carrying the dao with you — no action, and it continues while the game is closed. Meditating at a journey location earns much more. Method: ${escapeTip(method.name)}. That is ${Math.round(rate * 60)} insight/min."><strong>Passive cultivation</strong> · <span class="rate" id="cult-rate">${rate.toFixed(3)}</span>/sec <span style="color:var(--ink-soft)">— meditate at a location for more</span></div>
+      <div class="tip" data-tip="${escapeTip(`${Math.round(rate * 60)} insight/min, and it keeps running while the game is closed. Method: ${method.name}.` + (cultConvertsToInsight() ? " " + cultConversionNote() : ""))}"><strong>Passive cultivation</strong> · <span class="rate" id="cult-rate">${rate.toFixed(3)}</span>/sec <span style="color:var(--ink-soft)">— meditate at a location for more${cultConvertsToInsight() ? " · rate bonuses" + cultConversionShort() : ""}</span></div>
     </div>`;
     }
     realmP.innerHTML = realmHTML;
@@ -31745,11 +31798,12 @@
         const tierStr = a.minTier ? tierMet ? ` (requires ${REALMS[a.minTier].name})` : ` <strong style="color:var(--crimson)">— requires ${REALMS[a.minTier].name}</strong>` : "";
         const _isDotArray = a.mods && a.mods.dotMult && a.mods.dotMult > 1;
         const dotFlag = _isDotArray && !isActive && !playerHasDoT() ? `<div class="consumable-desc" style="color:var(--crimson);font-style:italic">Low value for your build — you have no damage-over-time (bleed/burn/poison) to amplify.</div>` : "";
+        const cultFlag = a.mods && a.mods.cultMult > 1 && cultConvertsToInsight() ? `<div class="consumable-desc" style="color:var(--gold)">Still worth it for you: cultivation rate${cultConversionShort()}.</div>` : "";
         row.innerHTML = `
       <div class="consumable-info">
         <div class="consumable-name">${a.name} <span style="color:var(--ink-soft);font-size:0.75rem">${a.zh}</span></div>
         <div class="consumable-desc">${a.desc}</div>
-        <div class="consumable-desc"><strong>Effect:</strong> ${modStr}${tierStr}</div>${dotFlag}
+        <div class="consumable-desc"><strong>Effect:</strong> ${modStr}${tierStr}</div>${dotFlag}${cultFlag}
         <div class="consumable-desc"><strong>Cost:</strong> ${costStr || "free"}</div>
       </div>`;
         const btns = document.createElement("div");
@@ -32472,7 +32526,14 @@
           render();
         };
         actions.appendChild(venture);
-        if (!isCult) {
+        if (!isCult && isDemonHeart(state)) {
+          const noMed = document.createElement("span");
+          noMed.className = "tip";
+          noMed.style.cssText = "font-size:0.75rem;color:var(--ink-soft);align-self:center";
+          noMed.setAttribute("data-tip", escapeTip(cultConversionNote()));
+          noMed.textContent = "meditation gains you nothing — hunt instead";
+          actions.appendChild(noMed);
+        } else if (!isCult) {
           const meditate = document.createElement("button");
           meditate.className = "jade";
           meditate.textContent = "Meditate Here";
@@ -32901,6 +32962,17 @@
     dutiesHdr.style.cssText = "font-weight:bold;margin:0.3rem 0";
     dutiesHdr.textContent = "Sect Duties";
     sectP.appendChild(dutiesHdr);
+    if (state.demonic) {
+      const heretic = document.createElement("div");
+      heretic.className = "consumable-row";
+      const _ht = Math.min(6, state.realm.tierIdx || 0);
+      const _hunter = ENEMIES["righteous_hunter_t" + _ht];
+      heretic.innerHTML = `<div class="consumable-info">
+        <div class="consumable-name">The Hunt <span style="color:var(--ink-soft);font-size:0.75rem">猎道</span></div>
+        <div class="consumable-desc">Your duty is not errands — it is the enforcers the righteous send after you. They ambush you on ordinary ventures${_hunter ? ` (at your realm, the <strong>${_hunter.name}</strong>)` : ""}, and meditating in demonic qi draws them down faster. Each one is worth <strong>5&times; insight</strong>, drops a skill book <strong>20%</strong> of the time, and leaves an Inquisitor&rsquo;s weapon — unwieldable, but it breaks down for rich scrap.</div>
+      </div>`;
+      sectP.appendChild(heretic);
+    }
     const bountyNeed = slayBountyN();
     const kills = Math.min(state.sectKills || 0, bountyNeed);
     const slayReady = (state.sectKills || 0) >= bountyNeed;
@@ -33464,9 +33536,8 @@
     lsBtn.className = noDeath ? "ghost" : "gold";
     lsBtn.textContent = noDeath ? "OFF — enable" : "ON — disable";
     lsBtn.onclick = () => {
-      if (!META.settings) META.settings = {};
-      META.settings.noAgeDeath = !META.settings.noAgeDeath;
-      saveMeta();
+      SETTINGS.noAgeDeath = !SETTINGS.noAgeDeath;
+      saveSettings();
       render();
     };
     lsBtns.appendChild(lsBtn);
@@ -33528,11 +33599,13 @@
     }
     const _incEf = (c.effects || []).some((ef) => ef.kind === "incoming_mult");
     const defNote = _incEf ? ' <span style="color:var(--ink-soft)">(stacked incoming reduction soft-caps past −15%)</span>' : "";
+    const _cultEf = (c.effects || []).some((ef) => ef.kind === "cultivation_mult" || ef.kind === "brazier_mult" || ef.kind === "vein_mult");
+    const cultNote = _cultEf && cultConvertsToInsight() ? `<div class="consumable-desc" style="color:var(--gold)">Still worth drinking: cultivation rate${cultConversionShort()}.</div>` : "";
     const infoDiv = document.createElement("div");
     infoDiv.style.flex = "1 1 55%";
     infoDiv.innerHTML = `<div class="consumable-name">${c.name} <span style="color:var(--ink-soft);font-weight:normal;font-size:0.8rem">${c.zh}</span> <span class="rarity-tag rarity-${c.rarity}">${c.rarity}</span> ${owned ? `× <strong>${owned}</strong>` : ""}</div>
     <div class="consumable-desc">${c.desc}${defNote}${recipeText ? "<br>Recipe: " + recipeText : ""}</div>
-    ${reqHTML}${stackHTML}`;
+    ${reqHTML}${stackHTML}${cultNote}`;
     row.appendChild(infoDiv);
     const btns = document.createElement("div");
     btns.className = "plot-buttons";
@@ -33729,7 +33802,7 @@
       const strikeBtn = document.createElement("button");
       strikeBtn.className = "action-btn basic tip";
       const strikeEst = strikeDamageEstimate(p);
-      strikeBtn.setAttribute("data-tip", `Weapon strike — ~${strikeEst} damage against your current target, +10 posture, no qi cost, no cooldown. Your reliable fallback and a solid posture builder.`);
+      strikeBtn.setAttribute("data-tip", `Weapon strike — ~${strikeEst} damage, +10 posture. Free, no cooldown.`);
       strikeBtn.dataset.key = "strike";
       strikeBtn.innerHTML = `<span class="name">${keyCap("Spc")}Strike</span><span class="meta">${strikeEst} dmg · free</span>`;
       strikeBtn.onclick = playerStrike;
@@ -33776,9 +33849,10 @@
         const estObj = techniqueDamageEstimate(p, t, tid);
         const est = estObj ? estObj.total : 0;
         const fxInfo = t.effect && STATUS_INFO[t.effect] ? STATUS_INFO[t.effect] : t.statusList && t.statusList.length && STATUS_INFO[t.statusList[0].kind] ? STATUS_INFO[t.statusList[0].kind] : null;
-        const splitNote = estObj && estObj.qi > 0 ? ` (${estObj.hp} Vitality + ${estObj.qi} off the qi barrier)` : "";
-        const numbers = `${est > 0 ? `~${est} damage${isAoeBtn ? " per target" : ""}${splitNote} · ` : ""}${t.postureBuild ? `+${t.postureBuild} posture · ` : ""}cooldown ${t.cd}`;
-        btn.setAttribute("data-tip", `[${isAoeBtn ? "AOE — hits every standing enemy at 70% damage" : "Single-target"}] ${numbers}. Measured against your CURRENT target with your full build applied, so it moves as the fight does; a critical strike lands for more. ${t.desc}`);
+        const splitNote = estObj && estObj.qi > 0 ? ` (${estObj.hp} Vitality + ${estObj.qi} barrier)` : "";
+        const critNote = estObj && estObj.crit > 0 ? ` · ${Math.round(estObj.crit * 100)}% crit` : "";
+        const numbers = `${est > 0 ? `~${est} damage${isAoeBtn ? "/target" : ""}${splitNote}${critNote} · ` : ""}${t.postureBuild ? `+${t.postureBuild} posture · ` : ""}cd ${t.cd}`;
+        btn.setAttribute("data-tip", `[${isAoeBtn ? "AOE — all standing enemies at 70%" : "Single-target"}] ${numbers}. ${t.desc}`);
         const cdLabel = locked ? " · chained" : sealed ? " · sealed" : cd > 0 ? ` · cd ${cd}` : "";
         const hpLabel = effHp ? ` · ${effHp} Vitality` : "";
         const tgtLabel = isAoeBtn ? " · AOE" : " · ST";
@@ -33842,8 +33916,9 @@
   }
   function bar(label, cur, max, cls, tip) {
     const pct = max > 0 ? Math.max(0, Math.min(100, cur / max * 100)) : 0;
+    const shown = cur > 0 ? Math.max(1, Math.round(cur)) : 0;
     return `<div class="bar-wrap tip" data-tip="${escapeTip(tip)}">
-    <div class="bar-label"><span>${label}</span><span>${Math.round(cur)} / ${max}</span></div>
+    <div class="bar-label"><span>${label}</span><span>${shown} / ${max}</span></div>
     <div class="bar ${cls}"><div class="bar-fill" style="width:${pct}%"></div></div>
   </div>`;
   }
