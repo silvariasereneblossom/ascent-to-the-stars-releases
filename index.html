@@ -9188,6 +9188,10 @@
 
   // app/src/data/changelog.js
   var CHANGELOG = [
+    { v: "1.27.153", notes: [
+      "Two new Sect Arts for the long grind, for cultivators whose fights are won by wearing a foe down rather than bursting it. HOLLOW TITHE (Core Disciple, 500 contribution) writes a debt into the foe: it bleeds Vitality to you every turn for 5 turns, and pays out over the length of the fight rather than up front. TITHE OF THE BOUND (True Inheritor, 1,600 contribution) is a free action — for 6 turns you heal 0.5% of max Vitality per turn for every debuff stack riding your target, up to 4% a turn at eight stacks. A foe you have ground down keeps you standing; an unmarked one gives you nothing.",
+      "Both are Sect Arts rather than school techniques, so any school can learn them, and both count as techniques of YOUR school for bonuses. Control schools that extend debuff durations get a longer Hollow Tithe automatically."
+    ] },
     { v: "1.27.152", notes: [
       "Dying to a fatal childhood choice no longer erases it from your story. The beat that ended the life was never recorded, so the cultivator you reincarnated into carried a story that simply stopped a stage early — birth and childhood, then nothing. Your Coming of Age is now written down, however it ended.",
       'The tribulation failure message no longer contradicts itself. It said "failure 1/3" and "the next attempt will be the last" in the same breath; death comes on the THIRD failure, so after the first you still have two. It now tells you how many attempts actually remain.',
@@ -9426,10 +9430,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Max Posture, and −0.5% tribulation damage taken per point (to −40%)." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.152';
+  var GAME_VERSION = 'v1.27.153';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "2f18dbf";
+  var BUILD_SHA = "ec73466";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -22366,6 +22370,42 @@
       desc: "Sect Art (True Inheritor+). Raise the sect's defensive formation around yourself: incoming damage halved for 2 rounds.",
       logHit: (a, t) => `Glyphs of ${a}'s sect ignite in a protective ring.`
     },
+    // v1.27.153 (operator: "we can act sect instruction skills that move in a long fight grindy lifesteal
+    // direction"), from the tester on the Screaming Glyph Coven: "for a long-fight control build it's definitely
+    // odd that I don't get any sustain. Well, I get qi sustain, but not vit sustain." Sect ARTS rather than a
+    // school rework, so every grind-and-control build reaches them, and both pay out over time instead of in a
+    // burst — the thing she said the kit was missing. school: null, so no demonic-variant divergence to check.
+    sect_hollow_tithe: {
+      name: "Hollow Tithe",
+      zh: "空税",
+      school: null,
+      sectRank: 2,
+      minRealmTier: 2,
+      contribCost: 500,
+      qi: 14,
+      cd: 3,
+      damage: 0.7,
+      effect: "leech",
+      effectPower: 0.35,
+      effectTurns: 5,
+      desc: "Sect Art (Core Disciple+). A slow debt written into the foe: it bleeds Vitality to you every turn for 5 turns. Little damage up front — this one pays over a long fight.",
+      logHit: (a, t) => `${a} writes a debt across ${t}'s meridians. It will be collected slowly.`
+    },
+    sect_bound_tithe: {
+      name: "Tithe of the Bound",
+      zh: "缚税",
+      school: null,
+      sectRank: 3,
+      minRealmTier: 3,
+      contribCost: 1600,
+      qi: 18,
+      cd: 4,
+      damage: 0,
+      instant: true,
+      buff: { tithePct: 0.02, turns: 6 },
+      desc: "Sect Art (True Inheritor+). Free action. For 6 turns you drink from everything you have bound: each turn heal 0.5% of max Vitality per debuff stack on your target (counts to 8, so up to 4%/turn). A foe you have ground down keeps you standing; an unmarked one gives nothing.",
+      logHit: (a, t) => `${a} calls in every binding at once, and the glyphs begin to pay.`
+    },
     sect_banner_call: {
       name: "Banner Call",
       zh: "召旗令",
@@ -24847,7 +24887,7 @@
   var updateApplying = false;
   function runningShaKnown() {
     const s = typeof window !== "undefined" && window.BUILD_SHA;
-    return !!s && s !== "2f18dbf" && s !== "dev" && s !== "live";
+    return !!s && s !== "ec73466" && s !== "dev" && s !== "live";
   }
   function verTuple(v) {
     return String(v || "").replace(/^v/, "").split(".").map((n) => parseInt(n, 10) || 0);
@@ -26897,6 +26937,8 @@
         reflectTurns: 0,
         thornsVitPct: 0,
         thornsVitTurns: 0,
+        tithePct: 0,
+        titheTurns: 0,
         dodgeChance: 0,
         dodgeTurns: 0,
         regrowthPct: 0,
@@ -27900,6 +27942,10 @@
         p.buffs.thornsVitPct = tech.buff.thornsVitPct;
         p.buffs.thornsVitTurns = tech.buff.turns || 1;
       }
+      if (tech.buff.tithePct) {
+        p.buffs.tithePct = tech.buff.tithePct;
+        p.buffs.titheTurns = tech.buff.turns || 1;
+      }
       if (tech.buff.dodgeChance) {
         p.buffs.dodgeChance = tech.buff.dodgeChance;
         p.buffs.dodgeTurns = tech.buff.turns || 1;
@@ -28896,6 +28942,11 @@
       regen0 += Math.round(p.hpMax * (p.buffs.regrowthPct || 0));
       p.buffs.regrowthTurns--;
     }
+    if (p.buffs.titheTurns > 0) {
+      const tgtT = combat.enemy && combat.enemy.hp > 0 ? combat.enemy : (combat.enemies || []).find((en) => en.hp > 0);
+      const stacksT = tgtT ? (tgtT.effects || []).reduce((a, ef) => a + (ef.stacks || 1), 0) : 0;
+      if (stacksT > 0) regen0 += Math.round(p.hpMax * Math.min(0.04, (p.buffs.tithePct || 0) * Math.min(8, stacksT)));
+    }
     if (regen0 > 0 && p.hp > 0 && p.hp < p.hpMax) {
       const before = p.hp;
       p.hp = Math.min(p.hpMax, p.hp + Math.round(regen0 * tribHealMult()));
@@ -28912,6 +28963,10 @@
     if (p.buffs.thornsVitTurns > 0) {
       p.buffs.thornsVitTurns--;
       if (p.buffs.thornsVitTurns === 0) p.buffs.thornsVitPct = 0;
+    }
+    if (p.buffs.titheTurns > 0) {
+      p.buffs.titheTurns--;
+      if (p.buffs.titheTurns === 0) p.buffs.tithePct = 0;
     }
     if (p.buffs.dodgeTurns > 0) {
       p.buffs.dodgeTurns--;
@@ -33907,6 +33962,11 @@
       if (c.buffs && c.buffs.dodgeTurns > 0) effTags += `<span class="rarity-tag rarity-legendary tip" data-tip="Mistwalk: +${Math.round((c.buffs.dodgeChance || 0) * 100)}% dodge for ${c.buffs.dodgeTurns} more round(s).">mistwalk ${c.buffs.dodgeTurns}</span>`;
       if (c.buffs && c.buffs.reflectTurns > 0) effTags += `<span class="rarity-tag rarity-legendary tip" data-tip="Avalanche Guard: +${Math.round((c.buffs.reflectPct || 0) * 100)}% of damage taken is reflected for ${c.buffs.reflectTurns} more round(s).">guard ${c.buffs.reflectTurns}</span>`;
       if (c.buffs && c.buffs.thornsVitTurns > 0) effTags += `<span class="rarity-tag tip" style="background:var(--jade);color:var(--parchment)" data-tip="Heartwood Thorns: every hit taken retaliates for ${Math.round((c.buffs.thornsVitPct || 0) * (c.hpMax || 0))} damage (${Math.round((c.buffs.thornsVitPct || 0) * 1e3) / 10}% of max Vitality) for ${c.buffs.thornsVitTurns} more round(s).">thorns ${c.buffs.thornsVitTurns}</span>`;
+      if (c.buffs && c.buffs.titheTurns > 0) {
+        const _ts = combat && combat.enemy && (combat.enemy.effects || []).reduce((a, ef) => a + (ef.stacks || 1), 0) || 0;
+        const _tr = Math.min(0.04, (c.buffs.tithePct || 0) * Math.min(8, _ts));
+        effTags += `<span class="rarity-tag tip" style="background:var(--crimson);color:var(--parchment)" data-tip="${escapeTip(`Healing ${Math.round(_tr * (c.hpMax || 0))} Vitality per turn (${(_tr * 100).toFixed(1)}% of max) — ${_ts} debuff stack(s) on your target, counting to 8. ${c.buffs.titheTurns} round(s) left.`)}">tithe ${c.buffs.titheTurns}</span>`;
+      }
       if (c.buffs && c.buffs.regrowthTurns > 0) effTags += `<span class="rarity-tag rarity-legendary tip" data-tip="Regrowth: healing ${Math.round((c.buffs.regrowthPct || 0) * 100)}% max Vitality per round for ${c.buffs.regrowthTurns} more round(s).">regrowth ${c.buffs.regrowthTurns}</span>`;
     }
     const brokenTag = broken ? `<span class="broken-banner tip" data-tip="Posture broken: qi damage to this combatant is doubled for ${c.broken} more turn${c.broken === 1 ? "" : "s"}.">Posture Broken — ${c.broken}</span>` : "";
