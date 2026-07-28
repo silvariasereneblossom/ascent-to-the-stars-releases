@@ -9188,6 +9188,13 @@
 
   // app/src/data/changelog.js
   var CHANGELOG = [
+    { v: "1.27.152", notes: [
+      "Dying to a fatal childhood choice no longer erases it from your story. The beat that ended the life was never recorded, so the cultivator you reincarnated into carried a story that simply stopped a stage early — birth and childhood, then nothing. Your Coming of Age is now written down, however it ended.",
+      'The tribulation failure message no longer contradicts itself. It said "failure 1/3" and "the next attempt will be the last" in the same breath; death comes on the THIRD failure, so after the first you still have two. It now tells you how many attempts actually remain.',
+      "Heaven's First Glare: the glare meter never once showed 3/3 — it smote while still reading 2/3, which looked like an off-by-one. It is now a plain countdown to the strike, and cannot disagree with itself.",
+      `Stat descriptions now describe what the stats do. Three of the six named mechanics that do not exist in the game: nothing scales technique-learning off Perception, there is no "technique compatibility", and "mental reach" was flavour for your Spirit pool. Perception actually governs qi regained each combat turn; Divine Sense is your Spirit pool; and Dao Heart's tribulation resistance is real — −0.5% tribulation damage per point, up to −40%.`,
+      "Journey drop lists now show how many of each material you already hold."
+    ] },
     { v: "1.27.151", notes: [
       "Your Vitality no longer reads 0 while you are still standing. Pools are tracked in fractions, and anything below half a point was being rounded down to a flat zero — so a cultivator clinging on at a fraction of a point looked dead. Zero now means empty, and nothing else.",
       "Sound and config settings no longer reset. They were stored INSIDE each save slot, so deleting a save deleted them, and switching slots swapped them. They describe your device, not your cultivator, so they now live on their own — your existing settings are carried over automatically.",
@@ -9408,18 +9415,21 @@
     return (s || "").replace(/"/g, "&quot;");
   }
   var STATS = [
-    { key: "spirit", name: "Spirit Root", zh: "灵根", desc: "Cultivation speed and technique compatibility." },
-    { key: "body", name: "Constitution", zh: "体魄", desc: "Body tempering, vitality, physical defense." },
-    { key: "mind", name: "Perception", zh: "悟性", desc: "Insight into the dao, technique learning speed." },
-    { key: "sense", name: "Divine Sense", zh: "神识", desc: "Qi control, mental reach, spiritual attacks." },
-    { key: "luck", name: "Fortune", zh: "气运", desc: "Encounter quality, loot, fateful moments." },
-    { key: "will", name: "Dao Heart", zh: "道心", desc: "Tribulation resistance, resolve under pressure." }
+    // Per-point VALUES are omitted where the live "+1 point →" preview beside the row already shows them —
+    // quoting the raw coefficient there would contradict it (spirit's base +8 qi reads as +149 once realm and
+    // core multipliers land). Only effects the preview does NOT cover carry their numbers here.
+    { key: "spirit", name: "Spirit Root", zh: "灵根", desc: "Max Qi, and cultivation speed." },
+    { key: "body", name: "Constitution", zh: "体魄", desc: "Max Vitality." },
+    { key: "mind", name: "Perception", zh: "悟性", desc: "Qi regained each combat turn (+1 per 6 points), and a little cultivation speed." },
+    { key: "sense", name: "Divine Sense", zh: "神识", desc: "Max Spirit — empty it and you take +30% damage." },
+    { key: "luck", name: "Fortune", zh: "气运", desc: "Better encounters and loot; more spirit stones per kill." },
+    { key: "will", name: "Dao Heart", zh: "道心", desc: "Max Posture, and −0.5% tribulation damage taken per point (to −40%)." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.151';
+  var GAME_VERSION = 'v1.27.152';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "931987a";
+  var BUILD_SHA = "2f18dbf";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -24837,7 +24847,7 @@
   var updateApplying = false;
   function runningShaKnown() {
     const s = typeof window !== "undefined" && window.BUILD_SHA;
-    return !!s && s !== "931987a" && s !== "dev" && s !== "live";
+    return !!s && s !== "2f18dbf" && s !== "dev" && s !== "live";
   }
   function verTuple(v) {
     return String(v || "").replace(/^v/, "").split(".").map((n) => parseInt(n, 10) || 0);
@@ -25608,8 +25618,10 @@
     const extra = uses.length - shown.length;
     const usedTip = uses.length ? `Used in: ${shown.join(", ")}${extra > 0 ? `, +${extra} more` : ""}` : "No craft uses this one yet — sell or hoard it.";
     const rar = mat.rarity ? ` <span class="rarity-tag rarity-${mat.rarity}">${mat.rarity}</span>` : "";
+    const held = state && state.base && state.base.materials && state.base.materials[matId] || 0;
+    const heldTag = ` <span style="color:${held > 0 ? "var(--gold)" : "var(--ink-soft)"};font-size:0.72rem">(have ${held})</span>`;
     return `<div style="margin:0.15rem 0">
-    <span class="tip" data-tip="${escapeTip(usedTip)}" style="color:var(--jade);cursor:help;text-decoration:underline dotted">${mat.name}</span>${rar}
+    <span class="tip" data-tip="${escapeTip(usedTip)}" style="color:var(--jade);cursor:help;text-decoration:underline dotted">${mat.name}</span>${rar}${heldTag}
     <span style="color:var(--ink-soft);font-size:0.72rem">— ${chanceNote} · used in ${uses.length} craft${uses.length === 1 ? "" : "s"}</span>
   </div>`;
   }
@@ -28444,7 +28456,8 @@
       const prose = `Some doors do not open on the third knock. ${charName}'s name is unstitched from the realm-list, and the next breath belongs to no one.`;
       setTimeout(() => dieRun(cause, prose, charName), 0);
     } else {
-      pushLog("defeat", `Tribulation failure ${fails}/3. The next attempt will be the last.`);
+      const _left = 3 - fails;
+      pushLog("defeat", `Tribulation failure ${fails}/3. ${_left === 1 ? "The next attempt is your last." : `${_left} attempts remain before the dao closes.`}`);
       saveChar();
     }
     render();
@@ -28777,11 +28790,12 @@
             const res = dealDamage(p, 0, { directHP: Math.round(p.hpMax * 0.22), attacker: e, attackerElement: "fire" });
             pushLog("hurt", `  → THE GLARE FALLS — heaven's full weight burns you for ${res.hpDamage}.`);
           } else {
-            pushLog("posture", `  → The glare intensifies (${s.glare}/3). Meditate to avert your eyes.`);
+            const _t = 3 - s.glare;
+            pushLog("posture", `  → The glare intensifies — ${_t === 1 ? "it smites NEXT TURN" : `${_t} turns until it smites`}. Meditate to avert your eyes.`);
           }
         } else if (phase === "playerMeditated" && s.glare > 0) {
           s.glare = Math.max(0, s.glare - 2);
-          pushLog("line", `  → You lower your eyes; the glare loses its grip (now ${s.glare}/3).`);
+          pushLog("line", `  → You lower your eyes; the glare loses its grip (${3 - s.glare} turns until it smites).`);
         }
         break;
       case "thunder_brand":
@@ -30376,6 +30390,10 @@
   function pickChildhoodBeat(stage, beatId) {
     const beat = CHILDHOOD_BEATS[stage][beatId];
     if (beat && beat.fatal) {
+      if (state && state.childhood) {
+        state.childhood.picks = state.childhood.picks || {};
+        state.childhood.picks[stage] = beatId;
+      }
       dieRun(beat.deathCause, beat.deathProse, "A would-be cultivator");
       return;
     }
@@ -33761,8 +33779,10 @@
     if (tmech) {
       const ts = combat.tribMechState || {};
       let meter = "";
-      if (tmech.key === "gathering_glare") meter = ` — glare ${ts.glare || 0}/3`;
-      else if (tmech.key === "thunder_brand") meter = ` — brand ${ts.brand || 0}/5`;
+      if (tmech.key === "gathering_glare") {
+        const _turns = 3 - (ts.glare || 0);
+        meter = _turns <= 1 ? ` — SMITES NEXT TURN` : ` — smites in ${_turns} turns`;
+      } else if (tmech.key === "thunder_brand") meter = ` — brand ${ts.brand || 0}/5 (detonates at 5)`;
       else if (tmech.key === "karmic_debt") meter = (ts.debt || 0) > 0 ? ` — debt mounting` : "";
       const mb = document.createElement("div");
       mb.style.cssText = "grid-column: 1 / -1; background: rgba(192,96,96,0.12); border: 1px solid var(--crimson); padding: 0.5rem 0.6rem; border-radius: 3px; font-size: 0.82rem; text-align: center;";
