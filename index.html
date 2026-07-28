@@ -9188,6 +9188,11 @@
 
   // app/src/data/changelog.js
   var CHANGELOG = [
+    { v: "1.27.150", notes: [
+      "The damage number on your action buttons is now the real one. It was being worked out by a separate, much shorter calculation that stopped after your weapon and school and ignored everything else your build does — cultivator might, body cultivation, weapon refinement, elemental matchups, the demonic bonus, turn-by-turn ramps, and the execute bonuses for breaking a foe’s stance or soul. The more you had invested, the more wrong it got: roughly a quarter low at Qi Condensation and up to four times low at Golden Core.",
+      "It now runs the exact same code the strike itself runs, against the foe you are actually facing — so it accounts for their qi barrier and defences, and it moves as the fight moves: watch it climb as you pile on debuffs, tear down a spirit, or shatter a stance. The tooltip breaks out how much lands on Vitality versus the barrier. Critical strikes are still not included, since those are a roll rather than a promise.",
+      "The Strike button was wrong the same way — it advertised bare weapon damage and ignored your strike bonuses (and, for a Demon-Heart, the second strike entirely). It is now accurate too."
+    ] },
     { v: "1.27.149", notes: [
       'Fixed the update check reporting "this is a local build — nothing to compare against" and then never updating. It was identifying your build by an internal stamp that only gets applied on one specific path, so any copy that arrived another way could never tell whether it was current. It now compares plain version numbers, which every copy carries — so "Check for Updates Now" works on desktop, web and Android alike, and tells you which version it found.'
     ] },
@@ -9403,10 +9408,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Tribulation resistance, resolve under pressure." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.149';
+  var GAME_VERSION = 'v1.27.150';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "5a05071";
+  var BUILD_SHA = "2cc383e";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -24792,7 +24797,7 @@
   var updateApplying = false;
   function runningShaKnown() {
     const s = typeof window !== "undefined" && window.BUILD_SHA;
-    return !!s && s !== "5a05071" && s !== "dev" && s !== "live";
+    return !!s && s !== "2cc383e" && s !== "dev" && s !== "live";
   }
   function verTuple(v) {
     return String(v || "").replace(/^v/, "").split(".").map((n) => parseInt(n, 10) || 0);
@@ -27273,13 +27278,14 @@
         }
       }
     }
+    const _preview = !!(ctx && ctx.preview);
     let critChance = (m.critChance || 0) + markCrit + (p.buffs && p.buffs.critTurns > 0 ? p.buffs.critChance || 0 : 0);
     if (kit.celestialSight && combat && dmg > 0) {
       const tierC = state.realm && state.realm.tierIdx || 0;
       critChance += 0.15 + 0.05 * tierC + (0.03 + 0.02 * tierC) * (combat.celestialHits || 0);
-      combat.celestialHits = (combat.celestialHits || 0) + 1;
+      if (!_preview) combat.celestialHits = (combat.celestialHits || 0) + 1;
     }
-    if (critChance > 0 && Math.random() < critChance) {
+    if (!_preview && critChance > 0 && Math.random() < critChance) {
       dmg *= m.critMult || 1.5;
       ctx.crit = true;
     }
@@ -27502,6 +27508,97 @@
     const mult = p && p.mods && p.mods.hpCostMult != null ? p.mods.hpCostMult : 1;
     return Math.max(1, Math.round(maxHp * hpCostPct(tech, mult)));
   }
+  function techBaseDamage(p, tech, techId, opts) {
+    const preview = !!(opts && opts.preview);
+    let dmg = p.weaponPower * (tech.damage || 0) * (p.mods.techDamageMult || 1);
+    const hm0 = heritageMech();
+    const sDmg = techSchoolOf(tech);
+    if (hm0.schoolDamageMult && hm0.schoolDamageMult[sDmg]) dmg *= hm0.schoolDamageMult[sDmg];
+    if (p.mods.schoolDamageMult && p.mods.schoolDamageMult[sDmg]) dmg *= p.mods.schoolDamageMult[sDmg];
+    if (hm0.rivalDamageMult && combat.enemyId && RIVAL_ENEMY_IDS.has(combat.enemyId)) dmg *= hm0.rivalDamageMult;
+    if (p.buffs.nextDamageTurns > 0 && dmg > 0) {
+      dmg *= p.buffs.nextDamageMult;
+      if (!preview) {
+        p.buffs.nextDamageTurns = 0;
+        p.buffs.nextDamageMult = 1;
+        pushLog("posture", `The waiting edge joins the blow.`);
+      }
+    }
+    if (tech.damageFalloffPct) {
+      const fUses = combat.techUses && combat.techUses[techId] || 0;
+      dmg *= Math.max(0.1, 1 - tech.damageFalloffPct * fUses);
+      if (!preview) {
+        combat.techUses = combat.techUses || {};
+        combat.techUses[techId] = fUses + 1;
+      }
+    }
+    return dmg;
+  }
+  function previewTargetClone(t) {
+    const c = Object.assign({}, t);
+    c.effects = (t.effects || []).map((ef) => Object.assign({}, ef));
+    c.buffs = Object.assign({}, t.buffs || {});
+    return c;
+  }
+  function techniqueDamageEstimate(p, tech, techId) {
+    if (!combat || !(tech.damage > 0)) return null;
+    const tgt = combat.enemy && combat.enemy.hp > 0 ? combat.enemy : (combat.enemies || []).find((en) => en.hp > 0);
+    if (!tgt) return null;
+    const isAoe = tech.target === "aoe";
+    let dmg = techBaseDamage(p, tech, techId, { preview: true }) * (isAoe ? 0.7 : 1);
+    if (tech.consumeBonus && tgt.effects) {
+      const ce = tgt.effects.find((ef) => ef.kind === tech.consumeBonus.kind);
+      if (ce) dmg *= 1 + tech.consumeBonus.perStack * (ce.stacks || 1);
+    }
+    if (tech.effectScale && tgt.effects && tgt.effects.length) {
+      const stacks = tgt.effects.reduce((a, ef) => a + (ef.stacks || 1), 0);
+      dmg *= 1 + (tech.effectScale.perEffect || 0.25) * Math.min(tech.effectScale.max || 10, stacks);
+    }
+    if (isDemonHeart(state) && !isAoe && techId === "demon_ascendant") {
+      const hf = (tgt.effects || []).find((ef) => ef.kind === "hellfire");
+      const st = hf ? hf.stacks || 1 : 0;
+      if (st >= 10) dmg *= 1 + 0.2 * st;
+    }
+    let pierce = tech.pierceQi || 0;
+    const hmP = heritageMech();
+    const sP = techSchoolOf(tech);
+    if (hmP.schoolPierceBonus && hmP.schoolPierceBonus[sP]) pierce = Math.min(1, pierce + hmP.schoolPierceBonus[sP]);
+    {
+      const _k = schoolKit();
+      if (_k.techPierceBonus) pierce = Math.min(1, pierce + _k.techPierceBonus);
+    }
+    const clone = previewTargetClone(tgt);
+    let hp = 0, qi = 0;
+    for (let h = 0; h < (tech.hits || 1); h++) {
+      const outgoing = applyPlayerOutgoingMods(p, dmg, clone, { instant: tech.instant, preview: true });
+      const res = dealDamage(clone, outgoing, {
+        directHP: h === 0 ? tech.directHP || 0 : 0,
+        directSpirit: h === 0 ? (tech.directSpirit || 0) * (p.mods.spiritDamageMult || 1) : 0,
+        pierceQi: pierce
+      });
+      hp += res.hpDamage;
+      qi += res.qiAbsorbed;
+    }
+    return { total: Math.round(hp + qi), hp: Math.round(hp), qi: Math.round(qi) };
+  }
+  function strikeDamageEstimate(p) {
+    if (!combat) return 0;
+    const tgt = combat.enemy && combat.enemy.hp > 0 ? combat.enemy : (combat.enemies || []).find((en) => en.hp > 0);
+    if (!tgt) return 0;
+    let base = p.weaponPower * 1.5 * (p.mods.strikeDamageMult || 1) * boonStrikeMult();
+    if (p.buffs.nextDamageTurns > 0) base *= p.buffs.nextDamageMult;
+    const strikes = isDemonHeart(state) ? 2 : 1;
+    const hpFrac0 = p.hpMax > 0 ? p.hp / p.hpMax : 1;
+    const secondMult = 0.4 + 0.6 * Math.max(0, Math.min(1, (1 - hpFrac0) / 0.75));
+    const clone = previewTargetClone(tgt);
+    let total = 0;
+    for (let si = 0; si < strikes; si++) {
+      const out = applyPlayerOutgoingMods(p, base * (si === 0 ? 1 : secondMult), clone, { preview: true });
+      const res = dealDamage(clone, out, {});
+      total += res.hpDamage + res.qiAbsorbed;
+    }
+    return Math.round(total);
+  }
   function playerTechnique(techId) {
     if (combat.over) return;
     const p = combat.player, e = combat.enemy;
@@ -27519,24 +27616,9 @@
     const _cdKit = schoolKit();
     const _ctrlCd = tech.effect || tech.statusList ? _cdKit.techCdBonus || 0 : 0;
     p.cooldowns[techId] = tech.cd + 1 + _ctrlCd;
-    let dmg = p.weaponPower * (tech.damage || 0) * (p.mods.techDamageMult || 1);
+    let dmg = techBaseDamage(p, tech, techId);
     const hm0 = heritageMech();
     const sDmg = techSchoolOf(tech);
-    if (hm0.schoolDamageMult && hm0.schoolDamageMult[sDmg]) dmg *= hm0.schoolDamageMult[sDmg];
-    if (p.mods.schoolDamageMult && p.mods.schoolDamageMult[sDmg]) dmg *= p.mods.schoolDamageMult[sDmg];
-    if (hm0.rivalDamageMult && combat.enemyId && RIVAL_ENEMY_IDS.has(combat.enemyId)) dmg *= hm0.rivalDamageMult;
-    if (p.buffs.nextDamageTurns > 0 && dmg > 0) {
-      dmg *= p.buffs.nextDamageMult;
-      p.buffs.nextDamageTurns = 0;
-      p.buffs.nextDamageMult = 1;
-      pushLog("posture", `The waiting edge joins the blow.`);
-    }
-    if (tech.damageFalloffPct) {
-      combat.techUses = combat.techUses || {};
-      const fUses = combat.techUses[techId] || 0;
-      dmg *= Math.max(0.1, 1 - tech.damageFalloffPct * fUses);
-      combat.techUses[techId] = fUses + 1;
-    }
     const isAoe = tech.target === "aoe";
     const targets = isAoe ? combat.enemies.filter((en) => en.hp > 0) : [e];
     const targetDmgMult = isAoe ? 0.7 : 1;
@@ -33646,9 +33728,10 @@
     if (!isSurvival) {
       const strikeBtn = document.createElement("button");
       strikeBtn.className = "action-btn basic tip";
-      strikeBtn.setAttribute("data-tip", `Weapon strike — ${Math.round(p.weaponPower * 1.5)} damage, +10 posture, no qi cost, no cooldown. Your reliable fallback and a solid posture builder.`);
+      const strikeEst = strikeDamageEstimate(p);
+      strikeBtn.setAttribute("data-tip", `Weapon strike — ~${strikeEst} damage against your current target, +10 posture, no qi cost, no cooldown. Your reliable fallback and a solid posture builder.`);
       strikeBtn.dataset.key = "strike";
-      strikeBtn.innerHTML = `<span class="name">${keyCap("Spc")}Strike</span><span class="meta">${Math.round(p.weaponPower * 1.5)} dmg · free</span>`;
+      strikeBtn.innerHTML = `<span class="name">${keyCap("Spc")}Strike</span><span class="meta">${strikeEst} dmg · free</span>`;
       strikeBtn.onclick = playerStrike;
       grid2.appendChild(strikeBtn);
     }
@@ -33690,15 +33773,12 @@
         const btn = document.createElement("button");
         btn.className = "action-btn tip";
         const isAoeBtn = t.target === "aoe";
-        let est = p.weaponPower * (t.damage || 0) * (p.mods.techDamageMult || 1);
-        const hmB = heritageMech();
-        const sB = techSchoolOf(t);
-        if (hmB.schoolDamageMult && hmB.schoolDamageMult[sB]) est *= hmB.schoolDamageMult[sB];
-        if (p.mods.schoolDamageMult && p.mods.schoolDamageMult[sB]) est *= p.mods.schoolDamageMult[sB];
-        est = Math.round(est * (t.hits || 1) * (isAoeBtn ? 0.7 : 1));
+        const estObj = techniqueDamageEstimate(p, t, tid);
+        const est = estObj ? estObj.total : 0;
         const fxInfo = t.effect && STATUS_INFO[t.effect] ? STATUS_INFO[t.effect] : t.statusList && t.statusList.length && STATUS_INFO[t.statusList[0].kind] ? STATUS_INFO[t.statusList[0].kind] : null;
-        const numbers = `${est > 0 ? `~${est} damage${isAoeBtn ? " per target" : ""} · ` : ""}${t.postureBuild ? `+${t.postureBuild} posture · ` : ""}cooldown ${t.cd}`;
-        btn.setAttribute("data-tip", `[${isAoeBtn ? "AOE — hits every standing enemy at 70% damage" : "Single-target"}] ${numbers}. ${t.desc}`);
+        const splitNote = estObj && estObj.qi > 0 ? ` (${estObj.hp} Vitality + ${estObj.qi} off the qi barrier)` : "";
+        const numbers = `${est > 0 ? `~${est} damage${isAoeBtn ? " per target" : ""}${splitNote} · ` : ""}${t.postureBuild ? `+${t.postureBuild} posture · ` : ""}cooldown ${t.cd}`;
+        btn.setAttribute("data-tip", `[${isAoeBtn ? "AOE — hits every standing enemy at 70% damage" : "Single-target"}] ${numbers}. Measured against your CURRENT target with your full build applied, so it moves as the fight does; a critical strike lands for more. ${t.desc}`);
         const cdLabel = locked ? " · chained" : sealed ? " · sealed" : cd > 0 ? ` · cd ${cd}` : "";
         const hpLabel = effHp ? ` · ${effHp} Vitality` : "";
         const tgtLabel = isAoeBtn ? " · AOE" : " · ST";
