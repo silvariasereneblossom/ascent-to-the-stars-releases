@@ -9188,6 +9188,11 @@
 
   // app/src/data/changelog.js
   var CHANGELOG = [
+    { v: "1.27.154", notes: [
+      "Your debuffs now scale with your weapon. Many were written as fixed numbers, which meant they quietly died as you climbed: a bleed worth 5% of a Mortal foe's Vitality was worth 0.01% of a Spirit-Severing foe's, and a qi-drain that once emptied a third of an enemy's reserves came to take under 1%. Every debuff with a real magnitude — bleeds, burns, poisons, leeches, qi drains, entangles, spirit resonance — now has a floor that rises with your weapon power.",
+      "This is a floor, never a cut: where the written value is already higher (which is everywhere in the early realms) nothing changes at all. Percentage debuffs like chill, sunder and marks are untouched, since a multiplier does not decay.",
+      "Biggest effect on the pools that stay small: spirit resonance roughly triples at Spirit Severing, and qi drains improve about fivefold — so grinding a foe toward a soul-break or starving its casting is worth doing again at high realm."
+    ] },
     { v: "1.27.153", notes: [
       "Two new Sect Arts for the long grind, for cultivators whose fights are won by wearing a foe down rather than bursting it. HOLLOW TITHE (Core Disciple, 500 contribution) writes a debt into the foe: it bleeds Vitality to you every turn for 5 turns, and pays out over the length of the fight rather than up front. TITHE OF THE BOUND (True Inheritor, 1,600 contribution) is a free action — for 6 turns you heal 0.5% of max Vitality per turn for every debuff stack riding your target, up to 4% a turn at eight stacks. A foe you have ground down keeps you standing; an unmarked one gives you nothing.",
       "Both are Sect Arts rather than school techniques, so any school can learn them, and both count as techniques of YOUR school for bonuses. Control schools that extend debuff durations get a longer Hollow Tithe automatically."
@@ -9430,10 +9435,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Max Posture, and −0.5% tribulation damage taken per point (to −40%)." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.153';
+  var GAME_VERSION = 'v1.27.154';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "ec73466";
+  var BUILD_SHA = "80f56f5";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -24887,7 +24892,7 @@
   var updateApplying = false;
   function runningShaKnown() {
     const s = typeof window !== "undefined" && window.BUILD_SHA;
-    return !!s && s !== "ec73466" && s !== "dev" && s !== "live";
+    return !!s && s !== "80f56f5" && s !== "dev" && s !== "live";
   }
   function verTuple(v) {
     return String(v || "").replace(/^v/, "").split(".").map((n) => parseInt(n, 10) || 0);
@@ -27419,12 +27424,19 @@
       }
     }
   }
+  var STATUS_WP_FLOOR = { bleed: 0.1, burn: 0.14, poison: 0.1, leech: 0.15, qi_drain: 0.5, entangle: 0.5, resonance: 1.4 };
+  function statusWpFloor(p, kind, dotAmp) {
+    const coef = STATUS_WP_FLOOR[kind];
+    if (!coef || !p) return 0;
+    return Math.round((p.weaponPower || 0) * coef * (DOT_KINDS.has(kind) ? dotAmp : 1));
+  }
   function playerStatusValue(p, tech) {
     const dotAmp = p.mods && p.mods.dotMult || 1;
     if (tech.effectPower) return Math.max(1, Math.round(p.weaponPower * tech.effectPower * dotAmp));
     let v = tech.effectValue || 0;
     if (tech.effect === "resonance") v = Math.round(v * (1 + (state.realm.tierIdx || 0) * 0.5));
     if (DOT_KINDS.has(tech.effect)) v = Math.max(1, Math.round(v * dotAmp));
+    if (v > 0) v = Math.max(v, statusWpFloor(p, tech.effect, dotAmp));
     return v;
   }
   var DOT_KINDS = /* @__PURE__ */ new Set(["burn", "poison", "bleed", "leech"]);
@@ -27888,7 +27900,8 @@
       }
       if (tech.statusList) {
         tech.statusList.forEach((s) => {
-          if (applyStatusTo(tgt, s.kind, s.value, s.turns + (kit.debuffTurnsBonus || 0), tech.name) && STATUS_INFO[s.kind]) {
+          const sVal = s.value > 0 ? Math.max(s.value, statusWpFloor(p, s.kind, p.mods && p.mods.dotMult || 1)) : s.value;
+          if (applyStatusTo(tgt, s.kind, sVal, s.turns + (kit.debuffTurnsBonus || 0), tech.name) && STATUS_INFO[s.kind]) {
             pushLog("flavor", `  → ${tgt.name}: ${STATUS_INFO[s.kind].label}.`);
           }
         });
