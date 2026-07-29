@@ -9188,6 +9188,9 @@
 
   // app/src/data/changelog.js
   var CHANGELOG = [
+    { v: "1.27.160", notes: [
+      "The Disassembly screen now shows everything you own by default, not just your current realm. It opened filtered to one exact realm, so a Golden Core cultivator saw six of her twenty-seven breakable items and a button offering to break down only those six — with every scrap of lower-realm junk, the whole reason to open the screen, hidden behind a filter chip. Scrapping is a cross-realm chore, so it now starts on View All. Picking a realm still works and is still remembered."
+    ] },
     { v: "1.27.159", notes: [
       "Fixed artifacts that could never be disassembled. If you owned several copies of an artifact and one of them was equipped, EVERY copy refused to break down — and it failed silently: the spares were listed, priced, and clicked, and simply nothing happened. Only the copies actually equipped are protected now; the rest break down as they always should have. Anything that was stuck is free immediately, with no action needed.",
       "This is the same fault already fixed for armour and for weapons. Those were corrected where the game decides what to OFFER you; this one was in the code that performs the break itself, which is why it survived the earlier sweep. All four item types have now been checked on both sides."
@@ -9462,10 +9465,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Max Posture, and −0.5% tribulation damage taken per point (to −40%)." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.159';
+  var GAME_VERSION = 'v1.27.160';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "7b307c7";
+  var BUILD_SHA = "5ba2f42";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -24969,7 +24972,7 @@
   var updateApplying = false;
   function runningShaKnown() {
     const s = typeof window !== "undefined" && window.BUILD_SHA;
-    return !!s && s !== "7b307c7" && s !== "dev" && s !== "live";
+    return !!s && s !== "5ba2f42" && s !== "dev" && s !== "live";
   }
   function verTuple(v) {
     return String(v || "").replace(/^v/, "").split(".").map((n) => parseInt(n, 10) || 0);
@@ -29180,12 +29183,14 @@
       }
     };
   }
+  var REALM_TAB_DEFAULT_ALL = /* @__PURE__ */ new Set(["disassemblyRealm"]);
   function selectedRealmTab(uiKey) {
     if (!state.ui) state.ui = {};
     const v = state.ui[uiKey];
     if (v === "all") return "all";
     const maxT = state.realm.tierIdx || 0;
     if (typeof v === "number" && v >= 0 && v <= 6) return v;
+    if (REALM_TAB_DEFAULT_ALL.has(uiKey)) return "all";
     return Math.min(maxT, 6);
   }
   function realmTabShows(uiKey, tier) {
