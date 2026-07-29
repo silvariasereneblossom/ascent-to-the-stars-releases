@@ -9188,6 +9188,12 @@
 
   // app/src/data/changelog.js
   var CHANGELOG = [
+    { v: "1.27.156", notes: [
+      "SOUL-BREAK TECHNIQUES NOW SCALE. Every technique that damages Spirit directly carried a fixed number — 26 Spirit meant a third of a Qi-Condensation foe's soul and one tenth of one percent of a Spirit-Severing boss's. They now rend a SHARE of the target's maximum Spirit instead, so a soul-break move stays a soul-break move at every realm. Soul-Rending Claw, for one, now takes a steady ~7.5% of a boss's Spirit at any realm, where it used to fall from 3.6% to 0.2%.",
+      "DEVOURER'S CROWN GROWS WITH YOU. Its full-hellfire rend was tied to raw weapon power, which climbs far slower than the Spirit pools it has to empty — a fully-branded Crown ended a Qi-Condensation boss outright but took under a tenth of a Spirit-Severing boss's soul. It now also rends a share of the target's maximum Spirit that widens as you ascend, from a tenth at Mortal to well over a fifth at Spirit Severing. The Crown does not get replaced by a bigger Crown — it grows into one.",
+      "NEW DEMON-HEART PASSIVE — THE LAST COURSE (Golden Core). +45% damage to SOUL-BROKEN foes, but your hellfire brand holds two fewer stacks. You reach full hellfire — and the soul-break rend — sooner, at the price of a weaker Crown detonation. Break early and hit often, or hold the full brand and end it in one blow.",
+      'The "+X% against soul-broken foes" effect is a new channel other skills and gear can use, on top of the universal +30% a broken soul already takes.'
+    ] },
     { v: "1.27.155", notes: [
       "SOUL-BREAK NOW PUTS A FOE ON A TIMER. Empty an enemy's Spirit and every damage-over-time on it stops scaling off your weapon and starts eating 1% of its MAX Vitality per stack, per turn. Against a boss that is the difference between a rounding error and a clock: a stacker running bleed and burn together can burn one down by attrition alone. Soul-break already made everything hurt 30% more; now it also means the rot finishes the job.",
       "This applies only to foes. You can be soul-broken too, and percentage-of-max damage-over-time on a cultivator with one life would be an execution rather than a mechanic.",
@@ -9441,10 +9447,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Max Posture, and −0.5% tribulation damage taken per point (to −40%)." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.155';
+  var GAME_VERSION = 'v1.27.156';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "0fc72c8";
+  var BUILD_SHA = "cfc6ed6";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -11464,6 +11470,26 @@
         m.lifestealPct += 0.05;
       },
       desc: "PASSIVE. The soul is the sweeter meat: +40% Spirit damage and +5% lifesteal."
+    },
+    // v1.27.156 (operator: "the tradeoff would become losing some utility or stacking power"). The execution
+    // spec, and a real fork rather than a free upgrade: a smaller brand reaches FULL hellfire two casts sooner
+    // — so the damage-into-spirit rend comes online faster and the break lands earlier — but the Crown's
+    // detonation scales off the stack COUNT, so every finisher you throw lands softer. Break sooner, hit less;
+    // or keep the full brand and break late. Available to any Demon-Heart, costing the slot that would have
+    // bought utility.
+    demon_p_last_course: {
+      name: "The Last Course",
+      zh: "末膳",
+      school: "demon_heart",
+      minRealmTier: 4,
+      passive: true,
+      applyMods: (m) => {
+        m.vsSoulBrokenMult *= 1.45;
+      },
+      kitMod: (k) => {
+        k.stackCapBonus = Object.assign({}, k.stackCapBonus, { hellfire: ((k.stackCapBonus || {}).hellfire || 0) - 2 });
+      },
+      desc: "PASSIVE. You eat the soul first and the rest at leisure: +45% damage to SOUL-BROKEN foes, but your hellfire brand holds 2 fewer stacks — you reach full hellfire (and the soul-break rend) sooner, at the cost of a weaker Crown detonation."
     },
     // ============ Starfall Archers — the sky keeps appointments ============
     star_arrow_named: {
@@ -13826,6 +13852,8 @@
       // v0.89: multiplicative max-Vitality bonus (Vitality%), defensive-style stat
       qiDamageMult: 1,
       // v1.27: bonus damage to a foe's QI BARRIER — anti-caster focus builds drain/break it faster
+      vsSoulBrokenMult: 1,
+      // v1.27.156: damage multiplier against a SOUL-BROKEN foe — the finisher channel (build, break, execute)
       qiDrainPct: 0,
       // v1.27.2: on every hit, drain this % of the foe's MAX qi (starves casting; shrinks the barrier). Gear/class specialization, not a default.
       qiBonus: 0,
@@ -24916,7 +24944,7 @@
   var updateApplying = false;
   function runningShaKnown() {
     const s = typeof window !== "undefined" && window.BUILD_SHA;
-    return !!s && s !== "0fc72c8" && s !== "dev" && s !== "live";
+    return !!s && s !== "cfc6ed6" && s !== "dev" && s !== "live";
   }
   function verTuple(v) {
     return String(v || "").replace(/^v/, "").split(".").map((n) => parseInt(n, 10) || 0);
@@ -27382,6 +27410,7 @@
       dmg *= 1 + _dsRate * Math.min(12, target.effects.reduce((a, ef) => a + (ef.stacks || 1), 0));
     }
     if (state.selectedSchool === "verdant_monastery") dmg *= 1.3;
+    if (m.vsSoulBrokenMult && target && target.spiritMax > 0 && target.spirit <= 0) dmg *= m.vsSoulBrokenMult;
     if (state.selectedSchool === "bone_reed" && target) {
       const soulBroken = target.spiritMax > 0 && target.spirit <= 0;
       const postureBroken = (target.broken || 0) > 0;
@@ -27717,7 +27746,10 @@
       const outgoing = applyPlayerOutgoingMods(p, dmg, clone, ctx);
       const res = dealDamage(clone, outgoing, {
         directHP: h === 0 ? tech.directHP || 0 : 0,
-        directSpirit: h === 0 ? (tech.directSpirit || 0) * (p.mods.spiritDamageMult || 1) : 0,
+        directSpirit: h === 0 ? Math.max(
+          (tech.directSpirit || 0) * (p.mods.spiritDamageMult || 1),
+          Math.round(Math.min(0.1, (tech.directSpirit || 0) / 400) * (clone.spiritMax || 0) * (p.mods.spiritDamageMult || 1))
+        ) : 0,
         pierceQi: pierce
       });
       hp += res.hpDamage;
@@ -27777,13 +27809,18 @@
       const _k = schoolKit();
       if (_k.techPierceBonus) pierce = Math.min(1, pierce + _k.techPierceBonus);
     }
+    const directSpiritPct = Math.min(0.1, (tech.directSpirit || 0) / 400);
     let directSpiritAmt = (tech.directSpirit || 0) * (p.mods.spiritDamageMult || 1);
     let dhHellStacks = 0, dhDetonateMult = 1, dhDetonated = false;
     if (isDemonHeart(state) && !isAoe) {
       const dhHf = (e.effects || []).find((ef) => ef.kind === "hellfire");
       dhHellStacks = dhHf ? dhHf.stacks || 1 : 0;
       if (techId === "demon_ascendant" && dhHellStacks >= playerStackCap("hellfire")) {
-        directSpiritAmt += Math.round(p.weaponPower * 0.8 * (p.mods.spiritDamageMult || 1));
+        const _crownPct = 0.1 + 0.02 * (state.realm && state.realm.tierIdx || 0);
+        directSpiritAmt += Math.max(
+          Math.round(p.weaponPower * 0.8 * (p.mods.spiritDamageMult || 1)),
+          Math.round(_crownPct * (e.spiritMax || 0) * (p.mods.spiritDamageMult || 1))
+        );
       }
       if (techId === "demon_ascendant" && dhHellStacks >= 10) {
         dhDetonateMult = 1 + 0.2 * dhHellStacks;
@@ -27828,9 +27865,13 @@
         const ctx = { instant: tech.instant };
         tdmg = applyPlayerOutgoingMods(p, tdmg, tgt, ctx);
         if (tdmg > 0 || h === 0 && (tech.directHP || tech.directSpirit || directSpiritAmt)) {
+          const dsHere = Math.max(
+            directSpiritAmt,
+            Math.round(directSpiritPct * (tgt.spiritMax || 0) * (p.mods.spiritDamageMult || 1))
+          );
           const res = dealDamage(tgt, tdmg, {
             directHP: h === 0 ? tech.directHP || 0 : 0,
-            directSpirit: h === 0 ? directSpiritAmt : 0,
+            directSpirit: h === 0 ? dsHere : 0,
             pierceQi: pierce
           });
           if (ctx.crit) pushLog("posture", `  → critical strike!`);
