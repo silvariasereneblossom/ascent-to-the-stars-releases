@@ -9188,9 +9188,14 @@
 
   // app/src/data/changelog.js
   var CHANGELOG = [
+    { v: "1.27.157", notes: [
+      "THE LATE-REALM FINISHERS NOW EARN THEIR PLACE. The Devourer&rsquo;s Crown stays what it always was — the Golden-Core-era execution. The Nascent Soul and Spirit Severing finishers carry the weight after it, each in its own way rather than by being a bigger Crown.",
+      "PARASITE COURT (Nascent Soul) hits harder, lands far heavier stance pressure, and the seizure of office now costs the target its next action outright — a one-turn stun on a long cooldown. The control finisher.",
+      "THE PALACE OPENS ITS DOORS (Spirit Severing) is the reliable hammer: substantially more damage, and enough posture weight to shatter a stance on its own, with no setup required.",
+      "HUNGER OF THE WORLD (Spirit Severing capstone) devours a Hellfire brand far more greedily — nearly double what it took before, per stack. On a full brand it now eclipses the Crown outright, which is what a capstone should do."
+    ] },
     { v: "1.27.156", notes: [
       "SOUL-BREAK TECHNIQUES NOW SCALE. Every technique that damages Spirit directly carried a fixed number — 26 Spirit meant a third of a Qi-Condensation foe's soul and one tenth of one percent of a Spirit-Severing boss's. They now rend a SHARE of the target's maximum Spirit instead, so a soul-break move stays a soul-break move at every realm. Soul-Rending Claw, for one, now takes a steady ~7.5% of a boss's Spirit at any realm, where it used to fall from 3.6% to 0.2%.",
-      "DEVOURER'S CROWN GROWS WITH YOU. Its full-hellfire rend was tied to raw weapon power, which climbs far slower than the Spirit pools it has to empty — a fully-branded Crown ended a Qi-Condensation boss outright but took under a tenth of a Spirit-Severing boss's soul. It now also rends a share of the target's maximum Spirit that widens as you ascend, from a tenth at Mortal to well over a fifth at Spirit Severing. The Crown does not get replaced by a bigger Crown — it grows into one.",
       "NEW DEMON-HEART PASSIVE — THE LAST COURSE (Golden Core). +45% damage to SOUL-BROKEN foes, but your hellfire brand holds two fewer stacks. You reach full hellfire — and the soul-break rend — sooner, at the price of a weaker Crown detonation. Break early and hit often, or hold the full brand and end it in one blow.",
       'The "+X% against soul-broken foes" effect is a new channel other skills and gear can use, on top of the universal +30% a broken soul already takes.'
     ] },
@@ -9447,10 +9452,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Max Posture, and −0.5% tribulation damage taken per point (to −40%)." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.156';
+  var GAME_VERSION = 'v1.27.157';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "cfc6ed6";
+  var BUILD_SHA = "c4be9a4";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -11347,12 +11352,13 @@
       minRealmTier: 5,
       qi: 28,
       cd: 3,
-      damage: 6.6,
-      postureBuild: 18,
+      damage: 7.4,
+      postureBuild: 30,
       effect: "leech",
       effectPower: 0.4,
       effectTurns: 3,
-      desc: "Install a whole bureaucracy of appetite: heavy damage and a 40%-power Leech holding session for 3 turns.",
+      statusList: [{ kind: "shock", value: 0, turns: 1 }],
+      desc: "Install a whole bureaucracy of appetite: heavy damage, a wave of posture pressure, and a 40%-power Leech holding session for 3 turns. The seizure of office costs the target its next action.",
       logHit: (a, t) => `${a} appoints officials inside ${t}. They begin collecting taxes immediately.`
     },
     demon_p5_deep_cellar: {
@@ -11376,12 +11382,12 @@
       minRealmTier: 6,
       qi: 40,
       cd: 4,
-      damage: 9,
-      postureBuild: 22,
+      damage: 11,
+      postureBuild: 36,
       effect: "leech",
       effectPower: 0.5,
       effectTurns: 3,
-      desc: "The doors it never needed open ONCE, outward: enormous damage and a half-power Leech. Dinner is served.",
+      desc: "The doors it never needed open ONCE, outward: enormous damage, stance-shattering weight, and a half-power Leech. Dinner is served.",
       logHit: (a, t) => `Doors that ${t} cannot see swing wide. ${a} stands in them, patient as an invitation.`
     },
     demon_p6_first_heresy: {
@@ -11434,12 +11440,12 @@
       cd: 4,
       damage: 8.4,
       pierceQi: 0.5,
-      postureBuild: 20,
-      consumeBonus: { kind: "hellfire", perStack: 0.12 },
+      postureBuild: 30,
+      consumeBonus: { kind: "hellfire", perStack: 0.22 },
       effect: "leech",
       effectPower: 0.5,
       effectTurns: 3,
-      desc: "The appetite that outlives realms: tears through qi shields, devours any Hellfire for bonus damage, and sinks a deep half-power Leech. SS capstone.",
+      desc: "The appetite that outlives realms: tears through qi shields, devours any Hellfire for +22% damage per stack, and sinks a deep half-power Leech. On a full brand it eclipses the Crown — the capstone finisher.",
       logHit: (a, t) => `${a} opens a hunger the size of a missing world. ${t} tilts toward it.`
     },
     // v1.9: the SOUL-BREAK path — drive the enemy's spirit to 0 (soul-break = +30% damage taken) and drink it.
@@ -24944,7 +24950,7 @@
   var updateApplying = false;
   function runningShaKnown() {
     const s = typeof window !== "undefined" && window.BUILD_SHA;
-    return !!s && s !== "cfc6ed6" && s !== "dev" && s !== "live";
+    return !!s && s !== "c4be9a4" && s !== "dev" && s !== "live";
   }
   function verTuple(v) {
     return String(v || "").replace(/^v/, "").split(".").map((n) => parseInt(n, 10) || 0);
@@ -27816,11 +27822,7 @@
       const dhHf = (e.effects || []).find((ef) => ef.kind === "hellfire");
       dhHellStacks = dhHf ? dhHf.stacks || 1 : 0;
       if (techId === "demon_ascendant" && dhHellStacks >= playerStackCap("hellfire")) {
-        const _crownPct = 0.1 + 0.02 * (state.realm && state.realm.tierIdx || 0);
-        directSpiritAmt += Math.max(
-          Math.round(p.weaponPower * 0.8 * (p.mods.spiritDamageMult || 1)),
-          Math.round(_crownPct * (e.spiritMax || 0) * (p.mods.spiritDamageMult || 1))
-        );
+        directSpiritAmt += Math.round(p.weaponPower * 0.8 * (p.mods.spiritDamageMult || 1));
       }
       if (techId === "demon_ascendant" && dhHellStacks >= 10) {
         dhDetonateMult = 1 + 0.2 * dhHellStacks;
