@@ -9192,6 +9192,11 @@
 
   // app/src/data/changelog.js
   var CHANGELOG = [
+    { v: "1.27.165", notes: [
+      "THE STAT SOFT CAP NOW RISES WITH YOU. A permanent stat pill&rsquo;s gain has always halved past 40 and quartered past 50, and those two rungs never moved for the whole game — the ceiling set for a Foundation cultivator was still throttling one who had severed her spirit. Golden Core lifts both rungs by 5, and Spirit Severing lifts them another 5: 45/55 at Golden Core and Nascent Soul, 50/60 at Spirit Severing. Nothing already earned is lost; the wall simply stands further out once you have earned the ground.",
+      "PERMANENT-STAT PILLS NOW WANT A TYRANT&rsquo;S ESSENCE FROM EVERY REALM. On top of the bulk herbs and the realm-reagent ladder, each stat pill now asks for the unique material of one boss from every realm up to its own — 1 apiece through Foundation, 2 through Nascent Soul, 3 at Spirit Severing. Which tyrant a given pill wants is fixed, so a recipe you have learned to farm stays the recipe you farm.",
+      "The boss cost is keyed to REALM DEPTH only, never to how many points the pill grants — a +4 does not cost four times the kills of a +1. Raw power is still priced in herbs; the essences are a gate, so the strongest pills stay worth chasing instead of becoming a farming wall."
+    ] },
     { v: "1.27.160", notes: [
       "The Disassembly screen now shows everything you own by default, not just your current realm. It opened filtered to one exact realm, so a Golden Core cultivator saw six of her twenty-seven breakable items and a button offering to break down only those six — with every scrap of lower-realm junk, the whole reason to open the screen, hidden behind a filter chip. Scrapping is a cross-realm chore, so it now starts on View All. Picking a realm still works and is still remembered."
     ] },
@@ -9469,10 +9474,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Max Posture, and −0.5% tribulation damage taken per point (to −40%)." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.164';
+  var GAME_VERSION = 'v1.27.165';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "f9d5ab2";
+  var BUILD_SHA = "6e112fc";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -20346,6 +20351,29 @@
   Object.values(BOSS_UNIQUE_MATS).forEach(([id, name, zh, desc]) => {
     MATERIALS[id] = { name, zh, rarity: "legendary", desc };
   });
+  (function attachStatPillBossMats() {
+    const byTier = {};
+    Object.keys(BOSS_UNIQUE_MATS).forEach((bid) => {
+      const b = BOSSES[bid];
+      if (!b) return;
+      (byTier[b.tier] = byTier[b.tier] || []).push(BOSS_UNIQUE_MATS[bid][0]);
+    });
+    Object.keys(byTier).forEach((t) => byTier[t].sort());
+    Object.entries(CONSUMABLES).forEach(([id, c]) => {
+      if (statPillPermPoints(c) <= 0 || !c.recipe) return;
+      const tier = Math.min(6, c.minRealmTier || 1);
+      let seed = 0;
+      for (let i = 0; i < id.length; i++) seed = seed * 31 + id.charCodeAt(i) >>> 0;
+      let h = seed;
+      for (let r = 0; r <= tier; r++) {
+        h = Math.imul(h, 1103515245) + 12345 >>> 0;
+        const pool = byTier[r];
+        if (!pool || !pool.length) continue;
+        const mat = pool[(h >>> 16) % pool.length];
+        c.recipe[mat] = (c.recipe[mat] || 0) + 1 + Math.floor(r / 3);
+      }
+    });
+  })();
   var DEATH_REVEAL_COST = [50, 100, 200, 400, 800, 1600, 3200];
   var DEATH_GLYPH_MIN_TIER = [0, 1, 2, 3, 4, 5, 6];
   function deathGlyphBossMats() {
@@ -25017,7 +25045,7 @@
   var updateApplying = false;
   function runningShaKnown() {
     const s = typeof window !== "undefined" && window.BUILD_SHA;
-    return !!s && s !== "f9d5ab2" && s !== "dev" && s !== "live";
+    return !!s && s !== "6e112fc" && s !== "dev" && s !== "live";
   }
   function verTuple(v) {
     return String(v || "").replace(/^v/, "").split(".").map((n) => parseInt(n, 10) || 0);
@@ -26549,8 +26577,14 @@
       return false;
     });
   }
+  function statSoftCapRungs() {
+    const t = state && state.realm && state.realm.tierIdx || 0;
+    const bump = t >= 6 ? 10 : t >= 4 ? 5 : 0;
+    return { half: 40 + bump, quarter: 50 + bump };
+  }
   function statPotionMult(effectiveStat) {
-    return effectiveStat >= 50 ? 0.25 : effectiveStat >= 40 ? 0.5 : 1;
+    const { half, quarter } = statSoftCapRungs();
+    return effectiveStat >= quarter ? 0.25 : effectiveStat >= half ? 0.5 : 1;
   }
   function applyStatPotionGain(statKey, nominal) {
     if (!STAT_KEYS.includes(statKey) || nominal <= 0) return;
@@ -31265,7 +31299,7 @@
       const pipP = document.createElement("div");
       pipP.className = "panel";
       pipP.innerHTML = `<h3 style="font-size:0.95rem">Distillation Pips <span style="font-weight:normal;color:var(--ink-soft);font-size:0.8rem">丹屑</span></h3>
-      <p style="font-size:0.78rem;color:var(--ink-soft);margin:0 0 0.4rem">Each stat potion adds pips (soft-capped past 40/50); every 10 pips crystallize into +1 stat point.</p>`;
+      <p style="font-size:0.78rem;color:var(--ink-soft);margin:0 0 0.4rem">Each stat potion adds pips; 10 pips = +1 stat point. Gains halve past ${statSoftCapRungs().half}, quarter past ${statSoftCapRungs().quarter} — both rungs rise at Golden Core and again at Spirit Severing.</p>`;
       const pipWrap = document.createElement("div");
       pipWrap.className = "inventory-list";
       const pips = state.statPips || {};
