@@ -9188,6 +9188,12 @@
 
   // app/src/data/changelog.js
   var CHANGELOG = [
+    { v: "1.27.158", notes: [
+      "PARASITE COURT now pays you to cast it. A quarter of the damage it deals comes back to you as qi, and the court it installs keeps feeding the fire: for 3 turns the target takes a fresh Hellfire stack at the start of each of its own turns. The brand rebuilds itself while you do something else.",
+      "THE PALACE OPENS ITS DOORS punishes a full brand. Against a target already carrying maximum Hellfire, what it sees through the doors takes the fight out of it — 35% less damage dealt, for 2 turns. Against a partial brand, nothing: this is the reward for having done the stacking.",
+      "HUNGER OF THE WORLD eats deeper — +24% damage per Hellfire stack, rising to +36% per stack against a SOUL-BROKEN target. Break the soul first, then open the mouth.",
+      "NEW STATUS: INFESTED. A foe carrying it gains a Hellfire stack at the start of each of its turns."
+    ] },
     { v: "1.27.157", notes: [
       "THE LATE-REALM FINISHERS NOW EARN THEIR PLACE. The Devourer&rsquo;s Crown stays what it always was — the Golden-Core-era execution. The Nascent Soul and Spirit Severing finishers carry the weight after it, each in its own way rather than by being a bigger Crown.",
       "PARASITE COURT (Nascent Soul) hits harder, lands far heavier stance pressure, and the seizure of office now costs the target its next action outright — a one-turn stun on a long cooldown. The control finisher.",
@@ -9452,10 +9458,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Max Posture, and −0.5% tribulation damage taken per point (to −40%)." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.157';
+  var GAME_VERSION = 'v1.27.158';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "c4be9a4";
+  var BUILD_SHA = "af69103";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -11357,8 +11363,10 @@
       effect: "leech",
       effectPower: 0.4,
       effectTurns: 3,
-      statusList: [{ kind: "shock", value: 0, turns: 1 }],
-      desc: "Install a whole bureaucracy of appetite: heavy damage, a wave of posture pressure, and a 40%-power Leech holding session for 3 turns. The seizure of office costs the target its next action.",
+      qiFromDamagePct: 0.25,
+      statusList: [{ kind: "shock", value: 0, turns: 1 }, { kind: "infest", value: 0, turns: 4 }],
+      // 4 authored = 3 of ITS turns branding (shock is read before the tick, so 1 is correct there)
+      desc: "Install a whole bureaucracy of appetite: heavy damage, a wave of posture pressure, and a 40%-power Leech holding session for 3 turns. The seizure of office costs the target its next action, a quarter of the damage returns to you as qi, and for 3 turns the installed court brands a fresh Hellfire stack at the start of every one of its turns.",
       logHit: (a, t) => `${a} appoints officials inside ${t}. They begin collecting taxes immediately.`
     },
     demon_p5_deep_cellar: {
@@ -11387,7 +11395,9 @@
       effect: "leech",
       effectPower: 0.5,
       effectTurns: 3,
-      desc: "The doors it never needed open ONCE, outward: enormous damage, stance-shattering weight, and a half-power Leech. Dinner is served.",
+      fullHellfireStatus: { kind: "chill", value: 0.35, turns: 3 },
+      // 3 authored = 2 of ITS turns at -35%
+      desc: "The doors it never needed open ONCE, outward: enormous damage, stance-shattering weight, and a half-power Leech. Against a FULL Hellfire brand the sight through the doors takes something out of the target: −35% to its damage for 2 turns. Dinner is served.",
       logHit: (a, t) => `Doors that ${t} cannot see swing wide. ${a} stands in them, patient as an invitation.`
     },
     demon_p6_first_heresy: {
@@ -11441,11 +11451,11 @@
       damage: 8.4,
       pierceQi: 0.5,
       postureBuild: 30,
-      consumeBonus: { kind: "hellfire", perStack: 0.22 },
+      consumeBonus: { kind: "hellfire", perStack: 0.24, perStackSoulBroken: 0.36 },
       effect: "leech",
       effectPower: 0.5,
       effectTurns: 3,
-      desc: "The appetite that outlives realms: tears through qi shields, devours any Hellfire for +22% damage per stack, and sinks a deep half-power Leech. On a full brand it eclipses the Crown — the capstone finisher.",
+      desc: "The appetite that outlives realms: tears through qi shields, devours any Hellfire for +24% damage per stack — half again as much, +36% per stack, once the target is SOUL-BROKEN — and sinks a deep half-power Leech. Break the soul first, then open the mouth. The capstone finisher.",
       logHit: (a, t) => `${a} opens a hunger the size of a missing world. ${t} tilts toward it.`
     },
     // v1.9: the SOUL-BREAK path — drive the enemy's spirit to 0 (soul-break = +30% damage taken) and drink it.
@@ -13553,6 +13563,7 @@
     silence: { label: "silenced", tip: (ef) => `Silenced: cannot use techniques. ${ef.turns} turn(s) left.` },
     resonance: { label: "resonance", tip: (ef) => `Resonating: losing ${ef.value} spirit per turn. ${ef.turns} turn(s) left.` },
     oathbound: { label: "oath-bound", tip: (ef) => `Oath-bound: takes ${ef.value} backlash damage whenever it uses a technique. ${ef.turns} turn(s) left.` },
+    infest: { label: "infested", tip: (ef) => `Infested: gains a Hellfire stack at the start of each of its turns. ${ef.turns} turn(s) left.` },
     blind: { label: "blinded", tip: (ef) => `Blinded: ${Math.round(ef.value * 100)}% chance to miss entirely each time it attacks. ${ef.turns} turn(s) left.` },
     hellfire: { label: "hellfire", tip: (ef) => `Demonic hellfire x${ef.stacks || 1}: burns ~0.5-0.75% of MISSING health PER STACK each turn (scales with Golden Core quality; more when the foe is posture/soul-broken; ignores qi shield). ${ef.turns} turn(s) left.` }
   };
@@ -24950,7 +24961,7 @@
   var updateApplying = false;
   function runningShaKnown() {
     const s = typeof window !== "undefined" && window.BUILD_SHA;
-    return !!s && s !== "c4be9a4" && s !== "dev" && s !== "live";
+    return !!s && s !== "af69103" && s !== "dev" && s !== "live";
   }
   function verTuple(v) {
     return String(v || "").replace(/^v/, "").split(".").map((n) => parseInt(n, 10) || 0);
@@ -27844,13 +27855,15 @@
         pushLog("posture", `  → Celestial Sight: the strike splits in two!`);
       }
     }
+    let _techDamageDealt = 0;
     targets.forEach((tgt) => {
       let consumeMult = 1;
       if (tech.consumeBonus && tgt.effects) {
         const cIdx = tgt.effects.findIndex((ef) => ef.kind === tech.consumeBonus.kind);
         if (cIdx >= 0) {
           const stacks = tgt.effects[cIdx].stacks || 1;
-          consumeMult = 1 + tech.consumeBonus.perStack * stacks;
+          const _cbSoul = tgt.spiritMax > 0 && tgt.spirit <= 0 ? tech.consumeBonus.perStackSoulBroken || tech.consumeBonus.perStack : tech.consumeBonus.perStack;
+          consumeMult = 1 + _cbSoul * stacks;
           tgt.effects.splice(cIdx, 1);
           pushLog("posture", `  → ${tgt.name}'s ${STATUS_INFO[tech.consumeBonus.kind] ? STATUS_INFO[tech.consumeBonus.kind].label : tech.consumeBonus.kind} ×${stacks} is consumed — +${Math.round((consumeMult - 1) * 100)}% damage!`);
         }
@@ -27881,6 +27894,7 @@
           applyPostHitTriggers(p, res, tgt, techId === "demon_reap" ? 1.25 : void 0, techId);
           dhHpDealt += res.hpDamage;
           dhQiDrained += res.qiAbsorbed;
+          _techDamageDealt += (res.hpDamage || 0) + (res.qiAbsorbed || 0);
           if (!res.dodged) {
             applySchoolOnHit(p, tgt);
             applyDemonicHellfire(tgt);
@@ -27966,6 +27980,15 @@
           }
         }
       }
+      if (tech.fullHellfireStatus && isDemonHeart(state)) {
+        const _fhf = (tgt.effects || []).find((ef) => ef.kind === "hellfire");
+        if (_fhf && (_fhf.stacks || 0) >= playerStackCap("hellfire")) {
+          const fs = tech.fullHellfireStatus;
+          if (applyStatusTo(tgt, fs.kind, fs.value, fs.turns + (kit.debuffTurnsBonus || 0), tech.name) && STATUS_INFO[fs.kind]) {
+            pushLog("flavor", `  → the full brand tells: ${tgt.name} is ${STATUS_INFO[fs.kind].label}.`);
+          }
+        }
+      }
       if (tech.statusList) {
         tech.statusList.forEach((s) => {
           const sVal = s.value > 0 ? Math.max(s.value, statusWpFloor(p, s.kind, p.mods && p.mods.dotMult || 1)) : s.value;
@@ -27998,6 +28021,11 @@
       const before = p.qi;
       p.qi = Math.min(p.qiMax, p.qi + tech.qiRestore);
       if (p.qi > before) pushLog("heal", `  → +${p.qi - before} qi.`);
+    }
+    if (tech.qiFromDamagePct && _techDamageDealt > 0) {
+      const before = p.qi;
+      p.qi = Math.min(p.qiMax, p.qi + Math.round(_techDamageDealt * tech.qiFromDamagePct));
+      if (p.qi > before) pushLog("heal", `  → +${p.qi - before} qi drawn back out of the wound.`);
     }
     if (kit.intentPerHit && !isAoe && dmg > 0) {
       const gain = tech.intentStacks || kit.intentPerHit;
@@ -28597,6 +28625,9 @@
         const drain = (ef.value || 0) + Math.round((ef.pctQi || 0) * (c.qiMax || 0));
         c.qi = Math.max(0, c.qi - drain);
         if (before > c.qi) pushLog("hurt", `  → ${c.name} bleeds ${before - c.qi} qi to ${ef.name}.`);
+      }
+      if (ef.kind === "infest" && combat && c !== combat.player && c.hp > 0) {
+        applyDemonicHellfire(c);
       }
       if (ef.kind === "burn" || ef.kind === "poison" || ef.kind === "bleed" || ef.kind === "leech") {
         const before = c.hp;
