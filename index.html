@@ -9188,6 +9188,12 @@
 
   // app/src/data/changelog.js
   var CHANGELOG = [
+    { v: "1.27.155", notes: [
+      "SOUL-BREAK NOW PUTS A FOE ON A TIMER. Empty an enemy's Spirit and every damage-over-time on it stops scaling off your weapon and starts eating 1% of its MAX Vitality per stack, per turn. Against a boss that is the difference between a rounding error and a clock: a stacker running bleed and burn together can burn one down by attrition alone. Soul-break already made everything hurt 30% more; now it also means the rot finishes the job.",
+      "This applies only to foes. You can be soul-broken too, and percentage-of-max damage-over-time on a cultivator with one life would be an execution rather than a mechanic.",
+      "NEW DEBUFF AXIS — ACCURACY. Enemies could never miss; there was no way to buy survival by ruining a foe's aim instead of out-tanking it. Blinded foes now simply fail to land a share of their attacks. (Lowering a foe's attack already existed — that is Chill, and it applies to their techniques as well as their strikes.)",
+      "New Sect Art, VEIL OF FALLING ASH (Sect Elder, 2,800 contribution): for 3 turns the target deals 25% less damage and misses one attack in four. It deals no damage of its own — it is for surviving what you cannot out-trade, and it is the only source of blindness in the game."
+    ] },
     { v: "1.27.154", notes: [
       "Your debuffs now scale with your weapon. Many were written as fixed numbers, which meant they quietly died as you climbed: a bleed worth 5% of a Mortal foe's Vitality was worth 0.01% of a Spirit-Severing foe's, and a qi-drain that once emptied a third of an enemy's reserves came to take under 1%. Every debuff with a real magnitude — bleeds, burns, poisons, leeches, qi drains, entangles, spirit resonance — now has a floor that rises with your weapon power.",
       "This is a floor, never a cut: where the written value is already higher (which is everywhere in the early realms) nothing changes at all. Percentage debuffs like chill, sunder and marks are untouched, since a multiplier does not decay.",
@@ -9435,10 +9441,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Max Posture, and −0.5% tribulation damage taken per point (to −40%)." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.154';
+  var GAME_VERSION = 'v1.27.155';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "80f56f5";
+  var BUILD_SHA = "0fc72c8";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -13515,6 +13521,7 @@
     silence: { label: "silenced", tip: (ef) => `Silenced: cannot use techniques. ${ef.turns} turn(s) left.` },
     resonance: { label: "resonance", tip: (ef) => `Resonating: losing ${ef.value} spirit per turn. ${ef.turns} turn(s) left.` },
     oathbound: { label: "oath-bound", tip: (ef) => `Oath-bound: takes ${ef.value} backlash damage whenever it uses a technique. ${ef.turns} turn(s) left.` },
+    blind: { label: "blinded", tip: (ef) => `Blinded: ${Math.round(ef.value * 100)}% chance to miss entirely each time it attacks. ${ef.turns} turn(s) left.` },
     hellfire: { label: "hellfire", tip: (ef) => `Demonic hellfire x${ef.stacks || 1}: burns ~0.5-0.75% of MISSING health PER STACK each turn (scales with Golden Core quality; more when the foe is posture/soul-broken; ignores qi shield). ${ef.turns} turn(s) left.` }
   };
   var STATUS_STACK_CAP = { burn: 5, poison: 8, sunder: 5, bleed: 3, hellfire: 10 };
@@ -22411,6 +22418,23 @@
       desc: "Sect Art (True Inheritor+). Free action. For 6 turns you drink from everything you have bound: each turn heal 0.5% of max Vitality per debuff stack on your target (counts to 8, so up to 4%/turn). A foe you have ground down keeps you standing; an unmarked one gives nothing.",
       logHit: (a, t) => `${a} calls in every binding at once, and the glyphs begin to pay.`
     },
+    // v1.27.155 (operator: "there should be means of lowering attack, accuracy, etc via debuffs as well").
+    // The delivery vehicle for both axes at once — and the only source of `blind` in the game, so the new
+    // accuracy axis is actually reachable. Deliberately a DEFENSIVE control art: no damage, all degradation.
+    sect_ash_veil: {
+      name: "Veil of Falling Ash",
+      zh: "落灰帷",
+      school: null,
+      sectRank: 4,
+      minRealmTier: 3,
+      contribCost: 2800,
+      qi: 22,
+      cd: 4,
+      damage: 0,
+      statusList: [{ kind: "chill", value: 0.25, turns: 3 }, { kind: "blind", value: 0.25, turns: 3 }],
+      desc: "Sect Art (Sect Elder+). Ash and ward-smoke between you and it: for 3 turns the target deals 25% less damage and misses one attack in four. No damage of its own — this is how you survive what you cannot out-trade.",
+      logHit: (a, t) => `${a} scatters warded ash; ${t} swings at a shape that is no longer there.`
+    },
     sect_banner_call: {
       name: "Banner Call",
       zh: "召旗令",
@@ -24892,7 +24916,7 @@
   var updateApplying = false;
   function runningShaKnown() {
     const s = typeof window !== "undefined" && window.BUILD_SHA;
-    return !!s && s !== "80f56f5" && s !== "dev" && s !== "live";
+    return !!s && s !== "0fc72c8" && s !== "dev" && s !== "live";
   }
   function verTuple(v) {
     return String(v || "").replace(/^v/, "").split(".").map((n) => parseInt(n, 10) || 0);
@@ -27425,6 +27449,7 @@
     }
   }
   var STATUS_WP_FLOOR = { bleed: 0.1, burn: 0.14, poison: 0.1, leech: 0.15, qi_drain: 0.5, entangle: 0.5, resonance: 1.4 };
+  var SOULBREAK_DOT_PCT_HP = 0.01;
   function statusWpFloor(p, kind, dotAmp) {
     const coef = STATUS_WP_FLOOR[kind];
     if (!coef || !p) return 0;
@@ -28533,6 +28558,9 @@
       if (ef.kind === "burn" || ef.kind === "poison" || ef.kind === "bleed" || ef.kind === "leech") {
         const before = c.hp;
         let dmg = (ef.value || 0) + Math.round((ef.pctHp || 0) * (c.hpMax || 0));
+        if (combat && c !== combat.player && c.spiritMax > 0 && c.spirit <= 0) {
+          dmg = Math.max(dmg, Math.round((c.hpMax || 0) * SOULBREAK_DOT_PCT_HP * (ef.stacks || 1)));
+        }
         if (ef.kind === "leech" && ef.name === "Sovereign Parasite") {
           const hf = (c.effects || []).find((x) => x.kind === "hellfire");
           if (hf) dmg += Math.round((c.hpMax || 0) * 0.01 * (hf.stacks || 1));
@@ -28627,6 +28655,13 @@
     const cost = up ? Math.ceil(tech.qi * up.value) : tech.qi;
     return e.cooldowns[techId] === 0 && e.qi >= cost;
   }
+  function enemyMisses(e) {
+    const ef = (e.effects || []).find((x) => x.kind === "blind");
+    if (!ef || !(ef.value > 0)) return false;
+    if (Math.random() >= ef.value) return false;
+    pushLog("posture", `  → ${e.name} strikes where you are not — blinded.`);
+    return true;
+  }
   function chillMult(c) {
     const ef = (c.effects || []).find((x) => x.kind === "chill");
     let m = ef ? Math.max(0, 1 - ef.value) : 1;
@@ -28654,6 +28689,10 @@
   function enemyUseTech(e, p, techId) {
     e._medStreak = 0;
     const tech = e.techniques[techId];
+    if (enemyMisses(e)) {
+      e._medStreak = 0;
+      return;
+    }
     if (e.effects.some((ef) => ef.kind === "silence")) {
       pushLog("flavor", `${e.name} reaches for a technique — the seal holds. It lashes out plainly instead.`);
       const res = dealDamage(p, e.weaponPower * chillMult(e) * enemyEnrageMult(e), { attacker: e, attackerElement: e.element });
@@ -28800,6 +28839,7 @@
   }
   function enemyBasicStrike(e, p) {
     e._medStreak = 0;
+    if (enemyMisses(e)) return;
     for (const techId of Object.keys(e.techniques || {})) {
       if (enemyCanUse(e, techId)) return enemyUseTech(e, p, techId);
     }
