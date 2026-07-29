@@ -319,6 +319,10 @@
     vertical-align: middle;
     border-radius: 2px;
   }
+  /* v1.27.162 (operator: "spacing is a bit odd here"). The badge is built to sit AFTER a name — hence the
+     left margin and middle alignment. Dropped mid-sentence it adds that margin ON TOP of the ordinary word
+     space and rides above the baseline, so it reads as a gap rather than a word. This variant is for prose. */
+  .rarity-tag.in-prose { margin-left: 0; vertical-align: baseline; }
   .rarity-common { background: var(--ink-soft); color: var(--parchment); }
   .rarity-rare { background: var(--gold); color: var(--ink); }
   .rarity-legendary {
@@ -9465,10 +9469,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Max Posture, and −0.5% tribulation damage taken per point (to −40%)." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.161';
+  var GAME_VERSION = 'v1.27.162';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "42e8231";
+  var BUILD_SHA = "9abd131";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -25002,7 +25006,7 @@
   var updateApplying = false;
   function runningShaKnown() {
     const s = typeof window !== "undefined" && window.BUILD_SHA;
-    return !!s && s !== "42e8231" && s !== "dev" && s !== "live";
+    return !!s && s !== "9abd131" && s !== "dev" && s !== "live";
   }
   function verTuple(v) {
     return String(v || "").replace(/^v/, "").split(".").map((n) => parseInt(n, 10) || 0);
@@ -29639,7 +29643,7 @@
     p.className = "panel offline-banner";
     p.innerHTML = `<h2 style="color:var(--gold)">A Fork in Fate</h2>
     <p>The breakthrough has loosened the threads of your destiny. Choose one path — it binds to your soul for this life.</p>
-    <p style="font-size:0.85rem;color:var(--ink-soft)">Destinies last this life only (re-chosen each rebirth). Rarity is the dao's whisper, not a measure of worth. A <span class="rarity-tag" style="border-color:#9a6cc4;color:#c79cf0">keystone</span> is a build-defining destiny — one big, style-shaping effect you plan around; the rest are steady all-round gains.</p>`;
+    <p style="font-size:0.85rem;color:var(--ink-soft)">Destinies last this life only (re-chosen each rebirth). Rarity is the dao's whisper, not a measure of worth. A&nbsp;<span class="rarity-tag in-prose" style="border-color:#9a6cc4;color:#c79cf0">keystone</span> is a build-defining destiny — one big, style-shaping effect you plan around; the rest are steady all-round gains.</p>`;
     app.appendChild(p);
     pendingDestiny.choices.forEach((id) => {
       const d = DESTINIES[id];
