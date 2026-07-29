@@ -9469,10 +9469,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Max Posture, and −0.5% tribulation damage taken per point (to −40%)." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.163';
+  var GAME_VERSION = 'v1.27.164';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "940dbbd";
+  var BUILD_SHA = "f9d5ab2";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -23977,6 +23977,17 @@
     if (!offer || offer.supplyMs) return 1;
     return 0.8 + marketHash(marketWindowSeed() + 7, matId) % 41 / 100;
   }
+  var HERB_DROP_CAP_BASE = 40;
+  var HERB_DROP_CAP_PER_TIER = 25;
+  function herbDropHourlyCap() {
+    return HERB_DROP_CAP_BASE + HERB_DROP_CAP_PER_TIER * (state.realm && state.realm.tierIdx || 0);
+  }
+  function herbDropBudgetLeft() {
+    if (!state.herbDrops || typeof state.herbDrops !== "object") state.herbDrops = { start: 0, n: 0 };
+    const now = Date.now();
+    if (now - (state.herbDrops.start || 0) >= 3600 * 1e3) state.herbDrops = { start: now, n: 0 };
+    return Math.max(0, herbDropHourlyCap() - (state.herbDrops.n || 0));
+  }
   function marketDailyCap(char) {
     const tier = char && char.realm ? char.realm.tierIdx : 0;
     return 5 + tier * 3;
@@ -25006,7 +25017,7 @@
   var updateApplying = false;
   function runningShaKnown() {
     const s = typeof window !== "undefined" && window.BUILD_SHA;
-    return !!s && s !== "940dbbd" && s !== "dev" && s !== "live";
+    return !!s && s !== "f9d5ab2" && s !== "dev" && s !== "live";
   }
   function verTuple(v) {
     return String(v || "").replace(/^v/, "").split(".").map((n) => parseInt(n, 10) || 0);
@@ -28408,8 +28419,13 @@
         const herbId = herbPool[Math.floor(Math.random() * herbPool.length)];
         let herbN = Math.max(1, Math.round((1 + Math.floor(Math.random() * 2)) * Math.pow(1.5, dropTier)));
         if (Math.random() < Math.min(0.5, luck / 100)) herbN *= 2;
-        state.base.herbs[herbId] = (state.base.herbs[herbId] || 0) + herbN;
-        pushLog("reward", `Herbs gathered: ${herbN}× ${HERBS[herbId].name}.`);
+        const budget = herbDropBudgetLeft();
+        if (budget > 0) {
+          herbN = Math.min(herbN, budget);
+          state.herbDrops.n = (state.herbDrops.n || 0) + herbN;
+          state.base.herbs[herbId] = (state.base.herbs[herbId] || 0) + herbN;
+          pushLog("reward", `Herbs gathered: ${herbN}× ${HERBS[herbId].name}.`);
+        }
       }
     }
     if (luck > 20 && Math.random() < 0.025) {
