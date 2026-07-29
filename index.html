@@ -9188,6 +9188,10 @@
 
   // app/src/data/changelog.js
   var CHANGELOG = [
+    { v: "1.27.159", notes: [
+      "Fixed artifacts that could never be disassembled. If you owned several copies of an artifact and one of them was equipped, EVERY copy refused to break down — and it failed silently: the spares were listed, priced, and clicked, and simply nothing happened. Only the copies actually equipped are protected now; the rest break down as they always should have. Anything that was stuck is free immediately, with no action needed.",
+      "This is the same fault already fixed for armour and for weapons. Those were corrected where the game decides what to OFFER you; this one was in the code that performs the break itself, which is why it survived the earlier sweep. All four item types have now been checked on both sides."
+    ] },
     { v: "1.27.158", notes: [
       "PARASITE COURT now pays you to cast it. A quarter of the damage it deals comes back to you as qi, and the court it installs keeps feeding the fire: for 3 turns the target takes a fresh Hellfire stack at the start of each of its own turns. The brand rebuilds itself while you do something else.",
       "THE PALACE OPENS ITS DOORS punishes a full brand. Against a target already carrying maximum Hellfire, what it sees through the doors takes the fight out of it — 35% less damage dealt, for 2 turns. Against a partial brand, nothing: this is the reward for having done the stacking.",
@@ -9458,10 +9462,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Max Posture, and −0.5% tribulation damage taken per point (to −40%)." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.158';
+  var GAME_VERSION = 'v1.27.159';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "af69103";
+  var BUILD_SHA = "7b307c7";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -24416,11 +24420,15 @@
     return out;
   }
   function disassembleArtifact(id) {
-    const i = (state.artifacts.owned || []).indexOf(id);
+    const owned = state.artifacts.owned || [];
     const a = ARTIFACTS[id];
-    if (i < 0 || !a) return null;
-    if (equippedArtifacts(state).includes(id)) return null;
-    state.artifacts.owned.splice(i, 1);
+    if (!a) return null;
+    const ownedCount = owned.filter((x) => x === id).length;
+    const wornCount = equippedArtifacts(state).filter((x) => x === id).length;
+    if (ownedCount <= wornCount) return null;
+    const i = owned.indexOf(id);
+    if (i < 0) return null;
+    owned.splice(i, 1);
     const yld = disassembleYield(a.rarity, artifactTierOf(id));
     Object.entries(yld).forEach(([m, n]) => {
       state.base.materials[m] = (state.base.materials[m] || 0) + n;
@@ -24961,7 +24969,7 @@
   var updateApplying = false;
   function runningShaKnown() {
     const s = typeof window !== "undefined" && window.BUILD_SHA;
-    return !!s && s !== "af69103" && s !== "dev" && s !== "live";
+    return !!s && s !== "7b307c7" && s !== "dev" && s !== "live";
   }
   function verTuple(v) {
     return String(v || "").replace(/^v/, "").split(".").map((n) => parseInt(n, 10) || 0);
