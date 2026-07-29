@@ -8021,7 +8021,7 @@
       name: "Marrow-Carving Pill",
       zh: "刻髓丹",
       kind: "pill",
-      rarity: "rare",
+      rarity: "legendary",
       recipe: { body_root: 4 },
       minRealmTier: 2,
       effects: [{ kind: "stat_perm", statKey: "body", value: 4 }, { kind: "lifespan_cost_pct", value: 0.12 }],
@@ -8031,7 +8031,7 @@
       name: "Soul-Kindling Pill",
       zh: "燃魂丹",
       kind: "pill",
-      rarity: "rare",
+      rarity: "legendary",
       recipe: { jade_lotus: 2, qi_grass: 3 },
       minRealmTier: 2,
       effects: [{ kind: "stat_perm", statKey: "spirit", value: 4 }, { kind: "lifespan_cost_pct", value: 0.12 }],
@@ -8228,9 +8228,9 @@
       name: "Soulfire Pill",
       zh: "魂火丹",
       kind: "pill",
-      rarity: "legendary",
+      rarity: "divine",
       recipe: { soulfire_moss: 3, golden_cloud_cap: 2 },
-      minRealmTier: 5,
+      minRealmTier: 6,
       effects: [{ kind: "stat_perm", statKey: "sense", value: 3 }],
       desc: "Permanently +3 Divine Sense. The nascent soul learns to look further."
     },
@@ -8508,7 +8508,7 @@
       name: "Dao Crystal Pill",
       zh: "道晶丹",
       kind: "pill",
-      rarity: "divine",
+      rarity: "legendary",
       recipe: { dao_lily: 3, primordial_sage: 2, heaven_root: 2 },
       minRealmTier: 6,
       effects: [{ kind: "stat_perm_all", value: 3 }],
@@ -9465,10 +9465,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Max Posture, and −0.5% tribulation damage taken per point (to −40%)." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.160';
+  var GAME_VERSION = 'v1.27.161';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "6b64089";
+  var BUILD_SHA = "42e8231";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -19490,6 +19490,36 @@
       row.mats[rg] = (row.mats[rg] || 0) + 1;
     });
   });
+  var STAT_PILL_BASICS = [["qi_grass", 0.4], ["body_root", 0.4], ["jade_lotus", 0.2]];
+  function statPillPermPoints(c) {
+    return (c.effects || []).reduce((n, e) => {
+      if (e.kind === "stat_perm") return n + (e.value || 0);
+      if (e.kind === "stat_perm_all") return n + (e.value || 0) * STAT_KEYS.length;
+      if (e.kind === "stat_perm_random") return n + (e.value || 0);
+      return n;
+    }, 0);
+  }
+  Object.entries(CONSUMABLES).forEach(([id, c]) => {
+    const pts = statPillPermPoints(c);
+    if (pts <= 0 || !c.recipe) return;
+    const tier = c.minRealmTier || 1;
+    const recipe = {};
+    let basics = 120 + 30 * (pts - 1);
+    if ((c.effects || []).some((e) => e.kind === "lifespan_cost_pct")) basics = Math.round(basics * 0.5);
+    STAT_PILL_BASICS.forEach(([mat, share]) => {
+      recipe[mat] = Math.max(1, Math.round(basics * share));
+    });
+    let seed = 0;
+    for (let i = 0; i < id.length; i++) seed = seed * 31 + id.charCodeAt(i) >>> 0;
+    for (let r = 1; r <= Math.min(6, tier); r++) {
+      const pool = REALM_REAGENTS[r] || [];
+      if (!pool.length) continue;
+      const rg = pool[(seed + r) % pool.length];
+      recipe[rg] = (recipe[rg] || 0) + 2 + 2 * r;
+    }
+    c.recipe = recipe;
+    c.noCostNorm = true;
+  });
   var ELEMENT_GEN_PFX = {
     metal: ["White-Gold", "白金"],
     wood: ["Verdant-Vein", "翠脉"],
@@ -24972,7 +25002,7 @@
   var updateApplying = false;
   function runningShaKnown() {
     const s = typeof window !== "undefined" && window.BUILD_SHA;
-    return !!s && s !== "6b64089" && s !== "dev" && s !== "live";
+    return !!s && s !== "42e8231" && s !== "dev" && s !== "live";
   }
   function verTuple(v) {
     return String(v || "").replace(/^v/, "").split(".").map((n) => parseInt(n, 10) || 0);
