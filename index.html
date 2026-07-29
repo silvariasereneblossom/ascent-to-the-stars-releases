@@ -9469,10 +9469,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Max Posture, and −0.5% tribulation damage taken per point (to −40%)." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.162';
+  var GAME_VERSION = 'v1.27.163';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "9abd131";
+  var BUILD_SHA = "940dbbd";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -19508,8 +19508,8 @@
     if (pts <= 0 || !c.recipe) return;
     const tier = c.minRealmTier || 1;
     const recipe = {};
-    let basics = 120 + 30 * (pts - 1);
-    if ((c.effects || []).some((e) => e.kind === "lifespan_cost_pct")) basics = Math.round(basics * 0.5);
+    let basics = 120 + 45 * (pts - 1);
+    if ((c.effects || []).some((e) => e.kind === "lifespan_cost_pct")) basics = Math.round(basics * 0.85);
     STAT_PILL_BASICS.forEach(([mat, share]) => {
       recipe[mat] = Math.max(1, Math.round(basics * share));
     });
@@ -25006,7 +25006,7 @@
   var updateApplying = false;
   function runningShaKnown() {
     const s = typeof window !== "undefined" && window.BUILD_SHA;
-    return !!s && s !== "9abd131" && s !== "dev" && s !== "live";
+    return !!s && s !== "940dbbd" && s !== "dev" && s !== "live";
   }
   function verTuple(v) {
     return String(v || "").replace(/^v/, "").split(".").map((n) => parseInt(n, 10) || 0);
