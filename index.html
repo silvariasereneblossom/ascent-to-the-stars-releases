@@ -9192,6 +9192,12 @@
 
   // app/src/data/changelog.js
   var CHANGELOG = [
+    { v: "1.27.167", notes: [
+      "BREAKING THE BELL&rsquo;S STANCE NOW ACTUALLY STOPS THE TOLL. The Bell-Tower Abbot&rsquo;s execute only ever checked whether his stance happened to be broken at the precise instant the ninth toll landed — and a posture break lasts three turns. In practice you broke him early, the break expired around turn four, and the toll killed you anyway. The counter the fight is built around was very nearly unreachable unless you hoarded all your posture damage and timed it blind.",
+      "Shattering his stance now RESETS the count: the tower has to start again from the first toll. Every break buys nine fresh turns instead of a three-turn window, so posture pressure is a real answer rather than a lucky coincidence. Measured across every school at full investment, deaths to the execute fell from 55% to 13%.",
+      "DEV MODE CAN STOCK THE LIBRARY. A new Skills &amp; Manuals section grants every skill book to your Library, learns them outright, fills the whole skill tree, or maxes the Endless Path — all honouring the normal school, path and realm gating, so nothing shows up that you could not have unlocked yourself. Only the insight cost is waived.",
+      "Fixed a dev-mode bug where pressing any dev button silently stripped the stat points your learned skills had granted, quietly weakening an invested character each time."
+    ] },
     { v: "1.27.166", notes: [
       "FOUNDATION ESTABLISHMENT HITS BACK. The realm had been sitting at the same enemy scaling as Core Formation while your own Foundation power spike — the first real technique kit, the first craftable realm gear — landed on top of it, so the realm&rsquo;s own equipment had quietly become optional. Foundation enemies now carry 25% more Vitality and hit 30% harder. The weight is deliberately on DAMAGE rather than health: more enemy Vitality only makes a fight longer, where more enemy damage is what makes skipping the realm&rsquo;s gear actually cost you something. Measured against the combat sim, foes now survive ~18% longer and kill ~35% faster.",
       "THE BELL-TOWER ABBOT COUNTS TO NINE AGAIN. Its guard was 50% and decayed 10% per turn, which meant it hit zero on turn 6 — three turns before the ninth toll it exists to deliver. The protection ran out exactly where the threat was supposed to begin, so the abbot simply died before his own timer mattered and the execute became decoration.",
@@ -9480,10 +9486,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Max Posture, and −0.5% tribulation damage taken per point (to −40%)." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.166';
+  var GAME_VERSION = 'v1.27.167';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "5790f1c";
+  var BUILD_SHA = "2f5f201";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -15550,6 +15556,10 @@
   var ENEMY_DMG_SCALE = [1, 2, 2.6, 2, 2, 2.2, 2.2];
   var BELL_GUARD = 0.7;
   var BELL_TOLL_TURN = 9;
+  function bellTollCount() {
+    if (typeof combat === "undefined" || !combat) return 0;
+    return (combat.turn || 1) - (combat._bellTollFrom || 1) + 1;
+  }
   var ENEMY_BARRIER_PIERCE = [0, 0, 0, 0, 0.06, 0.12, 0.2];
   function tribHealMult() {
     if (typeof combat === "undefined" || !combat || !combat.tribulation) return 1;
@@ -16239,7 +16249,7 @@
       blurb: "Nine echoes, nine judgments. The tower only rings for visitors worth measuring.",
       // v1.27.166: the guard is now strong enough to actually reach the ninth toll, so the
       // counter has to be legible BEFORE the fight — otherwise it just reads as a wall.
-      mech: `Guards ${Math.round(BELL_GUARD * 100)}% of incoming damage until the ${BELL_TOLL_TURN}th toll, then the guard collapses. On that toll a soul-broken challenger dies outright. Breaking its stance drops the guard and stops the toll.`,
+      mech: `Guards ${Math.round(BELL_GUARD * 100)}% of incoming damage until the ${BELL_TOLL_TURN}th toll, then the guard collapses. On that toll a soul-broken challenger dies outright. Shattering its stance drops the guard and restarts the count from one.`,
       firstKill: { spirit_pearl: 3, spirit_stone: 30 }
     },
     tide_queen: {
@@ -25056,7 +25066,7 @@
   var updateApplying = false;
   function runningShaKnown() {
     const s = typeof window !== "undefined" && window.BUILD_SHA;
-    return !!s && s !== "5790f1c" && s !== "dev" && s !== "live";
+    return !!s && s !== "2f5f201" && s !== "dev" && s !== "live";
   }
   function verTuple(v) {
     return String(v || "").replace(/^v/, "").split(".").map((n) => parseInt(n, 10) || 0);
@@ -27230,7 +27240,7 @@
     }
     let incoming = (target.buffs.incomingMult || 1) * (target.baseIncoming || 1);
     if (target.id === "bell_abbot" && typeof combat !== "undefined" && combat) {
-      if ((target.broken || 0) <= 0 && (combat.turn || 1) < BELL_TOLL_TURN) incoming *= 1 - BELL_GUARD;
+      if ((target.broken || 0) <= 0 && bellTollCount() < BELL_TOLL_TURN) incoming *= 1 - BELL_GUARD;
     }
     if (combat && target === combat.player) {
       if (opts.attacker && isBelowRealm(opts.attacker.id)) incoming *= SUB_REALM_INCOMING_MULT;
@@ -27362,6 +27372,10 @@
       target.broken = breakDuration != null ? breakDuration : 3;
       target.posture = 0;
       broke = true;
+      if (target.id === "bell_abbot" && typeof combat !== "undefined" && combat) {
+        combat._bellTollFrom = combat.turn || 1;
+        pushLog("posture", "  → the count breaks with the stance — the tower must start again from the first toll.");
+      }
     }
     if (target.posture > target.postureMax) target.posture = target.postureMax;
     return broke;
@@ -29226,12 +29240,12 @@
     tribMechHook("roundEnd");
     combat.turn++;
     pushLog("turn", `— Turn ${combat.turn} —`);
-    if (!combat.over && combat.enemy && combat.enemy.id === "bell_abbot" && combat.turn >= BELL_TOLL_TURN && (combat.enemy.broken || 0) <= 0 && p.hp > 0 && (p.spiritMax || 0) > 0 && p.spirit <= 0) {
+    if (!combat.over && combat.enemy && combat.enemy.id === "bell_abbot" && bellTollCount() >= BELL_TOLL_TURN && (combat.enemy.broken || 0) <= 0 && p.hp > 0 && (p.spiritMax || 0) > 0 && p.spirit <= 0) {
       pushLog("defeat", "The ninth echo finds a soul with no walls left, and rings it out of the world.");
       p.hp = 0;
       checkDeath();
     }
-    if (!combat.over && combat.enemy && combat.enemy.id === "bell_abbot" && combat.turn === BELL_TOLL_TURN) {
+    if (!combat.over && combat.enemy && combat.enemy.id === "bell_abbot" && bellTollCount() === BELL_TOLL_TURN) {
       pushLog("flavor", "The ninth toll leaves the tower and does not come back. The abbot stands unguarded in the silence after it.");
     }
     if (combat.tribulation && combat.turn % 3 === 0) {
@@ -30379,7 +30393,13 @@
         fn();
       } catch (e) {
       }
-      if (state) state.finalStats = finalStats(state);
+      if (state) {
+        state.finalStats = finalStats(state);
+        (state.skills || []).forEach((id) => {
+          const d = findSkillDef(id);
+          if (d) applyPermanentSkillEffect(d);
+        });
+      }
       saveChar();
       render();
     };
@@ -30493,6 +30513,53 @@
           if (mine && t.minRealmTier != null && !state.loadout.includes(tid)) state.loadout.push(tid);
         });
       })
+    ]);
+    const devSkillEligible = (sk) => (!sk.demonicOnly || state.demonic) && !(sk.notDemonic && state.demonic) && !sk.legacy && (!sk.school || sk.school === state.selectedSchool) && meetsSkillReq(sk);
+    const devStockBooks = (allRealms) => {
+      state.foundBooks = state.foundBooks || [];
+      let n = 0;
+      Object.keys(SKILL_BOOKS).forEach((id) => {
+        if (!allRealms && (SKILL_BOOKS[id].minTier || 0) > state.realm.tierIdx) return;
+        if (hasSkill(id) || state.foundBooks.includes(id)) return;
+        state.foundBooks.push(id);
+        n++;
+      });
+      return n;
+    };
+    mkRow("Skills &amp; Manuals", "Stock the Library and fill the tree. Respects school / path / realm gating — only the insight cost is waived.", [
+      mkBtn("manuals → Library", () => devStockBooks(false), "gold"),
+      mkBtn("every manual (all realms)", () => devStockBooks(true)),
+      mkBtn("learn all manuals", () => {
+        state.skills = state.skills || [];
+        Object.keys(SKILL_BOOKS).forEach((id) => {
+          if ((SKILL_BOOKS[id].minTier || 0) > state.realm.tierIdx || hasSkill(id)) return;
+          state.skills.push(id);
+        });
+        state.foundBooks = (state.foundBooks || []).filter((id) => !hasSkill(id));
+      }),
+      mkBtn("learn all tree skills", () => {
+        state.skills = state.skills || [];
+        for (let pass = 0; pass < 12; pass++) {
+          let added = 0;
+          SKILLS.forEach((sk) => {
+            if (sk.repeatable || hasSkill(sk.id) || !devSkillEligible(sk)) return;
+            state.skills.push(sk.id);
+            added++;
+          });
+          if (!added) break;
+        }
+      }),
+      mkBtn("max Endless Path", () => {
+        state.skillRanks = state.skillRanks || {};
+        SKILLS.forEach((sk) => {
+          if (sk.repeatable && devSkillEligible(sk)) state.skillRanks[sk.id] = endlessPathMaxRank(sk);
+        });
+      }),
+      mkBtn("clear skills + Library", () => {
+        state.skills = [];
+        state.skillRanks = {};
+        state.foundBooks = [];
+      }, "ghost")
     ]);
     mkRow("Resources", "Grant crafting materials / spirit stones / souls.", [
       mkBtn("+9999 all materials", () => {
