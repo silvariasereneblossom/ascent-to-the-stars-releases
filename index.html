@@ -9192,6 +9192,12 @@
 
   // app/src/data/changelog.js
   var CHANGELOG = [
+    { v: "1.27.166", notes: [
+      "FOUNDATION ESTABLISHMENT HITS BACK. The realm had been sitting at the same enemy scaling as Core Formation while your own Foundation power spike — the first real technique kit, the first craftable realm gear — landed on top of it, so the realm&rsquo;s own equipment had quietly become optional. Foundation enemies now carry 25% more Vitality and hit 30% harder. The weight is deliberately on DAMAGE rather than health: more enemy Vitality only makes a fight longer, where more enemy damage is what makes skipping the realm&rsquo;s gear actually cost you something. Measured against the combat sim, foes now survive ~18% longer and kill ~35% faster.",
+      "THE BELL-TOWER ABBOT COUNTS TO NINE AGAIN. Its guard was 50% and decayed 10% per turn, which meant it hit zero on turn 6 — three turns before the ninth toll it exists to deliver. The protection ran out exactly where the threat was supposed to begin, so the abbot simply died before his own timer mattered and the execute became decoration.",
+      "The guard is now a flat 70% for the first eight turns, and on the ninth toll it COLLAPSES outright. Endure the count and he stands unguarded; the fight is two clean phases instead of a slope, and the moment the guard breaks is called out in the combat log. A challenger who is soul-broken when that toll lands still dies on the spot.",
+      "Posture remains the answer to all of it. Breaking the abbot&rsquo;s stance suppresses the guard completely AND stops the toll — and he still takes +25% posture damage and is still exempt from the posture resistance other bosses build up. His card now spells the whole mechanic out before you commit to the fight, rather than leaving you to discover it by dying."
+    ] },
     { v: "1.27.165", notes: [
       "THE STAT SOFT CAP NOW RISES WITH YOU. A permanent stat pill&rsquo;s gain has always halved past 40 and quartered past 50, and those two rungs never moved for the whole game — the ceiling set for a Foundation cultivator was still throttling one who had severed her spirit. Golden Core lifts both rungs by 5, and Spirit Severing lifts them another 5: 45/55 at Golden Core and Nascent Soul, 50/60 at Spirit Severing. Nothing already earned is lost; the wall simply stands further out once you have earned the ground.",
       "PERMANENT-STAT PILLS NOW WANT A TYRANT&rsquo;S ESSENCE FROM EVERY REALM. On top of the bulk herbs and the realm-reagent ladder, each stat pill now asks for the unique material of one boss from every realm up to its own — 1 apiece through Foundation, 2 through Nascent Soul, 3 at Spirit Severing. Which tyrant a given pill wants is fixed, so a recipe you have learned to farm stays the recipe you farm.",
@@ -9474,10 +9480,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Max Posture, and −0.5% tribulation damage taken per point (to −40%)." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.165';
+  var GAME_VERSION = 'v1.27.166';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "9b8559e";
+  var BUILD_SHA = "5790f1c";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -15540,8 +15546,10 @@
   var DEMON_TRIB_HEAL_MULT = [1, 1, 0.6, 0.45, 0.25, 0.15, 0.15];
   var DEMON_TRIB_PCT_HP = [0, 0, 0, 58e-4, 69e-4, 0.016, 0.02];
   var ENEMY_QI_SCALE = [1, 1, 1, 1, 1, 1, 1];
-  var ENEMY_HP_SCALE = [1, 1.3, 1.4, 1.4, 1.2, 1.4, 1.4];
-  var ENEMY_DMG_SCALE = [1, 2, 2, 2, 2, 2.2, 2.2];
+  var ENEMY_HP_SCALE = [1, 1.3, 1.75, 1.4, 1.2, 1.4, 1.4];
+  var ENEMY_DMG_SCALE = [1, 2, 2.6, 2, 2, 2.2, 2.2];
+  var BELL_GUARD = 0.7;
+  var BELL_TOLL_TURN = 9;
   var ENEMY_BARRIER_PIERCE = [0, 0, 0, 0, 0.06, 0.12, 0.2];
   function tribHealMult() {
     if (typeof combat === "undefined" || !combat || !combat.tribulation) return 1;
@@ -16229,6 +16237,9 @@
     bell_abbot: {
       tier: 2,
       blurb: "Nine echoes, nine judgments. The tower only rings for visitors worth measuring.",
+      // v1.27.166: the guard is now strong enough to actually reach the ninth toll, so the
+      // counter has to be legible BEFORE the fight — otherwise it just reads as a wall.
+      mech: `Guards ${Math.round(BELL_GUARD * 100)}% of incoming damage until the ${BELL_TOLL_TURN}th toll, then the guard collapses. On that toll a soul-broken challenger dies outright. Breaking its stance drops the guard and stops the toll.`,
       firstKill: { spirit_pearl: 3, spirit_stone: 30 }
     },
     tide_queen: {
@@ -25045,7 +25056,7 @@
   var updateApplying = false;
   function runningShaKnown() {
     const s = typeof window !== "undefined" && window.BUILD_SHA;
-    return !!s && s !== "9b8559e" && s !== "dev" && s !== "live";
+    return !!s && s !== "5790f1c" && s !== "dev" && s !== "live";
   }
   function verTuple(v) {
     return String(v || "").replace(/^v/, "").split(".").map((n) => parseInt(n, 10) || 0);
@@ -27219,7 +27230,7 @@
     }
     let incoming = (target.buffs.incomingMult || 1) * (target.baseIncoming || 1);
     if (target.id === "bell_abbot" && typeof combat !== "undefined" && combat) {
-      incoming *= 1 - Math.max(0, 0.5 - 0.1 * ((combat.turn || 1) - 1));
+      if ((target.broken || 0) <= 0 && (combat.turn || 1) < BELL_TOLL_TURN) incoming *= 1 - BELL_GUARD;
     }
     if (combat && target === combat.player) {
       if (opts.attacker && isBelowRealm(opts.attacker.id)) incoming *= SUB_REALM_INCOMING_MULT;
@@ -29215,10 +29226,13 @@
     tribMechHook("roundEnd");
     combat.turn++;
     pushLog("turn", `— Turn ${combat.turn} —`);
-    if (!combat.over && combat.enemy && combat.enemy.id === "bell_abbot" && combat.turn >= 9 && (combat.enemy.broken || 0) <= 0 && p.hp > 0 && (p.spiritMax || 0) > 0 && p.spirit <= 0) {
+    if (!combat.over && combat.enemy && combat.enemy.id === "bell_abbot" && combat.turn >= BELL_TOLL_TURN && (combat.enemy.broken || 0) <= 0 && p.hp > 0 && (p.spiritMax || 0) > 0 && p.spirit <= 0) {
       pushLog("defeat", "The ninth echo finds a soul with no walls left, and rings it out of the world.");
       p.hp = 0;
       checkDeath();
+    }
+    if (!combat.over && combat.enemy && combat.enemy.id === "bell_abbot" && combat.turn === BELL_TOLL_TURN) {
+      pushLog("flavor", "The ninth toll leaves the tower and does not come back. The abbot stands unguarded in the silence after it.");
     }
     if (combat.tribulation && combat.turn % 3 === 0) {
       combat.enemies.forEach((e) => {
@@ -32861,6 +32875,7 @@
       <div class="location-name">${en.name} <span style="color:var(--ink-soft);font-weight:normal;font-size:0.85rem">${en.zh || ""}</span>${elTag}
         ${kills2 > 0 ? `<span class="rarity-tag rarity-legendary" style="float:right">slain ×${kills2}</span>` : ""}</div>
       <div class="location-desc">${meta.blurb}</div>
+      ${meta.mech ? `<div style="font-size:0.78rem;color:var(--crimson);margin-top:0.25rem">${meta.mech}</div>` : ""}
       <div style="font-size:0.78rem;color:var(--ink-soft);margin-top:0.25rem">${REALMS[meta.tier].name} boss · ${kills2 === 0 && meta.firstKill ? "First kill: " + Object.entries(meta.firstKill).map(([m, n]) => `${n}× ${MATERIALS[m] && MATERIALS[m].name || m}`).join(", ") : "Repeatable hunt — drops persist."}</div>
       <div class="location-actions" id="boss-actions-${bid}"></div>`;
       bossP.appendChild(card);
