@@ -2725,7 +2725,7 @@
       damage: 5.4,
       directHP: 12,
       postureBuild: 14,
-      desc: "A devouring-fist finisher that feeds on the enemy's life and, quietly, your own. If the target bears a FULL hellfire brand (10+ stacks) it DETONATES: +20% damage per stack, consuming the brand.",
+      desc: "A devouring-fist finisher that feeds on the enemy's life and, quietly, your own. If the target bears a FULL hellfire brand (10+ stacks) it DETONATES: +20% damage per stack, consuming the brand. Its Spirit damage is capped at 25% of the target's pool per cast &mdash; a cap your spirit-damage bonuses raise, to a ceiling of 50%.",
       logHit: (a, t) => `${a} closes a clawed fist around ${t} and feeds.`
     },
     // ============ Starfall Archers (4) ============
@@ -9192,6 +9192,12 @@
 
   // app/src/data/changelog.js
   var CHANGELOG = [
+    { v: "1.27.168", notes: [
+      "DEVOURER&rsquo;S CROWN NO LONGER EMPTIES A SOUL IN ONE BLOW. Its Spirit damage is now capped at a share of the TARGET&rsquo;S OWN pool rather than scaling off your weapon &mdash; 25% per cast, which means the same thing against every foe at every realm. Previously a full-brand detonation took the entire Spirit bar of every boss from Golden Core upward, in a single cast.",
+      "The cap rises with your spirit-damage bonuses, so investing in Spirit genuinely raises your ceiling instead of hitting the same wall sooner: 37.5% at ×1.5, and 50% at ×2 and above. A fully-committed Demon-Heart sits at that 50% ceiling, so the Crown is always at least two detonations from a soul-break, however hard you build for it.",
+      "This turned out to be three separate sources of Spirit damage stacking on one cast, not one. The Crown&rsquo;s own rend, the full-hellfire bleed, and the universal spirit chip all fed off a detonation that had already tripled its damage. All three now draw from a single shared budget, so they can never add past the cap between them.",
+      "Nothing else changed. Soul-Rending Claw, Soul-Devouring Palm, Rending Demon-Claw and the rest keep exactly the Spirit damage they had."
+    ] },
     { v: "1.27.167", notes: [
       "BREAKING THE BELL&rsquo;S STANCE NOW ACTUALLY STOPS THE TOLL. The Bell-Tower Abbot&rsquo;s execute only ever checked whether his stance happened to be broken at the precise instant the ninth toll landed — and a posture break lasts three turns. In practice you broke him early, the break expired around turn four, and the toll killed you anyway. The counter the fight is built around was very nearly unreachable unless you hoarded all your posture damage and timed it blind.",
       "Shattering his stance now RESETS the count: the tower has to start again from the first toll. Every break buys nine fresh turns instead of a three-turn window, so posture pressure is a real answer rather than a lucky coincidence. Measured across every school at full investment, deaths to the execute fell from 55% to 13%.",
@@ -9486,10 +9492,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Max Posture, and −0.5% tribulation damage taken per point (to −40%)." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.167';
+  var GAME_VERSION = 'v1.27.168';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "2f5f201";
+  var BUILD_SHA = "6b58143";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -25066,7 +25072,7 @@
   var updateApplying = false;
   function runningShaKnown() {
     const s = typeof window !== "undefined" && window.BUILD_SHA;
-    return !!s && s !== "2f5f201" && s !== "dev" && s !== "live";
+    return !!s && s !== "6b58143" && s !== "dev" && s !== "live";
   }
   function verTuple(v) {
     return String(v || "").replace(/^v/, "").split(".").map((n) => parseInt(n, 10) || 0);
@@ -27676,7 +27682,11 @@
     const dealt = (res.hpDamage || 0) + (res.qiAbsorbed || 0);
     if (dealt <= 0) return;
     const weight = techId && SPIRIT_FOCUS[techId] || 1;
-    const chip = Math.round(dealt * SPIRIT_CHIP_PCT * weight * (p.mods.spiritDamageMult || 1));
+    let chip = Math.round(dealt * SPIRIT_CHIP_PCT * weight * (p.mods.spiritDamageMult || 1));
+    if (techId === "demon_ascendant" && typeof combat !== "undefined" && combat && combat._crownSpiritCap != null) {
+      chip = Math.min(chip, Math.max(0, combat._crownSpiritCap - (combat._crownSpiritUsed || 0)));
+      combat._crownSpiritUsed = (combat._crownSpiritUsed || 0) + chip;
+    }
     if (chip <= 0) return;
     const before = tgt.spirit;
     tgt.spirit = Math.max(0, tgt.spirit - chip);
@@ -27707,7 +27717,11 @@
       const hf = (tgt.effects || []).find((ef) => ef.kind === "hellfire");
       if (hf && (hf.stacks || 0) >= playerStackCap("hellfire")) {
         const conv = (state.realm && state.realm.tierIdx || 0) >= 4 ? 0.2 : 0.15;
-        const bleed = Math.round((res.hpDamage + res.qiAbsorbed) * conv);
+        let bleed = Math.round((res.hpDamage + res.qiAbsorbed) * conv);
+        if (techId === "demon_ascendant" && typeof combat !== "undefined" && combat && combat._crownSpiritCap != null) {
+          bleed = Math.min(bleed, Math.max(0, combat._crownSpiritCap - (combat._crownSpiritUsed || 0)));
+          combat._crownSpiritUsed = (combat._crownSpiritUsed || 0) + bleed;
+        }
         if (bleed > 0) {
           const sb = tgt.spirit;
           tgt.spirit = Math.max(0, tgt.spirit - bleed);
@@ -27950,6 +27964,10 @@
       if (techId === "demon_ascendant" && dhHellStacks >= playerStackCap("hellfire")) {
         directSpiritAmt += Math.round(p.weaponPower * 0.8 * (p.mods.spiritDamageMult || 1));
       }
+      if (techId === "demon_ascendant" && (e.spiritMax || 0) > 0) {
+        combat._crownSpiritCap = Math.round((e.spiritMax || 0) * Math.min(0.5, 0.25 * (p.mods.spiritDamageMult || 1)));
+        combat._crownSpiritUsed = 0;
+      }
       if (techId === "demon_ascendant" && dhHellStacks >= 10) {
         dhDetonateMult = 1 + 0.2 * dhHellStacks;
         dhDetonated = true;
@@ -27995,10 +28013,14 @@
         const ctx = { instant: tech.instant };
         tdmg = applyPlayerOutgoingMods(p, tdmg, tgt, ctx);
         if (tdmg > 0 || h === 0 && (tech.directHP || tech.directSpirit || directSpiritAmt)) {
-          const dsHere = Math.max(
+          let dsHere = Math.max(
             directSpiritAmt,
             Math.round(directSpiritPct * (tgt.spiritMax || 0) * (p.mods.spiritDamageMult || 1))
           );
+          if (h === 0 && techId === "demon_ascendant" && combat._crownSpiritCap != null) {
+            dsHere = Math.min(dsHere, Math.max(0, combat._crownSpiritCap - (combat._crownSpiritUsed || 0)));
+            combat._crownSpiritUsed = (combat._crownSpiritUsed || 0) + dsHere;
+          }
           const res = dealDamage(tgt, tdmg, {
             directHP: h === 0 ? tech.directHP || 0 : 0,
             directSpirit: h === 0 ? dsHere : 0,
