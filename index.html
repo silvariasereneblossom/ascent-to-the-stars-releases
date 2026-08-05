@@ -2725,7 +2725,7 @@
       damage: 5.4,
       directHP: 12,
       postureBuild: 14,
-      desc: "A devouring-fist finisher that feeds on the enemy's life and, quietly, your own. If the target bears a FULL hellfire brand (10+ stacks) it DETONATES: +20% damage per stack, consuming the brand. Its Spirit damage is capped at 25% of the target's pool per cast &mdash; a cap your spirit-damage bonuses raise, to a ceiling of 50%.",
+      desc: "A devouring-fist finisher that feeds on the enemy's life and, quietly, your own. If the target bears a FULL hellfire brand (10+ stacks) it DETONATES: +20% damage per stack, consuming the brand.",
       logHit: (a, t) => `${a} closes a clawed fist around ${t} and feeds.`
     },
     // ============ Starfall Archers (4) ============
@@ -9192,6 +9192,12 @@
 
   // app/src/data/changelog.js
   var CHANGELOG = [
+    { v: "1.27.169", notes: [
+      "NO TECHNIQUE EMPTIES A SOUL IN ONE CAST ANY MORE &mdash; UNLESS YOU HAVE BUILT FOR IT. The Devourer&rsquo;s Crown fix in v1.27.168 was aimed at the wrong target. The Crown was simply the loudest offender: measured afterwards, Soul-Devouring Palm still took 100% of a Golden Core boss&rsquo;s Spirit in a single cast and Rending Demon-Claw took 84%, both with no cap whatsoever. The problem was never one technique.",
+      "One rule now governs every point of Spirit you deal in a single action: it cannot exceed a share of that target&rsquo;s own Spirit pool. 25% at baseline &mdash; so the same technique means the same thing against a Qi Condensation stray and a Spirit-Severing tyrant.",
+      "Your spirit-damage bonuses raise that share, and each school&rsquo;s designated soul-pressure technique is allowed to bite deeper still. A cultivator who has genuinely invested in breaking souls takes roughly twice the Spirit per cast that an uninvested one does &mdash; two casts instead of four. Soul-break is still a heavy blow; it is no longer a free one.",
+      "The Crown&rsquo;s bespoke cap from v1.27.168 is gone, replaced by this general rule. It lands in the same place at baseline."
+    ] },
     { v: "1.27.168", notes: [
       "DEVOURER&rsquo;S CROWN NO LONGER EMPTIES A SOUL IN ONE BLOW. Its Spirit damage is now capped at a share of the TARGET&rsquo;S OWN pool rather than scaling off your weapon &mdash; 25% per cast, which means the same thing against every foe at every realm. Previously a full-brand detonation took the entire Spirit bar of every boss from Golden Core upward, in a single cast.",
       "The cap rises with your spirit-damage bonuses, so investing in Spirit genuinely raises your ceiling instead of hitting the same wall sooner: 37.5% at ×1.5, and 50% at ×2 and above. A fully-committed Demon-Heart sits at that 50% ceiling, so the Crown is always at least two detonations from a soul-break, however hard you build for it.",
@@ -9492,10 +9498,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Max Posture, and −0.5% tribulation damage taken per point (to −40%)." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.168';
+  var GAME_VERSION = 'v1.27.169';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "6b58143";
+  var BUILD_SHA = "635bb81";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -25072,7 +25078,7 @@
   var updateApplying = false;
   function runningShaKnown() {
     const s = typeof window !== "undefined" && window.BUILD_SHA;
-    return !!s && s !== "6b58143" && s !== "dev" && s !== "live";
+    return !!s && s !== "635bb81" && s !== "dev" && s !== "live";
   }
   function verTuple(v) {
     return String(v || "").replace(/^v/, "").split(".").map((n) => parseInt(n, 10) || 0);
@@ -27676,6 +27682,29 @@
     chain_litany: 3
     // a prayer said in iron, collected from the soul
   };
+  var SPIRIT_CAP_BASE = 0.25;
+  function spiritCapWeight(techId) {
+    const w = techId && SPIRIT_FOCUS[techId] || 1;
+    return 1 + (w - 1) * 0.35;
+  }
+  function spiritCapFor(p, tgt, techId) {
+    if (!tgt || !(tgt.spiritMax > 0)) return Infinity;
+    const frac = Math.min(1, SPIRIT_CAP_BASE * spiritCapWeight(techId) * (p.mods.spiritDamageMult || 1));
+    return Math.round(tgt.spiritMax * frac);
+  }
+  function spiritBudgetLeft(p, tgt, techId) {
+    if (typeof combat === "undefined" || !combat || !tgt || !(tgt.spiritMax > 0)) return Infinity;
+    const serial = combat._castSerial || 0;
+    if (tgt._spiritCastSerial !== serial) {
+      tgt._spiritCastSerial = serial;
+      tgt._spiritUsedThisCast = 0;
+    }
+    return Math.max(0, spiritCapFor(p, tgt, techId) - (tgt._spiritUsedThisCast || 0));
+  }
+  function spendSpiritBudget(tgt, amt) {
+    if (!tgt || !(amt > 0)) return;
+    tgt._spiritUsedThisCast = (tgt._spiritUsedThisCast || 0) + amt;
+  }
   function applyBaseSpiritChip(p, res, tgt, techId) {
     if (!tgt || tgt === p || res.dodged) return;
     if (!(tgt.spiritMax > 0) || !(tgt.spirit > 0)) return;
@@ -27683,11 +27712,9 @@
     if (dealt <= 0) return;
     const weight = techId && SPIRIT_FOCUS[techId] || 1;
     let chip = Math.round(dealt * SPIRIT_CHIP_PCT * weight * (p.mods.spiritDamageMult || 1));
-    if (techId === "demon_ascendant" && typeof combat !== "undefined" && combat && combat._crownSpiritCap != null) {
-      chip = Math.min(chip, Math.max(0, combat._crownSpiritCap - (combat._crownSpiritUsed || 0)));
-      combat._crownSpiritUsed = (combat._crownSpiritUsed || 0) + chip;
-    }
+    chip = Math.min(chip, spiritBudgetLeft(p, tgt, techId));
     if (chip <= 0) return;
+    spendSpiritBudget(tgt, chip);
     const before = tgt.spirit;
     tgt.spirit = Math.max(0, tgt.spirit - chip);
     if (weight > 1 && before > tgt.spirit) pushLog("hurt", `  → ${before - tgt.spirit} spirit pressed away.`);
@@ -27718,11 +27745,9 @@
       if (hf && (hf.stacks || 0) >= playerStackCap("hellfire")) {
         const conv = (state.realm && state.realm.tierIdx || 0) >= 4 ? 0.2 : 0.15;
         let bleed = Math.round((res.hpDamage + res.qiAbsorbed) * conv);
-        if (techId === "demon_ascendant" && typeof combat !== "undefined" && combat && combat._crownSpiritCap != null) {
-          bleed = Math.min(bleed, Math.max(0, combat._crownSpiritCap - (combat._crownSpiritUsed || 0)));
-          combat._crownSpiritUsed = (combat._crownSpiritUsed || 0) + bleed;
-        }
+        bleed = Math.min(bleed, spiritBudgetLeft(p, tgt, techId));
         if (bleed > 0) {
+          spendSpiritBudget(tgt, bleed);
           const sb = tgt.spirit;
           tgt.spirit = Math.max(0, tgt.spirit - bleed);
           if (tgt.spirit < sb) pushLog("hurt", `  → ${sb - tgt.spirit} spirit rent by full hellfire.`);
@@ -27737,6 +27762,7 @@
     const p = combat.player, e = combat.enemy;
     const isAuto = !!opts.auto;
     if (isAuto) combat.autoUsed = true;
+    combat._castSerial = (combat._castSerial || 0) + 1;
     let baseDmg = p.weaponPower * 1.5 * (p.mods.strikeDamageMult || 1) * boonStrikeMult();
     if (isAuto) baseDmg *= 1 - autoDamagePenalty(state.realm.tierIdx || 0);
     if (p.buffs.nextDamageTurns > 0) {
@@ -27926,6 +27952,7 @@
     const p = combat.player, e = combat.enemy;
     const tech = TECHNIQUES[techId];
     if (p.cooldowns[techId] > 0) return;
+    combat._castSerial = (combat._castSerial || 0) + 1;
     if (playerSilenced() || isTechLocked(techId)) return;
     const qiCost = effectiveQiCost(p, tech);
     const hpCost = effectiveHpCost(p, tech);
@@ -27963,10 +27990,6 @@
       dhHellStacks = dhHf ? dhHf.stacks || 1 : 0;
       if (techId === "demon_ascendant" && dhHellStacks >= playerStackCap("hellfire")) {
         directSpiritAmt += Math.round(p.weaponPower * 0.8 * (p.mods.spiritDamageMult || 1));
-      }
-      if (techId === "demon_ascendant" && (e.spiritMax || 0) > 0) {
-        combat._crownSpiritCap = Math.round((e.spiritMax || 0) * Math.min(0.5, 0.25 * (p.mods.spiritDamageMult || 1)));
-        combat._crownSpiritUsed = 0;
       }
       if (techId === "demon_ascendant" && dhHellStacks >= 10) {
         dhDetonateMult = 1 + 0.2 * dhHellStacks;
@@ -28017,9 +28040,9 @@
             directSpiritAmt,
             Math.round(directSpiritPct * (tgt.spiritMax || 0) * (p.mods.spiritDamageMult || 1))
           );
-          if (h === 0 && techId === "demon_ascendant" && combat._crownSpiritCap != null) {
-            dsHere = Math.min(dsHere, Math.max(0, combat._crownSpiritCap - (combat._crownSpiritUsed || 0)));
-            combat._crownSpiritUsed = (combat._crownSpiritUsed || 0) + dsHere;
+          if (h === 0) {
+            dsHere = Math.min(dsHere, spiritBudgetLeft(p, tgt, techId));
+            spendSpiritBudget(tgt, dsHere);
           }
           const res = dealDamage(tgt, tdmg, {
             directHP: h === 0 ? tech.directHP || 0 : 0,
