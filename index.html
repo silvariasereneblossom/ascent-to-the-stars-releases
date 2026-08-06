@@ -9192,6 +9192,11 @@
 
   // app/src/data/changelog.js
   var CHANGELOG = [
+    { v: "1.27.170", notes: [
+      "ANDROID UPDATES SHOULD ACTUALLY ARRIVE NOW. The in-place update path had no way to tell a COMPLETE download from a truncated one. It fetches a ~1.5MB file in a single read over a mobile link, and if that stream was cut partway &mdash; a dropped connection, a carrier proxy giving up &mdash; the result was neither empty nor null, so it passed every check, installed, recorded the new version as applied, and restarted into a half-written page. The app then believed it was up to date and stopped trying.",
+      "A payload now has to be provably complete and has to declare the exact version the update is advertising before it will be installed. If it does not, the phone keeps its working copy and either retries or falls back to the full-app download, which resumes across connection drops.",
+      "The Android build also refreshes four times a day instead of once. Game updates deliberately skip the slow Android build, so the packaged app lags the web version between refreshes &mdash; on a busy day that could be a full day behind. The gap is now at most a few hours."
+    ] },
     { v: "1.27.169", notes: [
       "NO TECHNIQUE EMPTIES A SOUL IN ONE CAST ANY MORE &mdash; UNLESS YOU HAVE BUILT FOR IT. The Devourer&rsquo;s Crown fix in v1.27.168 was aimed at the wrong target. The Crown was simply the loudest offender: measured afterwards, Soul-Devouring Palm still took 100% of a Golden Core boss&rsquo;s Spirit in a single cast and Rending Demon-Claw took 84%, both with no cap whatsoever. The problem was never one technique.",
       "One rule now governs every point of Spirit you deal in a single action: it cannot exceed a share of that target&rsquo;s own Spirit pool. 25% at baseline &mdash; so the same technique means the same thing against a Qi Condensation stray and a Spirit-Severing tyrant.",
@@ -9498,10 +9503,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Max Posture, and −0.5% tribulation damage taken per point (to −40%)." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.169';
+  var GAME_VERSION = 'v1.27.170';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "635bb81";
+  var BUILD_SHA = "629c8fb";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -25078,7 +25083,7 @@
   var updateApplying = false;
   function runningShaKnown() {
     const s = typeof window !== "undefined" && window.BUILD_SHA;
-    return !!s && s !== "635bb81" && s !== "dev" && s !== "live";
+    return !!s && s !== "629c8fb" && s !== "dev" && s !== "live";
   }
   function verTuple(v) {
     return String(v || "").replace(/^v/, "").split(".").map((n) => parseInt(n, 10) || 0);
