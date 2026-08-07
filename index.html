@@ -9205,6 +9205,10 @@
 
   // app/src/data/changelog.js
   var CHANGELOG = [
+    { v: "1.27.181", notes: [
+      "ARMOUR NOW TELLS YOU WHICH ELEMENTS IT CARRIES. Every set has quietly moved your elemental standing since the Five Elements arrived, and nothing anywhere said so &mdash; the only way to learn that the Standing-Sea Mail deepens your Water and drains your Fire was to put it on and watch a number change on a different tab. You could not compare two sets, or plan a build around one, without already owning it.",
+      'Every set piece now states its vector plainly in its description: "Five Elements: Water +5 · Fire -3". Boss sets, their Ascendant upgrades, and the offensive, defensive and burst lines at every realm.'
+    ] },
     { v: "1.27.180", notes: [
       "EVERY BOSS SET NOW REINFORCES THE ELEMENT IT GRANTS. Each of the fourteen already pushed one or two elements through its Feng Shui vector, but their stat bonuses were written long before any of that existed &mdash; so a set could deepen your Water root while doing nothing whatsoever for qi barrier or regeneration. Fire sets now carry attack and critical, Water sets qi barrier and regeneration, Earth sets Vitality and damage reduction, Wood sets dodge and critical, Metal sets posture and Spirit.",
       "FOUR-PIECE BONUSES ARE MEANINGFULLY BIGGER. The old ones leaned on flat numbers &mdash; +16 Spirit, +60 Vitality &mdash; that were worth less every realm you climbed, which is exactly why they felt thin by the time you could actually assemble one. They are now built from shares of your pools, which keep their meaning forever. The Nine-Echo Vestments, for instance, went from a flat +16 Spirit and +10% posture to +15% maximum Spirit, +5% spirit damage, +10% damage against spirit-broken foes, and +5% posture.",
@@ -9580,10 +9584,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Max Posture, and −0.5% tribulation damage taken per point (to −40%)." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.180';
+  var GAME_VERSION = 'v1.27.181';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "11f6ec6";
+  var BUILD_SHA = "7c81d75";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -9653,6 +9657,17 @@
   }
   function elementInvested(el) {
     return Math.max(0, elementsState()[el] || 0);
+  }
+  function setElementLine(setId) {
+    const vec = SET_ELEMENTS[setId];
+    if (!vec) return "";
+    const up = [], down = [];
+    ELEMENTS.forEach((el) => {
+      if (!vec[el]) return;
+      (vec[el] > 0 ? up : down).push(`${ELEMENT_NAME[el]} ${vec[el] > 0 ? "+" : ""}${vec[el]}`);
+    });
+    if (!up.length && !down.length) return "";
+    return up.concat(down).join(" · ");
   }
   function elementGearPoints(el) {
     if (!state || !state.armor) return 0;
@@ -22084,6 +22099,11 @@
         if (ARMOR_SETS[key]) SET_ELEMENTS[key] = AXIS_VEC[axis](Math.min(6, 2 + t));
       }
     });
+    Object.entries(ARMOR).forEach(([, a]) => {
+      if (!a || !a.set || !a.desc) return;
+      const line = setElementLine(a.set);
+      if (line) a.desc += ` Five Elements: ${line}.`;
+    });
   })();
   (function scaleArmorWithRealm() {
     Object.entries(ARMOR).forEach(([aid, a]) => {
@@ -25541,7 +25561,7 @@
   var updateApplying = false;
   function runningShaKnown() {
     const s = typeof window !== "undefined" && window.BUILD_SHA;
-    return !!s && s !== "11f6ec6" && s !== "dev" && s !== "live";
+    return !!s && s !== "7c81d75" && s !== "dev" && s !== "live";
   }
   function verTuple(v) {
     return String(v || "").replace(/^v/, "").split(".").map((n) => parseInt(n, 10) || 0);
