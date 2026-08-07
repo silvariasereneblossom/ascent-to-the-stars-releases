@@ -9205,6 +9205,11 @@
 
   // app/src/data/changelog.js
   var CHANGELOG = [
+    { v: "1.27.177", notes: [
+      "RETRIBUTION IS NOW A GRUDGE 怨 YOU HOLD, NOT A NUMBER THAT DRIFTS UPWARD. It used to be an invisible passive that grew with every wound and applied itself forever &mdash; no moment, no decision, nothing to watch. It is a resource now: weather 12% of your maximum Vitality and you gain a stack, up to ten.",
+      "Your next TECHNIQUE spends every stack at once, hitting +3% harder per stack per node invested &mdash; a full ladder at ten stacks lands at +180%. Strikes deliberately do NOT spend it, so you can keep chipping away while the grudge deepens, and choose your own moment to let it go.",
+      "The stacks show in your combat panel beside Sword Intent, with the exact bonus they are currently worth. A blow that misses or is fully evaded does not burn what you endured to earn."
+    ] },
     { v: "1.27.176", notes: [
       "HEAVY PLATE NOW HITS BACK, QUIETLY. A full four-piece defensive set adds a share of your combined Vitality and Qi pools to every blow you land. It is small on purpose &mdash; the pools you built to survive lend a little weight to the swing, so a defensive build always makes progress against a huge health bar instead of grinding to a halt.",
       "It is added after every multiplier and after the critical roll, so nothing can compound it: no crit, no ramp, no echo. And it can never exceed 30% of the blow it rides on, which keeps it a floor under your damage rather than a way to burst.",
@@ -9559,10 +9564,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Max Posture, and −0.5% tribulation damage taken per point (to −40%)." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.176';
+  var GAME_VERSION = 'v1.27.177';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "3b87536";
+  var BUILD_SHA = "f94e742";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -14180,7 +14185,7 @@
       // stalemate Heaven's Weight solves from the other direction: rather than only being ground down for
       // taking too long, a defensive build can now WIN a long fight on purpose.
       retributionPct: 0,
-      // +this much outgoing damage per 100% of max Vitality taken so far this fight
+      // v1.27.177: +this much damage PER GRUDGE STACK on the technique that spends them
       healSuppress: 0,
       // reduces the foe's mending by this fraction
       // v1.27.176 (operator: "qi barrier/Vitality scaling attacks? Not enough to be bursty, enough to break
@@ -18144,7 +18149,10 @@
       ramp: { mods: (t) => t >= 4 ? { perTurnRamp: 0.01, lateBonus: 0.05 } : { perTurnRamp: 0.01 }, blurb: "+1% damage per combat turn elapsed (and +5% from turn 4 on, at Golden Core and beyond)" },
       // v1.27.175: the two tank-offense archetypes. A defensive build that cannot kill is a dead end — these
       // let one convert endurance into a win condition instead of only into survival.
-      retribution: { mods: () => ({ retributionPct: 0.05 }), blurb: "+5% damage for every 100% of your max Vitality you have taken this fight (all six nodes: +30%, and it stacks up to three times over)" },
+      // v1.27.177: rescaled for a SPEND. It was +5%/node applied continuously off cumulative damage; it is now
+      // +3%/node per held stack, released all at once. Ten stacks at a full ladder is +180% on a single
+      // technique, and asks you to have weathered 120% of your own health bar to get there.
+      retribution: { mods: () => ({ retributionPct: 0.03 }), blurb: "you hold a GRUDGE: weather 12% of your max Vitality to gain a stack (max 10), and your next technique deals +3% damage per stack and spends them all. Strikes do not spend it" },
       suppress: { mods: () => ({ healSuppress: 0.08 }), blurb: "the foe mends 8% less — bosses knit a quarter of their missing Vitality every third breath, and this is how you stop them" }
     };
     const SCHOOL_CA = {
@@ -25495,7 +25503,7 @@
   var updateApplying = false;
   function runningShaKnown() {
     const s = typeof window !== "undefined" && window.BUILD_SHA;
-    return !!s && s !== "3b87536" && s !== "dev" && s !== "live";
+    return !!s && s !== "f94e742" && s !== "dev" && s !== "live";
   }
   function verTuple(v) {
     return String(v || "").replace(/^v/, "").split(".").map((n) => parseInt(n, 10) || 0);
@@ -27576,6 +27584,9 @@
       effects: [],
       swordIntent: 0,
       // v0.45: Azure Sword ramping passive
+      retribution: 0,
+      _grudgePartial: 0,
+      // v1.27.177: the grudge — built by weathering, spent by a technique
       mods,
       elements: playerElements(state),
       // Wave 1: five-element counters
@@ -27776,7 +27787,19 @@
     }
     if (combat && target === combat.player) {
       const weathered = (totalHp > 0 ? totalHp : 0) + (absorbed > 0 ? absorbed : 0);
-      if (weathered > 0) combat._playerDamageTaken = (combat._playerDamageTaken || 0) + weathered;
+      if (weathered > 0) {
+        combat._playerDamageTaken = (combat._playerDamageTaken || 0) + weathered;
+        const rp = target.mods && target.mods.retributionPct || 0;
+        if (rp > 0 && target.hpMax > 0 && (target.retribution || 0) < GRUDGE_CAP) {
+          target._grudgePartial = (target._grudgePartial || 0) + weathered / (target.hpMax * GRUDGE_PER_BAR);
+          while (target._grudgePartial >= 1 && (target.retribution || 0) < GRUDGE_CAP) {
+            target._grudgePartial -= 1;
+            target.retribution = (target.retribution || 0) + 1;
+            pushLog("posture", `  → the grudge deepens: ${target.retribution}/${GRUDGE_CAP} (next technique +${Math.round(rp * target.retribution * 100)}% damage).`);
+          }
+          if ((target.retribution || 0) >= GRUDGE_CAP) target._grudgePartial = 0;
+        }
+      }
     }
     target.hp -= totalHp;
     target.spirit -= spiritDmg;
@@ -27994,9 +28017,9 @@
     if (target && isBelowRealm(target.id)) dmg *= SUB_REALM_DMG_MULT;
     if (m.firstStrikeBonus && turn <= 1 && !(ctx && ctx.instant)) dmg *= 1 + m.firstStrikeBonus;
     if (m.lowHpBonus && p.hp > 0 && p.hp / p.hpMax < 0.5) dmg *= 1 + m.lowHpBonus;
-    if (m.retributionPct > 0 && combat && p === combat.player && p.hpMax > 0) {
-      const barsTaken = (combat._playerDamageTaken || 0) / p.hpMax;
-      if (barsTaken > 0) dmg *= 1 + Math.min(m.retributionPct * 3, m.retributionPct * barsTaken);
+    if (m.retributionPct > 0 && p && (p.retribution || 0) > 0) {
+      dmg *= 1 + m.retributionPct * p.retribution;
+      if (ctx) ctx.spentGrudge = p.retribution;
     }
     const refineLvl = typeof state !== "undefined" && state.refine && state.weapon && state.refine[state.weapon] || 0;
     if (refineLvl) dmg *= 1 + 0.05 * refineLvl;
@@ -28180,6 +28203,8 @@
     if (!tgt || !(amt > 0)) return;
     tgt._spiritUsedThisCast = (tgt._spiritUsedThisCast || 0) + amt;
   }
+  var GRUDGE_PER_BAR = 0.12;
+  var GRUDGE_CAP = 10;
   var HEAVEN_WEIGHT_FROM_TURN = 15;
   var HEAVEN_WEIGHT_MIN_TIER = 4;
   function heavensWeight() {
@@ -28698,6 +28723,12 @@
       const before = p.qi;
       p.qi = Math.min(p.qiMax, p.qi + tech.qiRestore);
       if (p.qi > before) pushLog("heal", `  → +${p.qi - before} qi.`);
+    }
+    if ((p.retribution || 0) > 0 && _techDamageDealt > 0) {
+      const spent = p.retribution;
+      p.retribution = 0;
+      p._grudgePartial = 0;
+      pushLog("posture", `  → ${spent} turn${spent === 1 ? "" : "s"} of held grudge go into the blow, and are spent.`);
     }
     if (tech.qiFromDamagePct && _techDamageDealt > 0) {
       const before = p.qi;
@@ -35060,6 +35091,10 @@
     }
     if (side === "player") {
       if (c.swordIntent > 0) effTags += `<span class="rarity-tag rarity-legendary tip" data-tip="Sword Intent: +${c.swordIntent * 8}% damage. Builds on technique hits; meditating resets it.">sword intent ${c.swordIntent}/${schoolKit().intentCap || 5}</span>`;
+      if (c.retribution > 0) {
+        const rp = c.mods && c.mods.retributionPct || 0;
+        effTags += `<span class="rarity-tag rarity-legendary tip" data-tip="Grudge: your next TECHNIQUE deals +${Math.round(rp * c.retribution * 100)}% damage and spends every stack. Builds as you weather punishment — one stack per ${Math.round(GRUDGE_PER_BAR * 100)}% of your max Vitality. Strikes do not spend it.">grudge ${c.retribution}/${GRUDGE_CAP} · +${Math.round(rp * c.retribution * 100)}%</span>`;
+      }
       if (c.buffs && c.buffs.dodgeTurns > 0) effTags += `<span class="rarity-tag rarity-legendary tip" data-tip="Mistwalk: +${Math.round((c.buffs.dodgeChance || 0) * 100)}% dodge for ${c.buffs.dodgeTurns} more round(s).">mistwalk ${c.buffs.dodgeTurns}</span>`;
       if (c.buffs && c.buffs.reflectTurns > 0) effTags += `<span class="rarity-tag rarity-legendary tip" data-tip="Avalanche Guard: +${Math.round((c.buffs.reflectPct || 0) * 100)}% of damage taken is reflected for ${c.buffs.reflectTurns} more round(s).">guard ${c.buffs.reflectTurns}</span>`;
       if (c.buffs && c.buffs.thornsVitTurns > 0) effTags += `<span class="rarity-tag tip" style="background:var(--jade);color:var(--parchment)" data-tip="Heartwood Thorns: every hit taken retaliates for ${Math.round((c.buffs.thornsVitPct || 0) * (c.hpMax || 0))} damage (${Math.round((c.buffs.thornsVitPct || 0) * 1e3) / 10}% of max Vitality) for ${c.buffs.thornsVitTurns} more round(s).">thorns ${c.buffs.thornsVitTurns}</span>`;
