@@ -9205,6 +9205,11 @@
 
   // app/src/data/changelog.js
   var CHANGELOG = [
+    { v: "1.27.178", notes: [
+      "FIXED THE ANDROID UPDATE LOOP. When an app update finished downloading but the install did not go through &mdash; the prompt dismissed, permission to install not granted, a signature mismatch on a sideloaded build &mdash; the installer was re-offered every single time you returned to the app. Not once in a while: every resume, forever.",
+      'Re-offers are now spaced at least half an hour apart and stop after three attempts, at which point the app waits for you instead of nagging. Pressing "Check for Updates Now" in Config clears all of that immediately, so the deliberate route always works.',
+      "The stored download is also cleared the moment the installed version catches up, so a completed update can never leave state behind that starts the cycle again."
+    ] },
     { v: "1.27.177", notes: [
       "RETRIBUTION IS NOW A GRUDGE 怨 YOU HOLD, NOT A NUMBER THAT DRIFTS UPWARD. It used to be an invisible passive that grew with every wound and applied itself forever &mdash; no moment, no decision, nothing to watch. It is a resource now: weather 12% of your maximum Vitality and you gain a stack, up to ten.",
       "Your next TECHNIQUE spends every stack at once, hitting +3% harder per stack per node invested &mdash; a full ladder at ten stacks lands at +180%. Strikes deliberately do NOT spend it, so you can keep chipping away while the grudge deepens, and choose your own moment to let it go.",
@@ -9564,10 +9569,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Max Posture, and −0.5% tribulation damage taken per point (to −40%)." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.177';
+  var GAME_VERSION = 'v1.27.178';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "f94e742";
+  var BUILD_SHA = "14f4493";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -25503,7 +25508,7 @@
   var updateApplying = false;
   function runningShaKnown() {
     const s = typeof window !== "undefined" && window.BUILD_SHA;
-    return !!s && s !== "f94e742" && s !== "dev" && s !== "live";
+    return !!s && s !== "14f4493" && s !== "dev" && s !== "live";
   }
   function verTuple(v) {
     return String(v || "").replace(/^v/, "").split(".").map((n) => parseInt(n, 10) || 0);
