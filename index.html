@@ -9205,6 +9205,12 @@
 
   // app/src/data/changelog.js
   var CHANGELOG = [
+    { v: "1.27.175", notes: [
+      "TANKS CAN NOW WIN A LONG FIGHT ON PURPOSE. Two new Combat Arts branches turn endurance into a win condition rather than only into survival, each with a full six-node ladder through the realms.",
+      "RETRIBUTION &mdash; Iron Body’s Answering Stone and Moonlit Water’s Patience of Deep Water. Every wound you weather this fight sharpens the answer: +5% damage per node for each full health bar of punishment you have absorbed, up to three bars’ worth. Unlike the bloodied bonus this counts CUMULATIVE damage survived, so it does not vanish the moment you heal &mdash; and damage eaten by your qi barrier counts, because a barrier tank is exactly who this is for.",
+      "SUPPRESSION &mdash; Verdant Monastery’s Root-Rot Doctrine and Chain Saint’s Sealed-Wound Litany. Bosses knit a quarter of everything they have lost back together every third breath, and that single mechanic is the main reason a defensive build cannot close one out. Each node holds those wounds open by 8%. Measured against a Spirit-Severing boss, a full ladder cuts its recovery from a quarter of its missing Vitality to an eighth &mdash; and turned a 216-round grind into a 98-round win.",
+      "These pair with the pressure added last version: heaven leans on a fight that runs long, and now you have a way to end it before it ends you."
+    ] },
     { v: "1.27.174", notes: [
       "HEAVEN’S WEIGHT 天压 &mdash; late-realm boss fights can no longer be waited out. From Golden Core upward, once a boss or tribulation fight has run past fifteen turns, three pressures begin and deepen every turn after: a share of your MAXIMUM Vitality bleeds away each turn regardless of armour, dodge or barrier; your lifesteal and regrowth wither; and a share of the damage you deal comes back through you.",
       "This exists because a fully defensive build had become genuinely unresolvable &mdash; a tank school in tank plate with the Earth element survived a hundred and fifty rounds against a Spirit-Severing boss without ever killing it, unable to lose and unable to win. Percentage damage cannot be out-geared, so the deadlock now always breaks.",
@@ -9548,10 +9554,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Max Posture, and −0.5% tribulation damage taken per point (to −40%)." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.174';
+  var GAME_VERSION = 'v1.27.175';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "434196f";
+  var BUILD_SHA = "8b7af27";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -14164,6 +14170,14 @@
       // amplifies your five-element OVERCOME bonus by +X%
       // v1.27.171: channels the elemental stat kits need. qiShieldMult already existed ad-hoc (an inscription
       // wrote it with a `|| 1` guard); declaring it here makes it a first-class channel like the rest.
+      // v1.27.175 (operator: "tanks should be able to spec into things like damage scaling with damage taken
+      // over the course of a fight, and regeneration suppression"). The player-side answer to the same
+      // stalemate Heaven's Weight solves from the other direction: rather than only being ground down for
+      // taking too long, a defensive build can now WIN a long fight on purpose.
+      retributionPct: 0,
+      // +this much outgoing damage per 100% of max Vitality taken so far this fight
+      healSuppress: 0,
+      // reduces the foe's mending by this fraction
       qiShieldMult: 1,
       // multiplies the qi barrier's soak strength
       spiritMaxMult: 1,
@@ -18116,24 +18130,28 @@
       element: { mods: () => ({ elementBoostAll: 0.15 }), blurb: "your five-element OVERCOME bonus is amplified a further 15%" },
       techDmg: { mods: () => ({ techDamageMult: 1.06, strikeDamageMult: 1.06 }), blurb: "+6% to all strike and technique damage" },
       regen: { mods: () => ({ hpMult: 1.03, flatDR: 2 }), blurb: "+3% max Vitality and +2 flat damage reduction — outlast them" },
-      ramp: { mods: (t) => t >= 4 ? { perTurnRamp: 0.01, lateBonus: 0.05 } : { perTurnRamp: 0.01 }, blurb: "+1% damage per combat turn elapsed (and +5% from turn 4 on, at Golden Core and beyond)" }
+      ramp: { mods: (t) => t >= 4 ? { perTurnRamp: 0.01, lateBonus: 0.05 } : { perTurnRamp: 0.01 }, blurb: "+1% damage per combat turn elapsed (and +5% from turn 4 on, at Golden Core and beyond)" },
+      // v1.27.175: the two tank-offense archetypes. A defensive build that cannot kill is a dead end — these
+      // let one convert endurance into a win condition instead of only into survival.
+      retribution: { mods: () => ({ retributionPct: 0.05 }), blurb: "+5% damage for every 100% of your max Vitality you have taken this fight (all six nodes: +30%, and it stacks up to three times over)" },
+      suppress: { mods: () => ({ healSuppress: 0.08 }), blurb: "the foe mends 8% less — bosses knit a quarter of their missing Vitality every third breath, and this is how you stop them" }
     };
     const SCHOOL_CA = {
       azure_sword: [["ramp", "Rising Blade", "升锋"], ["techDmg", "Severing Doctrine", "断诀"], ["crit", "Still-Point Eye", "静心目"]],
-      iron_body: [["dr", "Iron Root", "铁根"], ["lifesteal", "Bloodbone Draw", "血骨引"], ["posture", "Immovable Form", "不动式"]],
+      iron_body: [["dr", "Iron Root", "铁根"], ["lifesteal", "Bloodbone Draw", "血骨引"], ["posture", "Immovable Form", "不动式"], ["retribution", "Answering Stone", "还石"]],
       whispering_array: [["dot", "Lingering Glyph", "滞符"], ["spirit", "Meridian Knot", "经结"], ["dr", "Warded Circle", "护阵"]],
       crimson_flame: [["dot", "Everburn Study", "常燃学"], ["techDmg", "Pyre Discipline", "焚律"], ["element", "Fire-Aspect Rite", "火相仪"]],
-      moonlit_water: [["dr", "Deep-Cold Ward", "深寒护"], ["dodge", "Mirror Step", "镜步"], ["techDmg", "Undertow Craft", "暗涌技"]],
+      moonlit_water: [["dr", "Deep-Cold Ward", "深寒护"], ["dodge", "Mirror Step", "镜步"], ["techDmg", "Undertow Craft", "暗涌技"], ["retribution", "Patience of Deep Water", "深水忍"]],
       silent_daggers: [["crit", "Killing Calm", "杀静"], ["dot", "Coated Blades", "淬刃"], ["firstStrike", "Opening Cut", "开锋"]],
       demon_heart: [["lifesteal", "Hungry Dao", "饥道"], ["spirit", "Soul-Render", "裂魂"], ["crit", "Heretic Edge", "逆锋"]],
       starfall: [["crit", "Hunter's Eye", "猎目"], ["firstStrike", "Opening Volley", "开弦"], ["element", "Starfall Alignment", "星列"]],
-      verdant_monastery: [["regen", "Sap of the Grove", "林液"], ["dr", "Heartwood Bark", "心木皮"], ["lifesteal", "Rooted Draw", "根引"]],
+      verdant_monastery: [["regen", "Sap of the Grove", "林液"], ["dr", "Heartwood Bark", "心木皮"], ["lifesteal", "Rooted Draw", "根引"], ["suppress", "Root-Rot Doctrine", "腐根诀"]],
       thunder_hammer: [["posture", "Aftershock Path", "余震道"], ["techDmg", "Anvil Doctrine", "砧诀"], ["dr", "Forge-Set Stance", "定炉式"]],
       cloud_traveler: [["dodge", "Windward Step", "迎风步"], ["ramp", "Gathering Gale", "聚风"], ["techDmg", "Skyline Craft", "天际技"]],
       bone_reed: [["spirit", "Hollow Resonance", "空鸣"], ["dot", "Grieving Note", "哀音"], ["element", "Reed Attunement", "苇调"]],
       jade_inkwell: [["techDmg", "Red-Ink Authority", "朱笔权"], ["spirit", "Binding Character", "缚字"], ["dr", "Scholar's Ward", "书护"]],
       dragonforge: [["posture", "Moltenwake Path", "熔迹道"], ["techDmg", "Heatfold Doctrine", "叠热诀"], ["dr", "Slag Hide", "渣皮"]],
-      chain_saint: [["posture", "Oathbreaker's Toll", "破誓课"], ["spirit", "Soul-Pull Litany", "引魂咒"], ["dr", "Bound Ward", "缚护"]]
+      chain_saint: [["posture", "Oathbreaker's Toll", "破誓课"], ["spirit", "Soul-Pull Litany", "引魂咒"], ["dr", "Bound Ward", "缚护"], ["suppress", "Sealed-Wound Litany", "封创咒"]]
     };
     const ROM = ["I", "II", "III", "IV", "V", "VI"];
     const CN = ["一", "二", "三", "四", "五", "六"];
@@ -25460,7 +25478,7 @@
   var updateApplying = false;
   function runningShaKnown() {
     const s = typeof window !== "undefined" && window.BUILD_SHA;
-    return !!s && s !== "434196f" && s !== "dev" && s !== "live";
+    return !!s && s !== "8b7af27" && s !== "dev" && s !== "live";
   }
   function verTuple(v) {
     return String(v || "").replace(/^v/, "").split(".").map((n) => parseInt(n, 10) || 0);
@@ -27739,6 +27757,10 @@
       totalHp -= soaked;
       pushLog("heal", `  → the standing stone takes ${Math.round(soaked)}${target._earthShield <= 0 ? " and cracks apart" : ""}.`);
     }
+    if (combat && target === combat.player) {
+      const weathered = (totalHp > 0 ? totalHp : 0) + (absorbed > 0 ? absorbed : 0);
+      if (weathered > 0) combat._playerDamageTaken = (combat._playerDamageTaken || 0) + weathered;
+    }
     target.hp -= totalHp;
     target.spirit -= spiritDmg;
     if (combat && target !== combat.player && !opts.attacker && target.spiritMax > 0 && state.selectedSchool === "bone_reed") {
@@ -27955,6 +27977,10 @@
     if (target && isBelowRealm(target.id)) dmg *= SUB_REALM_DMG_MULT;
     if (m.firstStrikeBonus && turn <= 1 && !(ctx && ctx.instant)) dmg *= 1 + m.firstStrikeBonus;
     if (m.lowHpBonus && p.hp > 0 && p.hp / p.hpMax < 0.5) dmg *= 1 + m.lowHpBonus;
+    if (m.retributionPct > 0 && combat && p === combat.player && p.hpMax > 0) {
+      const barsTaken = (combat._playerDamageTaken || 0) / p.hpMax;
+      if (barsTaken > 0) dmg *= 1 + Math.min(m.retributionPct * 3, m.retributionPct * barsTaken);
+    }
     const refineLvl = typeof state !== "undefined" && state.refine && state.weapon && state.refine[state.weapon] || 0;
     if (refineLvl) dmg *= 1 + 0.05 * refineLvl;
     if (target && target.kind && m.vsKindMult && m.vsKindMult[target.kind]) {
@@ -29561,11 +29587,12 @@
     if (e.qi > before) pushLog("heal", `The ${e.name} draws qi inward (+${e.qi - before}) and presses on.`);
     e._medCount = (e._medCount || 0) + 1;
     if (e._medCount % 3 === 0 && isBossOrTribTarget(e) && e.hp > 0 && e.hp < e.hpMax) {
-      const mend = Math.round((e.hpMax - e.hp) * 0.25);
+      const supp = Math.min(0.75, combat.player && combat.player.mods && combat.player.mods.healSuppress || 0);
+      const mend = Math.round((e.hpMax - e.hp) * 0.25 * (1 - supp));
       if (mend > 0) {
         e.hp = Math.min(e.hpMax, e.hp + mend);
-        pushLog("heal", `  → ${e.name} gathers itself and mends ${mend} Vitality.`);
-      }
+        pushLog("heal", `  → ${e.name} gathers itself and mends ${mend} Vitality${supp > 0 ? " — less than it meant to" : ""}.`);
+      } else if (supp > 0) pushLog("flavor", `  → ${e.name} reaches for its own wounds and finds them held open.`);
     }
     return enemyBasicStrike(e, combat.player);
   }
