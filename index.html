@@ -9205,6 +9205,11 @@
 
   // app/src/data/changelog.js
   var CHANGELOG = [
+    { v: "1.27.179", notes: [
+      "STANDING-SEA MAIL IS PROPERLY OF THE WATER NOW. The Tide-Queen’s armour already deepened your Water root and drained your Fire, and already warded against flame &mdash; but its own stat bonuses were generic Vitality and a little flat qi, so it granted an element whose strengths it did nothing to reinforce. It now carries Water’s own two gifts, qi BARRIER and qi REGENERATION, on every piece and at both set thresholds, on top of the stats it always had. Two pieces: +8% qi barrier and +3 qi regeneration. All four: +12% barrier, +5 regeneration. The Ascendant version scales to +21% and +9.",
+      "Its refinement now tempers the barrier as well as raising your qi pool.",
+      "Fixed a batch of gear and set bonuses that applied correctly but were INVISIBLE. Qi barrier, maximum Spirit, maximum posture, damage against spirit-broken foes, and the new tank channels all had no name in the summary line, so anything granting them simply did not mention it &mdash; the Standing-Sea Mail’s entire barrier bonus was missing from its own set card. They all read out now."
+    ] },
     { v: "1.27.178", notes: [
       "FIXED THE ANDROID UPDATE LOOP. When an app update finished downloading but the install did not go through &mdash; the prompt dismissed, permission to install not granted, a signature mismatch on a sideloaded build &mdash; the installer was re-offered every single time you returned to the app. Not once in a while: every resume, forever.",
       'Re-offers are now spaced at least half an hour apart and stop after three attempts, at which point the app waits for you instead of nagging. Pressing "Check for Updates Now" in Config clears all of that immediately, so the deliberate route always works.',
@@ -9569,10 +9574,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Max Posture, and −0.5% tribulation damage taken per point (to −40%)." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.178';
+  var GAME_VERSION = 'v1.27.179';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "14f4493";
+  var BUILD_SHA = "274cb46";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -21199,16 +21204,21 @@
       refine: { spiritDamageMult: 1.06, postureMult: 1.03 },
       refBlurb: "spirit damage + posture"
     },
+    // v1.27.179 (operator): the Standing-Sea Mail should read as WATER at every layer. Its Feng Shui vector
+    // already pushed Water and drained Fire (+5 / -3), and its warding already leaned anti-Fire — but its stat
+    // bonuses were generic Vitality and a little flat qi, so the armour granted an element whose kit it did not
+    // itself reinforce. It now carries Water's own two gains, qi BARRIER and qi REGEN, on the pieces and at
+    // both thresholds, on top of the baseline stats it already had.
     tide_queen: {
       setName: "Standing-Sea Mail",
       setZh: "立海铠",
-      set: { hpBonus: 60, elementWard: { fire: 0.08 } },
-      set2: { elementWard: { fire: 0.12, earth: 0.1 } },
-      set4: { hpBonus: 160, qiBonus: 30 },
+      set: { hpBonus: 60, qiRegenBonus: 2, elementWard: { fire: 0.08 } },
+      set2: { elementWard: { fire: 0.12, earth: 0.1 }, qiShieldMult: 1.08, qiRegenBonus: 3 },
+      set4: { hpBonus: 160, qiBonus: 30, qiShieldMult: 1.12, qiRegenBonus: 5 },
       refName: "Drowning Temper",
       refZh: "溺淬",
-      refine: { elementAmp: { fire: 0.08 }, qiBonus: 12 },
-      refBlurb: "vs Fire foes + qi"
+      refine: { elementAmp: { fire: 0.08 }, qiBonus: 12, qiShieldMult: 1.04 },
+      refBlurb: "vs Fire foes + qi barrier"
     },
     cinder_abbot: {
       setName: "Patient-Fire Cassock",
@@ -22326,7 +22336,16 @@
       lowHpBonus: "bloodied dmg",
       elementBoostAll: "element overcome",
       perTurnRamp: "dmg per turn",
-      qiDrainPct: "qi drain"
+      qiDrainPct: "qi drain",
+      // v1.27.179: the channels added across the Five Elements and tank-offense work were all UNLABELED, so
+      // they applied correctly and appeared nowhere — the Standing-Sea Mail's whole qi-barrier bonus was
+      // invisible on its own set card. Anything that reaches a player's stats has to be nameable.
+      // healSuppress is a positive number meaning "reduce the foe's healing by this much", and the percent
+      // renderer always prefixes "+" — so a bare "foe mending" label read as +48% MORE enemy healing, the exact
+      // opposite of what it does. Named for the effect, not the variable.
+      retributionPct: "dmg per grudge stack",
+      healSuppress: "foe mending blocked",
+      poolDamagePct: "of pools per blow"
     };
     const mults = {
       postureMult: "posture",
@@ -22343,8 +22362,13 @@
       hpMult: "max Vitality",
       critMult: "crit dmg",
       qiDamageMult: "qi-barrier dmg",
-      herbGrowMult: "herb grow time"
+      herbGrowMult: "herb grow time",
       // v1.27.41: was unlabeled — the Spirit Field card showed "(no stats)" at every level
+      // v1.27.179: same omission as above, on the multiplicative side.
+      qiShieldMult: "qi barrier",
+      spiritMaxMult: "max Spirit",
+      postureMaxMult: "max posture",
+      vsSoulBrokenMult: "dmg vs spirit-broken"
     };
     Object.entries(mods).forEach(([k, v]) => {
       if (labels[k] && v) {
@@ -25508,7 +25532,7 @@
   var updateApplying = false;
   function runningShaKnown() {
     const s = typeof window !== "undefined" && window.BUILD_SHA;
-    return !!s && s !== "14f4493" && s !== "dev" && s !== "live";
+    return !!s && s !== "274cb46" && s !== "dev" && s !== "live";
   }
   function verTuple(v) {
     return String(v || "").replace(/^v/, "").split(".").map((n) => parseInt(n, 10) || 0);
