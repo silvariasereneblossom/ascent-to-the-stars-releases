@@ -9205,6 +9205,12 @@
 
   // app/src/data/changelog.js
   var CHANGELOG = [
+    { v: "1.27.183", notes: [
+      "ASCENDANT SETS NO LONGER PAY THE BASE SET&rsquo;S BONUS ON TOP OF THEIR OWN. A full Ascendant suit was collecting both its own 2- and 4-piece bonuses and the lesser set&rsquo;s, which roughly doubled what the upgrade was ever meant to be worth. The Ascendant bonuses are already 1.75&times; the originals; they now REPLACE them rather than stacking.",
+      "What has not changed: an Ascendant piece still counts toward the lesser set&rsquo;s piece total. Three base pieces and one Ascendant is still four pieces and still pays the full 4-piece bonus. Upgrading a piece can never cost you a set you already had &mdash; every step from none to four Ascendant is the same or better, never worse.",
+      "The Loadout screen now says which bonuses are actually being paid, and marks a base tier that the Ascendant set has taken over as superseded rather than quietly greying it out next to a four-of-four count.",
+      "Fixed alongside: the fourth Ascendant piece could LOWER your elemental standing. A boss set and its Ascendant twin were being scored as two separate sets, so three Ascendant plus one base stacked a half vector on a full one &mdash; nine Water &mdash; while the complete Ascendant suit scored eight. They are one set now, and it only ever climbs."
+    ] },
     { v: "1.27.182", notes: [
       "THE LOADOUT SCREEN NOW ADMITS THAT ASCENDANT PIECES COUNT TWICE. An Ascendant piece has always counted toward the lesser set it was forged out of as well as its own, so upgrading your first piece never costs you a bonus you already had. The Active Set Bonuses summary was the one place that never learned this: four Ascendant pieces listed only the Ascendant set, and a mix of two Ascendant and two base showed the base set stuck at two of four &mdash; while you were quietly being paid the four-piece the whole time.",
       "For the same reason, yesterday&rsquo;s new element lines understated every Ascendant piece by exactly the base set&rsquo;s worth. A full Ascendant Standing-Sea Mail moves you Water +13 and Fire -8; the description claimed +8 and -5. It now states what you actually get.",
@@ -9589,10 +9595,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Max Posture, and −0.5% tribulation damage taken per point (to −40%)." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.182';
+  var GAME_VERSION = 'v1.27.183';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "d534b8d";
+  var BUILD_SHA = "e4fb0e7";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -9664,16 +9670,8 @@
     return Math.max(0, elementsState()[el] || 0);
   }
   function setElementLine(setId) {
-    let vec = SET_ELEMENTS[setId];
+    const vec = SET_ELEMENTS[setId];
     if (!vec) return "";
-    const m = /^(bset_.+)_hard$/.exec(setId);
-    if (m && SET_ELEMENTS[m[1]]) {
-      const merged = Object.assign({}, vec);
-      Object.entries(SET_ELEMENTS[m[1]]).forEach(([el, v]) => {
-        merged[el] = (merged[el] || 0) + v;
-      });
-      vec = merged;
-    }
     const up = [], down = [];
     ELEMENTS.forEach((el) => {
       if (!vec[el]) return;
@@ -9694,6 +9692,21 @@
     });
     return counts;
   }
+  function activeSetTiers(pieces) {
+    const counts = activeSetCounts(pieces);
+    const out = {};
+    Object.entries(counts).forEach(([setId, n]) => {
+      const def = ARMOR_SETS[setId];
+      if (!def) return;
+      const hardCount = /_hard$/.test(setId) ? 0 : counts[`${setId}_hard`] || 0;
+      def.bonuses.forEach((b) => {
+        if (n < b.pieces) return;
+        if (hardCount >= b.pieces) return;
+        (out[setId] = out[setId] || []).push(b.pieces);
+      });
+    });
+    return out;
+  }
   function elementGearPoints(el) {
     if (!state || !state.armor) return 0;
     const eq = state.armor.equipped || {};
@@ -9702,10 +9715,14 @@
     );
     let pts = 0;
     Object.entries(counts).forEach(([setId, n]) => {
-      const vec = SET_ELEMENTS[setId];
+      if (/_hard$/.test(setId)) return;
+      const tier = n >= 4 ? 4 : n >= 2 ? 2 : 0;
+      if (!tier) return;
+      const hardCount = counts[`${setId}_hard`] || 0;
+      const vec = hardCount >= tier && SET_ELEMENTS[`${setId}_hard`] ? SET_ELEMENTS[`${setId}_hard`] : SET_ELEMENTS[setId];
       if (!vec || !vec[el]) return;
-      if (n >= 4) pts += vec[el];
-      else if (n >= 2) pts += vec[el] > 0 ? Math.floor(vec[el] / 2) : Math.ceil(vec[el] / 2);
+      if (tier === 4) pts += vec[el];
+      else pts += vec[el] > 0 ? Math.floor(vec[el] / 2) : Math.ceil(vec[el] / 2);
     });
     return pts;
   }
@@ -22342,12 +22359,12 @@
       applyArmorPieceScaling(mods, p, armorTierOf(id));
     });
     const pieces = equipped.map((id) => ARMOR[id]).filter(Boolean);
-    const setCount = activeSetCounts(pieces);
-    Object.entries(setCount).forEach(([setId, count]) => {
+    const setTiers = activeSetTiers(pieces);
+    Object.entries(setTiers).forEach(([setId, tiers]) => {
       const def = ARMOR_SETS[setId];
       if (!def) return;
       def.bonuses.forEach((b) => {
-        if (count >= b.pieces) b.apply(mods, char);
+        if (tiers.includes(b.pieces)) b.apply(mods, char);
       });
     });
   }
@@ -25569,7 +25586,7 @@
   var updateApplying = false;
   function runningShaKnown() {
     const s = typeof window !== "undefined" && window.BUILD_SHA;
-    return !!s && s !== "d534b8d" && s !== "dev" && s !== "live";
+    return !!s && s !== "e4fb0e7" && s !== "dev" && s !== "live";
   }
   function verTuple(v) {
     return String(v || "").replace(/^v/, "").split(".").map((n) => parseInt(n, 10) || 0);
@@ -33632,6 +33649,7 @@
     aP.appendChild(slotGrid);
     const eq = equippedArmorIds(state).map((id) => ARMOR[id]).filter(Boolean);
     const setCounts = activeSetCounts(eq);
+    const setTiers = activeSetTiers(eq);
     if (Object.keys(setCounts).length) {
       const setBox = document.createElement("div");
       setBox.style.marginTop = "0.6rem";
@@ -33642,8 +33660,10 @@
         if (!def) return;
         setHtml += `<div style="margin-top:0.2rem">${def.name} (${count}/4):</div>`;
         def.bonuses.forEach((b) => {
-          const active = count >= b.pieces;
-          setHtml += `<div style="margin-left:0.8rem;color:${active ? "var(--jade)" : "var(--ink-soft)"}">· ${b.pieces}-piece: ${b.desc}${active ? " ✓" : ""}</div>`;
+          const applied = (setTiers[sid] || []).includes(b.pieces);
+          const superseded = !applied && count >= b.pieces;
+          const note = applied ? " ✓" : superseded ? " <em>— superseded by Ascendant</em>" : "";
+          setHtml += `<div style="margin-left:0.8rem;color:${applied ? "var(--jade)" : "var(--ink-soft)"}">· ${b.pieces}-piece: ${b.desc}${note}</div>`;
         });
       });
       setBox.innerHTML = setHtml;
