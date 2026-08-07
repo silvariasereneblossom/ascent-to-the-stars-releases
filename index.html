@@ -9205,6 +9205,12 @@
 
   // app/src/data/changelog.js
   var CHANGELOG = [
+    { v: "1.27.180", notes: [
+      "EVERY BOSS SET NOW REINFORCES THE ELEMENT IT GRANTS. Each of the fourteen already pushed one or two elements through its Feng Shui vector, but their stat bonuses were written long before any of that existed &mdash; so a set could deepen your Water root while doing nothing whatsoever for qi barrier or regeneration. Fire sets now carry attack and critical, Water sets qi barrier and regeneration, Earth sets Vitality and damage reduction, Wood sets dodge and critical, Metal sets posture and Spirit.",
+      "FOUR-PIECE BONUSES ARE MEANINGFULLY BIGGER. The old ones leaned on flat numbers &mdash; +16 Spirit, +60 Vitality &mdash; that were worth less every realm you climbed, which is exactly why they felt thin by the time you could actually assemble one. They are now built from shares of your pools, which keep their meaning forever. The Nine-Echo Vestments, for instance, went from a flat +16 Spirit and +10% posture to +15% maximum Spirit, +5% spirit damage, +10% damage against spirit-broken foes, and +5% posture.",
+      "Every set keeps its own character. Withered-Wood still rots and drains, Mine-Heart still breaks stances, Dragon-Vein still rewards the opening blow, the Mirage-Court still sharpens your elemental advantage. The elemental reinforcement is added on top rather than replacing what made each set worth hunting.",
+      "FIRST-DAWN VESTMENTS IS DELIBERATELY UNCHANGED. It is the harmony set &mdash; it negates elemental cultivation outright, so reinforcing any single element there would contradict the one thing it exists to do."
+    ] },
     { v: "1.27.179", notes: [
       "STANDING-SEA MAIL IS PROPERLY OF THE WATER NOW. The Tide-Queen’s armour already deepened your Water root and drained your Fire, and already warded against flame &mdash; but its own stat bonuses were generic Vitality and a little flat qi, so it granted an element whose strengths it did nothing to reinforce. It now carries Water’s own two gifts, qi BARRIER and qi REGENERATION, on every piece and at both set thresholds, on top of the stats it always had. Two pieces: +8% qi barrier and +3 qi regeneration. All four: +12% barrier, +5 regeneration. The Ascendant version scales to +21% and +9.",
       "Its refinement now tempers the barrier as well as raising your qi pool.",
@@ -9574,10 +9580,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Max Posture, and −0.5% tribulation damage taken per point (to −40%)." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.179';
+  var GAME_VERSION = 'v1.27.180';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "274cb46";
+  var BUILD_SHA = "11f6ec6";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -21140,18 +21146,26 @@
     }
   };
   var BOSS_LOOT = {
-    // v0.86: Mortal (t0) set numbers toned down — operator rule: a Mortal boss set should be
-    // competitive with EARLY Qi Condensation gear but must NOT beat QC's divine pieces
-    // (genr_armor_1_divine is ~50 Vitality + 5 DR + 18 qi per slot; the old 40/120 totals blew past it).
-    // v1.27.134 (tester: Withered-Wood and Mine-Heart felt too similar). Pulled apart: Withered-Wood is now a
-    // ROT-AND-DRAIN sustain set (damage-over-time + lifesteal, fitting the withered wood), while Mine-Heart
-    // (below) is the POSTURE-BREAK tank.
+    // v1.27.180 (operator): every boss set now REINFORCES the element its Feng Shui vector grants, and the
+    // 4-piece bonuses are re-pitched. The old ones leaned on FLAT numbers (+16 spirit, +60 Vitality) that meant
+    // less every realm, which is exactly why they read as small; a SHARE of a pool keeps its meaning forever.
+    // Each set keeps its own bespoke identity (rot, opener, crit, lifesteal) and gains its element's kit on
+    // top. The 4-piece is a four-line package at the calibration the operator set on the Nine-Echo Vestments:
+    // ~15% on the element's headline pool, ~5% on its damage channel, ~10% situational, ~5% elsewhere.
+    //
+    // Kits being reinforced: FIRE attack+crit | WATER qi barrier+regen | EARTH Vitality+DR
+    //                        WOOD dodge+crit  | METAL posture+spirit
+    //
+    // v0.86: Mortal (t0) numbers stay toned down — a Mortal boss set should be competitive with EARLY Qi
+    // Condensation gear but must NOT beat QC's divine pieces.
+    // v1.27.134 (tester: Withered-Wood and Mine-Heart felt too similar): Withered-Wood is the ROT-AND-DRAIN
+    // sustain set, Mine-Heart the POSTURE-BREAK tank. Both preserved.
     boar_king: {
       setName: "Withered-Wood Warplate",
       setZh: "枯林战甲",
       set: { hpBonus: 22, dotMult: 1.06 },
-      set2: { dotMult: 1.1 },
-      set4: { hpBonus: 60, lifestealPct: 0.06 },
+      set2: { dotMult: 1.1, hpMult: 1.05 },
+      set4: { hpBonus: 60, lifestealPct: 0.06, hpMult: 1.15, incomingMult: 0.95 },
       refName: "Boar-King's Fury",
       refZh: "猪王怒",
       refine: { dotMult: 1.05, lifestealPct: 0.03 },
@@ -21161,8 +21175,8 @@
       setName: "Kiln-Glaze Regalia",
       setZh: "窑釉袍",
       set: { hpBonus: 20, elementWard: { fire: 0.06 } },
-      set2: { elementWard: { fire: 0.12 } },
-      set4: { hpBonus: 55, dotMult: 1.12 },
+      set2: { elementWard: { fire: 0.12 }, hpMult: 1.05 },
+      set4: { hpBonus: 55, dotMult: 1.12, techDamageMult: 1.1, strikeDamageMult: 1.1, hpMult: 1.1 },
       refName: "Mother-Glaze Coating",
       refZh: "母釉淬",
       refine: { dotMult: 1.06, hpBonus: 14 },
@@ -21172,8 +21186,8 @@
       setName: "Nine-Tail Silks",
       setZh: "九尾绡",
       set: { dodgeChance: 0.02, qiBonus: 12 },
-      set2: { dodgeChance: 0.04 },
-      set4: { critChance: 0.05, qiRegenBonus: 2 },
+      set2: { dodgeChance: 0.04, critChance: 0.03 },
+      set4: { critChance: 0.08, dodgeChance: 0.05, qiRegenBonus: 2, critMult: 1.15 },
       refName: "Foxfire Quench",
       refZh: "狐火淬",
       refine: { critChance: 0.025, dodgeChance: 0.015 },
@@ -21182,39 +21196,32 @@
     mine_golem: {
       setName: "Mine-Heart Plate",
       setZh: "矿心甲",
-      // v1.27.134: the POSTURE-BREAK tank — heavy DR and Vitality, its offense routed through posture damage
-      // (fitting the Mine-Heart Golem's own sunder game) rather than the raw weapon power it used to share
-      // with Withered-Wood.
       set: { flatDR: 3, postureMult: 1.08 },
-      set2: { flatDR: 4, hpBonus: 40 },
-      set4: { hpBonus: 120, postureMult: 1.2 },
+      set2: { flatDR: 4, hpBonus: 40, postureMaxMult: 1.08 },
+      set4: { hpBonus: 120, postureMult: 1.2, postureMaxMult: 1.15, hpMult: 1.1, spiritMaxMult: 1.1 },
       refName: "Wanting-Ore Edge",
       refZh: "欲矿锋",
       refine: { postureMult: 1.06, flatDR: 1 },
       refBlurb: "posture-break + DR"
     },
+    // The operator's own calibration, applied here first.
     bell_abbot: {
       setName: "Nine-Echo Vestments",
       setZh: "九响衣",
       set: { spiritBonus: 8, qiRegenBonus: 1 },
-      set2: { spiritDamageMult: 1.1 },
-      set4: { spiritBonus: 16, postureMult: 1.1 },
+      set2: { spiritDamageMult: 1.1, postureMaxMult: 1.08 },
+      set4: { spiritMaxMult: 1.15, spiritDamageMult: 1.05, vsSoulBrokenMult: 1.1, postureMult: 1.05 },
       refName: "Resonant Casting",
       refZh: "共鸣铸",
       refine: { spiritDamageMult: 1.06, postureMult: 1.03 },
       refBlurb: "spirit damage + posture"
     },
-    // v1.27.179 (operator): the Standing-Sea Mail should read as WATER at every layer. Its Feng Shui vector
-    // already pushed Water and drained Fire (+5 / -3), and its warding already leaned anti-Fire — but its stat
-    // bonuses were generic Vitality and a little flat qi, so the armour granted an element whose kit it did not
-    // itself reinforce. It now carries Water's own two gains, qi BARRIER and qi REGEN, on the pieces and at
-    // both thresholds, on top of the baseline stats it already had.
     tide_queen: {
       setName: "Standing-Sea Mail",
       setZh: "立海铠",
       set: { hpBonus: 60, qiRegenBonus: 2, elementWard: { fire: 0.08 } },
       set2: { elementWard: { fire: 0.12, earth: 0.1 }, qiShieldMult: 1.08, qiRegenBonus: 3 },
-      set4: { hpBonus: 160, qiBonus: 30, qiShieldMult: 1.12, qiRegenBonus: 5 },
+      set4: { hpBonus: 160, qiBonus: 30, qiShieldMult: 1.15, qiRegenBonus: 8, meditateMult: 1.1 },
       refName: "Drowning Temper",
       refZh: "溺淬",
       refine: { elementAmp: { fire: 0.08 }, qiBonus: 12, qiShieldMult: 1.04 },
@@ -21224,8 +21231,8 @@
       setName: "Patient-Fire Cassock",
       setZh: "恒火袈",
       set: { hpBonus: 70, dotMult: 1.1 },
-      set2: { dotMult: 1.15 },
-      set4: { hpBonus: 180, lifestealPct: 0.05 },
+      set2: { dotMult: 1.15, critChance: 0.03 },
+      set4: { hpBonus: 180, lifestealPct: 0.05, techDamageMult: 1.15, strikeDamageMult: 1.15, critChance: 0.05 },
       refName: "Ember-Quench",
       refZh: "烬淬",
       refine: { dotMult: 1.07, lifestealPct: 0.025 },
@@ -21235,8 +21242,8 @@
       setName: "Cell-Warden Harness",
       setZh: "狱守具",
       set: { dodgeChance: 0.03, hpBonus: 60, elementWard: { wood: 0.08 } },
-      set2: { postureMult: 1.12 },
-      set4: { hpBonus: 160, postureBreakBonus: 1, dodgeChance: 0.04 },
+      set2: { postureMult: 1.12, hpMult: 1.05 },
+      set4: { hpBonus: 160, postureBreakBonus: 1, hpMult: 1.15, incomingMult: 0.95, postureMult: 1.05 },
       refName: "Jade-Lock Engraving",
       refZh: "玉锁刻",
       refine: { postureMult: 1.06, postureBreakBonus: 0 },
@@ -21246,8 +21253,8 @@
       setName: "Dragon-Vein Scalemail",
       setZh: "龙脉鳞甲",
       set: { hpBonus: 110, flatDR: 5, elementWard: { earth: 0.1 } },
-      set2: { flatDR: 7 },
-      set4: { hpBonus: 260, firstStrikeBonus: 0.15 },
+      set2: { flatDR: 7, hpMult: 1.06 },
+      set4: { hpBonus: 260, firstStrikeBonus: 0.15, hpMult: 1.15, incomingMult: 0.95, qiShieldMult: 1.1 },
       refName: "Buried-River Whet",
       refZh: "埋江砺",
       refine: { firstStrikeBonus: 0.1, elementAmp: { water: 0.07 } },
@@ -21257,8 +21264,8 @@
       setName: "Mirage-Court Raiment",
       setZh: "蜃庭袍",
       set: { dodgeChance: 0.04, incomingMult: 0.97 },
-      set2: { dodgeChance: 0.06 },
-      set4: { elementBoostAll: 0.2, incomingMult: 0.94 },
+      set2: { dodgeChance: 0.06, qiShieldMult: 1.08 },
+      set4: { elementBoostAll: 0.2, incomingMult: 0.94, qiShieldMult: 1.15, qiRegenBonus: 8 },
       refName: "City-That-Is Etching",
       refZh: "实城刻",
       refine: { elementBoostAll: 0.08, dodgeChance: 0.02 },
@@ -21268,8 +21275,8 @@
       setName: "Floating-Court Panoply",
       setZh: "浮庭甲",
       set: { hpBonus: 180, spiritBonus: 14 },
-      set2: { perTurnRamp: 0.015 },
-      set4: { hpBonus: 380, perTurnRamp: 0.025, critChance: 0.04 },
+      set2: { perTurnRamp: 0.015, postureMaxMult: 1.08 },
+      set4: { hpBonus: 380, perTurnRamp: 0.025, spiritMaxMult: 1.15, vsSoulBrokenMult: 1.1, postureMult: 1.05 },
       refName: "Verdict Inscription",
       refZh: "判刻",
       refine: { critChance: 0.03, perTurnRamp: 0.015 },
@@ -21279,8 +21286,8 @@
       setName: "Swallowed-Moon Carapace",
       setZh: "吞月壳",
       set: { hpBonus: 200, lifestealPct: 0.04, elementWard: { water: 0.1 } },
-      set2: { lifestealPct: 0.06 },
-      set4: { hpBonus: 400, elementAmp: { water: 0.15 } },
+      set2: { lifestealPct: 0.06, qiShieldMult: 1.08 },
+      set4: { hpBonus: 400, elementAmp: { water: 0.15 }, qiShieldMult: 1.15, qiRegenBonus: 10, meditateMult: 1.1 },
       refName: "Gullet-Pearl Anointing",
       refZh: "吞珠涂",
       refine: { lifestealPct: 0.03, elementAmp: { water: 0.08 } },
@@ -21290,13 +21297,15 @@
       setName: "Executioner's Regalia",
       setZh: "天刑袍",
       set: { flatDR: 8, critChance: 0.04 },
-      set2: { critChance: 0.06 },
-      set4: { flatDR: 14, critMult: 1.25 },
+      set2: { critChance: 0.06, postureMaxMult: 1.08 },
+      set4: { flatDR: 14, critMult: 1.25, spiritMaxMult: 1.15, vsSoulBrokenMult: 1.1, postureMult: 1.05 },
       refName: "Suspended-Sentence Honing",
       refZh: "缓刑砺",
       refine: { critChance: 0.04, critMult: 1.1 },
       refBlurb: "crit chance + crit damage"
     },
+    // Left deliberately alone. First-Dawn is the HARMONY set (v1.27.173) — it negates per-element investment
+    // outright, so reinforcing any single element here would contradict the one thing it exists to do.
     dawn_sovereign: {
       setName: "First-Dawn Vestments",
       setZh: "初晓袍",
@@ -25532,7 +25541,7 @@
   var updateApplying = false;
   function runningShaKnown() {
     const s = typeof window !== "undefined" && window.BUILD_SHA;
-    return !!s && s !== "274cb46" && s !== "dev" && s !== "live";
+    return !!s && s !== "11f6ec6" && s !== "dev" && s !== "live";
   }
   function verTuple(v) {
     return String(v || "").replace(/^v/, "").split(".").map((n) => parseInt(n, 10) || 0);
