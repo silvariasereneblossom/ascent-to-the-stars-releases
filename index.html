@@ -507,6 +507,19 @@
     animation: pulse 0.7s ease infinite alternate;
   }
   @keyframes pulse { from { opacity: 0.7; } to { opacity: 1; } }
+  /* v1.27.174: the Five Color bar is IRIDESCENT, not merely multicoloured — the five hues drift through one
+     another so it never reads as a fixed five-stop gradient. The band is 300% wide and slides, which is what
+     gives the sheen; a static gradient looked like a flag. */
+  @keyframes fivecolor-drift { from { background-position: 0% 50%; } to { background-position: 300% 50%; } }
+  .fivecolor-fill {
+    background: linear-gradient(90deg, #4E8C63, #B58433, #C4463A, #8C97A3, #4A78A8, #4E8C63);
+    background-size: 300% 100%;
+    animation: fivecolor-drift 6s linear infinite;
+    box-shadow: 0 0 6px rgba(255,255,255,0.25) inset;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .fivecolor-fill { animation: none; background-position: 50% 50%; }
+  }
   .broken-banner {
     display: inline-block;
     padding: 0.1rem 0.45rem;
@@ -9192,6 +9205,12 @@
 
   // app/src/data/changelog.js
   var CHANGELOG = [
+    { v: "1.27.174", notes: [
+      "HEAVEN’S WEIGHT 天压 &mdash; late-realm boss fights can no longer be waited out. From Golden Core upward, once a boss or tribulation fight has run past fifteen turns, three pressures begin and deepen every turn after: a share of your MAXIMUM Vitality bleeds away each turn regardless of armour, dodge or barrier; your lifesteal and regrowth wither; and a share of the damage you deal comes back through you.",
+      "This exists because a fully defensive build had become genuinely unresolvable &mdash; a tank school in tank plate with the Earth element survived a hundred and fifty rounds against a Spirit-Severing boss without ever killing it, unable to lose and unable to win. Percentage damage cannot be out-geared, so the deadlock now always breaks.",
+      "It is keyed to how LONG the fight has run, not to how you built, so ordinary combat never feels it: measured across Golden Core encounters, no normal fight reached turn fifteen at all. It touches bosses and tribulations only &mdash; nothing else is worth waiting out.",
+      "THE ELEMENTS TAB READS PROPERLY NOW. Each element has a full bar in its own colour with the three level thresholds marked on it, a deficit shows as red hatching, and the Five Color bar is genuinely iridescent &mdash; the five hues drift through one another rather than sitting as a fixed gradient."
+    ] },
     { v: "1.27.173", notes: [
       "ARMOUR NOW SPEAKS IN ELEMENTS. All 57 sets carry an elemental vector. Most push one or two; some push one and DRAIN another, which is where the system earns its keep &mdash; Standing-Sea Mail is superb for a Water cultivator and quietly poisons a Fire one, and Nine Yang is its exact mirror. Half the vector at two pieces, all of it at four.",
       "Offensive and defensive sets push cleanly, because they are the workhorses nearly everyone wears through a realm. Only BURST sets drain, which is what a glass cannon trading away its own durability should mean. Boss and named sets carry the interesting push-pull, and the Ascendant variants are the same dao burned hotter.",
@@ -9529,10 +9548,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Max Posture, and −0.5% tribulation damage taken per point (to −40%)." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.173';
+  var GAME_VERSION = 'v1.27.174';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "2992ef0";
+  var BUILD_SHA = "434196f";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -25441,7 +25460,7 @@
   var updateApplying = false;
   function runningShaKnown() {
     const s = typeof window !== "undefined" && window.BUILD_SHA;
-    return !!s && s !== "2992ef0" && s !== "dev" && s !== "live";
+    return !!s && s !== "434196f" && s !== "dev" && s !== "live";
   }
   function verTuple(v) {
     return String(v || "").replace(/^v/, "").split(".").map((n) => parseInt(n, 10) || 0);
@@ -28115,6 +28134,28 @@
     if (!tgt || !(amt > 0)) return;
     tgt._spiritUsedThisCast = (tgt._spiritUsedThisCast || 0) + amt;
   }
+  var HEAVEN_WEIGHT_FROM_TURN = 15;
+  var HEAVEN_WEIGHT_MIN_TIER = 4;
+  function heavensWeight() {
+    if (typeof combat === "undefined" || !combat || combat.over) return null;
+    const e = combat.enemy;
+    const isBig = !!(combat.tribulation || e && (isBossOrTribTarget(e) || ENEMIES[e.id] && ENEMIES[e.id].isBoss));
+    if (!isBig) return null;
+    const tier = state.realm && state.realm.tierIdx || 0;
+    if (tier < HEAVEN_WEIGHT_MIN_TIER) return null;
+    const over = (combat.turn || 1) - HEAVEN_WEIGHT_FROM_TURN;
+    if (over < 0) return null;
+    const scale = 1 + 0.25 * (tier - HEAVEN_WEIGHT_MIN_TIER);
+    return {
+      turnsOver: over,
+      attrition: Math.min(0.04, (4e-3 + 15e-4 * over) * scale),
+      // share of MAX Vitality per turn, cap 4%
+      healMult: Math.max(0.55, 1 - 0.035 * over),
+      // sustain withers to 55%
+      reflect: Math.min(0.15, (0.03 + 7e-3 * over) * scale)
+      // share of your damage returned
+    };
+  }
   function firstLandingOfCast(tgt, key) {
     if (typeof combat === "undefined" || !combat || !tgt) return true;
     const serial = combat._castSerial || 0;
@@ -28142,7 +28183,8 @@
     applyBaseSpiritChip(p, res, tgt, techId);
     lifestealScale = lifestealScale == null ? 1 : lifestealScale;
     if ((p.mods.lifestealPct || 0) > 0 && res.hpDamage + res.qiAbsorbed > 0) {
-      const rawHeal = (res.hpDamage + res.qiAbsorbed) * softCapLifesteal(p.mods.lifestealPct) * tribHealMult() * lifestealScale;
+      const _hw = heavensWeight();
+      const rawHeal = (res.hpDamage + res.qiAbsorbed) * softCapLifesteal(p.mods.lifestealPct) * tribHealMult() * lifestealScale * (_hw ? _hw.healMult : 1);
       const heal = Math.round(Math.min(rawHeal, p.hpMax * 0.1));
       if (heal > 0) {
         const before = p.hp;
@@ -28150,6 +28192,17 @@
         if (p.hp > before) pushLog("heal", `  → +${p.hp - before} Vitality (lifesteal)`);
       }
       demonHeartQiFromBody(p, heal);
+    }
+    if (tgt && tgt !== p && res.hpDamage + res.qiAbsorbed > 0 && firstLandingOfCast(tgt, "heavenreflect")) {
+      const hw = heavensWeight();
+      if (hw && hw.reflect > 0) {
+        const back = Math.round((res.hpDamage + res.qiAbsorbed) * hw.reflect);
+        if (back > 0) {
+          const before = p.hp;
+          p.hp = Math.max(0, p.hp - back);
+          if (p.hp < before) pushLog("hurt", `  → the blow returns through you: ${before - p.hp} Vitality (heaven's weight).`);
+        }
+      }
     }
     if ((p.mods.qiDrainPct || 0) > 0 && tgt && tgt !== p && tgt.qi > 0 && firstLandingOfCast(tgt, "qidrain")) {
       const drained = Math.min(tgt.qi, Math.round((tgt.qiMax || 0) * p.mods.qiDrainPct));
@@ -29725,6 +29778,17 @@
     tribMechHook("roundEnd");
     combat.turn++;
     pushLog("turn", `— Turn ${combat.turn} —`);
+    if (!combat.over && p && p.hp > 0) {
+      const hw = heavensWeight();
+      if (hw && hw.attrition > 0) {
+        const bite = Math.max(1, Math.round(p.hpMax * hw.attrition));
+        const before = p.hp;
+        p.hp = Math.max(0, p.hp - bite);
+        if (hw.turnsOver === 0) pushLog("flavor", "The fight has run long. Something vast and impatient settles its weight across your shoulders.");
+        pushLog("hurt", `  → heaven's weight presses down: ${before - p.hp} Vitality.`);
+        checkDeath();
+      }
+    }
     if (!combat.over && p && p.hp > 0 && (p._earthShieldRefresh || 0) > 0) {
       if (p._earthShieldCd > 0) p._earthShieldCd--;
       if (p._earthShieldCd <= 0) {
@@ -30949,8 +31013,10 @@
       </div>
       ${lv > 0 ? `<div style="font-size:0.75rem;color:var(--gold);margin:0 0 0.3rem">${elementSignatureBlurb(el, Math.abs(lv))}</div>` : ""}`;
       const bar2 = document.createElement("div");
-      bar2.style.cssText = "height:6px;background:rgba(120,120,120,0.22);border-radius:3px;overflow:hidden;margin-bottom:0.35rem";
-      bar2.innerHTML = `<div style="height:100%;width:${Math.round(inBand / ELEMENT_LEVEL_POINTS * 100)}%;background:${ELEMENT_CSS_COLOR[el]}"></div>`;
+      const filled = Math.max(0, Math.min(1, pts / (ELEMENT_LEVEL_POINTS * ELEMENT_MAX_LEVEL)));
+      const col = ELEMENT_CSS_COLOR[el];
+      bar2.style.cssText = "position:relative;height:14px;background:rgba(120,120,120,0.18);border:1px solid rgba(120,120,120,0.28);border-radius:3px;overflow:hidden;margin-bottom:0.4rem";
+      bar2.innerHTML = `<div style="position:absolute;inset:0 auto 0 0;width:${(filled * 100).toFixed(1)}%;background:linear-gradient(90deg,${col}88,${col});"></div>` + [1, 2].map((r) => `<div style="position:absolute;top:0;bottom:0;left:${r / ELEMENT_MAX_LEVEL * 100}%;width:1px;background:rgba(255,255,255,0.35)"></div>`).join("") + (pts < 0 ? `<div style="position:absolute;inset:0;background:repeating-linear-gradient(45deg,var(--crimson) 0 6px,transparent 6px 12px);opacity:0.55"></div>` : "");
       row.appendChild(bar2);
       const btn = document.createElement("button");
       btn.className = "small " + (canInvestElement(el) ? "gold" : "ghost");
@@ -30977,8 +31043,8 @@
       const blocked = fiveColorBlockedBy();
       fc.innerHTML = `<h3 style="font-size:0.95rem">Five Color <span style="font-weight:normal;color:var(--ink-soft);font-size:0.8rem">五色</span></h3>
       <p style="font-size:0.78rem;color:var(--ink-soft);margin:0 0 0.4rem">Every element's boons and none of their costs — but harmony has no edges. As this fills, the damage you gain from overcoming a foe and the damage you suffer from being overcome BOTH fade toward nothing. Complete it and you surrender your signature powers entirely.</p>
-      <div style="height:8px;background:rgba(120,120,120,0.22);border-radius:4px;overflow:hidden;margin-bottom:0.35rem">
-        <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,${ELEMENT_CSS_COLOR.wood},${ELEMENT_CSS_COLOR.fire},${ELEMENT_CSS_COLOR.earth},${ELEMENT_CSS_COLOR.metal},${ELEMENT_CSS_COLOR.water})"></div>
+      <div style="height:16px;background:rgba(120,120,120,0.18);border:1px solid rgba(120,120,120,0.3);border-radius:3px;overflow:hidden;margin-bottom:0.4rem">
+        <div class="fivecolor-fill" style="height:100%;width:${pct}%"></div>
       </div>
       <p style="font-size:0.78rem;margin:0 0 0.4rem"><strong>${pct}%</strong> <span style="color:var(--ink-soft)">· ${Math.round(fiveColorState()).toLocaleString()} / ${FIVE_COLOR_TOTAL.toLocaleString()} insight · boons at ${pct}% · matchup at ${100 - pct}%${frac >= 1 ? ' · <span style="color:var(--crimson)">signatures surrendered</span>' : ""}</span></p>`;
       if (blocked.length) {
