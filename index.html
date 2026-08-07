@@ -9192,6 +9192,14 @@
 
   // app/src/data/changelog.js
   var CHANGELOG = [
+    { v: "1.27.173", notes: [
+      "ARMOUR NOW SPEAKS IN ELEMENTS. All 57 sets carry an elemental vector. Most push one or two; some push one and DRAIN another, which is where the system earns its keep &mdash; Standing-Sea Mail is superb for a Water cultivator and quietly poisons a Fire one, and Nine Yang is its exact mirror. Half the vector at two pieces, all of it at four.",
+      "Offensive and defensive sets push cleanly, because they are the workhorses nearly everyone wears through a realm. Only BURST sets drain, which is what a glass cannon trading away its own durability should mean. Boss and named sets carry the interesting push-pull, and the Ascendant variants are the same dao burned hotter.",
+      "Fall BELOW zero in an element and you suffer its costs with none of its gifts. Wearing the wrong set is now a real decision rather than a free stat line.",
+      "FIVE COLOR 五色 &mdash; a sixth path at ten times the price, opening at Spirit Severing. Every element&rsquo;s boons and none of their costs, but harmony has no edges: as the bar fills, the damage you gain from overcoming a foe AND the damage you suffer from being overcome both fade toward nothing. Dip in for a few extra stats, or complete it and surrender your signature powers entirely for total neutrality to the cycle. You cannot harmonise while any element is running a deficit.",
+      "FIRST-DAWN VESTMENTS, from the Dawn Sovereign, is the harmoniser&rsquo;s set. Its unique material is light from before the first morning &mdash; light before it separated into colours. It grants +10% damage against EVERY element regardless of the cycle, carries materially worse raw stats than its peers, and negates everything your per-element cultivation gives you: boons, costs, matchup and signature alike. Ruinous for a specialist, free for someone whose investment is Five Color. It sorts its own audience.",
+      "RETURN TO THE SOURCE 归元 &mdash; pour every element you have cultivated into Five Color instead. It credits the insight you ACTUALLY spent rather than the list price of the levels you hold, so a spirit-root discount cannot be laundered into a profit. All standing resets to zero, clearing any deficit with it. It cannot be undone."
+    ] },
     { v: "1.27.172", notes: [
       "THE FIVE ELEMENTS GAIN THEIR SIGNATURE POWERS. Each element now does something no other can, on top of its stat kit.",
       "FIRE 火 — single-target techniques ECHO. A trigger worth 5/7.5/12.5% of the technique&rsquo;s damage fires once per hit, so a flurry echoes several times over and a single heavy blow echoes once. Multi-hit is deliberately the Fire build.",
@@ -9521,10 +9529,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Max Posture, and −0.5% tribulation damage taken per point (to −40%)." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.172';
+  var GAME_VERSION = 'v1.27.173';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "20a569b";
+  var BUILD_SHA = "2992ef0";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -9596,7 +9604,28 @@
     return Math.max(0, elementsState()[el] || 0);
   }
   function elementGearPoints(el) {
-    return 0;
+    if (!state || !state.armor) return 0;
+    const eq = state.armor.equipped || {};
+    const counts = {};
+    ["helmet", "chest", "gloves", "boots", "accessory1", "accessory2"].forEach((slot) => {
+      const id = eq[slot];
+      if (!id) return;
+      const piece = ARMOR[id];
+      if (!piece || !piece.set) return;
+      counts[piece.set] = (counts[piece.set] || 0) + 1;
+      if (piece.hardSet && piece.bossSet && ARMOR_SETS["bset_" + piece.bossSet]) {
+        const b = "bset_" + piece.bossSet;
+        counts[b] = (counts[b] || 0) + 1;
+      }
+    });
+    let pts = 0;
+    Object.entries(counts).forEach(([setId, n]) => {
+      const vec = SET_ELEMENTS[setId];
+      if (!vec || !vec[el]) return;
+      if (n >= 4) pts += vec[el];
+      else if (n >= 2) pts += vec[el] > 0 ? Math.floor(vec[el] / 2) : Math.ceil(vec[el] / 2);
+    });
+    return pts;
   }
   function elementStanding(el) {
     return elementInvested(el) + elementGearPoints(el);
@@ -9609,9 +9638,8 @@
   }
   function elementLevel(el) {
     const st = elementStanding(el);
-    const raw = Math.min(ELEMENT_MAX_LEVEL, Math.floor(Math.abs(st) / ELEMENT_LEVEL_POINTS));
-    if (st < 0) return -raw;
-    return Math.min(raw, elementRealmCap());
+    if (st < 0) return -Math.min(ELEMENT_MAX_LEVEL, Math.ceil(-st / ELEMENT_LEVEL_POINTS));
+    return Math.min(Math.floor(st / ELEMENT_LEVEL_POINTS), ELEMENT_MAX_LEVEL, elementRealmCap());
   }
   function elementNextPointCost(el) {
     const cur = elementInvested(el);
@@ -9630,6 +9658,7 @@
     state.realm.insight -= c;
     const e = elementsState();
     e[el] = (e[el] || 0) + 1;
+    state.elementSpent = (state.elementSpent || 0) + c;
     saveChar();
   }
   function elementCounterAt(attackerEl, level, defenderEl) {
@@ -9640,6 +9669,9 @@
   }
   function playerElementMult(defenderEl) {
     if (!defenderEl) return 1;
+    if (wearingFirstDawn()) {
+      return 1 * (1 + fiveColorUniversalOvercome());
+    }
     let best = 1, any = false;
     for (let i = 0; i < ELEMENTS.length; i++) {
       const lv = elementLevel(ELEMENTS[i]);
@@ -9650,7 +9682,72 @@
         any = true;
       } else if (m > best) best = m;
     }
-    return any ? best : 1;
+    if (!any) best = 1;
+    const fc = fiveColorFraction();
+    if (fc > 0 && best !== 1) best = 1 + (best - 1) * (1 - fc);
+    if (fc >= 1 && fiveColorUniversalOvercome() > 0 && defenderEl) best *= 1 + fiveColorUniversalOvercome();
+    return best;
+  }
+  var FIVE_COLOR_TOTAL = 266e7;
+  var FIVE_COLOR_MIN_TIER = 6;
+  function fiveColorState() {
+    if (typeof state.fiveColor !== "number" || !isFinite(state.fiveColor)) state.fiveColor = 0;
+    return state.fiveColor;
+  }
+  function fiveColorFraction() {
+    if (!state || !state.realm) return 0;
+    return Math.max(0, Math.min(1, fiveColorState() / FIVE_COLOR_TOTAL));
+  }
+  function fiveColorUnlocked() {
+    return (state.realm && state.realm.tierIdx || 0) >= FIVE_COLOR_MIN_TIER;
+  }
+  function fiveColorBlockedBy() {
+    return ELEMENTS.filter((el) => elementStanding(el) < 0);
+  }
+  function fiveColorInvest(amount) {
+    if (!fiveColorUnlocked() || fiveColorBlockedBy().length) return;
+    const amt = Math.min(amount, state.realm.insight, FIVE_COLOR_TOTAL - fiveColorState());
+    if (amt <= 0) return;
+    state.realm.insight -= amt;
+    state.fiveColor = fiveColorState() + amt;
+    saveChar();
+  }
+  function fiveColorComplete() {
+    return fiveColorFraction() >= 1;
+  }
+  function elementSigLevel(el) {
+    if (fiveColorComplete() || wearingFirstDawn()) return 0;
+    return elementLevel(el);
+  }
+  function fiveColorUniversalOvercome() {
+    return wearingFirstDawn() ? FIRST_DAWN_OVERCOME : 0;
+  }
+  var FIRST_DAWN_OVERCOME = 0.1;
+  function wearingFirstDawn() {
+    if (!state || !state.armor) return false;
+    const eq = state.armor.equipped || {};
+    let n = 0;
+    ["helmet", "chest", "gloves", "boots"].forEach((slot) => {
+      const id = eq[slot];
+      if (!id) return;
+      const piece = ARMOR[id];
+      if (piece && (piece.set === "bset_dawn_sovereign" || piece.set === "bset_dawn_sovereign_hard")) n++;
+    });
+    return n >= 4;
+  }
+  function elementSpentTotal() {
+    return Math.max(0, Math.round(state && state.elementSpent || 0));
+  }
+  function canReturnToSource() {
+    return fiveColorUnlocked() && elementSpentTotal() > 0 && fiveColorState() < FIVE_COLOR_TOTAL;
+  }
+  function returnToSource() {
+    if (!canReturnToSource()) return;
+    const credit = Math.min(elementSpentTotal(), FIVE_COLOR_TOTAL - fiveColorState());
+    state.fiveColor = fiveColorState() + credit;
+    state.elements = {};
+    state.elementSpent = 0;
+    saveChar();
   }
   function rollSpiritRoot(rng) {
     const r = rng();
@@ -14128,61 +14225,80 @@
     const saved = state;
     try {
       state = char;
+      const firstDawn = wearingFirstDawn();
+      const fcFrac = fiveColorFraction();
+      if (fcFrac > 0) {
+        ELEMENTS.forEach((el) => applyElementKit(mods, el, ELEMENT_MAX_LEVEL, true, fcFrac, true));
+      }
+      if (firstDawn) return;
       ELEMENTS.forEach((el) => {
         const lv = elementLevel(el);
-        if (lv === 0) return;
-        const n = Math.abs(lv);
-        const up = ELEMENT_UP[n], dn = ELEMENT_DOWN[n];
-        const crit = ELEMENT_CRIT[n], dodge = ELEMENT_DODGE[n], regen = ELEMENT_REGEN[n];
-        const boons = lv > 0;
-        switch (el) {
-          case "fire":
-            if (boons) {
-              mods.techDamageMult *= 1 + up;
-              mods.strikeDamageMult *= 1 + up;
-              mods.critChance += crit;
-            }
-            mods.incomingMult *= 1 + dn;
-            mods.hpMult *= 1 - dn;
-            break;
-          case "water":
-            if (boons) {
-              mods.qiShieldMult = (mods.qiShieldMult || 1) * (1 + up);
-              mods.qiRegenBonus += regen;
-            }
-            mods.techDamageMult *= 1 - dn;
-            mods.strikeDamageMult *= 1 - dn;
-            mods.critChance -= crit;
-            break;
-          case "earth":
-            if (boons) {
-              mods.hpMult *= 1 + up;
-              mods.incomingMult *= 1 - up;
-            }
-            mods.dodgeChance -= dodge;
-            mods.spiritMaxMult = (mods.spiritMaxMult || 1) * (1 - dn);
-            break;
-          case "wood":
-            if (boons) {
-              mods.dodgeChance += dodge;
-              mods.critChance += crit;
-            }
-            mods.qiShieldMult = (mods.qiShieldMult || 1) * (1 - dn);
-            mods.postureMaxMult = (mods.postureMaxMult || 1) * (1 - dn);
-            break;
-          case "metal":
-            if (boons) {
-              mods.postureMult *= 1 + up;
-              mods.postureMaxMult = (mods.postureMaxMult || 1) * (1 + up);
-              mods.vsSoulBrokenMult = (mods.vsSoulBrokenMult || 1) + ELEMENT_METAL_VS_BROKEN;
-            }
-            mods.qiShieldMult = (mods.qiShieldMult || 1) * (1 - dn);
-            mods.qiRegenBonus -= regen;
-            break;
-        }
+        if (lv !== 0) applyElementKit(mods, el, Math.abs(lv), lv > 0, 1, false);
       });
     } finally {
       state = saved;
+    }
+  }
+  function applyElementKit(mods, el, n, boons, scale, noCosts) {
+    scale = scale == null ? 1 : scale;
+    const up = ELEMENT_UP[n] * scale, dn = ELEMENT_DOWN[n] * (boons ? scale : 1);
+    const crit = ELEMENT_CRIT[n] * scale, dodge = ELEMENT_DODGE[n] * scale;
+    const regen = Math.round(ELEMENT_REGEN[n] * scale);
+    const costs = !noCosts;
+    switch (el) {
+      case "fire":
+        if (boons) {
+          mods.techDamageMult *= 1 + up;
+          mods.strikeDamageMult *= 1 + up;
+          mods.critChance += crit;
+        }
+        if (costs || !boons) {
+          mods.incomingMult *= 1 + dn;
+          mods.hpMult *= 1 - dn;
+        }
+        break;
+      case "water":
+        if (boons) {
+          mods.qiShieldMult = (mods.qiShieldMult || 1) * (1 + up);
+          mods.qiRegenBonus += regen;
+        }
+        if (costs || !boons) {
+          mods.techDamageMult *= 1 - dn;
+          mods.strikeDamageMult *= 1 - dn;
+          mods.critChance -= crit;
+        }
+        break;
+      case "earth":
+        if (boons) {
+          mods.hpMult *= 1 + up;
+          mods.incomingMult *= 1 - up;
+        }
+        if (costs || !boons) {
+          mods.dodgeChance -= dodge;
+          mods.spiritMaxMult = (mods.spiritMaxMult || 1) * (1 - dn);
+        }
+        break;
+      case "wood":
+        if (boons) {
+          mods.dodgeChance += dodge;
+          mods.critChance += crit;
+        }
+        if (costs || !boons) {
+          mods.qiShieldMult = (mods.qiShieldMult || 1) * (1 - dn);
+          mods.postureMaxMult = (mods.postureMaxMult || 1) * (1 - dn);
+        }
+        break;
+      case "metal":
+        if (boons) {
+          mods.postureMult *= 1 + up;
+          mods.postureMaxMult = (mods.postureMaxMult || 1) * (1 + up);
+          mods.vsSoulBrokenMult = (mods.vsSoulBrokenMult || 1) + ELEMENT_METAL_VS_BROKEN * scale;
+        }
+        if (costs || !boons) {
+          mods.qiShieldMult = (mods.qiShieldMult || 1) * (1 - dn);
+          mods.qiRegenBonus -= regen;
+        }
+        break;
     }
   }
   function applySchoolKitToMods(mods, char) {
@@ -21816,6 +21932,73 @@
       });
     }
   })();
+  var SET_ELEMENTS = {
+    // ---- named (8) ----
+    iron_disciple: { metal: 4 },
+    azure_sage: { wood: 4 },
+    // 青 is the Wood colour
+    crimson_flame_set: { fire: 5, water: -2 },
+    ghost_silk: { wood: 3, earth: -2 },
+    // weightless evasion; nothing rooted about it
+    dragon_scale: { earth: 4 },
+    nine_yang: { fire: 5, water: -3 },
+    // pure yang burns the water off
+    starforged: { metal: 4, wood: -2 },
+    vanquisher: { metal: 3, fire: 3 },
+    // fire feeds metal on the generating cycle
+    // ---- boss (14) ----
+    bset_boar_king: { earth: 3, wood: -2 },
+    // wood that died and went back to earth
+    bset_kiln_mother: { fire: 3, earth: 3 },
+    // a kiln is fire working earth
+    bset_fox_saint: { wood: 4, metal: -2 },
+    // metal overcomes wood; the silks shed it
+    bset_mine_golem: { metal: 3, earth: 3 },
+    // ore in stone
+    bset_bell_abbot: { metal: 5, fire: -2 },
+    // fire overcomes metal; the bell pushes it away
+    bset_tide_queen: { water: 5, fire: -3 },
+    // the mirror of Nine Yang
+    bset_cinder_abbot: { fire: 4, water: -1 },
+    // patient fire, banked rather than roaring
+    bset_prison_warden: { earth: 4, wood: -1 },
+    // living jade, but a cell above all
+    bset_vein_matriarch: { earth: 3, water: 3 },
+    // dragon-veins are rivers under stone
+    bset_mirage_emperor: { water: 4, earth: -2 },
+    // a treasury that does not exist has no foundation
+    bset_war_court_lord: { metal: 4, water: 2 },
+    // verdicts in stone, delivered like weather
+    bset_moon_eater: { water: 5, fire: -2 },
+    // swallowed moonlight, cold and luminous
+    bset_heavenly_executioner: { metal: 5, wood: -3 },
+    // the blade that ends growing things
+    bset_dawn_sovereign: { fire: 2, metal: 2 }
+    // see FIVE COLOR — this set's real work is elsewhere
+  };
+  (function deriveSetElements() {
+    Object.keys(SET_ELEMENTS).filter((k) => /^bset_/.test(k)).forEach((k) => {
+      const base = SET_ELEMENTS[k], out = {};
+      Object.entries(base).forEach(([el, v]) => {
+        out[el] = v > 0 ? Math.ceil(v * 1.5) : Math.floor(v * 1.5);
+      });
+      SET_ELEMENTS[k + "_hard"] = out;
+    });
+    const AXIS_VEC = {
+      off: (n) => ({ metal: n }),
+      // blades and pressure
+      def: (n) => ({ earth: n }),
+      // walls and plate
+      burst: (n) => ({ fire: n, earth: -Math.max(1, Math.floor(n / 2)) })
+      // everything traded for the edge
+    };
+    ["off", "def", "burst"].forEach((axis) => {
+      for (let t = 0; t <= 6; t++) {
+        const key = `style_${axis}_${t}`;
+        if (ARMOR_SETS[key]) SET_ELEMENTS[key] = AXIS_VEC[axis](Math.min(6, 2 + t));
+      }
+    });
+  })();
   (function scaleArmorWithRealm() {
     Object.entries(ARMOR).forEach(([aid, a]) => {
       if (!a.mods) return;
@@ -25258,7 +25441,7 @@
   var updateApplying = false;
   function runningShaKnown() {
     const s = typeof window !== "undefined" && window.BUILD_SHA;
-    return !!s && s !== "20a569b" && s !== "dev" && s !== "live";
+    return !!s && s !== "2992ef0" && s !== "dev" && s !== "live";
   }
   function verTuple(v) {
     return String(v || "").replace(/^v/, "").split(".").map((n) => parseInt(n, 10) || 0);
@@ -27382,7 +27565,7 @@
       combat.blessingWithheld = true;
     }
     {
-      const eLv = elementLevel("earth");
+      const eLv = elementSigLevel("earth");
       if (eLv > 0) {
         p._earthShield = Math.round(p.hpMax * ELEMENT_SHIELD_PCT[eLv]);
         p._earthShieldRefresh = Math.round(p._earthShield / 2);
@@ -27424,7 +27607,7 @@
           pushLog("hurt", damageLogLine(cres, opts.attacker));
         }
         if (combat && target === combat.player && opts.attacker && opts.attacker.hp > 0) {
-          const wLv = elementLevel("wood");
+          const wLv = elementSigLevel("wood");
           if (wLv > 0) {
             const rip = Math.round(target.weaponPower * ELEMENT_WOOD_RIPOSTE[wLv]);
             if (rip > 0) {
@@ -27591,7 +27774,7 @@
       }
     }
     if (amount > 0 && typeof combat !== "undefined" && combat && target !== combat.player && (target.spiritMax || 0) > 0) {
-      const mLv = elementLevel("metal");
+      const mLv = elementSigLevel("metal");
       if (mLv > 0) {
         let rend = Math.round(amount * ELEMENT_METAL_SPIRIT[mLv]);
         rend = Math.min(rend, spiritBudgetLeft(combat.player, target, null));
@@ -27632,7 +27815,7 @@
     let c = schoolKit().dodgeChance || 0;
     if (p.buffs && p.buffs.dodgeTurns > 0) c += p.buffs.dodgeChance || 0;
     c += p.mods && p.mods.dodgeChance || 0;
-    return Math.min(0.75, softCapDodge(c) * ELEMENT_WOOD_DODGE[Math.max(0, elementLevel("wood"))]);
+    return Math.min(0.75, softCapDodge(c) * ELEMENT_WOOD_DODGE[Math.max(0, elementSigLevel("wood"))]);
   }
   function autoDamagePenalty(tierIdx) {
     return 0;
@@ -28423,7 +28606,7 @@
       if (p.qi > before) pushLog("heal", `  → +${p.qi - before} qi drawn back out of the wound.`);
     }
     {
-      const fireLv = elementLevel("fire");
+      const fireLv = elementSigLevel("fire");
       if (fireLv > 0 && _techDamageDealt > 0 && !isAoe) {
         const tgtE = combat.enemy;
         if (tgtE && tgtE.hp > 0) {
@@ -28507,7 +28690,7 @@
     const schoolMed = hm.schoolMeditateMult && hm.schoolMeditateMult[state.selectedSchool] || 1;
     let regen = Math.ceil(p.qiMax * 0.5 * p.mods.meditateMult * schoolMed);
     if (isDemonHeart(state)) regen = Math.max(0, regen - 50);
-    const waterMed = ELEMENT_MEDITATE_MULT[Math.max(0, elementLevel("water"))];
+    const waterMed = ELEMENT_MEDITATE_MULT[Math.max(0, elementSigLevel("water"))];
     regen = Math.ceil(regen * waterMed);
     const before = p.qi;
     p.qi = Math.min(p.qiMax, p.qi + regen);
@@ -30746,6 +30929,7 @@
     wrap.className = "inventory-list";
     ELEMENTS.forEach((el) => {
       const pts = elementStanding(el), lv = elementLevel(el), cost = elementNextPointCost(el);
+      const gear = elementGearPoints(el);
       const isPrim = el === primary, rootMatch = roots.indexOf(el) >= 0;
       const inBand = (pts % ELEMENT_LEVEL_POINTS + ELEMENT_LEVEL_POINTS) % ELEMENT_LEVEL_POINTS;
       const row = document.createElement("div");
@@ -30757,7 +30941,7 @@
         <span><strong style="color:${ELEMENT_CSS_COLOR[el]}">${elementLabel(el)}</strong>
           ${isPrim ? '<span class="rarity-tag rarity-legendary">primary</span>' : ""}
           ${rootMatch ? '<span class="rarity-tag rarity-rare">spirit root</span>' : ""}</span>
-        <span style="color:var(--ink-soft)">${pts} pts · ${lv < 0 ? '<span style="color:var(--crimson)">deficit L' + Math.abs(lv) + "</span>" : lv > 0 ? "Level " + lv : "uncultivated"}${lv !== 0 ? ` · ${lv > 0 ? "+" + boon + "% / " : ""}−${malus}%` : ""}</span>
+        <span style="color:var(--ink-soft)">${pts} pts${gear !== 0 ? ` <span style="color:${gear > 0 ? "var(--gold)" : "var(--crimson)"}">(${gear > 0 ? "+" : ""}${gear} gear)</span>` : ""} · ${lv < 0 ? '<span style="color:var(--crimson)">deficit L' + Math.abs(lv) + "</span>" : lv > 0 ? "Level " + lv : "uncultivated"}${lv !== 0 ? ` · ${lv > 0 ? "+" + boon + "% / " : ""}−${malus}%` : ""}</span>
       </div>
       <div style="font-size:0.75rem;color:var(--ink-soft);margin:0.15rem 0 0.3rem">
         Overcomes ${ELEMENT_NAME[ELEMENT_DESTROYS[el]]} · overcome by ${ELEMENT_NAME[Object.keys(ELEMENT_DESTROYS).find((k) => ELEMENT_DESTROYS[k] === el)]}
@@ -30786,6 +30970,68 @@
       wrap.appendChild(row);
     });
     p.appendChild(wrap);
+    if (fiveColorUnlocked() || fiveColorState() > 0) {
+      const fc = document.createElement("div");
+      fc.style.cssText = "margin-top:1rem;padding-top:0.8rem;border-top:1px solid rgba(120,120,120,0.3)";
+      const frac = fiveColorFraction(), pct = Math.round(frac * 100);
+      const blocked = fiveColorBlockedBy();
+      fc.innerHTML = `<h3 style="font-size:0.95rem">Five Color <span style="font-weight:normal;color:var(--ink-soft);font-size:0.8rem">五色</span></h3>
+      <p style="font-size:0.78rem;color:var(--ink-soft);margin:0 0 0.4rem">Every element's boons and none of their costs — but harmony has no edges. As this fills, the damage you gain from overcoming a foe and the damage you suffer from being overcome BOTH fade toward nothing. Complete it and you surrender your signature powers entirely.</p>
+      <div style="height:8px;background:rgba(120,120,120,0.22);border-radius:4px;overflow:hidden;margin-bottom:0.35rem">
+        <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,${ELEMENT_CSS_COLOR.wood},${ELEMENT_CSS_COLOR.fire},${ELEMENT_CSS_COLOR.earth},${ELEMENT_CSS_COLOR.metal},${ELEMENT_CSS_COLOR.water})"></div>
+      </div>
+      <p style="font-size:0.78rem;margin:0 0 0.4rem"><strong>${pct}%</strong> <span style="color:var(--ink-soft)">· ${Math.round(fiveColorState()).toLocaleString()} / ${FIVE_COLOR_TOTAL.toLocaleString()} insight · boons at ${pct}% · matchup at ${100 - pct}%${frac >= 1 ? ' · <span style="color:var(--crimson)">signatures surrendered</span>' : ""}</span></p>`;
+      if (blocked.length) {
+        const warn = document.createElement("p");
+        warn.style.cssText = "font-size:0.78rem;color:var(--crimson);margin:0 0 0.4rem";
+        warn.textContent = `Cannot harmonise while running a deficit in ${blocked.map((e) => ELEMENT_NAME[e]).join(" and ")} — your gear is draining what you would need to balance.`;
+        fc.appendChild(warn);
+      } else if (!fiveColorUnlocked()) {
+        const warn = document.createElement("p");
+        warn.style.cssText = "font-size:0.78rem;color:var(--ink-soft);margin:0 0 0.4rem";
+        warn.textContent = `Opens at ${REALMS[FIVE_COLOR_MIN_TIER].name}.`;
+        fc.appendChild(warn);
+      } else {
+        const bar2 = document.createElement("div");
+        bar2.className = "button-row";
+        bar2.style.cssText = "flex-wrap:wrap;gap:0.3rem";
+        [
+          ["+1%", Math.round(FIVE_COLOR_TOTAL * 0.01)],
+          ["+10%", Math.round(FIVE_COLOR_TOTAL * 0.1)],
+          ["all you can", state.realm.insight]
+        ].forEach(([label, amt]) => {
+          const b = document.createElement("button");
+          b.className = "small " + (state.realm.insight >= Math.min(amt, 1) && frac < 1 ? "gold" : "ghost");
+          b.textContent = `${label} — ${Math.min(amt, state.realm.insight, FIVE_COLOR_TOTAL - fiveColorState()).toLocaleString()} insight`;
+          b.disabled = frac >= 1 || state.realm.insight <= 0;
+          b.onclick = () => {
+            fiveColorInvest(amt);
+            render();
+          };
+          bar2.appendChild(b);
+        });
+        fc.appendChild(bar2);
+      }
+      if (elementSpentTotal() > 0 && fiveColorUnlocked()) {
+        const rts = document.createElement("div");
+        rts.style.cssText = "margin-top:0.6rem;padding-top:0.5rem;border-top:1px dashed rgba(120,120,120,0.3)";
+        rts.innerHTML = `<div style="font-size:0.82rem;font-weight:bold;color:var(--gold)">Return to the Source 归元</div>
+        <p style="font-size:0.76rem;color:var(--ink-soft);margin:0.15rem 0 0.35rem">Pour every element you have cultivated into Five Color instead. Credits the <strong>${elementSpentTotal().toLocaleString()}</strong> insight you actually spent — ${Math.round(Math.min(elementSpentTotal(), FIVE_COLOR_TOTAL) / FIVE_COLOR_TOTAL * 100)}% of the bar. All element standing resets to zero, clearing any deficit with it. This cannot be undone.</p>`;
+        const rb = document.createElement("button");
+        rb.className = "small " + (canReturnToSource() ? "gold" : "ghost");
+        rb.textContent = "Return to the Source";
+        rb.disabled = !canReturnToSource();
+        rb.onclick = () => {
+          if (confirm("Return every cultivated element to the source? This cannot be undone.")) {
+            returnToSource();
+            render();
+          }
+        };
+        rts.appendChild(rb);
+        fc.appendChild(rts);
+      }
+      p.appendChild(fc);
+    }
     return p;
   }
   function elementSignatureBlurb(el, lv) {
