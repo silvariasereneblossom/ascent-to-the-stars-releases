@@ -9205,6 +9205,11 @@
 
   // app/src/data/changelog.js
   var CHANGELOG = [
+    { v: "1.27.176", notes: [
+      "HEAVY PLATE NOW HITS BACK, QUIETLY. A full four-piece defensive set adds a share of your combined Vitality and Qi pools to every blow you land. It is small on purpose &mdash; the pools you built to survive lend a little weight to the swing, so a defensive build always makes progress against a huge health bar instead of grinding to a halt.",
+      "It is added after every multiplier and after the critical roll, so nothing can compound it: no crit, no ramp, no echo. And it can never exceed 30% of the blow it rides on, which keeps it a floor under your damage rather than a way to burst.",
+      "Because it lives on the SETS rather than a skill branch, any school can take it simply by choosing to wear plate &mdash; the trade is the armour itself."
+    ] },
     { v: "1.27.175", notes: [
       "TANKS CAN NOW WIN A LONG FIGHT ON PURPOSE. Two new Combat Arts branches turn endurance into a win condition rather than only into survival, each with a full six-node ladder through the realms.",
       "RETRIBUTION &mdash; Iron Body’s Answering Stone and Moonlit Water’s Patience of Deep Water. Every wound you weather this fight sharpens the answer: +5% damage per node for each full health bar of punishment you have absorbed, up to three bars’ worth. Unlike the bloodied bonus this counts CUMULATIVE damage survived, so it does not vanish the moment you heal &mdash; and damage eaten by your qi barrier counts, because a barrier tank is exactly who this is for.",
@@ -9554,10 +9559,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Max Posture, and −0.5% tribulation damage taken per point (to −40%)." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.175';
+  var GAME_VERSION = 'v1.27.176';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "8b7af27";
+  var BUILD_SHA = "3b87536";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -14178,6 +14183,12 @@
       // +this much outgoing damage per 100% of max Vitality taken so far this fight
       healSuppress: 0,
       // reduces the foe's mending by this fraction
+      // v1.27.176 (operator: "qi barrier/Vitality scaling attacks? Not enough to be bursty, enough to break
+      // stalls"). A FLAT addition drawn from the pools a tank actually invests in, added AFTER every
+      // multiplier so nothing can compound it into burst — it is a floor under your damage, not a ceiling
+      // raised. Deliberately small: it exists so a defensive build always makes progress, never so it races.
+      poolDamagePct: 0,
+      // adds this share of (max Vitality + max Qi) to each landed blow
       qiShieldMult: 1,
       // multiplies the qi barrier's soak strength
       spiritMaxMult: 1,
@@ -21872,12 +21883,18 @@
                 m.hpMult = (m.hpMult || 1) * (1 + 0.07 + 0.01 * t);
               }
             },
+            // v1.27.176: the plate answers. A small share of your Vitality+Qi pools is added to every blow you
+            // land — deliberately tiny per hit, and added after all multipliers so it can never be crit or
+            // ramped into burst. It exists so a defensive build always makes progress against a huge pool
+            // instead of stalling, and it is on the SETS rather than a skill branch so any school can take it
+            // simply by choosing to wear plate.
             {
               pieces: 4,
-              desc: `-${Math.round((0.09 + 0.01 * t) * 100)}% incoming damage, +5% max Vitality`,
+              desc: `-${Math.round((0.09 + 0.01 * t) * 100)}% incoming damage, +5% max Vitality, and every blow carries ${(0.15 + 0.02 * t).toFixed(2)}% of your Vitality+Qi`,
               apply: (m) => {
                 m.incomingMult *= 1 - (0.09 + 0.01 * t);
                 m.hpMult = (m.hpMult || 1) * 1.05;
+                m.poolDamagePct = (m.poolDamagePct || 0) + (15e-4 + 2e-4 * t);
               }
             }
           ],
@@ -25478,7 +25495,7 @@
   var updateApplying = false;
   function runningShaKnown() {
     const s = typeof window !== "undefined" && window.BUILD_SHA;
-    return !!s && s !== "8b7af27" && s !== "dev" && s !== "live";
+    return !!s && s !== "3b87536" && s !== "dev" && s !== "live";
   }
   function verTuple(v) {
     return String(v || "").replace(/^v/, "").split(".").map((n) => parseInt(n, 10) || 0);
@@ -28051,6 +28068,9 @@
     if (!_preview && critChance > 0 && Math.random() < critChance) {
       dmg *= m.critMult || 1.5;
       ctx.crit = true;
+    }
+    if (m.poolDamagePct > 0 && p && dmg > 0) {
+      dmg += Math.min(((p.hpMax || 0) + (p.qiMax || 0)) * m.poolDamagePct, dmg * 0.3);
     }
     return dmg;
   }
