@@ -9205,6 +9205,11 @@
 
   // app/src/data/changelog.js
   var CHANGELOG = [
+    { v: "1.27.182", notes: [
+      "THE LOADOUT SCREEN NOW ADMITS THAT ASCENDANT PIECES COUNT TWICE. An Ascendant piece has always counted toward the lesser set it was forged out of as well as its own, so upgrading your first piece never costs you a bonus you already had. The Active Set Bonuses summary was the one place that never learned this: four Ascendant pieces listed only the Ascendant set, and a mix of two Ascendant and two base showed the base set stuck at two of four &mdash; while you were quietly being paid the four-piece the whole time.",
+      "For the same reason, yesterday&rsquo;s new element lines understated every Ascendant piece by exactly the base set&rsquo;s worth. A full Ascendant Standing-Sea Mail moves you Water +13 and Fire -8; the description claimed +8 and -5. It now states what you actually get.",
+      "Those element lines are also now printed on the equipped armour slots themselves, not only on hover in the inventory. Once a piece was on you, the one number worth comparing had gone invisible."
+    ] },
     { v: "1.27.181", notes: [
       "ARMOUR NOW TELLS YOU WHICH ELEMENTS IT CARRIES. Every set has quietly moved your elemental standing since the Five Elements arrived, and nothing anywhere said so &mdash; the only way to learn that the Standing-Sea Mail deepens your Water and drains your Fire was to put it on and watch a number change on a different tab. You could not compare two sets, or plan a build around one, without already owning it.",
       'Every set piece now states its vector plainly in its description: "Five Elements: Water +5 · Fire -3". Boss sets, their Ascendant upgrades, and the offensive, defensive and burst lines at every realm.'
@@ -9584,10 +9589,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Max Posture, and −0.5% tribulation damage taken per point (to −40%)." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.181';
+  var GAME_VERSION = 'v1.27.182';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "7c81d75";
+  var BUILD_SHA = "d534b8d";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -9659,8 +9664,16 @@
     return Math.max(0, elementsState()[el] || 0);
   }
   function setElementLine(setId) {
-    const vec = SET_ELEMENTS[setId];
+    let vec = SET_ELEMENTS[setId];
     if (!vec) return "";
+    const m = /^(bset_.+)_hard$/.exec(setId);
+    if (m && SET_ELEMENTS[m[1]]) {
+      const merged = Object.assign({}, vec);
+      Object.entries(SET_ELEMENTS[m[1]]).forEach(([el, v]) => {
+        merged[el] = (merged[el] || 0) + v;
+      });
+      vec = merged;
+    }
     const up = [], down = [];
     ELEMENTS.forEach((el) => {
       if (!vec[el]) return;
@@ -9669,21 +9682,24 @@
     if (!up.length && !down.length) return "";
     return up.concat(down).join(" · ");
   }
-  function elementGearPoints(el) {
-    if (!state || !state.armor) return 0;
-    const eq = state.armor.equipped || {};
+  function activeSetCounts(pieces) {
     const counts = {};
-    ["helmet", "chest", "gloves", "boots", "accessory1", "accessory2"].forEach((slot) => {
-      const id = eq[slot];
-      if (!id) return;
-      const piece = ARMOR[id];
-      if (!piece || !piece.set) return;
-      counts[piece.set] = (counts[piece.set] || 0) + 1;
-      if (piece.hardSet && piece.bossSet && ARMOR_SETS["bset_" + piece.bossSet]) {
-        const b = "bset_" + piece.bossSet;
+    (pieces || []).forEach((p) => {
+      if (!p || !p.set) return;
+      counts[p.set] = (counts[p.set] || 0) + 1;
+      if (p.hardSet && p.bossSet && ARMOR_SETS[`bset_${p.bossSet}`]) {
+        const b = `bset_${p.bossSet}`;
         counts[b] = (counts[b] || 0) + 1;
       }
     });
+    return counts;
+  }
+  function elementGearPoints(el) {
+    if (!state || !state.armor) return 0;
+    const eq = state.armor.equipped || {};
+    const counts = activeSetCounts(
+      ["helmet", "chest", "gloves", "boots", "accessory1", "accessory2"].map((slot) => ARMOR[eq[slot]])
+    );
     let pts = 0;
     Object.entries(counts).forEach(([setId, n]) => {
       const vec = SET_ELEMENTS[setId];
@@ -22326,15 +22342,7 @@
       applyArmorPieceScaling(mods, p, armorTierOf(id));
     });
     const pieces = equipped.map((id) => ARMOR[id]).filter(Boolean);
-    const setCount = {};
-    pieces.forEach((p) => {
-      if (!p.set) return;
-      setCount[p.set] = (setCount[p.set] || 0) + 1;
-      if (p.hardSet && p.bossSet) {
-        const baseSet = `bset_${p.bossSet}`;
-        if (ARMOR_SETS[baseSet]) setCount[baseSet] = (setCount[baseSet] || 0) + 1;
-      }
-    });
+    const setCount = activeSetCounts(pieces);
     Object.entries(setCount).forEach(([setId, count]) => {
       const def = ARMOR_SETS[setId];
       if (!def) return;
@@ -25561,7 +25569,7 @@
   var updateApplying = false;
   function runningShaKnown() {
     const s = typeof window !== "undefined" && window.BUILD_SHA;
-    return !!s && s !== "7c81d75" && s !== "dev" && s !== "live";
+    return !!s && s !== "d534b8d" && s !== "dev" && s !== "live";
   }
   function verTuple(v) {
     return String(v || "").replace(/^v/, "").split(".").map((n) => parseInt(n, 10) || 0);
@@ -33600,6 +33608,8 @@
         const setStr = p2.set ? ` · <em>${ARMOR_SETS[p2.set].name} set</em>` : "";
         body += `<div style="margin-top:0.2rem;font-size:0.85rem"><strong>${p2.name}</strong> <span class="rarity-tag rarity-${p2.rarity}">${p2.rarity}</span>${setStr}</div>`;
         body += `<div style="font-size:0.78rem;color:var(--ink-soft);margin-top:0.15rem">${statsStr}${scaleStr ? ` · <span style="color:var(--jade)">${scaleStr}</span>` : ""}</div>`;
+        const elLine = p2.set ? setElementLine(p2.set) : "";
+        if (elLine) body += `<div style="font-size:0.75rem;color:var(--gold);margin-top:0.15rem">${elLine}</div>`;
       } else {
         body += `<div style="font-size:0.78rem;color:var(--ink-soft);margin-top:0.3rem"><em>Empty.</em></div>`;
       }
@@ -33621,10 +33631,7 @@
     });
     aP.appendChild(slotGrid);
     const eq = equippedArmorIds(state).map((id) => ARMOR[id]).filter(Boolean);
-    const setCounts = {};
-    eq.forEach((p2) => {
-      if (p2.set) setCounts[p2.set] = (setCounts[p2.set] || 0) + 1;
-    });
+    const setCounts = activeSetCounts(eq);
     if (Object.keys(setCounts).length) {
       const setBox = document.createElement("div");
       setBox.style.marginTop = "0.6rem";
