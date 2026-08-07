@@ -9192,6 +9192,15 @@
 
   // app/src/data/changelog.js
   var CHANGELOG = [
+    { v: "1.27.172", notes: [
+      "THE FIVE ELEMENTS GAIN THEIR SIGNATURE POWERS. Each element now does something no other can, on top of its stat kit.",
+      "FIRE 火 — single-target techniques ECHO. A trigger worth 5/7.5/12.5% of the technique&rsquo;s damage fires once per hit, so a flurry echoes several times over and a single heavy blow echoes once. Multi-hit is deliberately the Fire build.",
+      "WATER 水 — stillness rewards you. Meditation draws ×1.2/1.3/1.4 the qi AND holds a proportionally deeper guard: a −30% shelter becomes −42% at the third level.",
+      "EARTH 土 — you open every fight behind a standing stone worth 10/20/30% of your Vitality. It absorbs damage before your body takes any, returns every 5 turns at half its opening strength, and meditation hurries its return &mdash; which makes Earth and Water natural companions.",
+      "WOOD 木 — dodge is MULTIPLIED by ×1.15/1.25/1.40 after the soft cap rather than added before it, so it scales with the evasion you have actually built instead of being swallowed by diminishing returns. Every evade answers with a strike at 50/75/100% strength.",
+      "METAL 金 — 10/15/20% of all posture damage also rends Spirit, and you deal +20% to spirit-broken foes. Pressure the stance and the soul gives way with it.",
+      "Qi drain now applies once per action rather than once per hit. It takes a share of the foe&rsquo;s maximum qi, which does not shrink when a blow is split, so on a multi-hit technique it was simply multiplying. Everything that scales with damage dealt &mdash; lifesteal, the hellfire rend &mdash; is untouched, because slicing a technique finer never changed its total."
+    ] },
     { v: "1.27.171", notes: [
       "THE FIVE ELEMENTS 五行 ARE NOW A PATH YOU CULTIVATE. A new Elements tab sits beside your Overview, showing the generating and overcoming cycles and where you stand in each. Your SCHOOL sets your primary element; insight poured into it buys levels, and each level deepens both what you gain and what you give up.",
       "Overcoming a foe&rsquo;s element pays 15/20/25% by level. Being overcome costs 20/25/30% &mdash; deliberately steeper, because a fight you can grind past is a speed bump rather than a wall, and investing in a second element is real insurance against a bad matchup.",
@@ -9512,10 +9521,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Max Posture, and −0.5% tribulation damage taken per point (to −40%)." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.171';
+  var GAME_VERSION = 'v1.27.172';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "9de3be6";
+  var BUILD_SHA = "20a569b";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -14106,6 +14115,15 @@
   var ELEMENT_CRIT = [0, 0.04, 0.07, 0.1];
   var ELEMENT_DODGE = [0, 0.04, 0.07, 0.1];
   var ELEMENT_REGEN = [0, 3, 6, 8];
+  var ELEMENT_ECHO_PCT = [0, 0.05, 0.075, 0.125];
+  var ELEMENT_ECHO_MAX_HITS = 6;
+  var ELEMENT_MEDITATE_MULT = [1, 1.2, 1.3, 1.4];
+  var ELEMENT_SHIELD_PCT = [0, 0.1, 0.2, 0.3];
+  var ELEMENT_SHIELD_CD = 5;
+  var ELEMENT_WOOD_DODGE = [1, 1.15, 1.25, 1.4];
+  var ELEMENT_WOOD_RIPOSTE = [0, 0.5, 0.75, 1];
+  var ELEMENT_METAL_SPIRIT = [0, 0.1, 0.15, 0.2];
+  var ELEMENT_METAL_VS_BROKEN = 0.2;
   function applyElementsToMods(mods, char) {
     const saved = state;
     try {
@@ -14156,6 +14174,7 @@
             if (boons) {
               mods.postureMult *= 1 + up;
               mods.postureMaxMult = (mods.postureMaxMult || 1) * (1 + up);
+              mods.vsSoulBrokenMult = (mods.vsSoulBrokenMult || 1) + ELEMENT_METAL_VS_BROKEN;
             }
             mods.qiShieldMult = (mods.qiShieldMult || 1) * (1 - dn);
             mods.qiRegenBonus -= regen;
@@ -25239,7 +25258,7 @@
   var updateApplying = false;
   function runningShaKnown() {
     const s = typeof window !== "undefined" && window.BUILD_SHA;
-    return !!s && s !== "9de3be6" && s !== "dev" && s !== "live";
+    return !!s && s !== "20a569b" && s !== "dev" && s !== "live";
   }
   function verTuple(v) {
     return String(v || "").replace(/^v/, "").split(".").map((n) => parseInt(n, 10) || 0);
@@ -27284,6 +27303,12 @@
       postureMax: Math.max(10, Math.round((60 + 2 * (state.finalStats && state.finalStats.will || 0)) * (mods.postureMaxMult || 1))),
       posture: 0,
       broken: 0,
+      // v1.27.172 PHASE 4: EARTH 土 opens every fight behind a Vitality shield. Refreshes on a 5-turn cycle at
+      // HALF the INITIAL value — half of the initial rather than half of the last one, or a 30% shield would be
+      // 3.75% by its third return and the effect would be dead by turn 15.
+      _earthShield: 0,
+      _earthShieldRefresh: 0,
+      _earthShieldCd: 0,
       weaponPower: Math.round((effectiveWeaponBasePower(state) + secondaryWeaponPowerBonus(state) + refineWeaponBonus(state) + rb.weapon + mods.weaponBonus + boonWeaponAdd() + skillWeaponAdd()) * weaponMult * (mods.weaponMultFlat || 1)),
       // v1.27.119: sect weapons scale their base power with realm
       loadout,
@@ -27356,6 +27381,14 @@
     } else if (state.pendingBlessing && _promoDuel) {
       combat.blessingWithheld = true;
     }
+    {
+      const eLv = elementLevel("earth");
+      if (eLv > 0) {
+        p._earthShield = Math.round(p.hpMax * ELEMENT_SHIELD_PCT[eLv]);
+        p._earthShieldRefresh = Math.round(p._earthShield / 2);
+        p._earthShieldCd = ELEMENT_SHIELD_CD;
+      }
+    }
     pushLog("turn", `— Turn 1 —`);
     if (combat.blessingDmgMult > 1) pushLog("flavor", "A Sect Elder's blessing settles over you — flesh doubled, barrier doubled, every strike half again as heavy.");
     else if (combat.blessingWithheld) pushLog("flavor", "The examination ring brooks no borrowed strength — your Elder's blessing withdraws, and waits for a fight of your own making.");
@@ -27389,6 +27422,17 @@
           const cres = dealDamage(opts.attacker, counterDmg, {});
           pushLog("line", `  → ${target.name} answers from the wind!`);
           pushLog("hurt", damageLogLine(cres, opts.attacker));
+        }
+        if (combat && target === combat.player && opts.attacker && opts.attacker.hp > 0) {
+          const wLv = elementLevel("wood");
+          if (wLv > 0) {
+            const rip = Math.round(target.weaponPower * ELEMENT_WOOD_RIPOSTE[wLv]);
+            if (rip > 0) {
+              const rres = dealDamage(opts.attacker, rip, { noCrit: true });
+              pushLog("line", `  → the branch bends past the blow and whips back.`);
+              pushLog("hurt", damageLogLine(rres, opts.attacker));
+            }
+          }
         }
         if (combat.tribulation && state && state.demonic && pendingTribulation && pendingTribulation.targetTier && DEMON_TRIB_PCT_HP[pendingTribulation.targetTier]) {
           const jd = Math.round((target.hpMax || 0) * DEMON_TRIB_PCT_HP[pendingTribulation.targetTier]);
@@ -27487,6 +27531,12 @@
       const capFloor = Math.max(0, target._capStartHp - roundDamageCapPct() * target.hpMax);
       if (target.hp - totalHp < capFloor) totalHp = Math.max(0, target.hp - capFloor);
     }
+    if (combat && target === combat.player && totalHp > 0 && (target._earthShield || 0) > 0) {
+      const soaked = Math.min(target._earthShield, totalHp);
+      target._earthShield -= soaked;
+      totalHp -= soaked;
+      pushLog("heal", `  → the standing stone takes ${Math.round(soaked)}${target._earthShield <= 0 ? " and cracks apart" : ""}.`);
+    }
     target.hp -= totalHp;
     target.spirit -= spiritDmg;
     if (combat && target !== combat.player && !opts.attacker && target.spiritMax > 0 && state.selectedSchool === "bone_reed") {
@@ -27540,6 +27590,20 @@
         }
       }
     }
+    if (amount > 0 && typeof combat !== "undefined" && combat && target !== combat.player && (target.spiritMax || 0) > 0) {
+      const mLv = elementLevel("metal");
+      if (mLv > 0) {
+        let rend = Math.round(amount * ELEMENT_METAL_SPIRIT[mLv]);
+        rend = Math.min(rend, spiritBudgetLeft(combat.player, target, null));
+        if (rend > 0) {
+          spendSpiritBudget(target, rend);
+          const before = target.spirit;
+          target.spirit = Math.max(0, target.spirit - rend);
+          if (target.spirit < before) pushLog("hurt", `  → ${before - target.spirit} spirit driven out through the stance.`);
+          if (target.spirit <= 0 && before > 0) pushLog("posture", `  → ${target.name} is soul-broken! +30% damage taken.`);
+        }
+      }
+    }
     target.posture += amount;
     if (isBreaker) target.posture = target.postureMax;
     let broke = false;
@@ -27568,7 +27632,7 @@
     let c = schoolKit().dodgeChance || 0;
     if (p.buffs && p.buffs.dodgeTurns > 0) c += p.buffs.dodgeChance || 0;
     c += p.mods && p.mods.dodgeChance || 0;
-    return Math.min(0.75, softCapDodge(c));
+    return Math.min(0.75, softCapDodge(c) * ELEMENT_WOOD_DODGE[Math.max(0, elementLevel("wood"))]);
   }
   function autoDamagePenalty(tierIdx) {
     return 0;
@@ -27868,6 +27932,14 @@
     if (!tgt || !(amt > 0)) return;
     tgt._spiritUsedThisCast = (tgt._spiritUsedThisCast || 0) + amt;
   }
+  function firstLandingOfCast(tgt, key) {
+    if (typeof combat === "undefined" || !combat || !tgt) return true;
+    const serial = combat._castSerial || 0;
+    const k = "_once_" + key;
+    if (tgt[k] === serial) return false;
+    tgt[k] = serial;
+    return true;
+  }
   function applyBaseSpiritChip(p, res, tgt, techId) {
     if (!tgt || tgt === p || res.dodged) return;
     if (!(tgt.spiritMax > 0) || !(tgt.spirit > 0)) return;
@@ -27896,7 +27968,7 @@
       }
       demonHeartQiFromBody(p, heal);
     }
-    if ((p.mods.qiDrainPct || 0) > 0 && tgt && tgt !== p && tgt.qi > 0) {
+    if ((p.mods.qiDrainPct || 0) > 0 && tgt && tgt !== p && tgt.qi > 0 && firstLandingOfCast(tgt, "qidrain")) {
       const drained = Math.min(tgt.qi, Math.round((tgt.qiMax || 0) * p.mods.qiDrainPct));
       if (drained > 0) {
         tgt.qi -= drained;
@@ -28350,6 +28422,21 @@
       p.qi = Math.min(p.qiMax, p.qi + Math.round(_techDamageDealt * tech.qiFromDamagePct));
       if (p.qi > before) pushLog("heal", `  → +${p.qi - before} qi drawn back out of the wound.`);
     }
+    {
+      const fireLv = elementLevel("fire");
+      if (fireLv > 0 && _techDamageDealt > 0 && !isAoe) {
+        const tgtE = combat.enemy;
+        if (tgtE && tgtE.hp > 0) {
+          const triggers = Math.min(ELEMENT_ECHO_MAX_HITS, Math.max(1, tech.hits || 1));
+          const echo = Math.round(_techDamageDealt * ELEMENT_ECHO_PCT[fireLv] * triggers);
+          if (echo > 0) {
+            const eres = dealDamage(tgtE, echo, { noCrit: true });
+            pushLog("line", `  → the strike echoes ${triggers}× in the air behind it.`);
+            pushLog("hurt", damageLogLine(eres, tgtE));
+          }
+        }
+      }
+    }
     if (kit.intentPerHit && !isAoe && dmg > 0) {
       const gain = tech.intentStacks || kit.intentPerHit;
       const before = p.swordIntent || 0;
@@ -28420,11 +28507,18 @@
     const schoolMed = hm.schoolMeditateMult && hm.schoolMeditateMult[state.selectedSchool] || 1;
     let regen = Math.ceil(p.qiMax * 0.5 * p.mods.meditateMult * schoolMed);
     if (isDemonHeart(state)) regen = Math.max(0, regen - 50);
+    const waterMed = ELEMENT_MEDITATE_MULT[Math.max(0, elementLevel("water"))];
+    regen = Math.ceil(regen * waterMed);
     const before = p.qi;
     p.qi = Math.min(p.qiMax, p.qi + regen);
-    const medReduce = isDemonHeart(state) ? 0.85 : 0.7;
+    const medReduceBase = isDemonHeart(state) ? 0.85 : 0.7;
+    const medReduce = Math.max(0.05, 1 - (1 - medReduceBase) * waterMed);
     p.buffs.incomingMult = medReduce;
     p.buffs.incomingTurns = 1;
+    if (p._earthShieldCd > 0) {
+      p._earthShieldCd--;
+      pushLog("flavor", `  → the settled breath draws the stone back sooner (${p._earthShieldCd} turn${p._earthShieldCd === 1 ? "" : "s"}).`);
+    }
     pushLog("line", `${p.name} folds inward, drawing heaven-qi through open meridians.`);
     pushLog("heal", `  → +${p.qi - before} qi (guarded: −${Math.round((1 - medReduce) * 100)}% incoming this round)`);
     if (p.swordIntent > 0) {
@@ -29448,6 +29542,14 @@
     tribMechHook("roundEnd");
     combat.turn++;
     pushLog("turn", `— Turn ${combat.turn} —`);
+    if (!combat.over && p && p.hp > 0 && (p._earthShieldRefresh || 0) > 0) {
+      if (p._earthShieldCd > 0) p._earthShieldCd--;
+      if (p._earthShieldCd <= 0) {
+        p._earthShield = Math.max(p._earthShield || 0, p._earthShieldRefresh);
+        p._earthShieldCd = ELEMENT_SHIELD_CD;
+        pushLog("heal", `  → the standing stone rises again (${p._earthShield}).`);
+      }
+    }
     if (!combat.over && combat.enemy && combat.enemy.id === "bell_abbot" && bellTollCount() >= BELL_TOLL_TURN && (combat.enemy.broken || 0) <= 0 && p.hp > 0 && (p.spiritMax || 0) > 0 && p.spirit <= 0) {
       pushLog("defeat", "The ninth echo finds a soul with no walls left, and rings it out of the world.");
       p.hp = 0;
@@ -30660,7 +30762,8 @@
       <div style="font-size:0.75rem;color:var(--ink-soft);margin:0.15rem 0 0.3rem">
         Overcomes ${ELEMENT_NAME[ELEMENT_DESTROYS[el]]} · overcome by ${ELEMENT_NAME[Object.keys(ELEMENT_DESTROYS).find((k) => ELEMENT_DESTROYS[k] === el)]}
         ${lv > 0 ? ` · ${elementKitBlurb(el, Math.abs(lv))}` : ""}
-      </div>`;
+      </div>
+      ${lv > 0 ? `<div style="font-size:0.75rem;color:var(--gold);margin:0 0 0.3rem">${elementSignatureBlurb(el, Math.abs(lv))}</div>` : ""}`;
       const bar2 = document.createElement("div");
       bar2.style.cssText = "height:6px;background:rgba(120,120,120,0.22);border-radius:3px;overflow:hidden;margin-bottom:0.35rem";
       bar2.innerHTML = `<div style="height:100%;width:${Math.round(inBand / ELEMENT_LEVEL_POINTS * 100)}%;background:${ELEMENT_CSS_COLOR[el]}"></div>`;
@@ -30684,6 +30787,21 @@
     });
     p.appendChild(wrap);
     return p;
+  }
+  function elementSignatureBlurb(el, lv) {
+    switch (el) {
+      case "fire":
+        return `Single-target techniques echo for ${(ELEMENT_ECHO_PCT[lv] * 100).toFixed(1).replace(/\.0$/, "")}% of their damage, once per hit (max ${ELEMENT_ECHO_MAX_HITS}).`;
+      case "water":
+        return `Meditation draws ×${ELEMENT_MEDITATE_MULT[lv]} the qi and holds ×${ELEMENT_MEDITATE_MULT[lv]} the guard.`;
+      case "earth":
+        return `Open each fight behind a shield worth ${Math.round(ELEMENT_SHIELD_PCT[lv] * 100)}% of your Vitality; it returns every ${ELEMENT_SHIELD_CD} turns at half strength, and meditation hurries it.`;
+      case "wood":
+        return `Dodge ×${ELEMENT_WOOD_DODGE[lv]} after the soft cap, and an evade answers with a strike at ${Math.round(ELEMENT_WOOD_RIPOSTE[lv] * 100)}% strength.`;
+      case "metal":
+        return `${Math.round(ELEMENT_METAL_SPIRIT[lv] * 100)}% of posture damage also rends Spirit, and you deal +${Math.round(ELEMENT_METAL_VS_BROKEN * 100)}% to spirit-broken foes.`;
+    }
+    return "";
   }
   function elementKitBlurb(el, lv) {
     const up = Math.round(ELEMENT_UP[lv] * 100), dn = Math.round(ELEMENT_DOWN[lv] * 100);
