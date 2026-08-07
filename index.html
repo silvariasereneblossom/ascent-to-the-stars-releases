@@ -9192,6 +9192,15 @@
 
   // app/src/data/changelog.js
   var CHANGELOG = [
+    { v: "1.27.171", notes: [
+      "THE FIVE ELEMENTS 五行 ARE NOW A PATH YOU CULTIVATE. A new Elements tab sits beside your Overview, showing the generating and overcoming cycles and where you stand in each. Your SCHOOL sets your primary element; insight poured into it buys levels, and each level deepens both what you gain and what you give up.",
+      "Overcoming a foe&rsquo;s element pays 15/20/25% by level. Being overcome costs 20/25/30% &mdash; deliberately steeper, because a fight you can grind past is a speed bump rather than a wall, and investing in a second element is real insurance against a bad matchup.",
+      "Each element also reshapes you. Fire buys attack and critical with damage reduction and Vitality. Water buys qi barrier and regeneration with attack and critical. Earth buys Vitality and damage reduction with dodge and Spirit. Wood buys dodge and critical with qi barrier and posture. Metal buys posture damage and posture with qi barrier and qi regeneration.",
+      "Level 2 opens at Golden Core and Level 3 at Nascent Soul. Costs are pitched so a dedicated cultivator fills one element right as they arrive at Golden Core; a second element costs double, which puts it out of reach until the insight curve steepens &mdash; so specialising first and broadening later is the shape the numbers push you toward.",
+      "YOUR SPIRIT ROOT NOW DISCOUNTS RATHER THAN DICTATES. It used to set your combat element outright at a flat +20%/&minus;15%. It now cuts the cost of matching elements by a quarter (and a matching second element from double to one and a half), so a good roll is a real advantage across the whole game instead of a single fixed bonus.",
+      "One consequence to know about: until you cultivate an element you have NO elemental identity &mdash; no boon and no malus. Existing cultivators keep everything else, and the first ten points in your primary are cheap.",
+      "SCHOOL ELEMENTS REBALANCED. Six of the fifteen schools were Metal and only two were Wood, which was harmless as flavour and untenable now that each element carries a real kit. Bone Reed moves to Metal (posture into spirit is precisely its plan), Starfall to Fire, Whispering Array and Jade Inkwell to Water, Silent Daggers and Cloud Traveler to Wood, Chain Saint to Earth."
+    ] },
     { v: "1.27.170", notes: [
       "ANDROID UPDATES SHOULD ACTUALLY ARRIVE NOW. The in-place update path had no way to tell a COMPLETE download from a truncated one. It fetches a ~1.5MB file in a single read over a mobile link, and if that stream was cut partway &mdash; a dropped connection, a carrier proxy giving up &mdash; the result was neither empty nor null, so it passed every check, installed, recorded the new version as applied, and restarted into a half-written page. The app then believed it was up to date and stopped trying.",
       "A payload now has to be provably complete and has to declare the exact version the update is advertising before it will be installed. If it does not, the phone keeps its working copy and either retries or falls back to the full-app download, which resumes across connection drops.",
@@ -9503,15 +9512,16 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Max Posture, and −0.5% tribulation damage taken per point (to −40%)." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.170';
+  var GAME_VERSION = 'v1.27.171';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "076579f";
+  var BUILD_SHA = "9de3be6";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
   var ELEMENT_ZH = { metal: "金", wood: "木", water: "水", fire: "火", earth: "土" };
   var ELEMENT_DESTROYS = { wood: "earth", earth: "water", water: "fire", fire: "metal", metal: "wood" };
+  var ELEMENT_GENERATES = { wood: "fire", fire: "earth", earth: "metal", metal: "water", water: "wood" };
   var ELEMENT_COUNTER_BONUS = 0.2;
   var ELEMENT_COUNTER_MALUS = 0.15;
   function hashStr(s) {
@@ -9525,41 +9535,113 @@
   function elementLabel(el) {
     return el ? `${ELEMENT_NAME[el]} ${ELEMENT_ZH[el]}` : "";
   }
-  function elementCounter(attackerEl, defenderEl) {
-    if (!attackerEl || !defenderEl) return 1;
-    if (ELEMENT_DESTROYS[attackerEl] === defenderEl) return 1 + ELEMENT_COUNTER_BONUS;
-    if (ELEMENT_DESTROYS[defenderEl] === attackerEl) return 1 - ELEMENT_COUNTER_MALUS;
-    return 1;
-  }
-  function bestElementCounter(attackerEls, defenderEl) {
-    const arr = Array.isArray(attackerEls) ? attackerEls : [attackerEls];
-    if (!arr.length) return 1;
-    return Math.max.apply(null, arr.map((e) => elementCounter(e, defenderEl)));
-  }
   function playerElements(st) {
     if (st && st.spiritRoot && st.spiritRoot.elements && st.spiritRoot.elements.length) return st.spiritRoot.elements.slice();
     if (st && st.spiritRoot && st.spiritRoot.element) return [st.spiritRoot.element];
     return [];
   }
   var SCHOOL_ELEMENTS = {
-    azure_sword: "metal",
-    iron_body: "earth",
-    whispering_array: "earth",
-    crimson_flame: "fire",
-    moonlit_water: "water",
-    silent_daggers: "metal",
+    // Fire (4) — attack/crit, glass
     demon_heart: "fire",
-    starfall: "metal",
-    verdant_monastery: "wood",
-    thunder_hammer: "metal",
-    cloud_traveler: "water",
-    bone_reed: "wood",
-    jade_inkwell: "earth",
+    crimson_flame: "fire",
     dragonforge: "fire",
-    chain_saint: "metal"
+    starfall: "fire",
+    // Metal (3) — posture into spirit
+    thunder_hammer: "metal",
+    bone_reed: "metal",
+    azure_sword: "metal",
+    // Wood (3) — dodge and the counter-strike
+    verdant_monastery: "wood",
+    cloud_traveler: "wood",
+    silent_daggers: "wood",
+    // Water (3) — qi barrier and regen, the long fight
+    moonlit_water: "water",
+    whispering_array: "water",
+    jade_inkwell: "water",
+    // Earth (2) — vitality and damage reduction
+    iron_body: "earth",
+    chain_saint: "earth"
   };
   function schoolElement(schoolId) {
     return SCHOOL_ELEMENTS[schoolId] || "earth";
+  }
+  var ELEMENT_LEVEL_POINTS = 10;
+  var ELEMENT_MAX_LEVEL = 3;
+  var ELEMENT_BAND_COST = [0, 43e4, 51e6, 266e6];
+  var ELEMENT_LEVEL_MIN_TIER = [0, 0, 4, 5];
+  var ELEMENT_BOON_BY_LEVEL = [0, 0.15, 0.2, 0.25];
+  var ELEMENT_MALUS_BY_LEVEL = [0, 0.2, 0.25, 0.3];
+  function elementsState() {
+    if (!state.elements || typeof state.elements !== "object") state.elements = {};
+    return state.elements;
+  }
+  function playerPrimaryElement() {
+    return schoolElement(state.selectedSchool);
+  }
+  function elementCostMult(el) {
+    const rootMatch = playerElements(state).indexOf(el) >= 0;
+    if (el === playerPrimaryElement()) return rootMatch ? 0.75 : 1;
+    return rootMatch ? 1.5 : 2;
+  }
+  function elementInvested(el) {
+    return Math.max(0, elementsState()[el] || 0);
+  }
+  function elementGearPoints(el) {
+    return 0;
+  }
+  function elementStanding(el) {
+    return elementInvested(el) + elementGearPoints(el);
+  }
+  function elementRealmCap() {
+    const t = state.realm && state.realm.tierIdx || 0;
+    let cap = 0;
+    for (let L = 1; L <= ELEMENT_MAX_LEVEL; L++) if (t >= ELEMENT_LEVEL_MIN_TIER[L]) cap = L;
+    return cap;
+  }
+  function elementLevel(el) {
+    const st = elementStanding(el);
+    const raw = Math.min(ELEMENT_MAX_LEVEL, Math.floor(Math.abs(st) / ELEMENT_LEVEL_POINTS));
+    if (st < 0) return -raw;
+    return Math.min(raw, elementRealmCap());
+  }
+  function elementNextPointCost(el) {
+    const cur = elementInvested(el);
+    const band = Math.floor(cur / ELEMENT_LEVEL_POINTS) + 1;
+    if (band > ELEMENT_MAX_LEVEL) return null;
+    if (band > elementRealmCap()) return null;
+    return Math.max(1, Math.round(ELEMENT_BAND_COST[band] / ELEMENT_LEVEL_POINTS * elementCostMult(el)));
+  }
+  function canInvestElement(el) {
+    const c = elementNextPointCost(el);
+    return c != null && state.realm.insight >= c;
+  }
+  function investElement(el) {
+    const c = elementNextPointCost(el);
+    if (c == null || state.realm.insight < c) return;
+    state.realm.insight -= c;
+    const e = elementsState();
+    e[el] = (e[el] || 0) + 1;
+    saveChar();
+  }
+  function elementCounterAt(attackerEl, level, defenderEl) {
+    if (!attackerEl || !defenderEl || level <= 0) return 1;
+    if (ELEMENT_DESTROYS[attackerEl] === defenderEl) return 1 + ELEMENT_BOON_BY_LEVEL[level];
+    if (ELEMENT_DESTROYS[defenderEl] === attackerEl) return 1 - ELEMENT_MALUS_BY_LEVEL[level];
+    return 1;
+  }
+  function playerElementMult(defenderEl) {
+    if (!defenderEl) return 1;
+    let best = 1, any = false;
+    for (let i = 0; i < ELEMENTS.length; i++) {
+      const lv = elementLevel(ELEMENTS[i]);
+      if (lv <= 0) continue;
+      const m = elementCounterAt(ELEMENTS[i], lv, defenderEl);
+      if (!any) {
+        best = m;
+        any = true;
+      } else if (m > best) best = m;
+    }
+    return any ? best : 1;
   }
   function rollSpiritRoot(rng) {
     const r = rng();
@@ -13955,6 +14037,14 @@
       // +X% outgoing damage from turn 4 onward
       elementBoostAll: 0,
       // amplifies your five-element OVERCOME bonus by +X%
+      // v1.27.171: channels the elemental stat kits need. qiShieldMult already existed ad-hoc (an inscription
+      // wrote it with a `|| 1` guard); declaring it here makes it a first-class channel like the rest.
+      qiShieldMult: 1,
+      // multiplies the qi barrier's soak strength
+      spiritMaxMult: 1,
+      // multiplies max Spirit (Earth trades soul depth for body)
+      postureMaxMult: 1,
+      // multiplies max Posture (Metal hardens the stance, Wood gives it up)
       dodgeChance: 0,
       // additive chance to evade incoming attacks entirely
       elementAmp: {},
@@ -13978,6 +14068,7 @@
     applySchoolKitToMods(mods, char);
     applySchoolArmsAffinity(mods, char);
     applySkillModsToMods(mods, char);
+    applyElementsToMods(mods, char);
     applyBodyInscriptionsToMods(mods, char);
     applyBossRefineToMods(mods, char);
     applyPassiveTechsToMods(mods, char);
@@ -14009,6 +14100,71 @@
       const s = findSkillDef(id);
       if (s && s.effect && s.effect.kind === "mods") mergeMods(mods, s.effect.mods);
     });
+  }
+  var ELEMENT_UP = [0, 0.08, 0.14, 0.2];
+  var ELEMENT_DOWN = [0, 0.06, 0.1, 0.14];
+  var ELEMENT_CRIT = [0, 0.04, 0.07, 0.1];
+  var ELEMENT_DODGE = [0, 0.04, 0.07, 0.1];
+  var ELEMENT_REGEN = [0, 3, 6, 8];
+  function applyElementsToMods(mods, char) {
+    const saved = state;
+    try {
+      state = char;
+      ELEMENTS.forEach((el) => {
+        const lv = elementLevel(el);
+        if (lv === 0) return;
+        const n = Math.abs(lv);
+        const up = ELEMENT_UP[n], dn = ELEMENT_DOWN[n];
+        const crit = ELEMENT_CRIT[n], dodge = ELEMENT_DODGE[n], regen = ELEMENT_REGEN[n];
+        const boons = lv > 0;
+        switch (el) {
+          case "fire":
+            if (boons) {
+              mods.techDamageMult *= 1 + up;
+              mods.strikeDamageMult *= 1 + up;
+              mods.critChance += crit;
+            }
+            mods.incomingMult *= 1 + dn;
+            mods.hpMult *= 1 - dn;
+            break;
+          case "water":
+            if (boons) {
+              mods.qiShieldMult = (mods.qiShieldMult || 1) * (1 + up);
+              mods.qiRegenBonus += regen;
+            }
+            mods.techDamageMult *= 1 - dn;
+            mods.strikeDamageMult *= 1 - dn;
+            mods.critChance -= crit;
+            break;
+          case "earth":
+            if (boons) {
+              mods.hpMult *= 1 + up;
+              mods.incomingMult *= 1 - up;
+            }
+            mods.dodgeChance -= dodge;
+            mods.spiritMaxMult = (mods.spiritMaxMult || 1) * (1 - dn);
+            break;
+          case "wood":
+            if (boons) {
+              mods.dodgeChance += dodge;
+              mods.critChance += crit;
+            }
+            mods.qiShieldMult = (mods.qiShieldMult || 1) * (1 - dn);
+            mods.postureMaxMult = (mods.postureMaxMult || 1) * (1 - dn);
+            break;
+          case "metal":
+            if (boons) {
+              mods.postureMult *= 1 + up;
+              mods.postureMaxMult = (mods.postureMaxMult || 1) * (1 + up);
+            }
+            mods.qiShieldMult = (mods.qiShieldMult || 1) * (1 - dn);
+            mods.qiRegenBonus -= regen;
+            break;
+        }
+      });
+    } finally {
+      state = saved;
+    }
   }
   function applySchoolKitToMods(mods, char) {
     const kit = schoolKitFor(char);
@@ -25083,7 +25239,7 @@
   var updateApplying = false;
   function runningShaKnown() {
     const s = typeof window !== "undefined" && window.BUILD_SHA;
-    return !!s && s !== "076579f" && s !== "dev" && s !== "live";
+    return !!s && s !== "9de3be6" && s !== "dev" && s !== "live";
   }
   function verTuple(v) {
     return String(v || "").replace(/^v/, "").split(".").map((n) => parseInt(n, 10) || 0);
@@ -26314,7 +26470,7 @@
     const bq = computeMaxHP(char) + computeMaxQi(char);
     const SPIRIT_DAMP_REF = 4e4;
     const bodyQi = 0.035 * bq * (bq > SPIRIT_DAMP_REF ? Math.sqrt(SPIRIT_DAMP_REF / bq) : 1);
-    return Math.round(base + bodyQi);
+    return Math.max(1, Math.round((base + bodyQi) * (mods.spiritMaxMult || 1)));
   }
   var INSCR_DROP_RARITY_WEIGHTS = [
     // common, rare, legendary, divine   — indexed by player realm tier 0..6
@@ -27118,12 +27274,14 @@
       qi: computeMaxQi(state),
       // v1.27.81 (operator): righteous qi-barrier GROWTH is 20% stronger — the shield the patient path
       // builds by sitting with the dao. Applied to the per-layer growth term, then soft-capped as before.
-      qiShieldMult: softCapQiBarrier(cultPowerMults(state).qiBarrier * (state.demonic ? 1 : 1.2)),
+      // v1.27.171: the elemental kits ride the barrier through mods.qiShieldMult, INSIDE the soft cap so
+      // Water cannot stack past the ceiling every other barrier source respects.
+      qiShieldMult: softCapQiBarrier(cultPowerMults(state).qiBarrier * (state.demonic ? 1 : 1.2) * (mods.qiShieldMult || 1)),
       // v0.98: qi soaks >1:1 before Vitality; v1.27.20: soft-capped
       spiritMax: computeMaxSpirit(state),
       spirit: computeMaxSpirit(state),
       // v0.64: Dao Heart (will) hardens the stance — posture max scales with it.
-      postureMax: 60 + 2 * (state.finalStats && state.finalStats.will || 0),
+      postureMax: Math.max(10, Math.round((60 + 2 * (state.finalStats && state.finalStats.will || 0)) * (mods.postureMaxMult || 1))),
       posture: 0,
       broken: 0,
       weaponPower: Math.round((effectiveWeaponBasePower(state) + secondaryWeaponPowerBonus(state) + refineWeaponBonus(state) + rb.weapon + mods.weaponBonus + boonWeaponAdd() + skillWeaponAdd()) * weaponMult * (mods.weaponMultFlat || 1)),
@@ -27536,8 +27694,8 @@
     if (target && target.kind && m.vsKindMult && m.vsKindMult[target.kind]) {
       dmg *= 1 + m.vsKindMult[target.kind];
     }
-    if (target && target.element && p.elements && p.elements.length) {
-      let em = bestElementCounter(p.elements, target.element);
+    if (target && target.element) {
+      let em = playerElementMult(target.element);
       if (em > 1 && m.elementBoostAll) em = 1 + (em - 1) * (1 + m.elementBoostAll);
       if (em !== 1) {
         dmg *= em;
@@ -29473,6 +29631,7 @@
   var TAB_GROUPS = [
     { id: "cultivator", label: "Cultivator", tabs: [
       { id: "self", label: "Overview" },
+      { id: "elements", label: "Elements" },
       { id: "skills", label: "Skill Tree" },
       { id: "library", label: "Library" }
     ] },
@@ -30434,6 +30593,114 @@
       player: state && state.confirmed ? { name: state.name, school: state.selectedSchool, demonic: !!state.demonic, tier: state.realm.tierIdx, layer: state.realm.layer, gc: state.goldenCoreQuality || 0 } : null,
       log: (combat.log || []).map((l) => l.cls + "|" + l.text)
     });
+  }
+  var ELEMENT_CSS_COLOR = { wood: "#4E8C63", fire: "#C4463A", earth: "#B58433", metal: "#8C97A3", water: "#4A78A8" };
+  var ELEMENT_RING = ["wood", "fire", "earth", "metal", "water"];
+  function elementCycleSvg() {
+    const cx = 150, cy = 150, r = 100, pos = {};
+    ELEMENT_RING.forEach((k, i) => {
+      const a = (-90 + i * 72) * Math.PI / 180;
+      pos[k] = { x: cx + r * Math.cos(a), y: cy + r * Math.sin(a) };
+    });
+    const trim = (a, b, pad) => {
+      const dx = b.x - a.x, dy = b.y - a.y, L = Math.sqrt(dx * dx + dy * dy);
+      return { x1: a.x + dx / L * pad, y1: a.y + dy / L * pad, x2: b.x - dx / L * pad, y2: b.y - dy / L * pad };
+    };
+    let s = `<svg viewBox="0 0 300 300" style="width:100%;max-width:300px;height:auto;display:block;margin:0 auto">`;
+    ELEMENT_RING.forEach((k) => {
+      const t = trim(pos[k], pos[ELEMENT_GENERATES[k]], 24);
+      s += `<line x1="${t.x1.toFixed(1)}" y1="${t.y1.toFixed(1)}" x2="${t.x2.toFixed(1)}" y2="${t.y2.toFixed(1)}" stroke="var(--ink-soft)" stroke-width="1" stroke-dasharray="3 3" opacity="0.35"/>`;
+    });
+    ELEMENT_RING.forEach((k) => {
+      const t = trim(pos[k], pos[ELEMENT_DESTROYS[k]], 24);
+      const lit = elementLevel(k) > 0;
+      s += `<line x1="${t.x1.toFixed(1)}" y1="${t.y1.toFixed(1)}" x2="${t.x2.toFixed(1)}" y2="${t.y2.toFixed(1)}" stroke="${lit ? ELEMENT_CSS_COLOR[k] : "var(--ink-soft)"}" stroke-width="${lit ? 2 : 1}" opacity="${lit ? 0.9 : 0.25}"/>`;
+    });
+    ELEMENT_RING.forEach((k) => {
+      const lv = elementLevel(k), on = lv > 0, def = lv < 0;
+      const col = ELEMENT_CSS_COLOR[k];
+      s += `<circle cx="${pos[k].x}" cy="${pos[k].y}" r="${on ? 23 : 20}" fill="var(--panel-bg,rgba(0,0,0,0.15))" stroke="${def ? "var(--crimson)" : col}" stroke-width="${on ? 3 : 1.5}" opacity="${on || def ? 1 : 0.5}"/>`;
+      s += `<text x="${pos[k].x}" y="${pos[k].y + 6}" text-anchor="middle" font-size="17" fill="${def ? "var(--crimson)" : col}" opacity="${on || def ? 1 : 0.55}">${ELEMENT_ZH[k]}</text>`;
+      if (lv !== 0) s += `<text x="${pos[k].x}" y="${pos[k].y + 36}" text-anchor="middle" font-size="10" fill="var(--ink-soft)">L${Math.abs(lv)}</text>`;
+    });
+    s += `</svg>`;
+    return s;
+  }
+  function buildElementsPanel() {
+    const p = document.createElement("div");
+    p.className = "panel";
+    const primary = playerPrimaryElement();
+    const roots = playerElements(state);
+    const cap = elementRealmCap();
+    const nextGate = cap < 3 ? REALMS[ELEMENT_LEVEL_MIN_TIER[cap + 1]] : null;
+    p.innerHTML = `<h3>Five Elements <span style="font-weight:normal;color:var(--ink-soft);font-size:0.8rem">五行</span></h3>
+    <p style="font-size:0.78rem;color:var(--ink-soft);margin:0 0 0.5rem">Your school sets your <strong>primary</strong> — ${elementLabel(primary)}. Feed it insight to overcome foes it counters, at the cost of suffering more from the element that counters you. Your spirit root (${roots.map(elementLabel).join(" / ") || "none"}) discounts what it matches.</p>
+    <p style="font-size:0.76rem;color:var(--ink-soft);margin:0 0 0.6rem">Level ${cap} is the most this realm allows${nextGate ? ` — Level ${cap + 1} opens at <strong>${nextGate.name}</strong>` : " — the maximum"}. The dashed ring feeds; the solid star overcomes.</p>
+    ${elementCycleSvg()}
+    <div style="display:flex;gap:1.1rem;justify-content:center;font-size:0.7rem;color:var(--ink-soft);margin:0.4rem 0 0.9rem">
+      <span>‑ ‑ ‑ generating 生</span><span>——— overcoming 克</span>
+    </div>`;
+    const wrap = document.createElement("div");
+    wrap.className = "inventory-list";
+    ELEMENTS.forEach((el) => {
+      const pts = elementStanding(el), lv = elementLevel(el), cost = elementNextPointCost(el);
+      const isPrim = el === primary, rootMatch = roots.indexOf(el) >= 0;
+      const inBand = (pts % ELEMENT_LEVEL_POINTS + ELEMENT_LEVEL_POINTS) % ELEMENT_LEVEL_POINTS;
+      const row = document.createElement("div");
+      row.className = "consumable-row";
+      row.style.cssText = "display:block;font-size:0.82rem";
+      const boon = lv > 0 ? Math.round(ELEMENT_BOON_BY_LEVEL[lv] * 100) : 0;
+      const malus = lv !== 0 ? Math.round(ELEMENT_MALUS_BY_LEVEL[Math.abs(lv)] * 100) : 0;
+      row.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:baseline;gap:0.5rem;flex-wrap:wrap">
+        <span><strong style="color:${ELEMENT_CSS_COLOR[el]}">${elementLabel(el)}</strong>
+          ${isPrim ? '<span class="rarity-tag rarity-legendary">primary</span>' : ""}
+          ${rootMatch ? '<span class="rarity-tag rarity-rare">spirit root</span>' : ""}</span>
+        <span style="color:var(--ink-soft)">${pts} pts · ${lv < 0 ? '<span style="color:var(--crimson)">deficit L' + Math.abs(lv) + "</span>" : lv > 0 ? "Level " + lv : "uncultivated"}${lv !== 0 ? ` · ${lv > 0 ? "+" + boon + "% / " : ""}−${malus}%` : ""}</span>
+      </div>
+      <div style="font-size:0.75rem;color:var(--ink-soft);margin:0.15rem 0 0.3rem">
+        Overcomes ${ELEMENT_NAME[ELEMENT_DESTROYS[el]]} · overcome by ${ELEMENT_NAME[Object.keys(ELEMENT_DESTROYS).find((k) => ELEMENT_DESTROYS[k] === el)]}
+        ${lv > 0 ? ` · ${elementKitBlurb(el, Math.abs(lv))}` : ""}
+      </div>`;
+      const bar2 = document.createElement("div");
+      bar2.style.cssText = "height:6px;background:rgba(120,120,120,0.22);border-radius:3px;overflow:hidden;margin-bottom:0.35rem";
+      bar2.innerHTML = `<div style="height:100%;width:${Math.round(inBand / ELEMENT_LEVEL_POINTS * 100)}%;background:${ELEMENT_CSS_COLOR[el]}"></div>`;
+      row.appendChild(bar2);
+      const btn = document.createElement("button");
+      btn.className = "small " + (canInvestElement(el) ? "gold" : "ghost");
+      if (cost == null) {
+        btn.textContent = elementInvested(el) >= ELEMENT_MAX_LEVEL * ELEMENT_LEVEL_POINTS ? "Fully cultivated" : `Locked until ${REALMS[ELEMENT_LEVEL_MIN_TIER[Math.min(3, Math.floor(elementInvested(el) / ELEMENT_LEVEL_POINTS) + 1)]].name}`;
+        btn.disabled = true;
+      } else {
+        const mult = elementCostMult(el);
+        btn.textContent = `Cultivate +1 pt — ${cost.toLocaleString()} insight${mult !== 1 ? ` (×${mult})` : ""}`;
+        btn.disabled = !canInvestElement(el);
+        btn.onclick = () => {
+          investElement(el);
+          render();
+        };
+      }
+      row.appendChild(btn);
+      wrap.appendChild(row);
+    });
+    p.appendChild(wrap);
+    return p;
+  }
+  function elementKitBlurb(el, lv) {
+    const up = Math.round(ELEMENT_UP[lv] * 100), dn = Math.round(ELEMENT_DOWN[lv] * 100);
+    const cr = Math.round(ELEMENT_CRIT[lv] * 100), dg = Math.round(ELEMENT_DODGE[lv] * 100);
+    switch (el) {
+      case "fire":
+        return `+${up}% attack, +${cr}% crit · +${dn}% damage taken, −${dn}% Vitality`;
+      case "water":
+        return `+${up}% qi barrier, +${ELEMENT_REGEN[lv]} qi/turn · −${up}% attack, −${cr}% crit`;
+      case "earth":
+        return `+${up}% Vitality, −${up}% damage taken · −${dg}% dodge, −${dn}% Spirit`;
+      case "wood":
+        return `+${dg}% dodge, +${cr}% crit · −${dn}% qi barrier, −${dn}% posture`;
+      case "metal":
+        return `+${up}% posture damage, +${up}% posture · −${dn}% qi barrier, −${ELEMENT_REGEN[lv]} qi/turn`;
+    }
+    return "";
   }
   function buildDevPanel() {
     const p = document.createElement("div");
@@ -31710,6 +31977,7 @@
       });
     }
     appendPanel(libP, "library");
+    appendPanel(buildElementsPanel(), "elements");
     const artP = document.createElement("div");
     artP.className = "panel";
     if (state.demonic) {
@@ -34326,12 +34594,13 @@
       if (c.buffs && c.buffs.regrowthTurns > 0) effTags += `<span class="rarity-tag rarity-legendary tip" data-tip="Regrowth: healing ${Math.round((c.buffs.regrowthPct || 0) * 100)}% max Vitality per round for ${c.buffs.regrowthTurns} more round(s).">regrowth ${c.buffs.regrowthTurns}</span>`;
     }
     const brokenTag = broken ? `<span class="broken-banner tip" data-tip="Posture broken: qi damage to this combatant is doubled for ${c.broken} more turn${c.broken === 1 ? "" : "s"}.">Posture Broken — ${c.broken}</span>` : "";
-    const elKey = c.element || c.elements && c.elements[0];
-    const elStr = c.elements && c.elements.length > 1 ? c.elements.map(elementLabel).join(" / ") : elementLabel(elKey);
-    const elBadge = elKey ? `<span class="rarity-tag tip" data-tip="Five-Element affinity. Overcoming a foe's element: +${Math.round(ELEMENT_COUNTER_BONUS * 100)}% damage. Being overcome: -${Math.round(ELEMENT_COUNTER_MALUS * 100)}%.">${elStr}</span>` : "";
+    const myEls = side === "player" ? ELEMENTS.filter((e) => elementLevel(e) > 0) : null;
+    const elKey = myEls && myEls.length ? myEls[0] : c.element || c.elements && c.elements[0];
+    const elStr = myEls && myEls.length ? myEls.map((e) => `${elementLabel(e)} L${Math.abs(elementLevel(e))}`).join(" / ") : c.elements && c.elements.length > 1 ? c.elements.map(elementLabel).join(" / ") : elementLabel(elKey);
+    const elBadge = side === "player" && (!myEls || !myEls.length) ? `<span class="rarity-tag tip" data-tip="You have not cultivated an element yet — no elemental boon and no malus. Invest insight in the Elements tab.">no element</span>` : elKey ? `<span class="rarity-tag tip" data-tip="Five-Element affinity. Overcoming a foe's element pays; being overcome costs. Both scale with the level you have cultivated.">${elStr}</span>` : "";
     let matchup = "";
-    if (side === "player" && combat && combat.enemy && combat.enemy.element && c.elements && c.elements.length) {
-      const em = bestElementCounter(c.elements, combat.enemy.element);
+    if (side === "player" && combat && combat.enemy && combat.enemy.element && myEls && myEls.length) {
+      const em = playerElementMult(combat.enemy.element);
       if (em > 1) matchup = `<span class="rarity-tag rarity-legendary tip" data-tip="Your element overcomes ${elementLabel(combat.enemy.element)} — +${Math.round((em - 1) * 100)}% damage to it.">≻ ${ELEMENT_NAME[combat.enemy.element]} +${Math.round((em - 1) * 100)}%</span>`;
       else if (em < 1) matchup = `<span class="rarity-tag rarity-rare tip" data-tip="${elementLabel(combat.enemy.element)} overcomes your element — ${Math.round((em - 1) * 100)}% damage to it.">≺ ${ELEMENT_NAME[combat.enemy.element]} ${Math.round((em - 1) * 100)}%</span>`;
     }
