@@ -9205,6 +9205,11 @@
 
   // app/src/data/changelog.js
   var CHANGELOG = [
+    { v: "1.27.184", notes: [
+      "ANDROID COULD GET STUCK ON AN OLD BUILD WITH NO WAY FORWARD. The app prefers to update by downloading a fresh package, and falls back to swapping the game content in place. But every package branch is guarded on the mirror carrying a NEWER package than the one installed &mdash; and for the first hours after each package is built, it does not. In that window the in-place swap is the only route, so a single dropped download left the app sitting on the version it shipped with, unable to advance.",
+      'The in-place download now retries three times with a longer window each attempt, and when it still fails it says so plainly. It previously reported that it was "fetching the full app instead" &mdash; naming a fallback that, in exactly this situation, could not run.',
+      "The catch-up build that keeps the package in step with the game now runs hourly instead of every six hours, so the window where only the in-place route works is an hour at most. It costs nothing extra: the run checks whether the package is actually behind and exits in seconds when it is not."
+    ] },
     { v: "1.27.183", notes: [
       "ASCENDANT SETS NO LONGER PAY THE BASE SET&rsquo;S BONUS ON TOP OF THEIR OWN. A full Ascendant suit was collecting both its own 2- and 4-piece bonuses and the lesser set&rsquo;s, which roughly doubled what the upgrade was ever meant to be worth. The Ascendant bonuses are already 1.75&times; the originals; they now REPLACE them rather than stacking.",
       "What has not changed: an Ascendant piece still counts toward the lesser set&rsquo;s piece total. Three base pieces and one Ascendant is still four pieces and still pays the full 4-piece bonus. Upgrading a piece can never cost you a set you already had &mdash; every step from none to four Ascendant is the same or better, never worse.",
@@ -9595,10 +9600,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Max Posture, and −0.5% tribulation damage taken per point (to −40%)." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.183';
+  var GAME_VERSION = 'v1.27.184';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "e4fb0e7";
+  var BUILD_SHA = "1c5affa";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -25586,7 +25591,7 @@
   var updateApplying = false;
   function runningShaKnown() {
     const s = typeof window !== "undefined" && window.BUILD_SHA;
-    return !!s && s !== "e4fb0e7" && s !== "dev" && s !== "live";
+    return !!s && s !== "1c5affa" && s !== "dev" && s !== "live";
   }
   function verTuple(v) {
     return String(v || "").replace(/^v/, "").split(".").map((n) => parseInt(n, 10) || 0);
