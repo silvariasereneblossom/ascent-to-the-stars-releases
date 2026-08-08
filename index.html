@@ -9205,6 +9205,11 @@
 
   // app/src/data/changelog.js
   var CHANGELOG = [
+    { v: "1.27.185", notes: [
+      "EVERY ELEMENT NOW TELLS YOU WHAT IT DOES BEFORE YOU BUY IT. The stat kit and the signature power were only ever printed for elements you had already cultivated, so the one screen meant to help you choose said nothing about any element you had not already committed to &mdash; and elemental insight does not come back. Hover or tap any element for what you hold now, what the next level grants, what its signature becomes, the exact matchup swing, and the realm that gates it.",
+      "THE FIVE ELEMENTS DIAGRAM IS A PROPER COMPASS NOW. Each element owns a coloured arc on the rim that brightens with the level you hold, so the ring reads as a summary of your cultivation at a glance. The generating and overcoming cycles both carry arrowheads in the acting element&rsquo;s colour, so which way a relation points no longer depends on remembering the legend. Cultivated elements glow; an element in deficit is ringed in crimson.",
+      "Harmonising toward Five Color grows an iridescent medallion at the centre of the compass, five wedges in the five colours, widening as you approach."
+    ] },
     { v: "1.27.184", notes: [
       "ANDROID COULD GET STUCK ON AN OLD BUILD WITH NO WAY FORWARD. The app prefers to update by downloading a fresh package, and falls back to swapping the game content in place. But every package branch is guarded on the mirror carrying a NEWER package than the one installed &mdash; and for the first hours after each package is built, it does not. In that window the in-place swap is the only route, so a single dropped download left the app sitting on the version it shipped with, unable to advance.",
       'The in-place download now retries three times with a longer window each attempt, and when it still fails it says so plainly. It previously reported that it was "fetching the full app instead" &mdash; naming a fallback that, in exactly this situation, could not run.',
@@ -9600,10 +9605,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Max Posture, and −0.5% tribulation damage taken per point (to −40%)." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.184';
+  var GAME_VERSION = 'v1.27.185';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "3810b2c";
+  var BUILD_SHA = "e2bc31e";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -9622,6 +9627,9 @@
   }
   function elementLabel(el) {
     return el ? `${ELEMENT_NAME[el]} ${ELEMENT_ZH[el]}` : "";
+  }
+  function elementOvercomeBy(el) {
+    return Object.keys(ELEMENT_DESTROYS).find((k) => ELEMENT_DESTROYS[k] === el);
   }
   function playerElements(st) {
     if (st && st.spiritRoot && st.spiritRoot.elements && st.spiritRoot.elements.length) return st.spiritRoot.elements.slice();
@@ -25591,7 +25599,7 @@
   var updateApplying = false;
   function runningShaKnown() {
     const s = typeof window !== "undefined" && window.BUILD_SHA;
-    return !!s && s !== "3810b2c" && s !== "dev" && s !== "live";
+    return !!s && s !== "e2bc31e" && s !== "dev" && s !== "live";
   }
   function verTuple(v) {
     return String(v || "").replace(/^v/, "").split(".").map((n) => parseInt(n, 10) || 0);
@@ -31111,33 +31119,75 @@
   }
   var ELEMENT_CSS_COLOR = { wood: "#4E8C63", fire: "#C4463A", earth: "#B58433", metal: "#8C97A3", water: "#4A78A8" };
   var ELEMENT_RING = ["wood", "fire", "earth", "metal", "water"];
+  var ELEMENT_VIVID = {
+    wood: { core: "#8CF0AC", edge: "#1F6E42" },
+    fire: { core: "#FF9B72", edge: "#A82616" },
+    earth: { core: "#FBE29A", edge: "#8C5F14" },
+    metal: { core: "#EEF5FF", edge: "#63717F" },
+    water: { core: "#9BD8FF", edge: "#1E5588" }
+  };
   function elementCycleSvg() {
-    const cx = 150, cy = 150, r = 100, pos = {};
+    const cx = 165, cy = 165, r = 104, pos = {}, ang = {};
+    const RAD = Math.PI / 180;
     ELEMENT_RING.forEach((k, i) => {
-      const a = (-90 + i * 72) * Math.PI / 180;
-      pos[k] = { x: cx + r * Math.cos(a), y: cy + r * Math.sin(a) };
+      ang[k] = -90 + i * 72;
+      pos[k] = { x: cx + r * Math.cos(ang[k] * RAD), y: cy + r * Math.sin(ang[k] * RAD) };
     });
+    const pt = (a, R) => ({ x: cx + R * Math.cos(a * RAD), y: cy + R * Math.sin(a * RAD) });
+    const arcPath = (a0, a1, R) => {
+      const p0 = pt(a0, R), p1 = pt(a1, R);
+      const large = ((a1 - a0) % 360 + 360) % 360 > 180 ? 1 : 0;
+      return `M ${p0.x.toFixed(1)} ${p0.y.toFixed(1)} A ${R} ${R} 0 ${large} 1 ${p1.x.toFixed(1)} ${p1.y.toFixed(1)}`;
+    };
     const trim = (a, b, pad) => {
       const dx = b.x - a.x, dy = b.y - a.y, L = Math.sqrt(dx * dx + dy * dy);
       return { x1: a.x + dx / L * pad, y1: a.y + dy / L * pad, x2: b.x - dx / L * pad, y2: b.y - dy / L * pad };
     };
-    let s = `<svg viewBox="0 0 300 300" style="width:100%;max-width:300px;height:auto;display:block;margin:0 auto">`;
+    let s = `<svg viewBox="0 0 330 330" style="width:100%;max-width:340px;height:auto;display:block;margin:0 auto">`;
+    s += `<defs>`;
     ELEMENT_RING.forEach((k) => {
-      const t = trim(pos[k], pos[ELEMENT_GENERATES[k]], 24);
-      s += `<line x1="${t.x1.toFixed(1)}" y1="${t.y1.toFixed(1)}" x2="${t.x2.toFixed(1)}" y2="${t.y2.toFixed(1)}" stroke="var(--ink-soft)" stroke-width="1" stroke-dasharray="3 3" opacity="0.35"/>`;
+      const v = ELEMENT_VIVID[k];
+      s += `<radialGradient id="eg_${k}" cx="34%" cy="28%" r="78%"><stop offset="0%" stop-color="${v.core}"/><stop offset="100%" stop-color="${v.edge}"/></radialGradient>`;
+      s += `<marker id="ea_${k}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="4.5" markerHeight="4.5" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="${v.core}"/></marker>`;
+    });
+    s += `<marker id="ea_gen" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="4" markerHeight="4" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="currentColor" opacity="0.5"/></marker>`;
+    s += `<filter id="eglow" x="-70%" y="-70%" width="240%" height="240%"><feGaussianBlur stdDeviation="4.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>`;
+    s += `</defs>`;
+    ELEMENT_RING.forEach((k) => {
+      const lv = elementLevel(k), on = lv > 0, def = lv < 0;
+      const v = ELEMENT_VIVID[k];
+      s += `<path d="${arcPath(ang[k] - 33, ang[k] + 33, 140)}" fill="none" stroke="${def ? "var(--crimson)" : v.core}" stroke-width="${on ? 9 : 6}" stroke-linecap="round" opacity="${on ? 0.45 + 0.18 * Math.min(3, lv) : def ? 0.6 : 0.16}"${on ? ' filter="url(#eglow)"' : ""}/>`;
     });
     ELEMENT_RING.forEach((k) => {
-      const t = trim(pos[k], pos[ELEMENT_DESTROYS[k]], 24);
+      const g = ELEMENT_GENERATES[k];
+      s += `<path d="${arcPath(ang[k] + 17, ang[g] - 17, r)}" fill="none" stroke="var(--ink-soft)" stroke-width="1.4" stroke-dasharray="4 4" opacity="0.4" color="var(--ink-soft)" marker-end="url(#ea_gen)"/>`;
+    });
+    ELEMENT_RING.forEach((k) => {
+      const t = trim(pos[k], pos[ELEMENT_DESTROYS[k]], 30);
       const lit = elementLevel(k) > 0;
-      s += `<line x1="${t.x1.toFixed(1)}" y1="${t.y1.toFixed(1)}" x2="${t.x2.toFixed(1)}" y2="${t.y2.toFixed(1)}" stroke="${lit ? ELEMENT_CSS_COLOR[k] : "var(--ink-soft)"}" stroke-width="${lit ? 2 : 1}" opacity="${lit ? 0.9 : 0.25}"/>`;
+      const v = ELEMENT_VIVID[k];
+      s += `<line x1="${t.x1.toFixed(1)}" y1="${t.y1.toFixed(1)}" x2="${t.x2.toFixed(1)}" y2="${t.y2.toFixed(1)}" stroke="${lit ? v.core : "var(--ink-soft)"}" stroke-width="${lit ? 2.6 : 1.2}" stroke-linecap="round" opacity="${lit ? 0.95 : 0.22}" marker-end="url(#ea_${k})"${lit ? ' filter="url(#eglow)"' : ""}/>`;
     });
     ELEMENT_RING.forEach((k) => {
       const lv = elementLevel(k), on = lv > 0, def = lv < 0;
-      const col = ELEMENT_CSS_COLOR[k];
-      s += `<circle cx="${pos[k].x}" cy="${pos[k].y}" r="${on ? 23 : 20}" fill="var(--panel-bg,rgba(0,0,0,0.15))" stroke="${def ? "var(--crimson)" : col}" stroke-width="${on ? 3 : 1.5}" opacity="${on || def ? 1 : 0.5}"/>`;
-      s += `<text x="${pos[k].x}" y="${pos[k].y + 6}" text-anchor="middle" font-size="17" fill="${def ? "var(--crimson)" : col}" opacity="${on || def ? 1 : 0.55}">${ELEMENT_ZH[k]}</text>`;
-      if (lv !== 0) s += `<text x="${pos[k].x}" y="${pos[k].y + 36}" text-anchor="middle" font-size="10" fill="var(--ink-soft)">L${Math.abs(lv)}</text>`;
+      const R = on ? 27 : 23;
+      const label = `${ELEMENT_NAME[k]} ${ELEMENT_ZH[k]} — overcomes ${ELEMENT_NAME[ELEMENT_DESTROYS[k]]}, overcome by ${ELEMENT_NAME[elementOvercomeBy(k)]}`;
+      s += `<g><title>${label}</title>`;
+      s += `<circle cx="${pos[k].x.toFixed(1)}" cy="${pos[k].y.toFixed(1)}" r="${R}" fill="url(#eg_${k})" stroke="${def ? "var(--crimson)" : "rgba(255,255,255,0.75)"}" stroke-width="${def ? 3 : on ? 2 : 1}" opacity="${on || def ? 1 : 0.42}"${on ? ' filter="url(#eglow)"' : ""}/>`;
+      if (def) s += `<circle cx="${pos[k].x.toFixed(1)}" cy="${pos[k].y.toFixed(1)}" r="${R + 5}" fill="none" stroke="var(--crimson)" stroke-width="1.4" stroke-dasharray="3 4" opacity="0.85"/>`;
+      s += `<text x="${pos[k].x.toFixed(1)}" y="${(pos[k].y + 7).toFixed(1)}" text-anchor="middle" font-size="19" font-weight="bold" fill="#12161b" opacity="${on || def ? 0.92 : 0.5}">${ELEMENT_ZH[k]}</text>`;
+      s += `</g>`;
+      if (lv !== 0) s += `<text x="${pos[k].x.toFixed(1)}" y="${(pos[k].y + R + 15).toFixed(1)}" text-anchor="middle" font-size="10.5" font-weight="bold" fill="${def ? "var(--crimson)" : ELEMENT_CSS_COLOR[k]}">L${Math.abs(lv)}</text>`;
     });
+    const fcf = typeof fiveColorFraction === "function" ? fiveColorFraction() : 0;
+    if (fcf > 0) {
+      ELEMENT_RING.forEach((k, i) => {
+        const a0 = -90 + i * 72 - 36, a1 = a0 + 72, R = 16 + 12 * Math.min(1, fcf);
+        const p0 = pt(a0, R), p1 = pt(a1, R);
+        s += `<path d="M ${cx} ${cy} L ${p0.x.toFixed(1)} ${p0.y.toFixed(1)} A ${R} ${R} 0 0 1 ${p1.x.toFixed(1)} ${p1.y.toFixed(1)} Z" fill="${ELEMENT_VIVID[k].core}" opacity="${(0.35 + 0.5 * fcf).toFixed(2)}"/>`;
+      });
+      s += `<circle cx="${cx}" cy="${cy}" r="${(16 + 12 * Math.min(1, fcf)).toFixed(1)}" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="1.2"/>`;
+    }
     s += `</svg>`;
     return s;
   }
@@ -31163,7 +31213,8 @@
       const isPrim = el === primary, rootMatch = roots.indexOf(el) >= 0;
       const inBand = (pts % ELEMENT_LEVEL_POINTS + ELEMENT_LEVEL_POINTS) % ELEMENT_LEVEL_POINTS;
       const row = document.createElement("div");
-      row.className = "consumable-row";
+      row.className = "consumable-row tip";
+      row.setAttribute("data-tip", escapeTip(elementTipText(el)));
       row.style.cssText = "display:block;font-size:0.82rem";
       const boon = lv > 0 ? Math.round(ELEMENT_BOON_BY_LEVEL[lv] * 100) : 0;
       const malus = lv !== 0 ? Math.round(ELEMENT_MALUS_BY_LEVEL[Math.abs(lv)] * 100) : 0;
@@ -31265,6 +31316,27 @@
       p.appendChild(fc);
     }
     return p;
+  }
+  function elementTipText(el) {
+    const lv = elementLevel(el), n = Math.abs(lv);
+    const lines = [`${ELEMENT_NAME[el]} ${ELEMENT_ZH[el]} · overcomes ${ELEMENT_NAME[ELEMENT_DESTROYS[el]]} · overcome by ${ELEMENT_NAME[elementOvercomeBy(el)]}`];
+    if (lv > 0) {
+      lines.push(`Now L${n}: ${elementKitBlurb(el, n)}`);
+      lines.push(`Signature: ${elementSignatureBlurb(el, n)}`);
+    } else if (lv < 0) {
+      lines.push(`Deficit L${n}: −${Math.round(ELEMENT_MALUS_BY_LEVEL[n] * 100)}% from ${ELEMENT_NAME[elementOvercomeBy(el)]}, and none of the boons.`);
+    } else {
+      lines.push("Uncultivated: no boon, no malus.");
+    }
+    const next = lv > 0 ? lv + 1 : 1;
+    if (next <= ELEMENT_MAX_LEVEL) {
+      lines.push(`At L${next}: ${elementKitBlurb(el, next)}`);
+      lines.push(`L${next} signature: ${elementSignatureBlurb(el, next)}`);
+      lines.push(`Matchup at L${next}: +${Math.round(ELEMENT_BOON_BY_LEVEL[next] * 100)}% dealt to ${ELEMENT_NAME[ELEMENT_DESTROYS[el]]}, −${Math.round(ELEMENT_MALUS_BY_LEVEL[next] * 100)}% suffered from ${ELEMENT_NAME[elementOvercomeBy(el)]}.`);
+      const gate = ELEMENT_LEVEL_MIN_TIER[next];
+      if (gate && (!state || !state.realm || state.realm.tierIdx < gate)) lines.push(`L${next} needs ${REALMS[gate].name}.`);
+    }
+    return lines.join("\n");
   }
   function elementSignatureBlurb(el, lv) {
     switch (el) {
