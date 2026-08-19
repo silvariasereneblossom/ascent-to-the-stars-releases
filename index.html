@@ -9205,6 +9205,11 @@
 
   // app/src/data/changelog.js
   var CHANGELOG = [
+    { v: "1.27.186", notes: [
+      "THE DROWNED MOON CULT LAYS BLACK ICE. The demonic Moonlit Water path no longer applies plain Chill &mdash; every technique hit lays Black Ice instead, which stacks to five. Each stack saps 6% of the foe&rsquo;s outgoing damage (the old -30% at a full lattice), and freezes their qi as well: meditation recovers 14% less per stack and their techniques cost 12% more per stack. A fully iced caster gets roughly five casts where it used to get twelve. It has to swing plainly instead &mdash; and those swings are down 30% too.",
+      "FOUR NEW HERETICAL ARTS around it: Rime Lattice (three thrusts, three stacks &mdash; four with Deep Cold&rsquo;s own), Glacier Calving (consume every stack for +55% each), Drink the Cold (+20% per stack, and each stack returns 2.5% max Vitality and 3% max qi &mdash; eats the ice down to two and leaves them holding), and the Hoarfrost Doctrine passive (35% of your plain strikes lay a stack). Drowning Grasp now lays two stacks across the field. Shatter the Frozen reads Black Ice for a heretic, so the old finisher still fires.",
+      "The Loadout screen now shows your school passive&rsquo;s DEMONIC twist as well as the base text &mdash; it only ever showed the righteous line, whichever path you walked."
+    ] },
     { v: "1.27.185", notes: [
       "EVERY ELEMENT NOW TELLS YOU WHAT IT DOES BEFORE YOU BUY IT. The stat kit and the signature power were only ever printed for elements you had already cultivated, so the one screen meant to help you choose said nothing about any element you had not already committed to &mdash; and elemental insight does not come back. Hover or tap any element for what you hold now, what the next level grants, what its signature becomes, the exact matchup swing, and the realm that gates it.",
       "THE FIVE ELEMENTS DIAGRAM IS A PROPER COMPASS NOW. Each element owns a coloured arc on the rim that brightens with the level you hold, so the ring reads as a summary of your cultivation at a glance. The generating and overcoming cycles both carry arrowheads in the acting element&rsquo;s colour, so which way a relation points no longer depends on remembering the legend. Cultivated elements glow; an element in deficit is ringed in crimson.",
@@ -9605,10 +9610,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Max Posture, and −0.5% tribulation damage taken per point (to −40%)." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.185';
+  var GAME_VERSION = 'v1.27.186';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "0d4e819";
+  var BUILD_SHA = "e255630";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -9630,6 +9635,16 @@
   }
   function elementOvercomeBy(el) {
     return Object.keys(ELEMENT_DESTROYS).find((k) => ELEMENT_DESTROYS[k] === el);
+  }
+  var BLACK_ICE_SAP_PER_STACK = 0.06;
+  var BLACK_ICE_REGEN_PER_STACK = 0.14;
+  var BLACK_ICE_COST_PER_STACK = 0.12;
+  function blackIceStacks(c) {
+    const ef = (c && c.effects || []).find((x) => x.kind === "black_ice");
+    return ef ? ef.stacks || 1 : 0;
+  }
+  function blackIceFor(kind) {
+    return kind === "chill" && state && state.demonic && state.selectedSchool === "moonlit_water" ? "black_ice" : kind;
   }
   function playerElements(st) {
     if (st && st.spiritRoot && st.spiritRoot.elements && st.spiritRoot.elements.length) return st.spiritRoot.elements.slice();
@@ -11427,6 +11442,70 @@
         m.techDamageMult *= 1.06;
       },
       desc: "PASSIVE. Outlast everything, then collect: -8% incoming, +6% technique damage."
+    },
+    // ---- v1.27.186 (operator): the DROWNED MOON CULT's Black Ice moveset. Demonic-only. ----
+    // The heretical Moonlit path lays Black Ice (stacking, freezes the qi economy) instead of Chill; these
+    // three are the ways to USE it — stack it faster, spend it for damage, or drink from it. Each is authored
+    // with effect:'chill' so the SAME technique text/authoring conventions apply; blackIceFor() turns it into
+    // black_ice at cast time for the demonic holder, and the demonicOnly gate means only that holder sees it.
+    water_dem_rime_lattice: {
+      name: "Rime Lattice",
+      zh: "霜格",
+      school: "moonlit_water",
+      minRealmTier: 1,
+      demonicOnly: true,
+      qi: 9,
+      cd: 3,
+      damage: 1.2,
+      hits: 3,
+      postureBuild: 12,
+      effect: "chill",
+      effectValue: 0.06,
+      effectTurns: 3,
+      effectStacks: 1,
+      desc: "Three quick thrusts, each freezing a new facet: lays a stack of Black Ice per hit — with Deep Cold's own stack, four per cast from nothing. The fastest way to a full lattice.",
+      logHit: (a, t) => `${a}'s spear taps ${t} three times, and each tap leaves a black crystal growing.`
+    },
+    water_dem_glacier_calving: {
+      name: "Glacier Calving",
+      zh: "冰崩",
+      school: "moonlit_water",
+      minRealmTier: 3,
+      demonicOnly: true,
+      qi: 24,
+      cd: 5,
+      damage: 4.2,
+      postureBuild: 26,
+      consumeBonus: { kind: "chill", perStack: 0.55 },
+      desc: "Strike the frozen thing where it is thickest: consumes the target's Black Ice for +55% damage per stack (+275% at five). Shatter the Frozen also reads Black Ice for a heretic.",
+      logHit: (a, t) => `A sound like a mountain letting go. ${t}'s ice comes away all at once, and much of ${t} with it.`
+    },
+    water_dem_drink_the_cold: {
+      name: "Drink the Cold",
+      zh: "饮寒",
+      school: "moonlit_water",
+      minRealmTier: 4,
+      demonicOnly: true,
+      qi: 16,
+      cd: 4,
+      damage: 2.6,
+      postureBuild: 14,
+      consumeBonus: { kind: "chill", perStack: 0.2, keepStacks: 2 },
+      blackIceDrink: { hpPct: 0.025, qiPct: 0.03 },
+      desc: "The lake takes what it froze: +20% damage per Black Ice stack, and each stack returns 2.5% of your max Vitality and 3% of your max qi. Eats the ice down to two stacks and leaves those holding (three, once its own cold lands).",
+      logHit: (a, t) => `${a} draws the cold back out of ${t} — the lake was only ever lending it.`
+    },
+    water_dem_p_hoarfrost: {
+      name: "Hoarfrost Doctrine",
+      zh: "霜论",
+      school: "moonlit_water",
+      minRealmTier: 2,
+      demonicOnly: true,
+      passive: true,
+      kitMod: (k) => {
+        k.blackIceStrikeChance = (k.blackIceStrikeChance || 0) + 0.35;
+      },
+      desc: "PASSIVE. Even your plain strikes carry the frost: 35% chance a strike lays a stack of Black Ice."
     },
     // ============ Silent Daggers Sect — the invoice arrives before the blade ============
     daggers_cut_ledger: {
@@ -13452,7 +13531,10 @@
     iron_body: { reflectPct: 0.25, twistDesc: "Iron Skin reflects 25%." },
     whispering_array: { debuffTurnsBonus: 3, techCdBonus: 1, twistDesc: "Your statuses last +3 turns and bind more completely — but your control techniques cool +1 turn slower. Total lockdown, at a tempo price." },
     crimson_flame: { onTechHit: { kind: "burn", power: 0.18, turns: 3 }, twistDesc: "Burns tick half again harder." },
-    moonlit_water: { onTechHit: { kind: "chill", value: 0.3, turns: 2 }, twistDesc: "Chill saps -30% damage." },
+    // v1.27.186 (operator): the Drowned Moon lays BLACK ICE, not Chill — the on-hit value is one stack's sap;
+    // blackIceFor() swaps the kind at application time. Stacking to 5 reaches the same -30% the old flat
+    // twist gave, and freezes the foe's qi economy on the way there.
+    moonlit_water: { onTechHit: { kind: "chill", value: BLACK_ICE_SAP_PER_STACK, turns: 3 }, twistDesc: "Deep Cold lays BLACK ICE instead of Chill: stacks to 5, each stack -6% foe damage, -14% qi recovered by meditation, technique qi costs ×1.12. Its own heretical arts stack it faster, spend it, or drink from it." },
     silent_daggers: { critBonus: 0.15, onTechHit: { kind: "poison", power: 0.12, turns: 4 }, twistDesc: "+15% crit; deadlier venom." },
     demon_heart: { lifestealBonus: 0.3, twistDesc: "Hungry Dao drinks 30% (35% at Golden Core)." },
     // v1.27.33: small early buff (+5%)
@@ -13618,10 +13700,12 @@
       cd: 2,
       damage: 1.5,
       postureBuild: 16,
+      // v1.27.186: two stacks of Black Ice on the whole field — the opener for the lattice.
       effect: "chill",
-      effectValue: 0.35,
-      effectTurns: 2,
-      desc: "The undertow, given hands. Every foe is dragged under — their damage drops 35% for 2 turns.",
+      effectValue: BLACK_ICE_SAP_PER_STACK,
+      effectTurns: 3,
+      effectStacks: 2,
+      desc: "The undertow, given hands. Every foe is dragged under and takes two stacks of Black Ice.",
       logHit: (a, t) => `Cold hands close around every ankle present. The lake is patient.`
     }],
     silent_daggers: ["dem_sig_daggers", {
@@ -13899,6 +13983,10 @@
     burn: { label: "burn", tip: (ef) => `Burning: ${ef.value} Vitality per turn, ignores qi shield. ${ef.turns} turn(s) left.` },
     poison: { label: "poison", tip: (ef) => `Poisoned: ${ef.value} Vitality per turn, ignores qi shield. ${ef.turns} turn(s) left.` },
     chill: { label: "chill", tip: (ef) => `Chilled: outgoing damage -${Math.round(ef.value * 100)}%. ${ef.turns} turn(s) left.` },
+    black_ice: { label: "black ice", tip: (ef) => {
+      const n = ef.stacks || 1;
+      return `Black Ice ×${n}: outgoing damage -${Math.round(n * BLACK_ICE_SAP_PER_STACK * 100)}%, qi recovery -${Math.round(n * BLACK_ICE_REGEN_PER_STACK * 100)}%, technique qi costs ×${(1 + n * BLACK_ICE_COST_PER_STACK).toFixed(2)}. ${ef.turns} turn(s) left.`;
+    } },
     shock: { label: "shocked", tip: (ef) => `Shocked: loses its next action.` },
     sunder: { label: "sunder", tip: (ef) => `Sundered: +${Math.round(ef.value * 100)}% damage taken and armor (flat DR) negated. ${ef.turns} turn(s) left.` },
     pressured: { label: "pressured", tip: (ef) => `Stellar Pressure: +${Math.round(ef.value * 100)}% posture damage taken. ${ef.turns} turn(s) left.` },
@@ -13912,7 +14000,7 @@
     blind: { label: "blinded", tip: (ef) => `Blinded: ${Math.round(ef.value * 100)}% chance to miss entirely each time it attacks. ${ef.turns} turn(s) left.` },
     hellfire: { label: "hellfire", tip: (ef) => `Demonic hellfire x${ef.stacks || 1}: burns ~0.5-0.75% of MISSING health PER STACK each turn (scales with Golden Core quality; more when the foe is posture/soul-broken; ignores qi shield). ${ef.turns} turn(s) left.` }
   };
-  var STATUS_STACK_CAP = { burn: 5, poison: 8, sunder: 5, bleed: 3, hellfire: 10 };
+  var STATUS_STACK_CAP = { burn: 5, poison: 8, sunder: 5, bleed: 3, hellfire: 10, black_ice: 5 };
   function playerStackCap(kind) {
     return (STATUS_STACK_CAP[kind] || 1) + ((schoolKit().stackCapBonus || {})[kind] || 0);
   }
@@ -16613,8 +16701,7 @@
         }
         const techId = SEQ[step];
         const tech = ENEMY_TECHS[techId];
-        const up = e.effects.find((ef) => ef.kind === "qi_cost_up");
-        const cost = up ? Math.ceil(tech.qi * up.value) : tech.qi;
+        const cost = enemyTechCost(e, tech);
         if (e.effects.some((ef) => ef.kind === "silence") || e.qi < cost) {
           pushLog("posture", `${e.name} grinds still, ore-heart dimming — it gathers itself.`);
           return enemyMeditate(e);
@@ -23171,7 +23258,11 @@
     if (t.instant) parts.push("free");
     else if (t.cd != null && !t.passive) parts.push(`cd ${t.cd}`);
     if (t.postureBuild) parts.push(`+${t.postureBuild} posture`);
-    if (t.effect && typeof t.effect === "string") parts.push(t.effect + (t.effectTurns ? ` ${t.effectTurns}t` : ""));
+    if (t.effect && typeof t.effect === "string") {
+      const heretic = t.school === "moonlit_water" && (t.demonicOnly || /^dem_sig_/.test(t.id || "") || t === (DEMONIC_SIGNATURE_TECHS.moonlit_water || [])[1]);
+      const label = t.effect === "chill" && heretic ? "black ice" : t.effect;
+      parts.push(label + (t.effectTurns ? ` ${t.effectTurns}t` : "") + (t.effectStacks > 1 ? ` ×${t.effectStacks}` : ""));
+    }
     return parts.length ? ` [${parts.join(" · ")}]` : "";
   }
   Object.values(TECHNIQUES).forEach((t) => {
@@ -25599,7 +25690,7 @@
   var updateApplying = false;
   function runningShaKnown() {
     const s = typeof window !== "undefined" && window.BUILD_SHA;
-    return !!s && s !== "0d4e819" && s !== "dev" && s !== "live";
+    return !!s && s !== "e255630" && s !== "dev" && s !== "live";
   }
   function verTuple(v) {
     return String(v || "").replace(/^v/, "").split(".").map((n) => parseInt(n, 10) || 0);
@@ -28207,7 +28298,8 @@
       const dotAmp = DOT_KINDS.has(h.kind) ? p.mods && p.mods.dotMult || 1 : 1;
       const value = h.power ? Math.max(1, Math.round(p.weaponPower * h.power * dotAmp)) : h.value;
       const turns = h.turns + (kit.debuffTurnsBonus || 0);
-      applyStatusTo(tgt, h.kind, value, turns, kit.passiveName, playerStackCap(h.kind));
+      const kindOut = blackIceFor(h.kind);
+      applyStatusTo(tgt, kindOut, value, turns, kit.passiveName, playerStackCap(kindOut));
     }
     if (kit.techHellfireStacks && !p._schoolOnHitFromStrike) {
       for (let i = 0; i < kit.techHellfireStacks; i++) {
@@ -28426,6 +28518,13 @@
           applySchoolOnHit(p, e);
           p._schoolOnHitFromStrike = false;
         }
+        {
+          const bic = schoolKit().blackIceStrikeChance;
+          if (bic && e.hp > 0 && Math.random() < bic) {
+            if (applyStatusTo(e, "black_ice", BLACK_ICE_SAP_PER_STACK, 3, "Hoarfrost Doctrine", playerStackCap("black_ice")))
+              pushLog("flavor", `  → frost rides the plain thrust: ${e.name} takes Black Ice (${blackIceStacks(e)}/${playerStackCap("black_ice")}).`);
+          }
+        }
         if (isDemonHeart(state)) {
           const qd = Math.round(e.qi * 0.15);
           if (qd > 0) {
@@ -28529,7 +28628,7 @@
     const isAoe = tech.target === "aoe";
     let dmg = techBaseDamage(p, tech, techId, { preview: true }) * (isAoe ? 0.7 : 1);
     if (tech.consumeBonus && tgt.effects) {
-      const ce = tgt.effects.find((ef) => ef.kind === tech.consumeBonus.kind);
+      const ce = tgt.effects.find((ef) => ef.kind === blackIceFor(tech.consumeBonus.kind));
       if (ce) dmg *= 1 + tech.consumeBonus.perStack * (ce.stacks || 1);
     }
     if (tech.effectScale && tgt.effects && tgt.effects.length) {
@@ -28653,13 +28752,28 @@
     targets.forEach((tgt) => {
       let consumeMult = 1;
       if (tech.consumeBonus && tgt.effects) {
-        const cIdx = tgt.effects.findIndex((ef) => ef.kind === tech.consumeBonus.kind);
+        const cKind = blackIceFor(tech.consumeBonus.kind);
+        const cIdx = tgt.effects.findIndex((ef) => ef.kind === cKind);
         if (cIdx >= 0) {
           const stacks = tgt.effects[cIdx].stacks || 1;
           const _cbSoul = tgt.spiritMax > 0 && tgt.spirit <= 0 ? tech.consumeBonus.perStackSoulBroken || tech.consumeBonus.perStack : tech.consumeBonus.perStack;
           consumeMult = 1 + _cbSoul * stacks;
-          tgt.effects.splice(cIdx, 1);
-          pushLog("posture", `  → ${tgt.name}'s ${STATUS_INFO[tech.consumeBonus.kind] ? STATUS_INFO[tech.consumeBonus.kind].label : tech.consumeBonus.kind} ×${stacks} is consumed — +${Math.round((consumeMult - 1) * 100)}% damage!`);
+          if (tech.consumeBonus.keepStacks && stacks > tech.consumeBonus.keepStacks) {
+            tgt.effects[cIdx].stacks = tech.consumeBonus.keepStacks;
+          } else {
+            tgt.effects.splice(cIdx, 1);
+          }
+          pushLog("posture", `  → ${tgt.name}'s ${STATUS_INFO[cKind] ? STATUS_INFO[cKind].label : cKind} ×${stacks} is consumed — +${Math.round((consumeMult - 1) * 100)}% damage!`);
+          if (tech.blackIceDrink && cKind === "black_ice") {
+            const _hw = heavensWeight();
+            const wither = tribHealMult() * (_hw ? _hw.healMult : 1);
+            const hpGain = Math.round(Math.min(p.hpMax * 0.15, p.hpMax * tech.blackIceDrink.hpPct * stacks * wither));
+            const qiGain = Math.round(Math.min(p.qiMax * 0.2, p.qiMax * tech.blackIceDrink.qiPct * stacks));
+            const hb = p.hp, qb = p.qi;
+            p.hp = Math.min(p.hpMax, p.hp + hpGain);
+            p.qi = Math.min(p.qiMax, p.qi + qiGain);
+            if (p.hp > hb || p.qi > qb) pushLog("heal", `  → the cold comes home: +${p.hp - hb} Vitality, +${p.qi - qb} qi.`);
+          }
         }
       }
       let effectMult = 1;
@@ -28754,10 +28868,12 @@
           const value = playerStatusValue(p, tech);
           const turns = tech.effectTurns + (kit.debuffTurnsBonus || 0);
           const n = tech.effectStacks || 1;
+          const kindOut = blackIceFor(tech.effect);
           let applied = false;
-          for (let i = 0; i < n; i++) applied = applyStatusTo(tgt, tech.effect, value, turns, tech.name, playerStackCap(tech.effect)) || applied;
-          if (applied && STATUS_INFO[tech.effect]) {
-            pushLog("flavor", `  → ${tgt.name}: ${STATUS_INFO[tech.effect].label}${n > 1 ? ` ×${n}` : ""}.`);
+          for (let i = 0; i < n; i++) applied = applyStatusTo(tgt, kindOut, value, turns, tech.name, playerStackCap(kindOut)) || applied;
+          if (applied && STATUS_INFO[kindOut]) {
+            const bi = kindOut === "black_ice" ? ` (${blackIceStacks(tgt)}/${playerStackCap("black_ice")})` : n > 1 ? ` ×${n}` : "";
+            pushLog("flavor", `  → ${tgt.name}: ${STATUS_INFO[kindOut].label}${bi}.`);
           }
         }
       }
@@ -29553,12 +29669,17 @@
       if (e.cooldowns[k] > 0) e.cooldowns[k]--;
     });
   }
+  function enemyTechCost(e, tech) {
+    const up = (e.effects || []).find((ef) => ef.kind === "qi_cost_up");
+    let cost = up ? Math.ceil(tech.qi * up.value) : tech.qi;
+    const bi = blackIceStacks(e);
+    if (bi) cost = Math.ceil(cost * (1 + bi * BLACK_ICE_COST_PER_STACK));
+    return cost;
+  }
   function enemyCanUse(e, techId) {
     const tech = e.techniques[techId];
     if (e.effects.some((ef) => ef.kind === "silence")) return false;
-    const up = e.effects.find((ef) => ef.kind === "qi_cost_up");
-    const cost = up ? Math.ceil(tech.qi * up.value) : tech.qi;
-    return e.cooldowns[techId] === 0 && e.qi >= cost;
+    return e.cooldowns[techId] === 0 && e.qi >= enemyTechCost(e, tech);
   }
   function enemyMisses(e) {
     const ef = (e.effects || []).find((x) => x.kind === "blind");
@@ -29570,6 +29691,8 @@
   function chillMult(c) {
     const ef = (c.effects || []).find((x) => x.kind === "chill");
     let m = ef ? Math.max(0, 1 - ef.value) : 1;
+    const bi = blackIceStacks(c);
+    if (bi) m *= Math.max(0, 1 - bi * BLACK_ICE_SAP_PER_STACK);
     if ((c.effects || []).some((x) => x.kind === "leech" && x.name === "Sovereign Parasite")) m *= 0.85;
     return m;
   }
@@ -29606,7 +29729,7 @@
       return;
     }
     const up = e.effects.find((ef) => ef.kind === "qi_cost_up");
-    const cost = up ? Math.ceil(tech.qi * up.value) : tech.qi;
+    const cost = enemyTechCost(e, tech);
     e.qi -= cost;
     if (up && up.name === "Meridian-Crush Grip" && combat && combat.player && cost > tech.qi) {
       const pl = combat.player;
@@ -29728,9 +29851,11 @@
       pushLog("line", `The ${e.name} tries to gather qi — the entangling glyphs drink everything it draws.`);
       return;
     }
-    const regen = Math.ceil(e.qiMax * 0.4);
+    const bi = blackIceStacks(e);
+    const regen = Math.ceil(e.qiMax * 0.4 * (bi ? Math.max(0.05, 1 - bi * BLACK_ICE_REGEN_PER_STACK) : 1));
     const before = e.qi;
     e.qi = Math.min(e.qiMax, e.qi + regen);
+    if (bi && regen < Math.ceil(e.qiMax * 0.4)) pushLog("flavor", `  → the Black Ice holds; ${e.name} draws only ${regen} qi through it.`);
     if (e.qi > before) pushLog("heal", `The ${e.name} draws qi inward (+${e.qi - before}) and presses on.`);
     e._medCount = (e._medCount || 0) + 1;
     if (e._medCount % 3 === 0 && isBossOrTribTarget(e) && e.hp > 0 && e.hp < e.hpMax) {
@@ -33639,7 +33764,7 @@
     const dispLoad = schoolDisplay(state.selectedSchool, state);
     let loadoutHTML = `<h3>${dispLoad.name} ${roleLabelLoad ? `<span style="font-size:0.7rem;font-weight:normal;color:${roleColorLoad};border:1px solid ${roleColorLoad};padding:0.1rem 0.4rem;border-radius:0.3rem;vertical-align:middle">${roleLabelLoad}</span>` : ""}</h3>
     <p style="font-size:0.85rem;color:var(--ink-soft);margin:0 0 0.4rem">${dispLoad.flavor}</p>
-    ${kitLoad ? `<p style="font-size:0.82rem;margin:0 0 0.4rem"><strong style="color:var(--gold)">Passive — ${kitLoad.passiveName}</strong> <span style="color:var(--ink-soft);font-size:0.78rem">${kitLoad.passiveZh}</span>: ${kitLoad.passiveDesc}</p>` : ""}
+    ${kitLoad ? `<p style="font-size:0.82rem;margin:0 0 0.4rem"><strong style="color:var(--gold)">Passive — ${kitLoad.passiveName}</strong> <span style="color:var(--ink-soft);font-size:0.78rem">${kitLoad.passiveZh}</span>: ${kitLoad.passiveDesc}${state.demonic && DEMONIC_TWISTS[state.selectedSchool] ? ` <span style="color:var(--crimson)">DEMONIC: ${DEMONIC_TWISTS[state.selectedSchool].twistDesc}</span>` : ""}</p>` : ""}
     ${statSheetHTML(state, mods)}
     <p style="font-size:0.82rem;color:var(--ink-soft);margin:0 0 0.5rem">Active Abilities <strong style="color:var(--gold)">${activeCount}/${activeCap}</strong> — only active techniques can be used in combat. Tap to slot / unslot. Slots grow +1 at Golden Core and +1 at Nascent Soul.</p>
     <div class="tech-list">`;
@@ -33657,7 +33782,10 @@
       const effHp = t.hpCost ? +(hpCostPct(t, mods.hpCostMult) * 100).toFixed(1) : 0;
       const meta = [t.target === "aoe" ? "AOE" : "ST", `${effQi} qi`, `${t.cd} turn cd`];
       if (effHp) meta.push(`${effHp}% Vitality`);
-      if (t.effect && STATUS_INFO[t.effect]) meta.push(STATUS_INFO[t.effect].label);
+      {
+        const _fk = blackIceFor(t.effect);
+        if (_fk && STATUS_INFO[_fk]) meta.push(STATUS_INFO[_fk].label);
+      }
       const isActive = state.activeSkills.includes(tid);
       const full = !isActive && activeCount >= activeCap;
       const tag = isActive ? '<span class="rarity-tag" style="background:rgba(184,134,11,0.18);border-color:var(--gold)">active</span>' : full ? '<span class="rarity-tag" style="opacity:0.7">slots full</span>' : '<span class="rarity-tag" style="opacity:0.7">tap to slot</span>';
@@ -35217,7 +35345,7 @@
         const isAoeBtn = t.target === "aoe";
         const estObj = techniqueDamageEstimate(p, t, tid);
         const est = estObj ? estObj.total : 0;
-        const fxInfo = t.effect && STATUS_INFO[t.effect] ? STATUS_INFO[t.effect] : t.statusList && t.statusList.length && STATUS_INFO[t.statusList[0].kind] ? STATUS_INFO[t.statusList[0].kind] : null;
+        const fxInfo = t.effect && STATUS_INFO[blackIceFor(t.effect)] ? STATUS_INFO[blackIceFor(t.effect)] : t.statusList && t.statusList.length && STATUS_INFO[t.statusList[0].kind] ? STATUS_INFO[t.statusList[0].kind] : null;
         const splitNote = estObj && estObj.qi > 0 ? ` (${estObj.hp} Vitality + ${estObj.qi} barrier)` : "";
         const critNote = estObj && estObj.crit > 0 ? ` · ${Math.round(estObj.crit * 100)}% crit` : "";
         const numbers = `${est > 0 ? `~${est} damage${isAoeBtn ? "/target" : ""}${splitNote}${critNote} · ` : ""}${t.postureBuild ? `+${t.postureBuild} posture · ` : ""}cd ${t.cd}`;
