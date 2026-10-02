@@ -9205,6 +9205,14 @@
 
   // app/src/data/changelog.js
   var CHANGELOG = [
+    { v: "1.27.187", notes: [
+      "SECLUSION 闭关. Time away now grows with you: two hours to start, an hour for every realm you break into, and ten minutes for every layer you have ever climbed &mdash; so a breakthrough only ever lengthens it. Core Formation layer 5 sits at about eight and a half hours; Spirit Severing reaches sixteen. Dao Heart lengthens it further, +2% per point above 10, up to double. (Cultivation points you can respec don&rsquo;t count &mdash; only Dao Heart you are committed to.)",
+      "NO MORE HARD STOP. Past the window your cultivation fades to nothing over the next half-window instead of halting, worth an extra quarter-window to anyone who overstays.",
+      "BURN LIFESPAN FOR MORE. A new Seclusion panel on the Cultivator tab lets you trade lifespan for time: 10 years per extra hour, charged only for hours you actually spend past the window, and stopping at the breakpoint you choose &mdash; 75%, 50% or 40% of your lifespan left. Every breakpoint leaves you able to survive at least one failed tribulation; the panel says how many.",
+      "The window now applies however you leave. It used to bind only players who closed the game: switching away from the app or leaving a background tab open credited the whole absence at full rate, and meditating at a site in the background aged you for every hour of it. Hidden time now settles as one seclusion when you come back, with the same report a fresh start shows.",
+      "Returning to a fight you left open no longer throws your absence away &mdash; it is credited as seclusion, and the report waits until you are home.",
+      "Demon-Heart does not sit in seclusion, and no longer gets a 0-insight &ldquo;you emerge from cultivation&rdquo; banner."
+    ] },
     { v: "1.27.186", notes: [
       "THE DROWNED MOON CULT LAYS BLACK ICE. The demonic Moonlit Water path no longer applies plain Chill &mdash; every technique hit lays Black Ice instead, which stacks to five. Each stack saps 6% of the foe&rsquo;s outgoing damage (the old -30% at a full lattice), and freezes their qi as well: meditation recovers 14% less per stack and their techniques cost 12% more per stack. A fully iced caster gets roughly five casts where it used to get twelve. It has to swing plainly instead &mdash; and those swings are down 30% too.",
       "FOUR NEW HERETICAL ARTS around it: Rime Lattice (three thrusts, three stacks &mdash; four with Deep Cold&rsquo;s own), Glacier Calving (consume every stack for +55% each), Drink the Cold (+20% per stack, and each stack returns 2.5% max Vitality and 3% max qi &mdash; eats the ice down to two and leaves them holding), and the Hoarfrost Doctrine passive (35% of your plain strikes lay a stack). Drowning Grasp now lays two stacks across the field. Shatter the Frozen reads Black Ice for a heretic, so the old finisher still fires.",
@@ -9607,13 +9615,13 @@
     { key: "mind", name: "Perception", zh: "悟性", desc: "Qi regained each combat turn (+1 per 6 points), and a little cultivation speed." },
     { key: "sense", name: "Divine Sense", zh: "神识", desc: "Max Spirit — empty it and you take +30% damage." },
     { key: "luck", name: "Fortune", zh: "气运", desc: "Better encounters and loot; more spirit stones per kill." },
-    { key: "will", name: "Dao Heart", zh: "道心", desc: "Max Posture, and −0.5% tribulation damage taken per point (to −40%)." }
+    { key: "will", name: "Dao Heart", zh: "道心", desc: "Max Posture, −0.5% tribulation damage taken per point (to −40%), and +2% seclusion time per point above 10 (to +100%)." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.186';
+  var GAME_VERSION = 'v1.27.187';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "b3b8221";
+  var BUILD_SHA = "dcee3d1";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -24056,6 +24064,7 @@
     render();
   }
   var REALM_LIFESPAN = [80, 240, 700, 3e3, 6e3, 18e3, 6e4];
+  var TRIB_LIFESPAN_TOLL = 0.33;
   var AGE_PER_SEC = 8e-3;
   var SCHOOL_LIFESPAN = { moonlit_water: 250, whispering_array: 150, crimson_flame: 80 };
   function schoolLifespanBonus(char) {
@@ -25690,7 +25699,7 @@
   var updateApplying = false;
   function runningShaKnown() {
     const s = typeof window !== "undefined" && window.BUILD_SHA;
-    return !!s && s !== "b3b8221" && s !== "dev" && s !== "live";
+    return !!s && s !== "dcee3d1" && s !== "dev" && s !== "live";
   }
   function verTuple(v) {
     return String(v || "").replace(/^v/, "").split(".").map((n) => parseInt(n, 10) || 0);
@@ -27378,29 +27387,38 @@
     state.passiveTick = Date.now();
     saveChar();
   }
+  function pageHidden() {
+    try {
+      return typeof document !== "undefined" && !!document.hidden;
+    } catch (e) {
+      return false;
+    }
+  }
   function tickCultivation() {
     if (!state || !state.confirmed) return;
+    const now = Date.now();
+    const lastTick = state.cultivating ? state.cultivating.lastTick : state.passiveTick || now;
+    const elapsed = (now - lastTick) / 1e3;
     if (combat) {
-      if (state.cultivating) state.cultivating.lastTick = Date.now();
-      else state.passiveTick = Date.now();
+      if (elapsed >= SECLUSION_GAP_SEC) publishSeclusionReport(settleSeclusion(elapsed, now, { inFight: !combat.over }), false);
+      if (state.cultivating) state.cultivating.lastTick = now;
+      state.passiveTick = now;
       return;
     }
-    const now = Date.now();
-    let lastTick = state.cultivating ? state.cultivating.lastTick : state.passiveTick || now;
-    const elapsed = (now - lastTick) / 1e3;
-    if (elapsed >= 0.1) {
+    if (pageHidden()) return;
+    if (elapsed >= SECLUSION_GAP_SEC) {
+      publishSeclusionReport(settleSeclusion(elapsed, now), true);
+    } else if (elapsed >= 0.1) {
       const gain = cultivationRate() * elapsed;
       addInsight(gain);
+      state.passiveTick = now;
       if (state.cultivating) {
         state.cultivating.lastTick = now;
         tickVitalityCultivation(elapsed);
         if (combat) return;
         advanceAge(elapsed);
         if (!state) return;
-      } else {
-        state.passiveTick = now;
-        tickVitalityRecovery(elapsed);
-      }
+      } else tickVitalityRecovery(elapsed);
     }
     const _onGardenTab = activeTab === "garden" && (state.ui && state.ui.houseTab || "garden") === "garden";
     let needsRerender = false;
@@ -27421,28 +27439,186 @@
     if (cultivationTimer) clearInterval(cultivationTimer);
     cultivationTimer = setInterval(tickCultivation, 1e3);
   }
+  if (typeof document !== "undefined" && document.addEventListener) {
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden && cultivationTimer) {
+        try {
+          tickCultivation();
+        } catch (e) {
+        }
+      }
+    });
+  }
+  var SECLUSION_BASE_H = 2;
+  var SECLUSION_PER_REALM_H = 1;
+  var SECLUSION_PER_LAYER_MIN = 10;
+  var SECLUSION_DAO_HEART_PER_PT = 0.02;
+  var SECLUSION_DAO_HEART_FLOOR = 10;
+  var SECLUSION_DAO_HEART_MAX = 1;
+  var SECLUSION_TAPER_FRAC = 0.5;
+  var SECLUSION_BURN_YEARS_PER_H = 10;
+  var SECLUSION_BURN_STOPS = [0.75, 0.5, 0.4];
+  var SECLUSION_GAP_SEC = 300;
+  function seclusionCapable() {
+    return !!(state && state.confirmed && !isDemonHeart(state));
+  }
+  function seclusionLayerJumps() {
+    const t = state.realm && state.realm.tierIdx || 0;
+    let n = 0;
+    for (let i = 0; i < t; i++) n += Math.max(0, (REALMS[i] && REALMS[i].layers || 1) - 1);
+    return n + Math.max(0, (state.realm && state.realm.layer || 1) - 1);
+  }
+  function seclusionDaoHeart() {
+    const will = state.finalStats && state.finalStats.will || 0;
+    return Math.max(0, will - (state.freeAlloc && state.freeAlloc.will || 0));
+  }
+  function seclusionDaoHeartMult() {
+    const will = seclusionDaoHeart();
+    return 1 + Math.min(SECLUSION_DAO_HEART_MAX, Math.max(0, will - SECLUSION_DAO_HEART_FLOOR) * SECLUSION_DAO_HEART_PER_PT);
+  }
+  function seclusionNaturalHours() {
+    const t = state.realm && state.realm.tierIdx || 0;
+    const raw = SECLUSION_BASE_H + t * SECLUSION_PER_REALM_H + seclusionLayerJumps() * SECLUSION_PER_LAYER_MIN / 60;
+    return raw * seclusionDaoHeartMult();
+  }
+  function seclusionBurnStop() {
+    const v = state && state.seclusionBurn;
+    return SECLUSION_BURN_STOPS.indexOf(v) >= 0 ? v : null;
+  }
+  function seclusionBurnHoursAvailable() {
+    const stop = seclusionBurnStop();
+    if (stop == null || !seclusionCapable()) return 0;
+    const permMax = seclusionPermanentLifespanMax();
+    const spare = permMax - (state.age || 16) - stop * permMax;
+    return Math.max(0, spare / SECLUSION_BURN_YEARS_PER_H);
+  }
+  function seclusionPermanentLifespanMax() {
+    return lifespanMax() - weaponLifespanBonus(state);
+  }
+  function tribFailuresSurvivable(share) {
+    return Math.max(0, Math.ceil(share / TRIB_LIFESPAN_TOLL) - 1);
+  }
+  function seclusionPlan(rawSec) {
+    const natural = seclusionNaturalHours() * 3600;
+    const ext = seclusionBurnHoursAvailable() * 3600;
+    const setPoint = natural + ext;
+    const taperLen = SECLUSION_TAPER_FRAC * natural;
+    const fullSec = Math.min(rawSec, setPoint);
+    const over = Math.max(0, Math.min(rawSec - setPoint, taperLen));
+    const taperSec = taperLen > 0 ? over - over * over / (2 * taperLen) : 0;
+    const burnSec = Math.max(0, Math.min(rawSec, setPoint) - natural);
+    return {
+      rawSec,
+      natural,
+      ext,
+      setPoint,
+      taperLen,
+      fullSec,
+      taperSec,
+      effectiveSec: fullSec + taperSec,
+      burnYears: burnSec / 3600 * SECLUSION_BURN_YEARS_PER_H,
+      lostSec: Math.max(0, rawSec - setPoint - taperLen)
+    };
+  }
+  function settleSeclusion(rawSec, now, opts) {
+    const plan = seclusionPlan(rawSec);
+    const gain = cultivationRate() * plan.effectiveSec;
+    addInsight(gain);
+    const vitBefore = getVitality();
+    if (!(opts && opts.inFight)) {
+      if (state.cultivating) tickVitalityCultivation(plan.effectiveSec, true);
+      else tickVitalityRecovery(rawSec);
+    }
+    const vitGain = getVitality() - vitBefore;
+    if (plan.burnYears > 0) state.age = (state.age || 16) + plan.burnYears;
+    if (state.cultivating) state.cultivating.lastTick = now;
+    state.passiveTick = now;
+    saveChar();
+    return Object.assign({ gain, vitGain, elapsed: plan.effectiveSec, rawElapsed: rawSec, capped: rawSec > plan.setPoint }, plan);
+  }
+  function buildSeclusionPanel() {
+    const p = document.createElement("div");
+    p.className = "panel";
+    const t = state.realm && state.realm.tierIdx || 0;
+    const jumps = seclusionLayerJumps();
+    const will = seclusionDaoHeart();
+    const dh = seclusionDaoHeartMult();
+    const natSec = seclusionNaturalHours() * 3600;
+    const tip = `${SECLUSION_BASE_H}h base · +${t * SECLUSION_PER_REALM_H}h for ${t} realm${t === 1 ? "" : "s"} · +${formatDuration(jumps * SECLUSION_PER_LAYER_MIN * 60)} for ${jumps} layer${jumps === 1 ? "" : "s"} · ×${dh.toFixed(2)} Dao Heart (${will}; +${Math.round(SECLUSION_DAO_HEART_PER_PT * 100)}%/pt above ${SECLUSION_DAO_HEART_FLOOR}, max +${Math.round(SECLUSION_DAO_HEART_MAX * 100)}%; respec-able cultivation points don't count).`;
+    const stop = seclusionBurnStop();
+    const avail = seclusionBurnHoursAvailable();
+    const permMax = Math.max(1, seclusionPermanentLifespanMax());
+    const leftPct = Math.round(100 * Math.max(0, permMax - (state.age || 16)) / permMax);
+    const stopPct = Math.round((stop || 0) * 100);
+    const survive = (n) => `survives ${n} failed tribulation${n === 1 ? "" : "s"}`;
+    let burnLine;
+    if (stop == null) burnLine = `Off — absence past the window fades out.`;
+    else if (avail < 1 / 60) burnLine = `${leftPct}% of your lifespan left — ${leftPct < stopPct ? "already below" : "at"} the ${stopPct}% stop; nothing to burn.`;
+    else burnLine = `Adds up to <strong>${formatDuration(avail * 3600)}</strong> at ${SECLUSION_BURN_YEARS_PER_H} years/hour, stopping at ${stopPct}% of your lifespan (${survive(tribFailuresSurvivable(stop))}).`;
+    p.innerHTML = `<h3>Seclusion <span style="font-weight:normal;color:var(--ink-soft);font-size:0.85rem">闭关</span></h3>
+    <p style="font-size:0.82rem;margin:0 0 0.4rem"><span class="tip" data-tip="${escapeTip(tip)}">Away up to <strong>${formatDuration(natSec)}</strong> at full rate, then fading to nothing over <strong>${formatDuration(SECLUSION_TAPER_FRAC * natSec)}</strong>.</span></p>
+    <p style="font-size:0.8rem;margin:0 0 0.3rem;color:var(--ink-soft)">Burn lifespan for more time: ${burnLine}</p>`;
+    const row = document.createElement("div");
+    row.className = "button-row";
+    [[null, "Off"], ...SECLUSION_BURN_STOPS.map((s) => [s, `To ${Math.round(s * 100)}%`])].forEach(([val, label]) => {
+      const b = document.createElement("button");
+      b.className = "small " + (stop === val ? "gold" : "ghost");
+      b.textContent = label;
+      if (val != null) {
+        const n = tribFailuresSurvivable(val);
+        b.classList.add("tip");
+        b.setAttribute("data-tip", `Burn down to ${Math.round(val * 100)}% of lifespan — ${n} failed tribulation${n === 1 ? "" : "s"} survivable after.`);
+      }
+      b.onclick = () => {
+        state.seclusionBurn = val;
+        saveChar();
+        render();
+      };
+      row.appendChild(b);
+    });
+    p.appendChild(row);
+    return p;
+  }
   function applyOfflineGains() {
     if (!state || !state.confirmed) return null;
     const now = Date.now();
     const lastTick = state.cultivating ? state.cultivating.lastTick : state.passiveTick || now;
     const rawElapsed = (now - lastTick) / 1e3;
-    const offlineCapHours = 2 + (state.realm.tierIdx || 0);
-    const elapsed = Math.min(rawElapsed, offlineCapHours * 3600);
-    if (elapsed < 2) {
+    if (rawElapsed < 2) {
       if (state.cultivating) state.cultivating.lastTick = now;
       else state.passiveTick = now;
       return null;
     }
-    const gain = cultivationRate() * elapsed;
-    addInsight(gain);
-    const vitBefore = getVitality();
-    if (state.cultivating) tickVitalityCultivation(elapsed, true);
-    else tickVitalityRecovery(rawElapsed);
-    const vitGain = getVitality() - vitBefore;
-    if (state.cultivating) state.cultivating.lastTick = now;
-    else state.passiveTick = now;
-    saveChar();
-    return { elapsed, rawElapsed, gain, capped: rawElapsed > elapsed, vitGain };
+    const rep = settleSeclusion(rawElapsed, now);
+    return seclusionCapable() ? rep : null;
+  }
+  function mergeSeclusionReports(a, b) {
+    if (!a) return b;
+    if (!b) return a;
+    const out = Object.assign({}, b);
+    ["gain", "vitGain", "rawElapsed", "elapsed", "fullSec", "taperSec", "lostSec", "burnYears"].forEach((k) => {
+      out[k] = (a[k] || 0) + (b[k] || 0);
+    });
+    out.capped = !!(a.capped || b.capped);
+    return out;
+  }
+  function playerIsTyping() {
+    try {
+      const ae = document.activeElement;
+      return !!(ae && (ae.tagName === "INPUT" || ae.tagName === "TEXTAREA" || ae.isContentEditable));
+    } catch (e) {
+      return false;
+    }
+  }
+  function publishSeclusionReport(rep, canRender) {
+    if (!rep || !seclusionCapable()) return;
+    offlineReport = mergeSeclusionReports(offlineReport, rep);
+    if (!canRender || combat || playerIsTyping()) return;
+    render();
+    try {
+      window.scrollTo(0, 0);
+    } catch (e) {
+    }
   }
   function updateLiveDisplay() {
     if (combat) return;
@@ -29438,7 +29614,7 @@
       pushLog("defeat", `${p.name} collapses.`);
       pushLog("flavor", enemyData.defeatText);
       if (combat.tribulation && (pendingTribulation || combat.ventureTrib)) {
-        const tribLoss = 0.33 * lifespanMax();
+        const tribLoss = TRIB_LIFESPAN_TOLL * lifespanMax();
         state.age = (state.age || 16) + tribLoss;
         pushLog("defeat", `The heavens scour away a third of your lifespan — ${Math.round(tribLoss)} years gone.`);
         if (state.age >= lifespanMax() && !noAgeDeathOn()) {
@@ -31024,7 +31200,7 @@
     lsRow.className = "consumable-row";
     lsRow.innerHTML = `<div class="consumable-info">
       <div class="consumable-name">Old-Age Death</div>
-      <div class="consumable-desc">When ON, reaching your lifespan ends the life (old age &rarr; reincarnation, souls intact). When OFF, lifespan still shows but never kills you. Age only advances during active cultivation. This preference is global and persists across lives.</div>
+      <div class="consumable-desc">When ON, reaching your lifespan ends the life (old age &rarr; reincarnation, souls intact). When OFF, lifespan still shows but never kills you. Age only advances while meditating at a site, or when you burn lifespan in seclusion. This preference is global and persists across lives.</div>
     </div>`;
     const lsBtns = document.createElement("div");
     lsBtns.className = "consumable-buttons";
@@ -32264,9 +32440,20 @@
     if (offlineReport) {
       const banner = document.createElement("div");
       banner.className = "panel offline-banner";
+      const r = offlineReport;
+      let detail = "";
+      if (seclusionCapable() && r.setPoint != null) {
+        const fadeSpan = Math.max(0, r.rawElapsed - r.fullSec - (r.lostSec || 0));
+        const bits = [`${formatDuration(r.fullSec)} at full rate`];
+        if (fadeSpan >= 60) bits.push(`${formatDuration(fadeSpan)} fading (worth ${formatDuration(r.taperSec)})`);
+        if ((r.lostSec || 0) >= 60) bits.push(`${formatDuration(r.lostSec)} past the fade earned nothing`);
+        if (r.burnYears >= 0.5) bits.push(`${Math.round(r.burnYears).toLocaleString()} years of lifespan burned`);
+        detail = `<p style="margin:0 0 0.4rem;font-size:0.8rem;color:var(--ink-soft)">Seclusion: ${bits.join(" · ")}.</p>`;
+      }
       banner.innerHTML = `
-      <strong>You emerge from cultivation.</strong>
-      <p style="margin:0.4rem 0">${formatDuration(offlineReport.elapsed)} passed${offlineReport.capped ? ` (of ${formatDuration(offlineReport.rawElapsed)} real time — capped)` : ""}. You gained <strong>${Math.floor(offlineReport.gain)} insight</strong>.</p>
+      <strong>You emerge from seclusion.</strong>
+      <p style="margin:0.4rem 0">${formatDuration(r.rawElapsed)} away. You gained <strong>${Math.floor(r.gain).toLocaleString()} insight</strong>.</p>
+      ${detail}
       <div class="button-row"><button class="gold" id="dismiss-offline">Continue</button></div>`;
       app.appendChild(banner);
       document.getElementById("dismiss-offline").onclick = () => {
@@ -32429,7 +32616,7 @@
       const _momTag = _momStacks > 0 ? ` <span style="color:var(--gold)" class="tip" data-tip="Combat momentum: each foe felled adds +${Math.round(MOMENTUM_PER_KILL * 100)}% to your recovery rate (to +100%), shedding one stack every 10 minutes since your last kill. Keep fighting to keep it hot.">気 +${Math.round(MOMENTUM_PER_KILL * _momStacks * 100)}% (${_momStacks}/${MOMENTUM_MAX_STACKS})</span>` : "";
       const _atSite = !!state.cultivating;
       const _restLine = _vit >= _vitMax ? '<span style="color:var(--ink-soft)">fully rested</span>' : _atSite ? `<span style="color:var(--crimson)">resting paused — meditating here taxes it instead</span>` : `<span style="color:var(--jade)">resting +${_restPerMin}/min, even while the game is closed</span>${_momTag}`;
-      realmHTML += `<p style="font-size:0.8rem;margin:0 0 0.4rem"><span class="tip" data-tip="Carries over between fights — winning does not heal you. Rests automatically at ${Math.round(vitalityRestRate() * 100)}%/min whenever you are not meditating, including offline. Each kill adds +${Math.round(MOMENTUM_PER_KILL * 100)}% recovery (up to 2×, decaying every 10 min). Potions restore instantly."><strong>Vitality</strong> <strong id="vit-value" style="color:${_vit < _vitMax * 0.4 ? "var(--crimson)" : "var(--jade)"}">${_vit}</strong>/${_vitMax} · ${_restLine}</span> <span style="color:var(--ink-soft)">&middot;</span> <span class="tip" data-tip="${escapeTip(`Age advances only while actively cultivating — idling and offline cost nothing. About ${lifespanHoursLeftLabel()} of cultivation left. Each realm extends it; some pills add lifespan, others spend it for permanent power. Running out reincarnates you, souls intact.`)}" style="color:var(--ink-soft)">Age <strong>${Math.floor(state.age || 16)}</strong>, <strong style="color:var(--jade)">${Math.floor(lifespanRemaining())}</strong> of ${lifespanMax()} yrs left <span style="opacity:0.8">(~${lifespanHoursLeftLabel()})</span>${state.bodyQuench ? ` · tempered ×${state.bodyQuench}` : ""}</span></p>`;
+      realmHTML += `<p style="font-size:0.8rem;margin:0 0 0.4rem"><span class="tip" data-tip="Carries over between fights — winning does not heal you. Rests automatically at ${Math.round(vitalityRestRate() * 100)}%/min whenever you are not meditating, including offline. Each kill adds +${Math.round(MOMENTUM_PER_KILL * 100)}% recovery (up to 2×, decaying every 10 min). Potions restore instantly."><strong>Vitality</strong> <strong id="vit-value" style="color:${_vit < _vitMax * 0.4 ? "var(--crimson)" : "var(--jade)"}">${_vit}</strong>/${_vitMax} · ${_restLine}</span> <span style="color:var(--ink-soft)">&middot;</span> <span class="tip" data-tip="${escapeTip(`Age advances only while meditating at a site — idling and offline cost nothing, unless you choose to burn lifespan for a longer seclusion. About ${lifespanHoursLeftLabel()} of cultivation left. Each realm extends it; some pills add lifespan, others spend it for permanent power. Running out reincarnates you, souls intact.`)}" style="color:var(--ink-soft)">Age <strong>${Math.floor(state.age || 16)}</strong>, <strong style="color:var(--jade)">${Math.floor(lifespanRemaining())}</strong> of ${lifespanMax()} yrs left <span style="opacity:0.8">(~${lifespanHoursLeftLabel()})</span>${state.bodyQuench ? ` · tempered ×${state.bodyQuench}` : ""}</span></p>`;
     }
     if (state.ageBrinkNotice) {
       realmHTML += `<p style="font-size:0.8rem;margin:0 0 0.4rem;color:var(--crimson)"><strong>Meditation halted.</strong> ${state.ageBrinkNotice}</p>`;
@@ -32478,7 +32665,10 @@
     </div>`;
     } else {
       realmHTML += `<div class="cult-status idle">
-      <div class="tip" data-tip="${escapeTip(`${Math.round(rate * 60)} insight/min, and it keeps running while the game is closed. Method: ${method.name}.` + (cultConvertsToInsight() ? " " + cultConversionNote() : ""))}"><strong>Passive cultivation</strong> · <span class="rate" id="cult-rate">${rate.toFixed(3)}</span>/sec <span style="color:var(--ink-soft)">— meditate at a location for more${cultConvertsToInsight() ? " · rate bonuses" + cultConversionShort() : ""}</span></div>
+      <div class="tip" data-tip="${escapeTip(`${Math.round(rate * 60)} insight/min, and it keeps running while the game is closed — for up to ${(() => {
+        const sp = seclusionPlan(0);
+        return formatDuration(sp.setPoint) + (sp.ext > 0 ? ` (${formatDuration(sp.ext)} of it burning lifespan)` : "");
+      })()} before it fades (see Seclusion). Method: ${method.name}.` + (cultConvertsToInsight() ? " " + cultConversionNote() : ""))}"><strong>Passive cultivation</strong> · <span class="rate" id="cult-rate">${rate.toFixed(3)}</span>/sec <span style="color:var(--ink-soft)">— meditate at a location for more${cultConvertsToInsight() ? " · rate bonuses" + cultConversionShort() : ""}</span></div>
     </div>`;
     }
     realmP.innerHTML = realmHTML;
@@ -32486,6 +32676,7 @@
     renderTabBar();
     app.appendChild(buildResourceDock());
     appendPanel(p, "self");
+    if (seclusionCapable()) appendPanel(buildSeclusionPanel(), "self");
     if (Object.values(state.statPips || {}).some((v) => v > 0)) {
       const pipP = document.createElement("div");
       pipP.className = "panel";
@@ -35023,7 +35214,7 @@
     lsRow.className = "consumable-row";
     lsRow.innerHTML = `<div class="consumable-info">
       <div class="consumable-name">Old-Age Death</div>
-      <div class="consumable-desc">When ON, reaching your lifespan ends the life (old age → reincarnation, souls intact). When OFF, lifespan still shows but never kills you. Age only advances during active cultivation.</div>
+      <div class="consumable-desc">When ON, reaching your lifespan ends the life (old age → reincarnation, souls intact). When OFF, lifespan still shows but never kills you. Age only advances while meditating at a site, or when you burn lifespan in seclusion.</div>
     </div>`;
     const lsBtns = document.createElement("div");
     lsBtns.className = "consumable-buttons";
