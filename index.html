@@ -9205,6 +9205,19 @@
 
   // app/src/data/changelog.js
   var CHANGELOG = [
+    { v: "1.27.189", notes: [
+      "THE BLOOD HUNT 血猎. From Foundation Establishment on, a heretic can set a hunt loose on any ordinary hunting ground &mdash; from that ground&rsquo;s card on the Journeys tab, or from the new panel on the Cultivator tab. It keeps fighting on its own, game open or closed &mdash; one fight every thirty seconds at most &mdash; for an hour plus half an hour for every realm you have broken into, then waits for you to send it out again. It banks at most half of your current layer per charge &mdash; kills past that pay no insight &mdash; and then stops to recharge, for ten minutes plus two and a half for every realm (time spent resting counts toward it).",
+      "The hunter goes out weakened: every combat stat &mdash; Vitality, weapon power, qi, damage reduction, critical chance, dodge, lifesteal &mdash; starts at half, and loses another 5% every twenty minutes (compounding, so it never reaches zero). Your base attributes are never touched. Kills pay their full insight; everything else they would drop (spirit stones, materials, gear, books, contribution) turns up on only one kill in ten.",
+      "LOSING IS REAL. Any lost fight leaves you at a quarter Vitality and stops the hunt until you have rested back to half &mdash; and that rest comes out of the hunt&rsquo;s own time. A lost ambush also costs the insight a win would have paid and 5% of your lifespan plus twenty years. Three fights lost while facing ambushes switch the hunt to avoiding them, so it can never quietly bleed you dry. Old-age death follows your settings: with &ldquo;pause before old-age death&rdquo; on, the hunt stops one breath short and turns away.",
+      "AMBUSHES FIND THE HUNT TOO &mdash; at twice their usual strength. Or tell it to avoid them entirely, at the cost of half its insight. The choice sits on the Blood Hunt panel and takes effect from the next fight.",
+      "Only ordinary grounds can be hunted &mdash; demonic grounds keep their ten ventures an hour. The righteous grow while away through seclusion; the hunt is the heretic&rsquo;s way.",
+      "DEMONIC KILLS NOW HAVE A FLOOR THAT GROWS WITH THE REALM. From Golden Core on, every kill a heretic makes pays at least a fixed slice of that realm&rsquo;s progress (a Demon-Heart a little more), so a lightly built heretic no longer falls off a cliff at the Golden Core. Nothing changes before Golden Core, and builds that already earn more per kill earn exactly what they did."
+    ] },
+    { v: "1.27.188", notes: [
+      "A CARVED INSCRIPTION CAN NO LONGER BE SOLD OUT FROM UNDER YOUR SKIN. The caravan and the Disassembly tab offered every inscription you owned, including the copy carved into your flesh &mdash; so you could take the stones or the essence for it and keep the carving&rsquo;s full effect. Both lists, and every bulk button, now hold back one copy per carving. Spares beyond that are still yours to sell.",
+      "The same copy also can no longer be slotted into your weapon while it is carved. One inscription was able to grant its effect twice.",
+      "Fixed the other direction too: owning two of an inscription and slotting one into your weapon used to refuse to carve the second, as if the slotted copy were still loose in your pack. It carves now."
+    ] },
     { v: "1.27.187", notes: [
       "SECLUSION 闭关. Time away now grows with you: two hours to start, an hour for every realm you break into, and ten minutes for every layer you have ever climbed &mdash; so a breakthrough only ever lengthens it. Core Formation layer 5 sits at about eight and a half hours; Spirit Severing reaches sixteen. Dao Heart lengthens it further, +2% per point above 10, up to double. (Cultivation points you can respec don&rsquo;t count &mdash; only Dao Heart you are committed to.)",
       "NO MORE HARD STOP. Past the window your cultivation fades to nothing over the next half-window instead of halting, worth an extra quarter-window to anyone who overstays.",
@@ -9618,10 +9631,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Max Posture, −0.5% tribulation damage taken per point (to −40%), and +2% seclusion time per point above 10 (to +100%)." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.187';
+  var GAME_VERSION = 'v1.27.189';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "4ee9f60";
+  var BUILD_SHA = "c3ed2f4";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -24143,6 +24156,7 @@
   function vitalityRestRate() {
     return state && state.demonic ? VITALITY_REST_PER_MIN : VITALITY_REST_RIGHTEOUS;
   }
+  var DEFEAT_VITALITY_SHARE = 0.25;
   var MOMENTUM_PER_KILL = 0.1;
   var MOMENTUM_MAX_STACKS = 10;
   var MOMENTUM_DECAY_MS = 10 * 60 * 1e3;
@@ -24895,10 +24909,15 @@
         }
       });
     });
-    (char.inscriptions.owned || []).forEach((id) => {
+    looseInscriptions(char).forEach((id) => {
       const ins = INSCRIPTIONS[id];
       if (!ins) return;
       const price = MARKET_SELL_PRICE[ins.rarity] || 5;
+      const removeInscription = () => {
+        if (looseInscriptionCount(char, id) <= 0) return false;
+        char.inscriptions.owned.splice(char.inscriptions.owned.indexOf(id), 1);
+        return true;
+      };
       out.push({
         name: ins.name,
         kindLabel: "inscription",
@@ -24907,7 +24926,7 @@
         tier: inscriptionRealm(id),
         lockKey: "inscription:" + id,
         sell: () => {
-          char.inscriptions.owned.splice(char.inscriptions.owned.indexOf(id), 1);
+          if (!removeInscription()) return;
           char.base.materials.spirit_stone = (char.base.materials.spirit_stone || 0) + price;
           saveChar();
         },
@@ -24915,7 +24934,7 @@
         // craft-loop currency. Reverses the v0.77 rollback now that there is something to spend it on.
         essenceYield: INSCR_DISASSEMBLE_ESSENCE[ins.rarity] || 10,
         disassemble: () => {
-          char.inscriptions.owned.splice(char.inscriptions.owned.indexOf(id), 1);
+          if (!removeInscription()) return;
           char.inscriptions.essence = (char.inscriptions.essence || 0) + (INSCR_DISASSEMBLE_ESSENCE[ins.rarity] || 10);
           saveChar();
         }
@@ -25699,7 +25718,7 @@
   var updateApplying = false;
   function runningShaKnown() {
     const s = typeof window !== "undefined" && window.BUILD_SHA;
-    return !!s && s !== "4ee9f60" && s !== "dev" && s !== "live";
+    return !!s && s !== "c3ed2f4" && s !== "dev" && s !== "live";
   }
   function verTuple(v) {
     return String(v || "").replace(/^v/, "").split(".").map((n) => parseInt(n, 10) || 0);
@@ -27000,13 +27019,27 @@
     const base = 1 + 0.1 * bodyInscriptions().length;
     return state.demonic ? base * 0.5 : base;
   }
+  function looseInscriptions(char) {
+    const carved = {};
+    (char && char.bodyInscriptions || []).forEach((id) => {
+      carved[id] = (carved[id] || 0) + 1;
+    });
+    return (char && char.inscriptions && char.inscriptions.owned || []).filter((id) => {
+      if (carved[id] > 0) {
+        carved[id]--;
+        return false;
+      }
+      return true;
+    });
+  }
+  function looseInscriptionCount(char, id) {
+    return looseInscriptions(char).filter((x) => x === id).length;
+  }
   function slotBodyInscription(id) {
     if (!state.demonic || !INSCRIPTIONS[id]) return;
     if (!state.bodyInscriptions) state.bodyInscriptions = [];
     if (state.bodyInscriptions.length >= bodyInscriptionSlots()) return;
-    const ownedCount = (state.inscriptions.owned || []).filter((x) => x === id).length;
-    const usedCount = (state.inscriptions.slotted || []).filter((x) => x === id).length + state.bodyInscriptions.filter((x) => x === id).length;
-    if (ownedCount <= usedCount) return;
+    if (looseInscriptionCount(state, id) <= 0) return;
     state.bodyInscriptions.push(id);
     saveChar();
   }
@@ -27025,7 +27058,7 @@
     return w ? w.slots || 2 : 2;
   }
   function slotInscription(id) {
-    if (!state.inscriptions.owned.includes(id)) return;
+    if (looseInscriptionCount(state, id) <= 0) return;
     if (state.inscriptions.slotted.length >= slotCapacity()) return;
     state.inscriptions.slotted.push(id);
     state.inscriptions.owned.splice(state.inscriptions.owned.indexOf(id), 1);
@@ -27397,6 +27430,7 @@
   function tickCultivation() {
     if (!state || !state.confirmed) return;
     const now = Date.now();
+    if (state.hunt) huntCatchUp();
     const lastTick = state.cultivating ? state.cultivating.lastTick : state.passiveTick || now;
     const elapsed = (now - lastTick) / 1e3;
     if (combat) {
@@ -27579,6 +27613,92 @@
     p.appendChild(row);
     return p;
   }
+  function huntStatusHTML() {
+    const h = state && state.hunt;
+    if (!h) return "";
+    const loc = LOCATIONS.find((l) => l.id === h.locId);
+    const where = loc ? loc.name : "a lost ground";
+    const t = h.totals || {};
+    const n = (v, word) => `${Math.round(v || 0).toLocaleString()} ${word}${Math.round(v || 0) === 1 ? "" : "s"}`;
+    const amb = t.ambushes || 0 ? ` · ${n(t.ambushes, "ambush").replace(/ambushs$/, "ambushes")} (${(t.ambushWins || 0).toLocaleString()} won)` : "";
+    const unpaid = t.insightCapped ? ` · ${Math.round(t.insightCapped).toLocaleString()} insight past the charge cap went unpaid` : "";
+    const cost = t.insightLost || t.yearsLost ? ` · <span style="color:var(--crimson)">−${Math.round(t.insightLost || 0).toLocaleString()} insight, −${Math.round(t.yearsLost || 0).toLocaleString()} years to lost ambushes</span>` : "";
+    const totals = `${n(t.fights, "fight")} (${(t.won || 0).toLocaleString()} won)${amb} · ${n(t.kills, "kill")} · <strong>+${Math.round(t.insight || 0).toLocaleString()}</strong> insight · +${n(t.stones, "stone")} · ${n(t.items, "item")} · ${n(t.materials, "material")}${unpaid}${cost}`;
+    const note = h.brink ? `<div style="font-size:0.8rem;color:var(--crimson)">One breath short of the end of your span, the hunt turned away from the inquisitors — it now avoids ambushes.</div>` : h.autoAvoided ? `<div style="font-size:0.8rem;color:var(--crimson)">${HUNT_FACE_LOSS_LIMIT} fights lost facing ambushes — the hunt now avoids them. Choose Face to take the risk again.</div>` : "";
+    if (huntSpent(h)) return `<div style="font-size:0.82rem">Hunt over at <strong>${where}</strong>.</div><div style="font-size:0.8rem;color:var(--ink-soft)">${totals}</div>${note}`;
+    const now = Date.now();
+    const left = Math.max(0, h.startedAt / 1e3 + h.windowSec - now / 1e3);
+    const due = Math.min(h.windowSec, Math.max(0, (now - h.startedAt) / 1e3));
+    const nextDrop = HUNT_STAT_STEP_SEC - h.usedSec % HUNT_STAT_STEP_SEC;
+    const strength = `at <strong>${huntPctLabel(huntStatMult(h))}</strong> strength` + (h.usedSec + nextDrop < h.windowSec ? ` (×${HUNT_STAT_DECAY} in ${formatDuration(nextDrop)})` : "");
+    const recharging = h.rechargingUntil && h.rechargingUntil > now ? ` · <span style="color:var(--gold)">recharging after filling ${Math.round(HUNT_CHARGE_SHARE * 100)}% of a layer — resumes in ${formatDuration((h.rechargingUntil - now) / 1e3)}</span>` : "";
+    const resting = !recharging && h.restingUntil && h.restingUntil > now ? ` · <span style="color:var(--crimson)">resting to ${Math.round(HUNT_REST_TO * 100)}% Vitality after a loss — resumes in ${formatDuration((h.restingUntil - now) / 1e3)}</span>` : "";
+    const layerCost = huntLayerCost(state);
+    const charge = !recharging && layerCost > 0 ? ` · this charge: <strong>${Math.round(100 * (h.chargeKey === `${state.realm.tierIdx || 0}:${state.realm.layer || 0}` ? h.charge || 0 : 0) / layerCost)}%</strong> of the layer (recharges at ${Math.round(HUNT_CHARGE_SHARE * 100)}%)` : "";
+    const behind = !resting && !recharging && h.usedSec < due - 30 ? " · catching up on time away" : "";
+    const lost = huntGround(h) ? "" : ' · <span style="color:var(--crimson)">this ground is closed to you — move the hunt from Journeys</span>';
+    return `<div style="font-size:0.82rem">Hunting <strong>${where}</strong> — <strong>${formatDuration(left)}</strong> left · ${strength}${recharging}${resting}${charge}${behind}${lost}</div><div style="font-size:0.8rem;color:var(--ink-soft)">${totals}</div>${note}`;
+  }
+  function huntPctLabel(mult) {
+    return `${Math.round(mult * 1e3) / 10}%`;
+  }
+  function buildHuntPanel() {
+    const p = document.createElement("div");
+    p.className = "panel";
+    const win = huntWindowSec(state);
+    const t = state.realm && state.realm.tierIdx || 0;
+    const tip = `${formatDuration(HUNT_BASE_SEC)} base + ${formatDuration(HUNT_PER_REALM_SEC)} for each of ${t} realm${t === 1 ? "" : "s"}. At most one fight every ${HUNT_MIN_FIGHT_SEC} seconds. Every combat stat is cut — Vitality, weapon power, qi, damage reduction, crit, dodge, lifesteal — never your base attributes. Fights are real, rolled and played the way auto-combat plays them. Lost fights never count toward your realm's death cap.`;
+    p.innerHTML = `<h3>Blood Hunt <span style="font-weight:normal;color:var(--ink-soft);font-size:0.85rem">血猎</span></h3>
+    <p style="font-size:0.82rem;margin:0 0 0.4rem"><span class="tip" data-tip="${escapeTip(tip)}">Hunts on its own for <strong>${formatDuration(win)}</strong>, game open or closed.</span> Combat stats open at <strong>${huntPctLabel(HUNT_STAT_START)}</strong> and fall <strong>${Math.round((1 - HUNT_STAT_DECAY) * 100)}%</strong> every ${Math.round(HUNT_STAT_STEP_SEC / 60)} minutes. Full insight; loot on only <strong>1 kill in ${Math.round(1 / HUNT_LOOT_SHARE)}</strong>. It banks at most <strong>${Math.round(HUNT_CHARGE_SHARE * 100)}%</strong> of your current layer per charge — kills past that pay nothing — then recharges for <strong>${formatDuration(huntRechargeSec(state))}</strong> (${HUNT_RECHARGE_BASE_SEC / 60} min + ${HUNT_RECHARGE_PER_REALM_SEC / 60} min per realm; resting counts toward it).</p>
+    <p style="font-size:0.8rem;margin:0 0 0.4rem;color:var(--ink-soft)"><strong style="color:var(--crimson)">Losing is real.</strong> Any lost fight drops you to ${Math.round(DEFEAT_VITALITY_SHARE * 100)}% Vitality and stops the hunt until you rest back to ${Math.round(HUNT_REST_TO * 100)}% — that time comes out of the window. A lost ambush also costs <strong>${huntAmbushStake().toLocaleString()} insight</strong> and <strong>${Math.round(huntAmbushLifespanCost()).toLocaleString()} years</strong> (${Math.round(HUNT_AMBUSH_LIFESPAN_PCT * 100)}% of your lifespan + ${HUNT_AMBUSH_LIFESPAN_YEARS}). ${HUNT_FACE_LOSS_LIMIT} fights lost facing ambushes switch the hunt to Avoid.</p>
+    <div id="hunt-status">${huntStatusHTML()}</div>`;
+    const ambRow = document.createElement("div");
+    ambRow.className = "button-row";
+    ambRow.style.cssText = "justify-content:flex-start;margin-top:0.35rem";
+    const ambLabel = document.createElement("span");
+    ambLabel.style.cssText = "font-size:0.78rem;align-self:center";
+    ambLabel.textContent = "Ambushes:";
+    ambRow.appendChild(ambLabel);
+    [
+      [false, `Face them — ×${HUNT_AMBUSH_POWER} as strong`, `Inquisitors and rival demons still find the hunt, at ×${HUNT_AMBUSH_POWER} their usual Vitality and weapon power. Full insight. Each one lost costs ${huntAmbushStake().toLocaleString()} insight and ${Math.round(huntAmbushLifespanCost()).toLocaleString()} years.`],
+      [true, `Avoid — ${Math.round(HUNT_AVOID_INSIGHT_MULT * 100)}% insight`, `No ambushes at all, but every hunt kill pays ${Math.round(HUNT_AVOID_INSIGHT_MULT * 100)}% of its insight.`]
+    ].forEach(([val, label, btip]) => {
+      const b = document.createElement("button");
+      b.className = "small tip " + (!!state.huntAvoidAmbush === val ? "gold" : "ghost");
+      b.setAttribute("data-tip", btip);
+      b.textContent = label;
+      b.onclick = () => {
+        setHuntAvoidAmbush(val);
+        render();
+      };
+      ambRow.appendChild(b);
+    });
+    p.appendChild(ambRow);
+    const h = state.hunt;
+    if (!h || huntSpent(h)) {
+      const row = document.createElement("div");
+      row.className = "button-row";
+      row.style.cssText = "justify-content:flex-start;margin-top:0.35rem";
+      const again = h && huntGrounds().some((l) => l.id === h.locId) ? h.locId : huntDefaultGroundId();
+      const loc = again && LOCATIONS.find((l) => l.id === again);
+      if (loc) {
+        const b = document.createElement("button");
+        b.className = "gold small";
+        b.textContent = `${h ? "Refresh" : "Begin"} the hunt — ${loc.name}`;
+        b.onclick = () => {
+          startHunt(loc.id);
+          render();
+        };
+        row.appendChild(b);
+      }
+      const note = document.createElement("span");
+      note.style.cssText = "font-size:0.75rem;color:var(--ink-soft);align-self:center";
+      note.textContent = "or pick any ordinary ground on the Journeys tab";
+      row.appendChild(note);
+      p.appendChild(row);
+    }
+    return p;
+  }
   function applyOfflineGains() {
     if (!state || !state.confirmed) return null;
     const now = Date.now();
@@ -27633,6 +27753,8 @@
     if (rateEl) rateEl.textContent = cultivationRate().toFixed(3);
     const vitEl = document.getElementById("vit-value");
     if (vitEl) vitEl.textContent = Math.round(getVitality());
+    const huntEl = document.getElementById("hunt-status");
+    if (huntEl) huntEl.innerHTML = huntStatusHTML();
     state.base.plots.forEach((plot, idx) => {
       const el = document.getElementById(`plot-${idx}-timer`);
       if (el && plot.herb) {
@@ -27675,6 +27797,7 @@
     }
   }
   var combat = null;
+  var huntSimActive = false;
   var preCombatScroll = 0;
   var atTitle = true;
   var LOCATION_CULT_BASELINE = (() => {
@@ -27691,9 +27814,9 @@
     const base = LOCATION_CULT_BASELINE[loc.minTier || 0] || 1;
     return Math.max(1, Math.min(2, (loc.cultivationMult || 1) / base));
   }
-  function rollEncounter(loc) {
+  function rollEncounter(loc, opts) {
     const _ambushTier = Math.min(6, state.realm.tierIdx || 0);
-    if (state.demonic && !loc.demonOnly && Math.random() < HUNTER_AMBUSH_CHANCE[_ambushTier]) {
+    if (state.demonic && !loc.demonOnly && !(opts && opts.noAmbush) && Math.random() < HUNTER_AMBUSH_CHANCE[_ambushTier]) {
       let ht = state.realm.tierIdx || 0;
       if (isDemonHeart(state)) ht += 1;
       if (Math.random() < INQUISITOR_TWO_UP_CHANCE[_ambushTier]) ht += 2;
@@ -27856,10 +27979,12 @@
     return ELEMENTS[Math.abs(hashStr(enemyId)) % ELEMENTS.length];
   }
   function initCombat(enemyIdOrIds, areaCultMult, areaLoc) {
-    try {
-      preCombatScroll = window.scrollY || window.pageYOffset || 0;
-    } catch (e) {
-      preCombatScroll = 0;
+    if (!huntSimActive) {
+      try {
+        preCombatScroll = window.scrollY || window.pageYOffset || 0;
+      } catch (e) {
+        preCombatScroll = 0;
+      }
     }
     const ids = Array.isArray(enemyIdOrIds) ? enemyIdOrIds.slice() : [enemyIdOrIds];
     const enemies = ids.map(buildEnemyCombat).filter(Boolean);
@@ -27982,7 +28107,8 @@
       // v0.50: the area's cultivation multiplier — a defeat here costs that much more lifespan
     };
     const _promoDuel = enemies.some((e) => e.id === "sect_promotion_elder");
-    if (state.pendingBlessing && !_promoDuel) {
+    if (huntSimActive) {
+    } else if (state.pendingBlessing && !_promoDuel) {
       p.hpMax = Math.max(1, Math.round(p.hpMax * 2));
       p.hp = Math.min(p.hpMax, Math.max(1, Math.round(p.hp * 2)));
       p.qiShieldMult *= 2;
@@ -28257,8 +28383,9 @@
   }
   function playerDodgeChance(p) {
     let c = schoolKit().dodgeChance || 0;
+    if (p.huntStatMult) c = (c + (p.mods && p.mods.dodgeChance || 0)) * p.huntStatMult;
     if (p.buffs && p.buffs.dodgeTurns > 0) c += p.buffs.dodgeChance || 0;
-    c += p.mods && p.mods.dodgeChance || 0;
+    if (!p.huntStatMult) c += p.mods && p.mods.dodgeChance || 0;
     return Math.min(0.75, softCapDodge(c) * ELEMENT_WOOD_DODGE[Math.max(0, elementSigLevel("wood"))]);
   }
   function autoDamagePenalty(tierIdx) {
@@ -28314,6 +28441,9 @@
     }
     state.autoCombat.dailyMinutes += AUTO_TICK_MS / 6e4;
     state.autoCombat.activeAt = Date.now();
+    autoCombatAction();
+  }
+  function autoCombatAction() {
     const p = combat.player;
     let cast = null;
     if (!playerSilenced() && p.hp > p.hpMax * 0.25) {
@@ -28372,6 +28502,296 @@
     state.autoCombat.dailyMinutes += fights * FIGHT_MIN;
     saveChar();
     return { fights, insight, stones, locName: loc.name };
+  }
+  var HUNT_BASE_SEC = 3600;
+  var HUNT_PER_REALM_SEC = 1800;
+  var HUNT_STAT_START = 0.5;
+  var HUNT_STAT_DECAY = 0.95;
+  var HUNT_STAT_STEP_SEC = 1200;
+  var HUNT_LOOT_SHARE = 0.1;
+  var HUNT_AVOID_INSIGHT_MULT = 0.5;
+  var HUNT_AMBUSH_POWER = 2;
+  var HUNT_AMBUSH_LIFESPAN_PCT = 0.05;
+  var HUNT_AMBUSH_LIFESPAN_YEARS = 20;
+  var HUNT_REST_TO = 0.5;
+  var HUNT_FACE_LOSS_LIMIT = 3;
+  var HUNT_MAX_ACTIONS = 300;
+  var HUNT_MIN_FIGHT_SEC = 30;
+  var HUNT_CHARGE_SHARE = 0.5;
+  var HUNT_RECHARGE_BASE_SEC = 600;
+  var HUNT_RECHARGE_PER_REALM_SEC = 150;
+  var HUNT_SLICE_MS = 40;
+  var HUNT_SLICE_GAP_MS = 15;
+  var HUNT_MIN_TIER = 2;
+  function huntDemonic(char) {
+    return !!(char && char.confirmed && char.demonic);
+  }
+  function huntCapable(char) {
+    return huntDemonic(char) && (char.realm && char.realm.tierIdx || 0) >= HUNT_MIN_TIER;
+  }
+  function huntWindowSec(char) {
+    return HUNT_BASE_SEC + HUNT_PER_REALM_SEC * (char && char.realm && char.realm.tierIdx || 0);
+  }
+  function huntSpent(h) {
+    return !!h && h.usedSec >= h.windowSec;
+  }
+  function huntStatMult(h) {
+    return HUNT_STAT_START * Math.pow(HUNT_STAT_DECAY, Math.floor(h.usedSec / HUNT_STAT_STEP_SEC));
+  }
+  function huntRechargeSec(char) {
+    return HUNT_RECHARGE_BASE_SEC + HUNT_RECHARGE_PER_REALM_SEC * (char && char.realm && char.realm.tierIdx || 0);
+  }
+  function huntLayerCost(char) {
+    const info = advanceInfo(char);
+    if (info) return info.cost;
+    const t = char.realm && char.realm.tierIdx || 0, L = REALMS[t] && REALMS[t].layers || 1;
+    const last = advanceInfo({ realm: { tierIdx: t, layer: Math.max(0, L - 1) } });
+    return last ? last.cost : 0;
+  }
+  function huntChargeCap(char) {
+    return Math.floor(HUNT_CHARGE_SHARE * huntLayerCost(char));
+  }
+  function huntChargeSync(h) {
+    const key = `${state.realm.tierIdx || 0}:${state.realm.layer || 0}`;
+    if (h.chargeKey !== key) {
+      h.chargeKey = key;
+      h.charge = 0;
+    }
+  }
+  function huntPayInsight(amount) {
+    if (!huntSimActive || !state || !state.hunt) return amount;
+    const h = state.hunt;
+    huntChargeSync(h);
+    const paid = Math.min(amount, Math.max(0, huntChargeCap(state) - (h.charge || 0)));
+    h.charge = (h.charge || 0) + paid;
+    if (amount > paid) h.totals.insightCapped = (h.totals.insightCapped || 0) + (amount - paid);
+    return paid;
+  }
+  function huntCharge(h, delta, fightEndSec) {
+    huntChargeSync(h);
+    h.charge = Math.max(0, (h.charge || 0) + delta);
+    const cap = huntChargeCap(state);
+    if (!(cap > 0) || h.charge < cap) return false;
+    h.usedSec = Math.max(h.usedSec, fightEndSec + huntRechargeSec(state));
+    h.rechargingUntil = h.startedAt + h.usedSec * 1e3;
+    h.charge = 0;
+    h.totals.recharges = (h.totals.recharges || 0) + 1;
+    return true;
+  }
+  function huntFightSec(acts) {
+    return Math.max(HUNT_MIN_FIGHT_SEC, (acts + 1) * AUTO_TICK_MS / 1e3);
+  }
+  function huntLootRoll() {
+    return !huntSimActive || Math.random() < HUNT_LOOT_SHARE;
+  }
+  function huntInsightMult() {
+    return huntSimActive && combat && combat.hunt && combat.huntAvoidsAmbush ? HUNT_AVOID_INSIGHT_MULT : 1;
+  }
+  var HUNT_AMBUSH_ID = /^(righteous_hunter_t|demonic_rival_t)/;
+  function setHuntAvoidAmbush(on) {
+    state.huntAvoidAmbush = !!on;
+    state.huntFaceLosses = 0;
+    if (state.hunt) {
+      delete state.hunt.autoAvoided;
+      delete state.hunt.brink;
+    }
+    saveChar();
+  }
+  function huntAmbushStake() {
+    return AMBUSH_BASELINE_MULT * killInsightBaseline(false);
+  }
+  function huntAmbushLifespanCost() {
+    return HUNT_AMBUSH_LIFESPAN_PCT * lifespanMax() + HUNT_AMBUSH_LIFESPAN_YEARS;
+  }
+  function huntRestSec() {
+    const max = maxVitality(), need = HUNT_REST_TO * max - getVitality();
+    if (need <= 0 || max <= 0) return 0;
+    return 60 * need / (max * vitalityRestRate() * vitalityMomentumMult());
+  }
+  function huntLoss(h, r, lossWallMs, nowMs) {
+    const t = h.totals;
+    let died = false;
+    if (r.ambush) {
+      const stake = Math.min(Math.max(0, state.realm.insight || 0), huntAmbushStake());
+      state.realm.insight = (state.realm.insight || 0) - stake;
+      t.insightLost = (t.insightLost || 0) + stake;
+      const years = huntAmbushLifespanCost();
+      state.age = (state.age || 16) + years;
+      t.yearsLost = (t.yearsLost || 0) + years;
+      if (state.age >= lifespanMax() && !noAgeDeathOn()) {
+        if (pauseBeforeAgeDeathOn()) {
+          state.age = Math.max(16, lifespanMax() - 0.01);
+          state.huntAvoidAmbush = true;
+          h.brink = true;
+        } else died = true;
+      }
+    }
+    if (!r.avoid) {
+      state.huntFaceLosses = (state.huntFaceLosses || 0) + 1;
+      if (state.huntFaceLosses >= HUNT_FACE_LOSS_LIMIT && !state.huntAvoidAmbush) {
+        state.huntAvoidAmbush = true;
+        h.autoAvoided = true;
+      }
+    }
+    setVitality(maxVitality() * DEFEAT_VITALITY_SHARE);
+    const rest = huntRestSec();
+    h.usedSec += rest;
+    t.rests = (t.rests || 0) + 1;
+    t.restSec = (t.restSec || 0) + rest;
+    h.restingUntil = h.startedAt + h.usedSec * 1e3;
+    tickVitalityRecovery(Math.max(0, (nowMs - lossWallMs) / 1e3));
+    return died;
+  }
+  function weakenHuntPlayer(p, mult) {
+    p.huntStatMult = mult;
+    p.hpMax = Math.max(1, Math.round(p.hpMax * mult));
+    p.hp = p.hpMax;
+    p.qiMax = Math.max(1, Math.round(p.qiMax * mult));
+    p.qi = p.qiMax;
+    p.spiritMax = Math.max(1, Math.round(p.spiritMax * mult));
+    p.spirit = p.spiritMax;
+    p.postureMax = Math.max(1, Math.round(p.postureMax * mult));
+    p.weaponPower = Math.max(1, Math.round(p.weaponPower * mult));
+    if (p._earthShield) {
+      p._earthShield = Math.round(p._earthShield * mult);
+      p._earthShieldRefresh = Math.round(p._earthShieldRefresh * mult);
+    }
+    const m = p.mods || {};
+    ["critChance", "lifestealPct", "flatDR"].forEach((k) => {
+      if (m[k] > 0) m[k] *= mult;
+    });
+  }
+  function strengthenHuntAmbush(c) {
+    let amb = false;
+    c.enemies.forEach((e) => {
+      if (!HUNT_AMBUSH_ID.test(String(e.id || ""))) return;
+      amb = true;
+      e.hpMax = Math.round((e.hpMax || 1) * HUNT_AMBUSH_POWER);
+      e.hp = e.hpMax;
+      e.weaponPower = Math.round((e.weaponPower || 0) * HUNT_AMBUSH_POWER);
+    });
+    return amb;
+  }
+  function huntGrounds() {
+    return LOCATIONS.filter((l) => !l.demonOnly && (l.enemyPool || []).some((id) => ENEMIES[id]) && locationUnlocked(l));
+  }
+  function huntGround(h) {
+    return h ? huntGrounds().find((l) => l.id === h.locId) || null : null;
+  }
+  function huntDefaultGroundId() {
+    const grounds = huntGrounds();
+    const last = state.autoCombat && state.autoCombat.locId;
+    if (grounds.some((l) => l.id === last)) return last;
+    const best = grounds.slice().sort((a, b) => (b.minTier || 0) - (a.minTier || 0) || (b.cultivationMult || 1) - (a.cultivationMult || 1))[0];
+    return best ? best.id : null;
+  }
+  function startHunt(locId) {
+    if (!huntCapable(state)) return false;
+    if (state.hunt && !huntSpent(state.hunt)) return false;
+    if (!huntGrounds().some((l) => l.id === locId)) return false;
+    state.hunt = {
+      locId,
+      startedAt: Date.now(),
+      windowSec: huntWindowSec(state),
+      usedSec: 0,
+      totals: { fights: 0, won: 0, ambushes: 0, ambushWins: 0, kills: 0, insight: 0, stones: 0, items: 0, materials: 0 }
+    };
+    saveChar();
+    return true;
+  }
+  function setHuntGround(locId) {
+    if (!state.hunt || huntSpent(state.hunt) || !huntGrounds().some((l) => l.id === locId)) return false;
+    state.hunt.locId = locId;
+    saveChar();
+    return true;
+  }
+  function runHuntFight(loc, mult) {
+    const avoid = !!state.huntAvoidAmbush;
+    combat = null;
+    initCombat(rollEncounter(loc, { noAmbush: avoid }), loc.cultivationMult || 1, loc);
+    if (!combat) return null;
+    combat.hunt = true;
+    combat.huntAvoidsAmbush = avoid;
+    combat.ventureLocId = loc.id;
+    weakenHuntPlayer(combat.player, mult);
+    const ambush = strengthenHuntAmbush(combat);
+    let acts = 0;
+    while (!combat.over && acts < HUNT_MAX_ACTIONS) {
+      autoCombatAction();
+      acts++;
+    }
+    return { won: combat.victory === true, acts, ambush, avoid, kills: combat.enemies.filter((e) => e.defeated).length, rewards: combat.rewards || {} };
+  }
+  function settleHunt(now, budgetMs) {
+    const h = state && state.hunt;
+    if (!h || huntSpent(h) || !huntCapable(state)) return 0;
+    const loc = huntGround(h);
+    if (!loc) return 0;
+    const due = Math.min(h.windowSec, Math.max(0, (now - h.startedAt) / 1e3));
+    if (h.usedSec >= due) return 0;
+    const saved = combat, savedTrib = pendingTribulation, t0 = Date.now();
+    let n = 0, died = false;
+    huntSimActive = true;
+    pendingTribulation = null;
+    try {
+      while (h.usedSec < due && Date.now() - t0 < budgetMs) {
+        const r = runHuntFight(loc, huntStatMult(h));
+        if (!r) {
+          h.usedSec = h.windowSec;
+          break;
+        }
+        h.usedSec += huntFightSec(r.acts);
+        const fightEnd = h.usedSec, lostBefore = h.totals.insightLost || 0;
+        const t = h.totals, md = r.rewards.materialDrops || {};
+        t.fights++;
+        if (r.won) t.won++;
+        if (r.ambush) {
+          t.ambushes = (t.ambushes || 0) + 1;
+          if (r.won) t.ambushWins = (t.ambushWins || 0) + 1;
+        }
+        t.kills += r.kills;
+        t.insight += r.rewards.insight || 0;
+        t.stones += md.spirit_stone || 0;
+        t.materials += Object.entries(md).reduce((a, [id, q]) => a + (id === "spirit_stone" ? 0 : q), 0);
+        t.items += ["drops", "weaponDrops", "armorDrops", "artifactDrops", "bookDrops"].reduce((a, k) => a + (r.rewards[k] || []).length, 0);
+        n++;
+        if (!r.won && huntLoss(h, r, h.startedAt + h.usedSec * 1e3, now)) {
+          died = true;
+          h.usedSec = h.windowSec;
+          break;
+        }
+        huntCharge(h, -((h.totals.insightLost || 0) - lostBefore), fightEnd);
+      }
+    } catch (e) {
+      try {
+        console.error("Blood Hunt fight failed; ending the hunt", e);
+      } catch (e2) {
+      }
+      h.usedSec = h.windowSec;
+    } finally {
+      combat = saved;
+      pendingTribulation = savedTrib;
+      huntSimActive = false;
+    }
+    h.usedSec = Math.min(h.usedSec, h.windowSec);
+    saveChar();
+    if (died) {
+      const name = state.name;
+      setTimeout(() => dieRun("Run down by the righteous on a blood hunt", `${name} sent the hunt out once too often. The inquisitors took the last of the years it had been spending.`, name), 0);
+    }
+    return n;
+  }
+  var huntChainTimer = null;
+  function huntCatchUp() {
+    if (huntChainTimer || !state || !state.hunt || pageHidden()) return;
+    const played = settleHunt(Date.now(), HUNT_SLICE_MS);
+    const h = state.hunt;
+    if (played && h && !huntSpent(h) && h.usedSec < Math.min(h.windowSec, (Date.now() - h.startedAt) / 1e3)) {
+      huntChainTimer = setTimeout(() => {
+        huntChainTimer = null;
+        huntCatchUp();
+      }, HUNT_SLICE_GAP_MS);
+    }
   }
   function applyPlayerOutgoingMods(p, dmg, target, ctx) {
     const m = p.mods;
@@ -29263,6 +29683,16 @@
   }
   var SOFTCAP_TAIL_K = 0.5;
   var SOFTCAP_MAX_MULT = 6;
+  var DEMONIC_KILL_FLOOR = 0.03;
+  var DEMON_HEART_KILL_FLOOR = 0.04;
+  function demonicKillFloorShare(char) {
+    if (!char || !char.demonic) return 0;
+    return isDemonHeart(char) ? DEMON_HEART_KILL_FLOOR : DEMONIC_KILL_FLOOR;
+  }
+  var AMBUSH_BASELINE_MULT = 10;
+  function killInsightBaseline(isBoss) {
+    return Math.round(realmTotalInsight(state && state.realm && state.realm.tierIdx || 0) * (isBoss ? 0.015 : 5e-3));
+  }
   function softCapInsight(raw, baseline) {
     if (baseline <= 0 || raw <= baseline) return Math.round(raw);
     let result = baseline, over = raw - baseline;
@@ -29284,87 +29714,7 @@
     });
     return pool.length ? pool[Math.floor(Math.random() * pool.length)] : null;
   }
-  function grantEnemyDefeatRewards(e) {
-    const enemyData = ENEMIES[e.id];
-    const hmVictory = heritageMech();
-    const rewardScale = e.scale && e.scale.reward || 1;
-    const rawInsight = Math.round(0.25 * enemyData.insightReward * rewardScale * boonInsightMult() * skillCombatInsightMult() * (combat.player.mods.insightMult || 1) * (SCHOOLS[state.selectedSchool] && SCHOOLS[state.selectedSchool].insightFromKillsMult || 1) * (hmVictory.combatInsightMult || 1) * combatInsightMult(combat) * metaInsightMult() * (isDemonHeart(state) ? 2 : state.demonic ? 1.5 : 1) * 1.5 * (combat && combat.demonicQiVenture ? 1.5 : 1) * (state.demonic ? isDemonHeart(state) ? 1 + (cultivationBoostMult() - 1) * 0.5 : cultivationBoostMult() : 1) * (1 + 0.2 * goldenCoreLevel()) * (heritageIs("Demonic Bloodline") && isDemonHeart(state) ? 2 : 1) * (e._areaRel || 1));
-    const _insightBaseline = Math.round(realmTotalInsight(state.realm.tierIdx || 0) * (enemyData.isBoss ? 0.015 : 5e-3));
-    const _isAmbush = /^(righteous_hunter_t|demonic_rival_t)/.test(String(e.id || ""));
-    const _ambBaseline = 10 * _insightBaseline;
-    const _capped = _isAmbush ? Math.max(_ambBaseline, softCapInsight(rawInsight, _ambBaseline)) : softCapInsight(rawInsight, _insightBaseline);
-    const insight = Math.round(_capped * sectCombatInsightMult());
-    addInsight(insight);
-    state.sectKills = (state.sectKills || 0) + 1;
-    if (sectWeaponEquipped()) {
-      const dues = grantContribution(SECT_WEAPON_CONTRIB);
-      pushLog("reward", `Sect arms sing your name to the register: +${dues} contribution.`);
-    }
-    {
-      const foeKind = e.kind || enemyKindFor(e.id);
-      const playerDemonic = !!state.demonic;
-      if (playerDemonic && foeKind === "human" || !playerDemonic && foeKind === "demonic") {
-        const xp = 50 * ((state.realm.tierIdx || 0) + 1);
-        const got = grantContribution(xp);
-        pushLog("reward", `${playerDemonic ? "A righteous cultivator falls to your heresy" : "A demon is put down"}: +${got} contribution.`);
-      }
-    }
-    if (enemyData.isBoss) {
-      if (!state.bossKills) state.bossKills = {};
-      state.bossKills[e.id] = (state.bossKills[e.id] || 0) + 1;
-      if (!state.bossRampKills) state.bossRampKills = {};
-      state.bossRampKills[e.id] = (state.bossRampKills[e.id] || 0) + 1;
-      consumeBossCharge(e.id);
-      const bossBounty = 100 * ((BOSSES[e.id] && BOSSES[e.id].tier || 0) + 1) * (sectWeaponEquipped() ? SECT_WEAPON_BOSS_MULT : 1);
-      const bossGot = grantContribution(bossBounty);
-      pushLog("reward", `The sect honors the kill: +${bossGot} contribution${sectWeaponEquipped() ? " (sect arms — doubled)" : ""}.`);
-      const bossTierIns = BOSSES[e.id] && BOSSES[e.id].tier || 0;
-      const bossInsight = Math.max(50, Math.round(realmTotalInsight(bossTierIns) * (0.02 + Math.random() * 0.01)));
-      addInsight(bossInsight);
-      pushLog("reward", `The fall of something this old teaches: +${bossInsight.toLocaleString()} insight.`);
-      if (!state.foundBooks) state.foundBooks = [];
-      const bossBooks = [];
-      const _hardBk = String(e.id).indexOf(HARD_BOSS_SUFFIX) >= 0;
-      const bookRates = _hardBk ? { rare: 0.375, legendary: 0.1875, divine: 0.09375 } : { rare: 0.25, legendary: 0.125, divine: 0.0625 };
-      ["rare", "legendary", "divine"].forEach((rar) => {
-        if (Math.random() < bookRates[rar]) {
-          const b = rollBookAtTier(bossTierIns, { rarity: rar });
-          if (b) {
-            state.foundBooks.push(b);
-            bossBooks.push(b);
-          }
-        }
-      });
-      bossBooks.forEach((id) => {
-        const bk = SKILL_BOOKS[id];
-        if (bk) pushLog("reward", `Skill book recovered: ${bk.name} (${bk.rarity}).`);
-      });
-      combat.rewards = combat.rewards || { insight: 0, drops: [], weaponDrops: [], bookDrops: [], armorDrops: [], artifactDrops: [], materialDrops: {} };
-      if (!combat.rewards.bookDrops) combat.rewards.bookDrops = [];
-      bossBooks.forEach((id) => combat.rewards.bookDrops.push(id));
-      {
-        const _wRate = String(e.id).indexOf(HARD_BOSS_SUFFIX) >= 0 ? 0.045 : 0.015;
-        ["legendary", "divine"].forEach((rar) => {
-          if (Math.random() >= _wRate) return;
-          const wid = rollBossGenWeapon(rar, bossTierIns);
-          if (wid && !(state.weapons.owned || []).includes(wid) && state.weapon !== wid) {
-            state.weapons.owned = state.weapons.owned || [];
-            state.weapons.owned.push(wid);
-            combat.rewards.weaponDrops = combat.rewards.weaponDrops || [];
-            combat.rewards.weaponDrops.push(wid);
-            pushLog("reward", `A ${rar} weapon falls from the slain: ${WEAPONS[wid].name}!`);
-          }
-        });
-      }
-      const meta = BOSSES[e.id];
-      if (meta && meta.firstKill && state.bossKills[e.id] === 1) {
-        Object.entries(meta.firstKill).forEach(([mid, n]) => {
-          state.base.materials[mid] = (state.base.materials[mid] || 0) + n;
-        });
-        const parts = Object.entries(meta.firstKill).map(([mid, n]) => `${n}× ${MATERIALS[mid] && MATERIALS[mid].name || mid}`).join(", ");
-        pushLog("reward", `First kill! The fall of ${enemyData.name} yields: ${parts}.`);
-      }
-    }
+  function rollKillDrops(e, enemyData, rewardScale) {
     const drop = rollInscriptionDrop();
     if (drop) state.inscriptions.owned.push(drop);
     const armorDrop = rollArmorDrop(enemyData);
@@ -29495,6 +29845,92 @@
       state.base.consumables[cursedId] = (state.base.consumables[cursedId] || 0) + 1;
       pushLog("reward", `A ${CONSUMABLES[cursedId].name} is left among the remains — power, at a price.`);
     }
+    return { drop, armorDrop, artifactDrop, weaponDrop, materialDrops, bookDrop };
+  }
+  function grantEnemyDefeatRewards(e) {
+    const enemyData = ENEMIES[e.id];
+    const hmVictory = heritageMech();
+    const rewardScale = e.scale && e.scale.reward || 1;
+    const rawInsight = Math.round(0.25 * enemyData.insightReward * rewardScale * boonInsightMult() * skillCombatInsightMult() * (combat.player.mods.insightMult || 1) * (SCHOOLS[state.selectedSchool] && SCHOOLS[state.selectedSchool].insightFromKillsMult || 1) * (hmVictory.combatInsightMult || 1) * combatInsightMult(combat) * metaInsightMult() * (isDemonHeart(state) ? 2 : state.demonic ? 1.5 : 1) * 1.5 * (combat && combat.demonicQiVenture ? 1.5 : 1) * (state.demonic ? isDemonHeart(state) ? 1 + (cultivationBoostMult() - 1) * 0.5 : cultivationBoostMult() : 1) * (1 + 0.2 * goldenCoreLevel()) * (heritageIs("Demonic Bloodline") && isDemonHeart(state) ? 2 : 1) * (e._areaRel || 1));
+    const _insightBaseline = killInsightBaseline(!!enemyData.isBoss);
+    const _isAmbush = /^(righteous_hunter_t|demonic_rival_t)/.test(String(e.id || ""));
+    const _ambBaseline = AMBUSH_BASELINE_MULT * _insightBaseline;
+    const _capped = _isAmbush ? Math.max(_ambBaseline, softCapInsight(rawInsight, _ambBaseline)) : softCapInsight(rawInsight, _insightBaseline);
+    const _floored = Math.max(_capped, Math.round(_insightBaseline * demonicKillFloorShare(state)));
+    const insight = huntPayInsight(Math.round(_floored * sectCombatInsightMult() * huntInsightMult()));
+    addInsight(insight);
+    const _huntLoot = huntLootRoll();
+    if (_huntLoot) state.sectKills = (state.sectKills || 0) + 1;
+    if (_huntLoot && sectWeaponEquipped()) {
+      const dues = grantContribution(SECT_WEAPON_CONTRIB);
+      pushLog("reward", `Sect arms sing your name to the register: +${dues} contribution.`);
+    }
+    {
+      const foeKind = e.kind || enemyKindFor(e.id);
+      const playerDemonic = !!state.demonic;
+      if (_huntLoot && (playerDemonic && foeKind === "human" || !playerDemonic && foeKind === "demonic")) {
+        const xp = 50 * ((state.realm.tierIdx || 0) + 1);
+        const got = grantContribution(xp);
+        pushLog("reward", `${playerDemonic ? "A righteous cultivator falls to your heresy" : "A demon is put down"}: +${got} contribution.`);
+      }
+    }
+    if (enemyData.isBoss) {
+      if (!state.bossKills) state.bossKills = {};
+      state.bossKills[e.id] = (state.bossKills[e.id] || 0) + 1;
+      if (!state.bossRampKills) state.bossRampKills = {};
+      state.bossRampKills[e.id] = (state.bossRampKills[e.id] || 0) + 1;
+      consumeBossCharge(e.id);
+      const bossBounty = 100 * ((BOSSES[e.id] && BOSSES[e.id].tier || 0) + 1) * (sectWeaponEquipped() ? SECT_WEAPON_BOSS_MULT : 1);
+      const bossGot = grantContribution(bossBounty);
+      pushLog("reward", `The sect honors the kill: +${bossGot} contribution${sectWeaponEquipped() ? " (sect arms — doubled)" : ""}.`);
+      const bossTierIns = BOSSES[e.id] && BOSSES[e.id].tier || 0;
+      const bossInsight = Math.max(50, Math.round(realmTotalInsight(bossTierIns) * (0.02 + Math.random() * 0.01)));
+      addInsight(bossInsight);
+      pushLog("reward", `The fall of something this old teaches: +${bossInsight.toLocaleString()} insight.`);
+      if (!state.foundBooks) state.foundBooks = [];
+      const bossBooks = [];
+      const _hardBk = String(e.id).indexOf(HARD_BOSS_SUFFIX) >= 0;
+      const bookRates = _hardBk ? { rare: 0.375, legendary: 0.1875, divine: 0.09375 } : { rare: 0.25, legendary: 0.125, divine: 0.0625 };
+      ["rare", "legendary", "divine"].forEach((rar) => {
+        if (Math.random() < bookRates[rar]) {
+          const b = rollBookAtTier(bossTierIns, { rarity: rar });
+          if (b) {
+            state.foundBooks.push(b);
+            bossBooks.push(b);
+          }
+        }
+      });
+      bossBooks.forEach((id) => {
+        const bk = SKILL_BOOKS[id];
+        if (bk) pushLog("reward", `Skill book recovered: ${bk.name} (${bk.rarity}).`);
+      });
+      combat.rewards = combat.rewards || { insight: 0, drops: [], weaponDrops: [], bookDrops: [], armorDrops: [], artifactDrops: [], materialDrops: {} };
+      if (!combat.rewards.bookDrops) combat.rewards.bookDrops = [];
+      bossBooks.forEach((id) => combat.rewards.bookDrops.push(id));
+      {
+        const _wRate = String(e.id).indexOf(HARD_BOSS_SUFFIX) >= 0 ? 0.045 : 0.015;
+        ["legendary", "divine"].forEach((rar) => {
+          if (Math.random() >= _wRate) return;
+          const wid = rollBossGenWeapon(rar, bossTierIns);
+          if (wid && !(state.weapons.owned || []).includes(wid) && state.weapon !== wid) {
+            state.weapons.owned = state.weapons.owned || [];
+            state.weapons.owned.push(wid);
+            combat.rewards.weaponDrops = combat.rewards.weaponDrops || [];
+            combat.rewards.weaponDrops.push(wid);
+            pushLog("reward", `A ${rar} weapon falls from the slain: ${WEAPONS[wid].name}!`);
+          }
+        });
+      }
+      const meta = BOSSES[e.id];
+      if (meta && meta.firstKill && state.bossKills[e.id] === 1) {
+        Object.entries(meta.firstKill).forEach(([mid, n]) => {
+          state.base.materials[mid] = (state.base.materials[mid] || 0) + n;
+        });
+        const parts = Object.entries(meta.firstKill).map(([mid, n]) => `${n}× ${MATERIALS[mid] && MATERIALS[mid].name || mid}`).join(", ");
+        pushLog("reward", `First kill! The fall of ${enemyData.name} yields: ${parts}.`);
+      }
+    }
+    const { drop, armorDrop, artifactDrop, weaponDrop, materialDrops, bookDrop } = _huntLoot ? rollKillDrops(e, enemyData, rewardScale) : { drop: null, armorDrop: null, artifactDrop: null, weaponDrop: null, materialDrops: {}, bookDrop: null };
     const qiOnKill = combat.player && combat.player.mods.qiOnKill || 0;
     if (qiOnKill > 0) {
       const before = combat.player.qi;
@@ -29551,6 +29987,7 @@
     if (!anyAlive && !combat.over) {
       combat.over = true;
       combat.victory = true;
+      if (combat.hunt) return true;
       if (combat.tribulation && pendingTribulation) {
         const gcThreshold = pendingTribulation.cost;
         const gcPreInsight = state.realm.insight;
@@ -29609,8 +30046,9 @@
     if (p.hp <= 0 && !combat.over) {
       combat.over = true;
       combat.victory = false;
+      if (combat.hunt) return true;
       const enemyData = ENEMIES[combat.enemyId];
-      setVitality(p.hpMax * 0.25);
+      setVitality(p.hpMax * DEFEAT_VITALITY_SHARE);
       pushLog("defeat", `${p.name} collapses.`);
       pushLog("flavor", enemyData.defeatText);
       if (combat.tribulation && (pendingTribulation || combat.ventureTrib)) {
@@ -30652,6 +31090,7 @@
     app.appendChild(sticky);
   }
   function render() {
+    if (huntSimActive) return;
     _equipSnapCache = null;
     app.innerHTML = "";
     if (updateReadySha && !updateApplying) {
@@ -32677,6 +33116,14 @@
     app.appendChild(buildResourceDock());
     appendPanel(p, "self");
     if (seclusionCapable()) appendPanel(buildSeclusionPanel(), "self");
+    if (huntCapable(state)) appendPanel(buildHuntPanel(), "self");
+    else if (huntDemonic(state)) {
+      const lp = document.createElement("div");
+      lp.className = "panel";
+      lp.innerHTML = `<h3>Blood Hunt <span style="font-weight:normal;color:var(--ink-soft);font-size:0.85rem">血猎</span></h3>
+      <p style="font-size:0.82rem;margin:0;color:var(--ink-soft)">Opens at <strong>${REALMS[HUNT_MIN_TIER].name}</strong>: a hunt that fights on while you are away. Until then, the hunting is yours to do.</p>`;
+      appendPanel(lp, "self");
+    }
     if (Object.values(state.statPips || {}).some((v) => v > 0)) {
       const pipP = document.createElement("div");
       pipP.className = "panel";
@@ -32991,14 +33438,7 @@
         bP.appendChild(row);
       });
       if (carved.length < bSlots) {
-        const gearSlotted = state.inscriptions.slotted || [];
-        const available = (state.inscriptions.owned || []).filter((id, i, arr) => {
-          if (!INSCRIPTIONS[id]) return false;
-          if (arr.indexOf(id) !== i) return false;
-          const ownedCount = arr.filter((x) => x === id).length;
-          const usedCount2 = gearSlotted.filter((x) => x === id).length + carved.filter((x) => x === id).length;
-          return ownedCount > usedCount2;
-        });
+        const available = [...new Set(looseInscriptions(state))].filter((id) => INSCRIPTIONS[id]);
         if (available.length) {
           const hdr = document.createElement("div");
           hdr.style.cssText = "font-size:0.8rem;color:var(--ink-soft);margin:0.3rem 0 0.2rem";
@@ -33033,6 +33473,7 @@
       appendPanel(bP, "self");
     }
     const cap = slotCapacity();
+    const looseInscr = looseInscriptions(state);
     let artHTML = `<h3>Artifact — ${weapon.name} <span style="color:var(--ink-soft);font-weight:normal;font-size:0.85rem">${weapon.zh}</span>
     <span class="rarity-tag rarity-${weapon.rarity || "common"}">${weapon.rarity || "common"}</span></h3>
     <p style="font-size:0.85rem;color:var(--ink-soft);margin:0 0 0.4rem"><em>${weapon.desc}</em><br>base power ${weapon.power}${rb.weapon ? ` · +${rb.weapon} realm` : ""}${mods.weaponBonus ? ` · +${mods.weaponBonus} inscription` : ""}${wpnMult !== 1 ? ` · ×${wpnMult.toFixed(2)} tincture` : ""} · <strong>total ${wpnPower}</strong></p>
@@ -33044,7 +33485,7 @@
     })()}
     <div style="font-size:0.85rem;margin-bottom:0.3rem"><strong>Inscription Slots</strong> (${state.inscriptions.slotted.length}/${cap})</div>
     <div class="slot-row" id="slot-row"></div>`;
-    if (state.inscriptions.owned.length) {
+    if (looseInscr.length) {
       artHTML += `<div style="font-size:0.85rem;margin-top:0.6rem"><strong>Owned Inscriptions</strong> — click to slot</div>
       <div class="button-row" id="insc-cat-row" style="flex-wrap:wrap;gap:0.25rem;margin:0.3rem 0;justify-content:flex-start"></div>
       <div class="owned-list" id="owned-list"></div>`;
@@ -33087,7 +33528,7 @@
     if (inscCatRow) {
       if (!state.ui) state.ui = {};
       const counts = { offensive: 0, defensive: 0, utility: 0 };
-      state.inscriptions.owned.forEach((id) => {
+      looseInscr.forEach((id) => {
         if (INSCRIPTIONS[id]) counts[inscriptionCategory(id)]++;
       });
       [["offensive", "Offensive"], ["defensive", "Defensive"], ["utility", "Utility"]].forEach(([k, label]) => {
@@ -33105,7 +33546,7 @@
     const ownedList = document.getElementById("owned-list");
     if (ownedList) {
       const slotFull = state.inscriptions.slotted.length >= cap;
-      state.inscriptions.owned.slice().filter((id) => INSCRIPTIONS[id] && inscriptionCategory(id) === inscSel).sort(
+      looseInscr.filter((id) => INSCRIPTIONS[id] && inscriptionCategory(id) === inscSel).sort(
         (a, b) => (RARITY_RANK[(INSCRIPTIONS[b] || {}).rarity] || 0) - (RARITY_RANK[(INSCRIPTIONS[a] || {}).rarity] || 0) || inscriptionRealm(b) - inscriptionRealm(a) || ((INSCRIPTIONS[a].name || "") < (INSCRIPTIONS[b].name || "") ? -1 : 1)
       ).forEach((id) => {
         const ins = INSCRIPTIONS[id];
@@ -34211,6 +34652,29 @@
           render();
         };
         actions.appendChild(venture);
+        if (huntCapable(state) && !loc.demonOnly && huntGrounds().some((l) => l.id === loc.id)) {
+          const h2 = state.hunt, running = h2 && !huntSpent(h2);
+          const hb = document.createElement("button");
+          hb.className = "ghost";
+          hb.style.cssText = "color:var(--crimson);border-color:var(--crimson)";
+          if (running && h2.locId === loc.id) {
+            hb.textContent = "Hunting here";
+            hb.disabled = true;
+          } else if (running) {
+            hb.textContent = "Move the hunt here";
+            hb.onclick = () => {
+              setHuntGround(loc.id);
+              render();
+            };
+          } else {
+            hb.textContent = `Blood Hunt here (${formatDuration(huntWindowSec(state))})`;
+            hb.onclick = () => {
+              startHunt(loc.id);
+              render();
+            };
+          }
+          actions.appendChild(hb);
+        }
         if (!isCult && isDemonHeart(state)) {
           const noMed = document.createElement("span");
           noMed.className = "tip";
@@ -35621,6 +36085,7 @@
   </div>`;
   }
   function saveChar() {
+    if (huntSimActive) return;
     try {
       localStorage.setItem(charKey(), JSON.stringify(state));
     } catch (e) {
@@ -35775,6 +36240,7 @@
   if (state && state.confirmed) {
     offlineReport = applyOfflineGains();
     autoReport = applyAutoCombatCatchup();
+    huntCatchUp();
     scheduleCultivationTick();
   }
   render();
