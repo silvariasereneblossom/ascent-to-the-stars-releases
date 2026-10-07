@@ -9205,6 +9205,9 @@
 
   // app/src/data/changelog.js
   var CHANGELOG = [
+    { v: "1.27.190", notes: [
+      "Blood Hunt fix: the hunt&rsquo;s weakening now cuts percentage damage reduction too (wards, boons, skills, Mist Draughts), as the panel always said. Before, only flat damage reduction was cut, so a ward kept its full strength while everything else was halved. At half strength, &minus;30% incoming damage is now &minus;15%."
+    ] },
     { v: "1.27.189", notes: [
       "THE BLOOD HUNT 血猎. From Foundation Establishment on, a heretic can set a hunt loose on any ordinary hunting ground &mdash; from that ground&rsquo;s card on the Journeys tab, or from the new panel on the Cultivator tab. It keeps fighting on its own, game open or closed &mdash; one fight every thirty seconds at most &mdash; for an hour plus half an hour for every realm you have broken into, then waits for you to send it out again. It banks at most half of your current layer per charge &mdash; kills past that pay no insight &mdash; and then stops to recharge, for ten minutes plus two and a half for every realm (time spent resting counts toward it).",
       "The hunter goes out weakened: every combat stat &mdash; Vitality, weapon power, qi, damage reduction, critical chance, dodge, lifesteal &mdash; starts at half, and loses another 5% every twenty minutes (compounding, so it never reaches zero). Your base attributes are never touched. Kills pay their full insight; everything else they would drop (spirit stones, materials, gear, books, contribution) turns up on only one kill in ten.",
@@ -9631,10 +9634,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Max Posture, −0.5% tribulation damage taken per point (to −40%), and +2% seclusion time per point above 10 (to +100%)." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.189';
+  var GAME_VERSION = 'v1.27.190';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "14329ee";
+  var BUILD_SHA = "eec37bc";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -25718,7 +25721,7 @@
   var updateApplying = false;
   function runningShaKnown() {
     const s = typeof window !== "undefined" && window.BUILD_SHA;
-    return !!s && s !== "14329ee" && s !== "dev" && s !== "live";
+    return !!s && s !== "eec37bc" && s !== "dev" && s !== "live";
   }
   function verTuple(v) {
     return String(v || "").replace(/^v/, "").split(".").map((n) => parseInt(n, 10) || 0);
@@ -28660,6 +28663,7 @@
     ["critChance", "lifestealPct", "flatDR"].forEach((k) => {
       if (m[k] > 0) m[k] *= mult;
     });
+    if (p.baseIncoming < 1) p.baseIncoming = 1 - (1 - p.baseIncoming) * mult;
   }
   function strengthenHuntAmbush(c) {
     let amb = false;
