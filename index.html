@@ -9205,6 +9205,11 @@
 
   // app/src/data/changelog.js
   var CHANGELOG = [
+    { v: "1.27.197", notes: [
+      "THE ELEMENTAL CIRCLE DISTILS ESSENCES. Every element you hold a level in now produces its own essence while you are away &mdash; Ember, Tide, Loam, Verdant and Keen &mdash; half a unit an hour for each level, across the same window your seclusion uses.",
+      "THE DASHED RING FINALLY MATTERS. An element also feeds a quarter of what it distils to the next one around the generating ring: cultivate Wood and Ember Essence trickles in too. The Elements tab shows what you hold and what each hour away is worth.",
+      "Essences are what weapon tempering breakthroughs, changing a weapon&rsquo;s element and technique riders will be paid in. Those arrive in the next updates; the essences start banking now."
+    ] },
     { v: "1.27.196", notes: [
       "ARRAY LIMIT BREAK 破限. An array at its realm cap can now be pushed one level past it, up to three times. It costs the usual stones and a development timer &mdash; 4, 8, then 16 hours &mdash; and the timer only runs while you pay the upkeep.",
       "The upkeep is your path&rsquo;s own engine. The righteous give up 30% of their cultivation gain while they channel. The demonic lose 15% of max Vitality, stop resting naturally, and bleed 15% of their Vitality an hour &mdash; at a quarter Vitality the channelling stops by itself, so a heretic feeds an array by going out and fighting.",
@@ -9664,10 +9669,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Max Posture, −0.5% tribulation damage taken per point (to −40%), and +2% seclusion time per point above 10 (to +100%)." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.196';
+  var GAME_VERSION = 'v1.27.197';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "1953524";
+  var BUILD_SHA = "9a1c599";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -9689,6 +9694,9 @@
   }
   function elementOvercomeBy(el) {
     return Object.keys(ELEMENT_DESTROYS).find((k) => ELEMENT_DESTROYS[k] === el);
+  }
+  function elementGeneratedBy(el) {
+    return Object.keys(ELEMENT_GENERATES).find((k) => ELEMENT_GENERATES[k] === el);
   }
   var BLACK_ICE_SAP_PER_STACK = 0.06;
   var BLACK_ICE_REGEN_PER_STACK = 0.14;
@@ -21013,6 +21021,58 @@
     return true;
   }
   var RISEN_CINDER = "risen_cinder";
+  var ATTUNED_MAT = { fire: "essence_fire", water: "essence_water", earth: "essence_earth", wood: "essence_wood", metal: "essence_metal" };
+  var ATTUNED_PER_LEVEL_PER_H = 0.5;
+  var ATTUNED_GENERATING_SHARE = 0.25;
+  [
+    ["fire", "Ember Essence", "火精", "what a flame leaves when it has nothing left to prove"],
+    ["water", "Tide Essence", "水精", "a bead of water that remembers the whole sea"],
+    ["earth", "Loam Essence", "土精", "a grain heavy with the patience of a mountain"],
+    ["wood", "Verdant Essence", "木精", "the green held in a seed before it decides to grow"],
+    ["metal", "Keen Essence", "金精", "the edge of a blade with the blade taken away"]
+  ].forEach(([el, name, zh, line]) => {
+    MATERIALS[ATTUNED_MAT[el]] = {
+      name,
+      zh,
+      rarity: "rare",
+      element: el,
+      desc: `Distilled from your own ${el} cultivation while you are away — ${line}. Spent on tempering breakthroughs, changing a weapon's element, and technique riders.`
+    };
+  });
+  function attunedLevel(el) {
+    const fc = typeof fiveColorFraction === "function" ? fiveColorFraction() : 0;
+    return Math.max(0, elementLevel(el), fc * ELEMENT_MAX_LEVEL);
+  }
+  function attunedYieldPerHour() {
+    const out = {};
+    ELEMENTS.forEach((el) => {
+      out[el] = 0;
+    });
+    ELEMENTS.forEach((el) => {
+      const own = attunedLevel(el) * ATTUNED_PER_LEVEL_PER_H;
+      out[el] += own;
+      out[ELEMENT_GENERATES[el]] += own * ATTUNED_GENERATING_SHARE;
+    });
+    return out;
+  }
+  function accrueAttuned(sec) {
+    const rate = attunedYieldPerHour(), got = {};
+    if (!state.attunedCarry) state.attunedCarry = {};
+    ELEMENTS.forEach((el) => {
+      if (!(rate[el] > 0)) return;
+      const total = (state.attunedCarry[el] || 0) + rate[el] * sec / 3600;
+      const whole = Math.floor(total);
+      state.attunedCarry[el] = +(total - whole).toFixed(4);
+      if (whole > 0) {
+        state.base.materials[ATTUNED_MAT[el]] = (state.base.materials[ATTUNED_MAT[el]] || 0) + whole;
+        got[el] = whole;
+      }
+    });
+    return got;
+  }
+  function attunedHeld(el) {
+    return state.base.materials[ATTUNED_MAT[el]] || 0;
+  }
   MATERIALS[RISEN_CINDER] = {
     name: "Risen Cinder",
     zh: "复燃烬",
@@ -25251,7 +25311,7 @@
     const bossMats = new Set(Object.values(BOSS_UNIQUE_MATS).map((x) => x[0]));
     let best = null, bestD = 99;
     Object.entries(MATERIALS).forEach(([mid, mat]) => {
-      if (mat.rarity !== rarity || mid === "spirit_stone" || mid === RISEN_CINDER || mid.startsWith("asc_") || bossMats.has(mid)) return;
+      if (mat.rarity !== rarity || mid === "spirit_stone" || mid === RISEN_CINDER || mid.startsWith("asc_") || mid.startsWith("essence_") || bossMats.has(mid)) return;
       const mt = matTier(mid);
       const d = Math.abs(mt - t) + (mt > t + 1 ? 2 : 0);
       if (d < bestD) {
@@ -25857,7 +25917,7 @@
   var updateApplying = false;
   function runningShaKnown() {
     const s = typeof window !== "undefined" && window.BUILD_SHA;
-    return !!s && s !== "1953524" && s !== "dev" && s !== "live";
+    return !!s && s !== "9a1c599" && s !== "dev" && s !== "live";
   }
   function verTuple(v) {
     return String(v || "").replace(/^v/, "").split(".").map((n) => parseInt(n, 10) || 0);
@@ -27918,6 +27978,7 @@
     const taxedSec = devCult < 1 ? Math.min(plan.effectiveSec, devSec) : 0;
     const gain = rateDuring * taxedSec + rateAfter * (plan.effectiveSec - taxedSec);
     addInsight(gain);
+    const essences = accrueAttuned(plan.effectiveSec);
     const vitBefore = getVitality();
     if (!(opts && opts.inFight)) {
       if (state.cultivating) tickVitalityCultivation(plan.effectiveSec, true);
@@ -27928,7 +27989,7 @@
     if (state.cultivating) state.cultivating.lastTick = now;
     state.passiveTick = now;
     saveChar();
-    return Object.assign({ gain, vitGain, elapsed: plan.effectiveSec, rawElapsed: rawSec, capped: rawSec > plan.setPoint }, plan);
+    return Object.assign({ gain, vitGain, essences, elapsed: plan.effectiveSec, rawElapsed: rawSec, capped: rawSec > plan.setPoint }, plan);
   }
   function buildSeclusionPanel() {
     const p = document.createElement("div");
@@ -28083,6 +28144,10 @@
     ["gain", "vitGain", "rawElapsed", "elapsed", "fullSec", "taperSec", "lostSec", "burnYears"].forEach((k) => {
       out[k] = (a[k] || 0) + (b[k] || 0);
     });
+    out.essences = {};
+    [a.essences, b.essences].forEach((e) => Object.entries(e || {}).forEach(([el, n]) => {
+      out.essences[el] = (out.essences[el] || 0) + n;
+    }));
     out.capped = !!(a.capped || b.capped);
     return out;
   }
@@ -32337,8 +32402,16 @@
     <p style="font-size:0.76rem;color:var(--ink-soft);margin:0 0 0.6rem">Level ${cap} is the most this realm allows${nextGate ? ` — Level ${cap + 1} opens at <strong>${nextGate.name}</strong>` : " — the maximum"}. The dashed ring feeds; the solid star overcomes.</p>
     ${elementCycleSvg()}
     <div style="display:flex;gap:1.1rem;justify-content:center;font-size:0.7rem;color:var(--ink-soft);margin:0.4rem 0 0.9rem">
-      <span>‑ ‑ ‑ generating 生</span><span>——— overcoming 克</span>
+      <span>‑ ‑ ‑ generating 生 (feeds essence)</span><span>——— overcoming 克</span>
     </div>`;
+    {
+      const rate = attunedYieldPerHour();
+      const parts = ELEMENTS.filter((el) => rate[el] > 0 || attunedHeld(el) > 0).map((el) => `<span class="tip" data-tip="${escapeTip(`${MATERIALS[ATTUNED_MAT[el]].name}: ${ATTUNED_PER_LEVEL_PER_H} an hour per ${ELEMENT_NAME[el]} level, plus ${Math.round(ATTUNED_GENERATING_SHARE * 100)}% of what ${ELEMENT_NAME[elementGeneratedBy(el)]} distils (it feeds ${ELEMENT_NAME[el]}).`)}" style="color:${ELEMENT_CSS_COLOR[el]}"><strong>${attunedHeld(el)}</strong> ${MATERIALS[ATTUNED_MAT[el]].name}${rate[el] > 0 ? ` <span style="color:var(--ink-soft)">+${+rate[el].toFixed(2)}/h</span>` : ""}</span>`);
+      const ep = document.createElement("p");
+      ep.style.cssText = "font-size:0.78rem;margin:0 0 0.7rem;color:var(--ink-soft)";
+      ep.innerHTML = parts.length ? `<strong style="color:var(--ink)">Essences</strong> — distilled while you are away: ${parts.join(" · ")}` : `<strong style="color:var(--ink)">Essences</strong> — an element you hold a level in distils its essence while you are away, and feeds a share to the next on the dashed ring.`;
+      p.appendChild(ep);
+    }
     const wrap = document.createElement("div");
     wrap.className = "inventory-list";
     ELEMENTS.forEach((el) => {
@@ -33281,6 +33354,8 @@
         if (fadeSpan >= 60) bits.push(`${formatDuration(fadeSpan)} fading (worth ${formatDuration(r.taperSec)})`);
         if ((r.lostSec || 0) >= 60) bits.push(`${formatDuration(r.lostSec)} past the fade earned nothing`);
         if (r.burnYears >= 0.5) bits.push(`${Math.round(r.burnYears).toLocaleString()} years of lifespan burned`);
+        const ess = Object.entries(r.essences || {}).filter(([, n]) => n > 0).map(([el, n]) => `${n} ${MATERIALS[ATTUNED_MAT[el]].name}`);
+        if (ess.length) bits.push(`distilled ${ess.join(", ")}`);
         detail = `<p style="margin:0 0 0.4rem;font-size:0.8rem;color:var(--ink-soft)">Seclusion: ${bits.join(" · ")}.</p>`;
       }
       banner.innerHTML = `
