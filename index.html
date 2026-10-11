@@ -9205,6 +9205,9 @@
 
   // app/src/data/changelog.js
   var CHANGELOG = [
+    { v: "1.27.191", notes: [
+      "Blood Hunt ambushes are fairer. A faced ambush is now fought at your FULL strength &mdash; still wearing down 5% every twenty minutes like every hunt fight &mdash; against an inquisitor 1.25&times; as strong (was: half strength against twice as strong). Ordinary hunt fights are unchanged. Before, even a fully developed Core Formation cultivator could not win them: halving your stats and doubling theirs took away the lifesteal sustain that makes ambushes winnable when you fight them yourself."
+    ] },
     { v: "1.27.190", notes: [
       "Blood Hunt fix: the hunt&rsquo;s weakening now cuts percentage damage reduction too (wards, boons, skills, Mist Draughts), as the panel always said. Before, only flat damage reduction was cut, so a ward kept its full strength while everything else was halved. At half strength, &minus;30% incoming damage is now &minus;15%."
     ] },
@@ -9634,10 +9637,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Max Posture, −0.5% tribulation damage taken per point (to −40%), and +2% seclusion time per point above 10 (to +100%)." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.190';
+  var GAME_VERSION = 'v1.27.191';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "9233e5c";
+  var BUILD_SHA = "156552e";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -25721,7 +25724,7 @@
   var updateApplying = false;
   function runningShaKnown() {
     const s = typeof window !== "undefined" && window.BUILD_SHA;
-    return !!s && s !== "9233e5c" && s !== "dev" && s !== "live";
+    return !!s && s !== "156552e" && s !== "dev" && s !== "live";
   }
   function verTuple(v) {
     return String(v || "").replace(/^v/, "").split(".").map((n) => parseInt(n, 10) || 0);
@@ -27633,7 +27636,7 @@
     const left = Math.max(0, h.startedAt / 1e3 + h.windowSec - now / 1e3);
     const due = Math.min(h.windowSec, Math.max(0, (now - h.startedAt) / 1e3));
     const nextDrop = HUNT_STAT_STEP_SEC - h.usedSec % HUNT_STAT_STEP_SEC;
-    const strength = `at <strong>${huntPctLabel(huntStatMult(h))}</strong> strength` + (h.usedSec + nextDrop < h.windowSec ? ` (×${HUNT_STAT_DECAY} in ${formatDuration(nextDrop)})` : "");
+    const strength = `at <strong>${huntPctLabel(huntStatMult(h))}</strong> strength` + (state.huntAvoidAmbush ? "" : ` (ambushes ${huntPctLabel(huntAmbushStatMult(h))})`) + (h.usedSec + nextDrop < h.windowSec ? ` · ×${HUNT_STAT_DECAY} in ${formatDuration(nextDrop)}` : "");
     const recharging = h.rechargingUntil && h.rechargingUntil > now ? ` · <span style="color:var(--gold)">recharging after filling ${Math.round(HUNT_CHARGE_SHARE * 100)}% of a layer — resumes in ${formatDuration((h.rechargingUntil - now) / 1e3)}</span>` : "";
     const resting = !recharging && h.restingUntil && h.restingUntil > now ? ` · <span style="color:var(--crimson)">resting to ${Math.round(HUNT_REST_TO * 100)}% Vitality after a loss — resumes in ${formatDuration((h.restingUntil - now) / 1e3)}</span>` : "";
     const layerCost = huntLayerCost(state);
@@ -27650,9 +27653,9 @@
     p.className = "panel";
     const win = huntWindowSec(state);
     const t = state.realm && state.realm.tierIdx || 0;
-    const tip = `${formatDuration(HUNT_BASE_SEC)} base + ${formatDuration(HUNT_PER_REALM_SEC)} for each of ${t} realm${t === 1 ? "" : "s"}. At most one fight every ${HUNT_MIN_FIGHT_SEC} seconds. Every combat stat is cut — Vitality, weapon power, qi, damage reduction, crit, dodge, lifesteal — never your base attributes. Fights are real, rolled and played the way auto-combat plays them. Lost fights never count toward your realm's death cap.`;
+    const tip = `${formatDuration(HUNT_BASE_SEC)} base + ${formatDuration(HUNT_PER_REALM_SEC)} for each of ${t} realm${t === 1 ? "" : "s"}. At most one fight every ${HUNT_MIN_FIGHT_SEC} seconds. Every combat stat is cut — Vitality, weapon power, qi, damage reduction, crit, dodge, lifesteal — never your base attributes. A faced ambush is fought at full strength instead, wearing down the same way. Fights are real, rolled and played the way auto-combat plays them. Lost fights never count toward your realm's death cap.`;
     p.innerHTML = `<h3>Blood Hunt <span style="font-weight:normal;color:var(--ink-soft);font-size:0.85rem">血猎</span></h3>
-    <p style="font-size:0.82rem;margin:0 0 0.4rem"><span class="tip" data-tip="${escapeTip(tip)}">Hunts on its own for <strong>${formatDuration(win)}</strong>, game open or closed.</span> Combat stats open at <strong>${huntPctLabel(HUNT_STAT_START)}</strong> and fall <strong>${Math.round((1 - HUNT_STAT_DECAY) * 100)}%</strong> every ${Math.round(HUNT_STAT_STEP_SEC / 60)} minutes. Full insight; loot on only <strong>1 kill in ${Math.round(1 / HUNT_LOOT_SHARE)}</strong>. It banks at most <strong>${Math.round(HUNT_CHARGE_SHARE * 100)}%</strong> of your current layer per charge — kills past that pay nothing — then recharges for <strong>${formatDuration(huntRechargeSec(state))}</strong> (${HUNT_RECHARGE_BASE_SEC / 60} min + ${HUNT_RECHARGE_PER_REALM_SEC / 60} min per realm; resting counts toward it).</p>
+    <p style="font-size:0.82rem;margin:0 0 0.4rem"><span class="tip" data-tip="${escapeTip(tip)}">Hunts on its own for <strong>${formatDuration(win)}</strong>, game open or closed.</span> Combat stats open at <strong>${huntPctLabel(HUNT_STAT_START)}</strong> (ambushes: <strong>${huntPctLabel(HUNT_AMBUSH_STAT_START)}</strong>) and fall <strong>${Math.round((1 - HUNT_STAT_DECAY) * 100)}%</strong> every ${Math.round(HUNT_STAT_STEP_SEC / 60)} minutes. Full insight; loot on only <strong>1 kill in ${Math.round(1 / HUNT_LOOT_SHARE)}</strong>. It banks at most <strong>${Math.round(HUNT_CHARGE_SHARE * 100)}%</strong> of your current layer per charge — kills past that pay nothing — then recharges for <strong>${formatDuration(huntRechargeSec(state))}</strong> (${HUNT_RECHARGE_BASE_SEC / 60} min + ${HUNT_RECHARGE_PER_REALM_SEC / 60} min per realm; resting counts toward it).</p>
     <p style="font-size:0.8rem;margin:0 0 0.4rem;color:var(--ink-soft)"><strong style="color:var(--crimson)">Losing is real.</strong> Any lost fight drops you to ${Math.round(DEFEAT_VITALITY_SHARE * 100)}% Vitality and stops the hunt until you rest back to ${Math.round(HUNT_REST_TO * 100)}% — that time comes out of the window. A lost ambush also costs <strong>${huntAmbushStake().toLocaleString()} insight</strong> and <strong>${Math.round(huntAmbushLifespanCost()).toLocaleString()} years</strong> (${Math.round(HUNT_AMBUSH_LIFESPAN_PCT * 100)}% of your lifespan + ${HUNT_AMBUSH_LIFESPAN_YEARS}). ${HUNT_FACE_LOSS_LIMIT} fights lost facing ambushes switch the hunt to Avoid.</p>
     <div id="hunt-status">${huntStatusHTML()}</div>`;
     const ambRow = document.createElement("div");
@@ -27663,7 +27666,7 @@
     ambLabel.textContent = "Ambushes:";
     ambRow.appendChild(ambLabel);
     [
-      [false, `Face them — ×${HUNT_AMBUSH_POWER} as strong`, `Inquisitors and rival demons still find the hunt, at ×${HUNT_AMBUSH_POWER} their usual Vitality and weapon power. Full insight. Each one lost costs ${huntAmbushStake().toLocaleString()} insight and ${Math.round(huntAmbushLifespanCost()).toLocaleString()} years.`],
+      [false, `Face them — ×${HUNT_AMBUSH_POWER} as strong`, `Inquisitors and rival demons still find the hunt, at ×${HUNT_AMBUSH_POWER} their usual Vitality and weapon power. You meet them at full strength, wearing down ${Math.round((1 - HUNT_STAT_DECAY) * 100)}% every ${Math.round(HUNT_STAT_STEP_SEC / 60)} minutes like every hunt fight. Full insight. Each one lost costs ${huntAmbushStake().toLocaleString()} insight and ${Math.round(huntAmbushLifespanCost()).toLocaleString()} years.`],
       [true, `Avoid — ${Math.round(HUNT_AVOID_INSIGHT_MULT * 100)}% insight`, `No ambushes at all, but every hunt kill pays ${Math.round(HUNT_AVOID_INSIGHT_MULT * 100)}% of its insight.`]
     ].forEach(([val, label, btip]) => {
       const b = document.createElement("button");
@@ -28513,7 +28516,8 @@
   var HUNT_STAT_STEP_SEC = 1200;
   var HUNT_LOOT_SHARE = 0.1;
   var HUNT_AVOID_INSIGHT_MULT = 0.5;
-  var HUNT_AMBUSH_POWER = 2;
+  var HUNT_AMBUSH_POWER = 1.25;
+  var HUNT_AMBUSH_STAT_START = 1;
   var HUNT_AMBUSH_LIFESPAN_PCT = 0.05;
   var HUNT_AMBUSH_LIFESPAN_YEARS = 20;
   var HUNT_REST_TO = 0.5;
@@ -28538,8 +28542,14 @@
   function huntSpent(h) {
     return !!h && h.usedSec >= h.windowSec;
   }
+  function huntStatWear(h) {
+    return Math.pow(HUNT_STAT_DECAY, Math.floor(h.usedSec / HUNT_STAT_STEP_SEC));
+  }
   function huntStatMult(h) {
-    return HUNT_STAT_START * Math.pow(HUNT_STAT_DECAY, Math.floor(h.usedSec / HUNT_STAT_STEP_SEC));
+    return HUNT_STAT_START * huntStatWear(h);
+  }
+  function huntAmbushStatMult(h) {
+    return HUNT_AMBUSH_STAT_START * huntStatWear(h);
   }
   function huntRechargeSec(char) {
     return HUNT_RECHARGE_BASE_SEC + HUNT_RECHARGE_PER_REALM_SEC * (char && char.realm && char.realm.tierIdx || 0);
@@ -28709,7 +28719,7 @@
     saveChar();
     return true;
   }
-  function runHuntFight(loc, mult) {
+  function runHuntFight(loc, h) {
     const avoid = !!state.huntAvoidAmbush;
     combat = null;
     initCombat(rollEncounter(loc, { noAmbush: avoid }), loc.cultivationMult || 1, loc);
@@ -28717,8 +28727,9 @@
     combat.hunt = true;
     combat.huntAvoidsAmbush = avoid;
     combat.ventureLocId = loc.id;
-    weakenHuntPlayer(combat.player, mult);
-    const ambush = strengthenHuntAmbush(combat);
+    const ambush = combat.enemies.some((e) => HUNT_AMBUSH_ID.test(String(e.id || "")));
+    weakenHuntPlayer(combat.player, ambush ? huntAmbushStatMult(h) : huntStatMult(h));
+    strengthenHuntAmbush(combat);
     let acts = 0;
     while (!combat.over && acts < HUNT_MAX_ACTIONS) {
       autoCombatAction();
@@ -28739,7 +28750,7 @@
     pendingTribulation = null;
     try {
       while (h.usedSec < due && Date.now() - t0 < budgetMs) {
-        const r = runHuntFight(loc, huntStatMult(h));
+        const r = runHuntFight(loc, h);
         if (!r) {
           h.usedSec = h.windowSec;
           break;
