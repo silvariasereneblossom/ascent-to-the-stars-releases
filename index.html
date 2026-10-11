@@ -9205,6 +9205,12 @@
 
   // app/src/data/changelog.js
   var CHANGELOG = [
+    { v: "1.27.194", notes: [
+      "THE FURNACE 丹炉. Pills now come in three grades &mdash; Basic, Excellent and Divine &mdash; each about 10% stronger than the last. Crafting as before is fast refinement: instant, and always Basic. Slow refinement is new: a timed batch in the furnace, an hour per pill, that can come out Excellent or Divine.",
+      "REFINEMENT SKILL grows with every pill you make, fast or slow (pills far below your realm teach little). A slow pill is Excellent one time in five to begin with and every time by skill 5; past that, each level adds a 20% chance of Divine. Each level also takes 6% off the timer, and the new Cauldron-Tending Array takes off more.",
+      "Slow refinement pays the plain recipe. It sits outside the longevity-pill escalation entirely: it does not pay the rising price, and it does not raise it.",
+      "One furnace, one batch. Ingredients are paid when the batch starts, the furnace keeps working while you are away, and cancelling returns the ingredients for every pill not yet finished. Graded pills get their own Use buttons on the Cultivator tab."
+    ] },
     { v: "1.27.193", notes: [
       "Blood Hunt ambushes: you still meet them at full strength wearing down 5% every twenty minutes, but never below 75% now &mdash; late ambushes in a long hunt stay winnable.",
       "A lost ambush now costs 4% of your lifespan (was 5% plus twenty years &mdash; the twenty years hit early realms hardest). Its insight stake is unchanged.",
@@ -9648,10 +9654,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Max Posture, −0.5% tribulation damage taken per point (to −40%), and +2% seclusion time per point above 10 (to +100%)." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.193';
+  var GAME_VERSION = 'v1.27.194';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "cd2d18d";
+  var BUILD_SHA = "8b78d24";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -22556,6 +22562,8 @@
       qiDamageMult: "qi-barrier dmg",
       herbGrowMult: "herb grow time",
       // v1.27.41: was unlabeled — the Spirit Field card showed "(no stats)" at every level
+      refineTimeMult: "slow refinement time",
+      // v1.27.194
       // v1.27.179: same omission as above, on the multiplicative side.
       qiShieldMult: "qi barrier",
       spiritMaxMult: "max Spirit",
@@ -24293,6 +24301,14 @@
       mods: { insightMult: 1.2 },
       minTier: 1
     },
+    cauldron_array: {
+      name: "Cauldron-Tending Array",
+      zh: "守炉阵",
+      desc: "Glyphs that hold a furnace at one temperature through the night. Slow refinement takes 15% less time.",
+      cost: { spirit_stone: 12, spirit_iron: 6 },
+      mods: { refineTimeMult: 0.85 },
+      minTier: 1
+    },
     spirit_field: {
       name: "Spirit Field Array",
       zh: "灵田阵",
@@ -24565,6 +24581,7 @@
     const lvl = arrayLevel(aid);
     const out = lvl > 0 ? scaleBossMods(a.mods, 1 + 0.18 * lvl) : Object.assign({}, a.mods);
     if (a.mods.herbGrowMult != null) out.herbGrowMult = Math.max(0.2, +(a.mods.herbGrowMult - 0.1 * lvl).toFixed(3));
+    if (a.mods.refineTimeMult != null) out.refineTimeMult = Math.max(0.5, +(a.mods.refineTimeMult - 0.05 * lvl).toFixed(3));
     if (aid === "body_temper") {
       const pct = (0.05 + 0.01 * (state.realm && state.realm.tierIdx || 0)) * (1 + 0.18 * lvl);
       out.hpMult = 1 + pct;
@@ -25735,7 +25752,7 @@
   var updateApplying = false;
   function runningShaKnown() {
     const s = typeof window !== "undefined" && window.BUILD_SHA;
-    return !!s && s !== "cd2d18d" && s !== "dev" && s !== "live";
+    return !!s && s !== "8b78d24" && s !== "dev" && s !== "live";
   }
   function verTuple(v) {
     return String(v || "").replace(/^v/, "").split(".").map((n) => parseInt(n, 10) || 0);
@@ -26555,11 +26572,12 @@
     if (!list.length) return defaultValue;
     return buffIsAdditive(kind) ? list.reduce((s, b) => s + b.value, 0) : list.reduce((p, b) => p * b.value, 1);
   }
-  function buffValueFor(c, ef) {
-    if (ef.kind !== "hp_max_add") return ef.value;
+  function buffValueFor(c, ef, grade) {
+    const p = PILL_GRADE_POTENCY[grade] || 1;
+    if (ef.kind !== "hp_max_add") return gradedEffectValue(ef.kind, ef.value, p);
     const potionTier = Math.min(6, c.minRealmTier || 0);
     const baseMax = Math.max(1, computeMaxHP(state) - activeBuffValue("hp_max_add", 0));
-    return Math.round((BODY_POTION_PCT[potionTier] || 0.1) * baseMax);
+    return Math.round((BODY_POTION_PCT[potionTier] || 0.1) * baseMax * p);
   }
   function activeEffectsFor(c) {
     if (!c || !state || !state.base || !Array.isArray(c.effects)) return [];
@@ -26571,14 +26589,14 @@
     });
     return out;
   }
-  function consumeBlockedBy(recipeId) {
+  function consumeBlockedBy(recipeId, grade) {
     const c = CONSUMABLES[recipeId];
     if (!c || !state || !state.base || !Array.isArray(c.effects) || !c.effects.length) return null;
     if (c.effects.some((ef) => !ef.durationMin)) return null;
     const now = Date.now();
     let blockers = null;
     for (const ef of c.effects) {
-      const mine = buffPotency({ kind: ef.kind, value: buffValueFor(c, ef) });
+      const mine = buffPotency({ kind: ef.kind, value: buffValueFor(c, ef, grade) });
       const others = (state.base.buffs || []).filter((b) => b.kind === ef.kind && b.sourceName !== c.name && b.expiresAt > now);
       const stronger = others.filter((b) => buffPotency(b) >= mine).sort((a, b) => buffPotency(b) - buffPotency(a));
       if (stronger.length < BUFF_STACK_LIMIT) return null;
@@ -27258,6 +27276,174 @@
     for (const [h, n] of Object.entries(c && c.recipe || {})) r[h] = Math.ceil(n * (HERBS[h] ? RECIPE_COST_MULT : 1) * lifeMult);
     return r;
   }
+  var PILL_GRADE_NAME = { basic: "Basic", excellent: "Excellent", divine: "Divine" };
+  var PILL_GRADE_POTENCY = { basic: 1, excellent: 1.1, divine: 1.2 };
+  var PILL_GRADES_ABOVE_BASIC = ["excellent", "divine"];
+  var REFINE_SLOW_BASE_MS = 60 * 60 * 1e3;
+  var REFINE_SLOW_MIN_MS = 10 * 60 * 1e3;
+  var REFINE_SKILL_XP = [8, 20, 40, 70, 110, 176, 282, 451, 721, 1154];
+  var REFINE_SKILL_TIME_PER_LVL = 0.06;
+  var REFINE_SKILL_TIME_FLOOR = 0.4;
+  var REFINE_EXCELLENT_BASE = 0.2;
+  var REFINE_EXCELLENT_PER_LVL = 0.16;
+  var REFINE_DIVINE_FROM_LVL = 5;
+  var REFINE_DIVINE_PER_LVL = 0.2;
+  var FURNACE_QUEUE_MAX = 12;
+  var REFINE_STALE_PILL_XP = 0.1;
+  function refinementXp() {
+    return state && state.pillsCreated || 0;
+  }
+  function refinementSkillLevel() {
+    const xp = refinementXp();
+    let lvl = 0;
+    while (lvl < REFINE_SKILL_XP.length && xp >= REFINE_SKILL_XP[lvl]) lvl++;
+    return lvl;
+  }
+  function refinementXpFor(c) {
+    const t = state.realm && state.realm.tierIdx || 0;
+    return (c && c.minRealmTier || 0) >= t - 1 ? 1 : REFINE_STALE_PILL_XP;
+  }
+  function grantRefinementXp(c) {
+    state.pillsCreated = +(refinementXp() + refinementXpFor(c)).toFixed(3);
+  }
+  function refineExcellentChance(lvl) {
+    return Math.min(1, REFINE_EXCELLENT_BASE + REFINE_EXCELLENT_PER_LVL * lvl);
+  }
+  function refineDivineChance(lvl) {
+    return Math.max(0, Math.min(1, REFINE_DIVINE_PER_LVL * (lvl - REFINE_DIVINE_FROM_LVL)));
+  }
+  function rollSlowPillGrade() {
+    const lvl = refinementSkillLevel();
+    if (Math.random() < refineDivineChance(lvl)) return "divine";
+    return Math.random() < refineExcellentChance(lvl) ? "excellent" : "basic";
+  }
+  function refineUnitMs() {
+    const skill = Math.max(REFINE_SKILL_TIME_FLOOR, 1 - REFINE_SKILL_TIME_PER_LVL * refinementSkillLevel());
+    const arrays = computeMods(state).refineTimeMult || 1;
+    return Math.max(REFINE_SLOW_MIN_MS, Math.round(REFINE_SLOW_BASE_MS * skill * arrays));
+  }
+  function gradedEffectValue(kind, v, p) {
+    if (!(p > 1) || typeof v !== "number") return v;
+    if (buffIsAdditive(kind)) return Math.round(v * p);
+    if (v > 1) return +(1 + (v - 1) * p).toFixed(4);
+    if (v > 0 && v < 1) return +(v / p).toFixed(4);
+    return v;
+  }
+  function gradedPillCount(id, grade) {
+    const g = state && state.base && state.base.gradedPills && state.base.gradedPills[id];
+    return g && g[grade] || 0;
+  }
+  function addGradedPill(id, grade, n) {
+    if (grade === "basic" || !grade) {
+      state.base.consumables[id] = (state.base.consumables[id] || 0) + n;
+      return;
+    }
+    if (!state.base.gradedPills) state.base.gradedPills = {};
+    const g = state.base.gradedPills[id] || (state.base.gradedPills[id] = {});
+    g[grade] = (g[grade] || 0) + n;
+    if (g[grade] <= 0) delete g[grade];
+    if (!Object.keys(g).length) delete state.base.gradedPills[id];
+  }
+  function pillCountAllGrades(id) {
+    return ((state.base.consumables || {})[id] || 0) + gradedPillCount(id, "excellent") + gradedPillCount(id, "divine");
+  }
+  function slowRecipe(c) {
+    const r = {};
+    for (const [h, n] of Object.entries(c && c.recipe || {})) r[h] = Math.ceil(n * (HERBS[h] ? RECIPE_COST_MULT : 1));
+    return r;
+  }
+  function furnaceJob() {
+    return state && state.furnace && state.furnace.job || null;
+  }
+  function slowRefineAffordable(recipeId) {
+    const c = CONSUMABLES[recipeId];
+    if (!c || !c.recipe || !Object.keys(c.recipe).length || !meetsRealmReq(c)) return 0;
+    let n = FURNACE_QUEUE_MAX;
+    for (const [ing, count] of Object.entries(slowRecipe(c))) {
+      const have = HERBS[ing] ? state.base.herbs[ing] || 0 : state.base.materials[ing] || 0;
+      n = Math.min(n, Math.floor(have / count));
+    }
+    return Math.max(0, n);
+  }
+  function payIngredients(recipe, units, sign) {
+    for (const [ing, count] of Object.entries(recipe)) {
+      const pool = HERBS[ing] ? state.base.herbs : state.base.materials;
+      pool[ing] = (pool[ing] || 0) + sign * count * units;
+      if (pool[ing] <= 0) delete pool[ing];
+    }
+  }
+  function startSlowRefine(recipeId, units) {
+    if (furnaceJob()) return false;
+    units = Math.max(1, Math.min(units || 1, slowRefineAffordable(recipeId)));
+    if (!(slowRefineAffordable(recipeId) >= 1)) return false;
+    const c = CONSUMABLES[recipeId];
+    payIngredients(slowRecipe(c), units, -1);
+    if (!state.furnace) state.furnace = {};
+    state.furnace.job = { kind: "pill", recipeId, total: units, done: 0, unitStart: Date.now(), made: {} };
+    state.furnace.last = null;
+    saveChar();
+    return true;
+  }
+  function cancelFurnaceJob() {
+    const j = furnaceJob();
+    if (!j) return false;
+    if (j.kind === "pill" && CONSUMABLES[j.recipeId]) payIngredients(slowRecipe(CONSUMABLES[j.recipeId]), j.total - j.done, 1);
+    state.furnace.last = { recipeId: j.recipeId, made: j.made, cancelled: true };
+    state.furnace.job = null;
+    saveChar();
+    return true;
+  }
+  function tickFurnace(now) {
+    const j = furnaceJob();
+    if (!j || j.kind !== "pill") return 0;
+    const c = CONSUMABLES[j.recipeId];
+    if (!c) {
+      state.furnace.job = null;
+      return 0;
+    }
+    let finished = 0;
+    while (j.done < j.total) {
+      const unit = refineUnitMs();
+      if (now - j.unitStart < unit) break;
+      const grade = rollSlowPillGrade();
+      addGradedPill(j.recipeId, grade, 1);
+      j.made[grade] = (j.made[grade] || 0) + 1;
+      grantRefinementXp(c);
+      j.done++;
+      finished++;
+      j.unitStart += unit;
+    }
+    if (j.done >= j.total) {
+      state.furnace.last = { recipeId: j.recipeId, made: j.made };
+      state.furnace.job = null;
+    }
+    if (finished) saveChar();
+    return finished;
+  }
+  function furnaceMadeLabel(made) {
+    return ["divine", "excellent", "basic"].filter((g) => made && made[g]).map((g) => `${made[g]} ${PILL_GRADE_NAME[g]}`).join(", ");
+  }
+  function buildFurnacePanelHTML() {
+    const lvl = refinementSkillLevel(), xp = refinementXp();
+    const nextXp = REFINE_SKILL_XP[lvl];
+    const exc = Math.round(refineExcellentChance(lvl) * 100), div = Math.round(refineDivineChance(lvl) * 100);
+    const chance = div > 0 ? `${div}% Divine, else Excellent` : `${exc}% Excellent`;
+    const j = furnaceJob();
+    let status;
+    if (j && CONSUMABLES[j.recipeId]) {
+      const left = Math.max(0, refineUnitMs() - (Date.now() - j.unitStart));
+      const made = furnaceMadeLabel(j.made);
+      status = `<strong>${CONSUMABLES[j.recipeId].name}</strong> — pill ${Math.min(j.total, j.done + 1)} of ${j.total}, next in <span id="furnace-timer">${formatDuration(left / 1e3)}</span>${made ? ` · so far ${made}` : ""}`;
+    } else {
+      const last = state.furnace && state.furnace.last;
+      status = `Idle.${last && CONSUMABLES[last.recipeId] && furnaceMadeLabel(last.made) ? ` Last batch: ${furnaceMadeLabel(last.made)} ${CONSUMABLES[last.recipeId].name}${last.cancelled ? " (cancelled)" : ""}.` : ""}`;
+    }
+    const tip = `Fast refinement is instant and always Basic. Slow refinement takes ${formatDuration(refineUnitMs() / 1e3)} per pill here, pays the base recipe (no longevity-pill escalation), and can come out Excellent (+10%) or Divine (+20%). Skill rises with every pill you make; pills far below your realm teach little.`;
+    return `<div class="consumable-info tip" data-tip="${escapeTip(tip)}">
+      <div class="consumable-name">Furnace <span style="color:var(--ink-soft);font-size:0.75rem">丹炉</span> <span style="color:var(--ink-soft);font-weight:normal;font-size:0.8rem">· Refinement Skill ${lvl}${nextXp ? ` (${Math.floor(xp)}/${nextXp} pills)` : " (max)"} · slow pill: ${chance} · ${formatDuration(refineUnitMs() / 1e3)} each</span></div>
+      <div class="consumable-desc">${status}</div>
+    </div>`;
+  }
   function craft(recipeId) {
     if (!canCraft(recipeId)) return;
     const c = CONSUMABLES[recipeId];
@@ -27268,6 +27454,7 @@
     }
     state.base.consumables[recipeId] = (state.base.consumables[recipeId] || 0) + 1;
     if (isLifespanPill(c)) state.lifespanPillsCrafted = (state.lifespanPillsCrafted || 0) + 1;
+    grantRefinementXp(c);
     saveChar();
   }
   function playerHasDoT() {
@@ -27305,14 +27492,19 @@
     state.statPips[statKey] = +(pips - whole * 10).toFixed(3);
     if (whole > 0) state.baseStats[statKey] = (state.baseStats[statKey] || 10) + whole;
   }
-  function consume(recipeId) {
-    if (!state.base.consumables[recipeId]) return;
-    if (consumeBlockedBy(recipeId)) return;
-    state.base.consumables[recipeId]--;
-    if (state.base.consumables[recipeId] <= 0) delete state.base.consumables[recipeId];
+  function consume(recipeId, grade) {
+    const g = PILL_GRADES_ABOVE_BASIC.indexOf(grade) >= 0 ? grade : "basic";
+    const p = PILL_GRADE_POTENCY[g];
+    if (g === "basic" ? !state.base.consumables[recipeId] : !gradedPillCount(recipeId, g)) return;
+    if (consumeBlockedBy(recipeId, g)) return;
+    if (g === "basic") {
+      state.base.consumables[recipeId]--;
+      if (state.base.consumables[recipeId] <= 0) delete state.base.consumables[recipeId];
+    } else addGradedPill(recipeId, g, -1);
     const c = CONSUMABLES[recipeId];
     const now = Date.now();
-    c.effects.forEach((ef) => {
+    c.effects.forEach((rawEf) => {
+      const ef = p > 1 && ["stat_perm", "stat_perm_all", "stat_perm_random", "lifespan_add", "vitality_restore_pct"].indexOf(rawEf.kind) >= 0 ? Object.assign({}, rawEf, { value: rawEf.value * p }) : rawEf;
       if (ef.kind === "stat_perm") {
         applyStatPotionGain(ef.statKey, ef.value);
         return;
@@ -27340,7 +27532,7 @@
       if (ef.kind === "vitality_restore_pct") {
         if (c.vitDiffuse) {
           if (Date.now() - (state.lastDiffuseVit || 0) < 10 * 6e4) {
-            state.base.consumables[recipeId] = (state.base.consumables[recipeId] || 0) + 1;
+            addGradedPill(recipeId, g, 1);
             return;
           }
           state.lastDiffuseVit = Date.now();
@@ -27361,8 +27553,8 @@
       if (ef.kind === "hp_max_add") {
         const potionTier = Math.min(6, c.minRealmTier || 0);
         const baseMax = Math.max(1, computeMaxHP(state) - activeBuffValue("hp_max_add", 0));
-        buffVal = Math.round((BODY_POTION_PCT[potionTier] || 0.1) * baseMax);
-      }
+        buffVal = Math.round((BODY_POTION_PCT[potionTier] || 0.1) * baseMax * p);
+      } else buffVal = gradedEffectValue(ef.kind, ef.value, p);
       state.base.buffs = state.base.buffs.filter((b) => !(b.kind === ef.kind && b.sourceName === c.name));
       state.base.buffs.push({ kind: ef.kind, value: buffVal, expiresAt: now + ef.durationMin * 6e4, sourceName: c.name });
       const sameKind = state.base.buffs.filter((b) => b.kind === ef.kind).sort((a, b) => buffPotency(b) - buffPotency(a));
@@ -27479,6 +27671,12 @@
     const beforeBuffCount = state.base.buffs.length;
     cleanupBuffs();
     if (state.base.buffs.length !== beforeBuffCount) needsRerender = true;
+    if (tickFurnace(now) > 0 && activeTab === "garden" && (state.ui && state.ui.houseTab) === "alchemy") needsRerender = true;
+    {
+      const ft = document.getElementById("furnace-timer");
+      const fj = furnaceJob();
+      if (ft && fj) ft.textContent = formatDuration(Math.max(0, refineUnitMs() - (now - fj.unitStart)) / 1e3);
+    }
     if (now - lastCultSaveAt > 1e4) {
       saveChar();
       lastCultSaveAt = now;
@@ -33862,6 +34060,25 @@
       appendConsumableSection("potion", "Potions", "short-duration combat buffs. Grouped by realm; higher-realm recipes reveal themselves when you get there.");
     }
     if (houseTab === "alchemy") {
+      tickFurnace(Date.now());
+      const fRow = document.createElement("div");
+      fRow.className = "consumable-row";
+      fRow.innerHTML = buildFurnacePanelHTML();
+      if (furnaceJob()) {
+        const fb = document.createElement("div");
+        fb.className = "consumable-buttons";
+        const cb = document.createElement("button");
+        cb.className = "ghost small tip";
+        cb.textContent = "Cancel";
+        cb.setAttribute("data-tip", "Stops the batch and returns the ingredients for every pill not yet finished.");
+        cb.onclick = () => {
+          cancelFurnaceJob();
+          render();
+        };
+        fb.appendChild(cb);
+        fRow.appendChild(fb);
+      }
+      gP.appendChild(fRow);
       const brRow = document.createElement("div");
       brRow.className = "consumable-row";
       const active = (state.base.buffs || []).find((b) => b.kind === "brazier_mult" && b.sourceName === "Spirit-Fed Brazier" && b.expiresAt > Date.now());
@@ -34623,7 +34840,7 @@
     useP.className = "panel";
     useP.innerHTML = `<h3>Consumables <span style="font-weight:normal;color:var(--ink-soft);font-size:0.85rem">丹药</span></h3>
     <p style="font-size:0.85rem;color:var(--ink-soft);margin:0 0 0.5rem">Pills and potions on hand — drink them here. Brew more in the House.</p>`;
-    const ownedCons = Object.entries(state.base.consumables || {}).filter(([cid, n]) => n > 0 && CONSUMABLES[cid]);
+    const ownedCons = [...new Set(Object.keys(state.base.consumables || {}).concat(Object.keys(state.base.gradedPills || {})))].filter((cid) => CONSUMABLES[cid] && pillCountAllGrades(cid) > 0).map((cid) => [cid, pillCountAllGrades(cid)]);
     if (!ownedCons.length) {
       const noneC = document.createElement("div");
       noneC.className = "consumable-desc";
@@ -35779,6 +35996,7 @@
     row.className = "consumable-row tip";
     row.setAttribute("data-tip", c.desc);
     const owned = state.base.consumables[id] || 0;
+    const ownedExc = gradedPillCount(id, "excellent"), ownedDiv = gradedPillCount(id, "divine");
     const canMake = canCraft(id);
     const meetsReq = meetsRealmReq(c);
     const recipeText = Object.entries(effectiveRecipe(c)).map(([h, n]) => {
@@ -35804,7 +36022,7 @@
     const cultNote = _cultEf && cultConvertsToInsight() ? `<div class="consumable-desc" style="color:var(--gold)">Still worth drinking: cultivation rate${cultConversionShort()}.</div>` : "";
     const infoDiv = document.createElement("div");
     infoDiv.style.flex = "1 1 55%";
-    infoDiv.innerHTML = `<div class="consumable-name">${c.name} <span style="color:var(--ink-soft);font-weight:normal;font-size:0.8rem">${c.zh}</span> <span class="rarity-tag rarity-${c.rarity}">${c.rarity}</span> ${owned ? `× <strong>${owned}</strong>` : ""}</div>
+    infoDiv.innerHTML = `<div class="consumable-name">${c.name} <span style="color:var(--ink-soft);font-weight:normal;font-size:0.8rem">${c.zh}</span> <span class="rarity-tag rarity-${c.rarity}">${c.rarity}</span> ${owned ? `× <strong>${owned}</strong>` : ""}${ownedExc ? ` <span style="color:var(--jade)">· ${ownedExc} Excellent</span>` : ""}${ownedDiv ? ` <span style="color:var(--gold)">· ${ownedDiv} Divine</span>` : ""}</div>
     <div class="consumable-desc">${c.desc}${defNote}${recipeText ? "<br>Recipe: " + recipeText : ""}</div>
     ${reqHTML}${stackHTML}${cultNote}`;
     row.appendChild(infoDiv);
@@ -35820,6 +36038,23 @@
         render();
       };
       btns.appendChild(craftBtn);
+      if (c.recipe && Object.keys(c.recipe).length) {
+        const afford = slowRefineAffordable(id), busy = !!furnaceJob();
+        const slowCost = Object.entries(slowRecipe(c)).map(([h, n]) => `${n}× ${HERBS[h] ? HERBS[h].name : MATERIALS[h] && MATERIALS[h].name || h}`).join(", ");
+        [[1, "Slow"], [afford, `Slow ×${afford}`]].forEach(([n, label]) => {
+          if (n === afford && afford <= 1) return;
+          const sb = document.createElement("button");
+          sb.className = "ghost small tip";
+          sb.textContent = label;
+          sb.disabled = busy || afford < 1;
+          sb.setAttribute("data-tip", busy ? "The furnace is busy." : `${formatDuration(refineUnitMs() / 1e3)} per pill · ${slowCost} each.`);
+          sb.onclick = () => {
+            startSlowRefine(id, n);
+            render();
+          };
+          btns.appendChild(sb);
+        });
+      }
     }
     if (mode !== "craft") {
       const useBtn = document.createElement("button");
@@ -35831,14 +36066,28 @@
         useBtn.disabled = true;
         useBtn.setAttribute("data-tip", `Only the TWO most potent effects of a kind apply. ${blockedBy.map((b) => b.sourceName).join(" and ")} are already stronger — drinking this would do nothing, so it is kept in your bag.`);
       } else {
-        useBtn.textContent = "Use";
+        useBtn.textContent = ownedExc || ownedDiv ? `Use Basic` : "Use";
         useBtn.disabled = !owned;
         useBtn.onclick = () => {
           consume(id);
           render();
         };
       }
-      btns.appendChild(useBtn);
+      if (owned || !(ownedExc || ownedDiv)) btns.appendChild(useBtn);
+      [["excellent", ownedExc], ["divine", ownedDiv]].forEach(([g, n]) => {
+        if (!n) return;
+        const gb = document.createElement("button");
+        const blocked = consumeBlockedBy(id, g);
+        gb.className = (blocked ? "ghost" : "gold") + " small tip";
+        gb.textContent = blocked ? "Won't stack" : `Use ${PILL_GRADE_NAME[g]}`;
+        gb.disabled = !!blocked;
+        gb.setAttribute("data-tip", `${PILL_GRADE_NAME[g]}: +${Math.round((PILL_GRADE_POTENCY[g] - 1) * 100)}% effect. ${n} held.`);
+        gb.onclick = () => {
+          consume(id, g);
+          render();
+        };
+        btns.appendChild(gb);
+      });
     }
     row.appendChild(btns);
     return row;
@@ -36290,6 +36539,7 @@
   }
   if (state && state.confirmed) {
     offlineReport = applyOfflineGains();
+    tickFurnace(Date.now());
     autoReport = applyAutoCombatCatchup();
     huntCatchUp();
     scheduleCultivationTick();
