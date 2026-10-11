@@ -9205,6 +9205,11 @@
 
   // app/src/data/changelog.js
   var CHANGELOG = [
+    { v: "1.27.195", notes: [
+      "GRADED STAT PILLS give a flat extra, not a percentage: an Excellent stat pill adds 0.40 pips to each stat it raises and a Divine one 0.80, on top of the pill itself. The soft cap applies as it does to every pip, so that extra reads 0.20 past the first rung and 0.10 past the second.",
+      "GRADED LONGEVITY PILLS are worth more: +25% years at Excellent, +50% at Divine.",
+      "Slow-refined longevity pills now rise in price too &mdash; +25% for each one made, like the fast ones &mdash; but on their own count. Making pills slowly never raises the fast price, and crafting fast never raises the slow one. Cancelling a batch gives each unfinished pill back at the price it was charged."
+    ] },
     { v: "1.27.194", notes: [
       "THE FURNACE 丹炉. Pills now come in three grades &mdash; Basic, Excellent and Divine &mdash; each about 10% stronger than the last. Crafting as before is fast refinement: instant, and always Basic. Slow refinement is new: a timed batch in the furnace, an hour per pill, that can come out Excellent or Divine.",
       "REFINEMENT SKILL grows with every pill you make, fast or slow (pills far below your realm teach little). A slow pill is Excellent one time in five to begin with and every time by skill 5; past that, each level adds a 20% chance of Divine. Each level also takes 6% off the timer, and the new Cauldron-Tending Array takes off more.",
@@ -9654,10 +9659,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Max Posture, −0.5% tribulation damage taken per point (to −40%), and +2% seclusion time per point above 10 (to +100%)." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.194';
+  var GAME_VERSION = 'v1.27.195';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "8b78d24";
+  var BUILD_SHA = "682a9a9";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -25752,7 +25757,7 @@
   var updateApplying = false;
   function runningShaKnown() {
     const s = typeof window !== "undefined" && window.BUILD_SHA;
-    return !!s && s !== "8b78d24" && s !== "dev" && s !== "live";
+    return !!s && s !== "682a9a9" && s !== "dev" && s !== "live";
   }
   function verTuple(v) {
     return String(v || "").replace(/^v/, "").split(".").map((n) => parseInt(n, 10) || 0);
@@ -27278,6 +27283,14 @@
   }
   var PILL_GRADE_NAME = { basic: "Basic", excellent: "Excellent", divine: "Divine" };
   var PILL_GRADE_POTENCY = { basic: 1, excellent: 1.1, divine: 1.2 };
+  var PILL_GRADE_STAT_PIPS = { basic: 0, excellent: 0.4, divine: 0.8 };
+  var PILL_GRADE_LIFESPAN = { basic: 1, excellent: 1.25, divine: 1.5 };
+  function pillGradeBlurb(c, grade) {
+    const fx = c && c.effects || [];
+    if (fx.some((e) => /^stat_perm/.test(e.kind))) return `+${PILL_GRADE_STAT_PIPS[grade].toFixed(2)} pips per stat (soft cap applies)`;
+    if (fx.some((e) => e.kind === "lifespan_add")) return `+${Math.round((PILL_GRADE_LIFESPAN[grade] - 1) * 100)}% years`;
+    return `+${Math.round((PILL_GRADE_POTENCY[grade] - 1) * 100)}% effect`;
+  }
   var PILL_GRADES_ABOVE_BASIC = ["excellent", "divine"];
   var REFINE_SLOW_BASE_MS = 60 * 60 * 1e3;
   var REFINE_SLOW_MIN_MS = 10 * 60 * 1e3;
@@ -27347,9 +27360,13 @@
   function pillCountAllGrades(id) {
     return ((state.base.consumables || {})[id] || 0) + gradedPillCount(id, "excellent") + gradedPillCount(id, "divine");
   }
-  function slowRecipe(c) {
+  function slowLifespanCount() {
+    return state && state.lifespanPillsSlow || 0;
+  }
+  function slowRecipe(c, made) {
+    const life = isLifespanPill(c) ? 1 + 0.25 * (made != null ? made : slowLifespanCount()) : 1;
     const r = {};
-    for (const [h, n] of Object.entries(c && c.recipe || {})) r[h] = Math.ceil(n * (HERBS[h] ? RECIPE_COST_MULT : 1));
+    for (const [h, n] of Object.entries(c && c.recipe || {})) r[h] = Math.ceil(n * (HERBS[h] ? RECIPE_COST_MULT : 1) * life);
     return r;
   }
   function furnaceJob() {
@@ -27358,12 +27375,22 @@
   function slowRefineAffordable(recipeId) {
     const c = CONSUMABLES[recipeId];
     if (!c || !c.recipe || !Object.keys(c.recipe).length || !meetsRealmReq(c)) return 0;
-    let n = FURNACE_QUEUE_MAX;
-    for (const [ing, count] of Object.entries(slowRecipe(c))) {
-      const have = HERBS[ing] ? state.base.herbs[ing] || 0 : state.base.materials[ing] || 0;
-      n = Math.min(n, Math.floor(have / count));
+    const spent = {};
+    const base = slowLifespanCount();
+    let n = 0;
+    while (n < FURNACE_QUEUE_MAX) {
+      const r = slowRecipe(c, base + n);
+      const fits = Object.entries(r).every(([ing, count]) => {
+        const have = HERBS[ing] ? state.base.herbs[ing] || 0 : state.base.materials[ing] || 0;
+        return have - (spent[ing] || 0) >= count;
+      });
+      if (!fits) break;
+      Object.entries(r).forEach(([ing, count]) => {
+        spent[ing] = (spent[ing] || 0) + count;
+      });
+      n++;
     }
-    return Math.max(0, n);
+    return n;
   }
   function payIngredients(recipe, units, sign) {
     for (const [ing, count] of Object.entries(recipe)) {
@@ -27377,9 +27404,11 @@
     units = Math.max(1, Math.min(units || 1, slowRefineAffordable(recipeId)));
     if (!(slowRefineAffordable(recipeId) >= 1)) return false;
     const c = CONSUMABLES[recipeId];
-    payIngredients(slowRecipe(c), units, -1);
+    const priceFrom = slowLifespanCount();
+    for (let i = 0; i < units; i++) payIngredients(slowRecipe(c, priceFrom + i), 1, -1);
+    if (isLifespanPill(c)) state.lifespanPillsSlow = priceFrom + units;
     if (!state.furnace) state.furnace = {};
-    state.furnace.job = { kind: "pill", recipeId, total: units, done: 0, unitStart: Date.now(), made: {} };
+    state.furnace.job = { kind: "pill", recipeId, total: units, done: 0, unitStart: Date.now(), made: {}, priceFrom };
     state.furnace.last = null;
     saveChar();
     return true;
@@ -27387,7 +27416,11 @@
   function cancelFurnaceJob() {
     const j = furnaceJob();
     if (!j) return false;
-    if (j.kind === "pill" && CONSUMABLES[j.recipeId]) payIngredients(slowRecipe(CONSUMABLES[j.recipeId]), j.total - j.done, 1);
+    if (j.kind === "pill" && CONSUMABLES[j.recipeId]) {
+      const c = CONSUMABLES[j.recipeId];
+      for (let i = j.done; i < j.total; i++) payIngredients(slowRecipe(c, (j.priceFrom || 0) + i), 1, 1);
+      if (isLifespanPill(c)) state.lifespanPillsSlow = Math.max(0, slowLifespanCount() - (j.total - j.done));
+    }
     state.furnace.last = { recipeId: j.recipeId, made: j.made, cancelled: true };
     state.furnace.job = null;
     saveChar();
@@ -27438,7 +27471,7 @@
       const last = state.furnace && state.furnace.last;
       status = `Idle.${last && CONSUMABLES[last.recipeId] && furnaceMadeLabel(last.made) ? ` Last batch: ${furnaceMadeLabel(last.made)} ${CONSUMABLES[last.recipeId].name}${last.cancelled ? " (cancelled)" : ""}.` : ""}`;
     }
-    const tip = `Fast refinement is instant and always Basic. Slow refinement takes ${formatDuration(refineUnitMs() / 1e3)} per pill here, pays the base recipe (no longevity-pill escalation), and can come out Excellent (+10%) or Divine (+20%). Skill rises with every pill you make; pills far below your realm teach little.`;
+    const tip = `Fast refinement is instant and always Basic. Slow refinement takes ${formatDuration(refineUnitMs() / 1e3)} per pill here, pays the base recipe, and can come out Excellent or Divine: +10% / +20% on most pills, +25% / +50% years on longevity pills, +0.40 / +0.80 pips per stat on stat pills. Slow longevity pills rise in price on their own count, apart from fast crafting. Skill rises with every pill you make; pills far below your realm teach little.`;
     return `<div class="consumable-info tip" data-tip="${escapeTip(tip)}">
       <div class="consumable-name">Furnace <span style="color:var(--ink-soft);font-size:0.75rem">丹炉</span> <span style="color:var(--ink-soft);font-weight:normal;font-size:0.8rem">· Refinement Skill ${lvl}${nextXp ? ` (${Math.floor(xp)}/${nextXp} pills)` : " (max)"} · slow pill: ${chance} · ${formatDuration(refineUnitMs() / 1e3)} each</span></div>
       <div class="consumable-desc">${status}</div>
@@ -27504,7 +27537,12 @@
     const c = CONSUMABLES[recipeId];
     const now = Date.now();
     c.effects.forEach((rawEf) => {
-      const ef = p > 1 && ["stat_perm", "stat_perm_all", "stat_perm_random", "lifespan_add", "vitality_restore_pct"].indexOf(rawEf.kind) >= 0 ? Object.assign({}, rawEf, { value: rawEf.value * p }) : rawEf;
+      let ef = rawEf;
+      if (g !== "basic") {
+        if (/^stat_perm/.test(rawEf.kind)) ef = Object.assign({}, rawEf, { value: rawEf.value + PILL_GRADE_STAT_PIPS[g] });
+        else if (rawEf.kind === "lifespan_add") ef = Object.assign({}, rawEf, { value: rawEf.value * PILL_GRADE_LIFESPAN[g] });
+        else if (rawEf.kind === "vitality_restore_pct") ef = Object.assign({}, rawEf, { value: rawEf.value * p });
+      }
       if (ef.kind === "stat_perm") {
         applyStatPotionGain(ef.statKey, ef.value);
         return;
@@ -36047,7 +36085,7 @@
           sb.className = "ghost small tip";
           sb.textContent = label;
           sb.disabled = busy || afford < 1;
-          sb.setAttribute("data-tip", busy ? "The furnace is busy." : `${formatDuration(refineUnitMs() / 1e3)} per pill · ${slowCost} each.`);
+          sb.setAttribute("data-tip", busy ? "The furnace is busy." : `${formatDuration(refineUnitMs() / 1e3)} per pill · ${slowCost} ${isLifespanPill(c) ? "for the next one, +25% per slow longevity pill made (its own count, apart from fast crafting)" : "each"}. Excellent: ${pillGradeBlurb(c, "excellent")}; Divine: ${pillGradeBlurb(c, "divine")}.`);
           sb.onclick = () => {
             startSlowRefine(id, n);
             render();
@@ -36081,7 +36119,7 @@
         gb.className = (blocked ? "ghost" : "gold") + " small tip";
         gb.textContent = blocked ? "Won't stack" : `Use ${PILL_GRADE_NAME[g]}`;
         gb.disabled = !!blocked;
-        gb.setAttribute("data-tip", `${PILL_GRADE_NAME[g]}: +${Math.round((PILL_GRADE_POTENCY[g] - 1) * 100)}% effect. ${n} held.`);
+        gb.setAttribute("data-tip", `${PILL_GRADE_NAME[g]}: ${pillGradeBlurb(c, g)}. ${n} held.`);
         gb.onclick = () => {
           consume(id, g);
           render();
