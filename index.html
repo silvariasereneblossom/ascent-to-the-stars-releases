@@ -9205,6 +9205,11 @@
 
   // app/src/data/changelog.js
   var CHANGELOG = [
+    { v: "1.27.206", notes: [
+      "ALL THE MUSIC PLAYS AT ONE LEVEL NOW. The tracks were as much as thirteen decibels apart, so the volume lurched whenever one ended &mdash; Wuxia, for one, was far louder than everything around it. Each track is now brought to the same loudness. Loud ones come down exactly. The quietest old recordings come up as far as your music volume leaves room for: fully at the default setting or below, less if you have the slider at maximum.",
+      "TWO MORE BATTLE THEMES &mdash; Crane Over the Spears, led by a flute, and Three Cuts, in three beats to the bar.",
+      "FOUR NEW THEMES FOR ELITES AND UNNAMED BOSSES: A Tyrant in the Pass, Trial of a Hundred Blades, Heaven Does Not Blink and The Mountain Answers join that playlist."
+    ] },
     { v: "1.27.205", notes: [
       "EVERY NAMED BOSS HAS ITS OWN MUSIC NOW, WRITTEN FOR IT. Each of the fourteen has a theme composed for this game and built around that boss: the Mine-Heart Golem&rsquo;s is in three beats to the bar, anvil, anvil, crash; a bell tolls on every bar of the Bell-Tower Abbot&rsquo;s; the Tide-Queen&rsquo;s rolls over harp with the sea between phrases; the Sovereign of the First Dawn has the only theme in a major mode. The later bosses bring a choir.",
       "HEAVENSCOURGE AND CALAMITY FIGHTS HAVE THEMES TOO. They used to share the general boss playlist. Each now plays its boss&rsquo;s own tunes in a new arrangement: a Heavenscourge is lower, slower and heavier, and longer; a Calamity is the same tunes with nothing held back.",
@@ -9704,10 +9709,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Max Posture, −0.5% tribulation damage taken per point (to −40%), and +2% seclusion time per point above 10 (to +100%)." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.205';
+  var GAME_VERSION = 'v1.27.206';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "f1509ce";
+  var BUILD_SHA = "3f2d3e4";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -25836,7 +25841,10 @@
       { file: "ats_battle_03.mp3", title: "Riders at the Pass", note: "original score — galloping, drums first" },
       { file: "ats_battle_04.mp3", title: "Blades Under Banner", note: "original score — brass march" },
       { file: "ats_battle_05.mp3", title: "Storm Over the Ridge", note: "original score — fast, trembling strings" },
-      { file: "ats_battle_06.mp3", title: "Nine Steps, One Strike", note: "original score — the pulse, then the blow" }
+      { file: "ats_battle_06.mp3", title: "Nine Steps, One Strike", note: "original score — the pulse, then the blow" },
+      // v1.27.206 (operator: "a couple more battle tracks")
+      { file: "ats_battle_07.mp3", title: "Crane Over the Spears", note: "original score — a flute leads" },
+      { file: "ats_battle_08.mp3", title: "Three Cuts", note: "original score — three beats to the bar" }
     ],
     boss: [
       { file: "Wuxia3.mp3", title: "Wuxia III", note: "grand, climactic" },
@@ -25845,7 +25853,13 @@
       // v0.85: Kevin MacLeod (incompetech.com), CC BY 4.0 — generic boss-tier (tribulations, elites)
       { file: "km_crusade.mp3", title: "Crusade", note: "heavy, ominous march" },
       { file: "km_achaidh.mp3", title: "Achaidh Cheide", note: "driving epic" },
-      { file: "km_clenchedteeth.mp3", title: "Clenched Teeth", note: "tense climax" }
+      { file: "km_clenchedteeth.mp3", title: "Clenched Teeth", note: "tense climax" },
+      // v1.27.206 (operator: "a few more generic boss tracks"): composed for the game, for elites and any
+      // boss fight with no theme of its own. No signature instrument and no choir — CC0 instruments only.
+      { file: "ats_boss_01.mp3", title: "A Tyrant in the Pass", note: "original score — low, heavy, a drone first" },
+      { file: "ats_boss_02.mp3", title: "Trial of a Hundred Blades", note: "original score — brass over driving drums" },
+      { file: "ats_boss_03.mp3", title: "Heaven Does Not Blink", note: "original score — slow, the gong counting" },
+      { file: "ats_boss_04.mp3", title: "The Mountain Answers", note: "original score — a horn call, then the corps" }
     ],
     // v0.94 (operator): dedicated single-track categories — opening/title screen, Market tab, and
     // ALL tribulations. Single-entry lists loop natively (playCurrentTrack sets a.loop). All CC BY.
@@ -25859,6 +25873,38 @@
       { file: "ImperialChinaCinematic.mp3", title: "Imperial China Cinematic", note: "v0.95 (operator): Shane Ivers, CC BY 4.0 — grand epic orchestral, builds to climax" }
     ]
   };
+  var MUSIC_TARGET_LUFS = -11.5;
+  var TRACK_LUFS = {
+    "Shenxian.mp3": -7.3,
+    "Shenyang.mp3": -13.2,
+    "Taohua.mp3": -9.6,
+    "Chinatown_Healing.mp3": -8.4,
+    "GuzhengCity.mp3": -17,
+    "rain-on-banana-leaves.ogg": -20.1,
+    "interlocking-rings.ogg": -19.4,
+    "erquan-yingyue.ogg": -18.3,
+    "AllTheTeaInChina.mp3": -11.6,
+    "LunarNewYear.mp3": -14.4,
+    "Wuxia.mp3": -7.4,
+    "Wuxia2.mp3": -7.5,
+    "IntoTheWilds.mp3": -14,
+    "Wuxia3.mp3": -8.2,
+    "SongOfTheForge.mp3": -14.1,
+    "Aphelion.mp3": -14.1,
+    "km_crusade.mp3": -14.4,
+    "km_achaidh.mp3": -16.3,
+    "km_clenchedteeth.mp3": -12.1,
+    "LongWayToKunming.mp3": -15.2,
+    "Asia_FSM.mp3": -12.8,
+    "ImperialChinaCinematic.mp3": -10.1
+  };
+  function trackGain(file) {
+    const l = TRACK_LUFS[file];
+    return l == null ? 1 : Math.pow(10, (MUSIC_TARGET_LUFS - l) / 20);
+  }
+  function musicElementVolume() {
+    return Math.max(0, Math.min(1, musicVolume() * trackGain(currentTrack().file)));
+  }
   var BOSS_THEMES = {};
   [
     "boar_king",
@@ -25916,7 +25962,7 @@
     if (MUSIC.el) return MUSIC.el;
     const a = document.createElement("audio");
     a.preload = "none";
-    a.volume = musicVolume();
+    a.volume = musicElementVolume();
     a.addEventListener("playing", () => {
       MUSIC.fails = 0;
     });
@@ -25941,7 +25987,7 @@
     const a = ensureMusicEl();
     a.src = MUSIC_BASE + currentTrack().file;
     a.loop = musicList().length === 1;
-    a.volume = musicVolume();
+    a.volume = musicElementVolume();
     const p = a.play();
     if (p && p.catch) p.catch(() => {
     });
@@ -25987,7 +26033,7 @@
   function setMusicVolume(v) {
     SETTINGS.musicVol = v;
     saveSettings();
-    if (MUSIC.el) MUSIC.el.volume = v;
+    if (MUSIC.el) MUSIC.el.volume = musicElementVolume();
   }
   function primeMusicOnGesture() {
     if (!musicEnabled() || musicActuallyPlaying()) return;
@@ -26067,7 +26113,7 @@
   var updateApplying = false;
   function runningShaKnown() {
     const s = typeof window !== "undefined" && window.BUILD_SHA;
-    return !!s && s !== "f1509ce" && s !== "dev" && s !== "live";
+    return !!s && s !== "3f2d3e4" && s !== "dev" && s !== "live";
   }
   function verTuple(v) {
     return String(v || "").replace(/^v/, "").split(".").map((n) => parseInt(n, 10) || 0);
@@ -33319,7 +33365,7 @@
     cfgP.appendChild(volWrap);
     const cred = document.createElement("p");
     cred.style.cssText = "font-size:0.72rem;color:var(--ink-soft);margin:0.3rem 0 0;line-height:1.45";
-    cred.innerHTML = `<strong>Music credits.</strong> Menu/title/market: <a href="https://peritune.com" style="color:var(--ink-soft)">PeriTune</a> (CC BY 4.0), <a href="https://incompetech.com" style="color:var(--ink-soft)">Kevin MacLeod</a> (CC BY), Zhang Peijian via <a href="https://commons.wikimedia.org" style="color:var(--ink-soft)">Wikimedia Commons</a> (CC BY-SA 4.0), Shane Ivers / <a href="https://www.silvermansound.com" style="color:var(--ink-soft)">Silverman Sound</a> (CC BY 4.0), and Darren-Curtis, Alex-Productions &amp; FSM Team via <a href="https://www.free-stock-music.com" style="color:var(--ink-soft)">Free Stock Music</a> (CC BY), and John Bartmann (CC0). Battle/boss/tribulation: PeriTune, Kevin MacLeod, <a href="https://www.scottbuckley.com.au" style="color:var(--ink-soft)">Scott Buckley</a> &amp; Shane Ivers (CC BY). These files are unmodified. <strong>Original score</strong> (battle themes marked so, and every named boss&rsquo;s theme with its Heavenscourge and Calamity versions): composed for this game and played on recorded instruments from <a href="https://github.com/sgossner/VSCO-2-CE" style="color:var(--ink-soft)">VSCO 2 Community Edition</a> and <a href="https://github.com/sgossner/VCSL" style="color:var(--ink-soft)">VCSL</a> by Versilian Studios (CC0), with the chorus of the <a href="https://github.com/peastman/sso" style="color:var(--ink-soft)">Sonatina Symphonic Orchestra</a> by Mattias Westlund (<a href="https://creativecommons.org/licenses/sampling+/1.0/" style="color:var(--ink-soft)">CC Sampling Plus 1.0</a>).`;
+    cred.innerHTML = `<strong>Music credits.</strong> Menu/title/market: <a href="https://peritune.com" style="color:var(--ink-soft)">PeriTune</a> (CC BY 4.0), <a href="https://incompetech.com" style="color:var(--ink-soft)">Kevin MacLeod</a> (CC BY), Zhang Peijian via <a href="https://commons.wikimedia.org" style="color:var(--ink-soft)">Wikimedia Commons</a> (CC BY-SA 4.0), Shane Ivers / <a href="https://www.silvermansound.com" style="color:var(--ink-soft)">Silverman Sound</a> (CC BY 4.0), and Darren-Curtis, Alex-Productions &amp; FSM Team via <a href="https://www.free-stock-music.com" style="color:var(--ink-soft)">Free Stock Music</a> (CC BY), and John Bartmann (CC0). Battle/boss/tribulation: PeriTune, Kevin MacLeod, <a href="https://www.scottbuckley.com.au" style="color:var(--ink-soft)">Scott Buckley</a> &amp; Shane Ivers (CC BY). These files are unmodified. <strong>Original score</strong> (battle and boss themes marked so, and every named boss&rsquo;s theme with its Heavenscourge and Calamity versions): composed for this game and played on recorded instruments from <a href="https://github.com/sgossner/VSCO-2-CE" style="color:var(--ink-soft)">VSCO 2 Community Edition</a> and <a href="https://github.com/sgossner/VCSL" style="color:var(--ink-soft)">VCSL</a> by Versilian Studios (CC0), with the chorus of the <a href="https://github.com/peastman/sso" style="color:var(--ink-soft)">Sonatina Symphonic Orchestra</a> by Mattias Westlund (<a href="https://creativecommons.org/licenses/sampling+/1.0/" style="color:var(--ink-soft)">CC Sampling Plus 1.0</a>).`;
     cfgP.appendChild(cred);
   }
   function renderLanding() {
