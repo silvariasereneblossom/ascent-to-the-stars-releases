@@ -9205,6 +9205,11 @@
 
   // app/src/data/changelog.js
   var CHANGELOG = [
+    { v: "1.27.201", notes: [
+      "WEAPON ATTUNEMENT. Eight essence changes a weapon&rsquo;s elemental nature (Forge &rarr; Weapons). An attuned weapon deals +10% to foes of the element it overcomes, and its tempering breakthroughs are then paid in the new element&rsquo;s essence.",
+      "TECHNIQUE RIDERS 附灵. Six essence imbues an active technique with one random bonus from that element&rsquo;s pool (Loadout &rarr; Skills): Fire leans to damage, Water to cheaper casts, Earth to mending, Wood to qi returned, Metal to posture. One rider per technique; imbue again to reroll.",
+      "DISPATCH 出窍, from Nascent Soul. Your nascent soul can leave the body and gather at any site you have opened: four hours for eight of its reagent and two of its trophy. It works while you play and while you are away, one errand at a time."
+    ] },
     { v: "1.27.200", notes: [
       "SECLUSION EVENTS, for the righteous. Come out of a seclusion of an hour or more and up to two things may have happened while you sat &mdash; a cache, a patch of herbs, a stele, a spring. The longer the seclusion (up to your window) the likelier they are, and what you did before going in tilts them: boss kills pull toward insight, a long stretch of fighting toward spoils.",
       "DIGESTION, for the demonic. Every ambush you win by hand &mdash; not on auto, and not in the unseen Blood Hunt &mdash; has a 35% chance to give back 1&ndash;3% of your lifespan. It is the counterweight to what lost ambushes and lost hunts take, and it applies to Demon-Heart too."
@@ -9683,10 +9688,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Max Posture, −0.5% tribulation damage taken per point (to −40%), and +2% seclusion time per point above 10 (to +100%)." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.200';
+  var GAME_VERSION = 'v1.27.201';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "85883e2";
+  var BUILD_SHA = "753baee";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -14614,6 +14619,11 @@
       if (w && tm && tm.mods) Object.entries(tm.mods).forEach(([k, v]) => {
         if (TEMPER_POOL[k]) mods[k] = (mods[k] || 1) * (1 + v * (idx === 0 ? 1 : 0.75));
       });
+      const att = weaponAttunement(wid, char);
+      if (w && att && ELEMENT_DESTROYS[att]) {
+        if (!mods.elementAmp) mods.elementAmp = {};
+        mods.elementAmp[ELEMENT_DESTROYS[att]] = (mods.elementAmp[ELEMENT_DESTROYS[att]] || 0) + WEAPON_ATTUNE_AMP * (idx === 0 ? 1 : 0.75);
+      }
       if (!w || typeof w.apply !== "function") return;
       if (idx === 0) {
         w.apply(mods);
@@ -26012,7 +26022,7 @@
   var updateApplying = false;
   function runningShaKnown() {
     const s = typeof window !== "undefined" && window.BUILD_SHA;
-    return !!s && s !== "85883e2" && s !== "dev" && s !== "live";
+    return !!s && s !== "753baee" && s !== "dev" && s !== "live";
   }
   function verTuple(v) {
     return String(v || "").replace(/^v/, "").split(".").map((n) => parseInt(n, 10) || 0);
@@ -27751,6 +27761,133 @@
   function furnaceUnitMs(j) {
     return j && j.kind === "temper" ? temperUnitMs() : refineUnitMs();
   }
+  var WEAPON_ATTUNE_COST = 8;
+  var WEAPON_ATTUNE_AMP = 0.1;
+  function weaponAttunement(wid, char) {
+    const m = (char || state).weaponElement;
+    return m && m[wid] || null;
+  }
+  function canAttuneWeapon(wid, el) {
+    return ELEMENTS.indexOf(el) >= 0 && !!WEAPONS[wid] && weaponOwnedNow(wid) && weaponElementOf(wid) !== el && attunedHeld(el) >= WEAPON_ATTUNE_COST;
+  }
+  function attuneWeapon(wid, el) {
+    if (!canAttuneWeapon(wid, el)) return false;
+    spendAttuned(el, WEAPON_ATTUNE_COST);
+    if (!state.weaponElement) state.weaponElement = {};
+    state.weaponElement[wid] = el;
+    saveChar();
+    return true;
+  }
+  var RIDER_COST = 6;
+  var RIDER_KINDS = {
+    dmg: { lo: 0.08, hi: 0.14, label: (v) => `+${Math.round(v * 100)}% damage` },
+    cost: { lo: 0.1, hi: 0.2, label: (v) => `−${Math.round(v * 100)}% qi cost` },
+    posture: { lo: 0.15, hi: 0.3, label: (v) => `+${Math.round(v * 100)}% posture damage` },
+    mend: { lo: 0.02, hi: 0.04, label: (v) => `heals ${(v * 100).toFixed(1)}% of max Vitality on cast` },
+    flow: { lo: 0.03, hi: 0.06, label: (v) => `restores ${(v * 100).toFixed(1)}% of max qi on cast` }
+  };
+  var RIDER_POOL = {
+    fire: ["dmg", "posture", "flow"],
+    water: ["cost", "flow", "mend"],
+    earth: ["mend", "posture", "cost"],
+    wood: ["flow", "mend", "dmg"],
+    metal: ["posture", "dmg", "cost"]
+  };
+  var _techIdMap = null;
+  function techIdOf(tech) {
+    if (!_techIdMap) {
+      _techIdMap = /* @__PURE__ */ new Map();
+      Object.entries(TECHNIQUES).forEach(([id, t]) => _techIdMap.set(t, id));
+    }
+    return _techIdMap.get(tech) || null;
+  }
+  function riderRange(kind) {
+    const k = RIDER_KINDS[kind];
+    const pct = (v) => v * 100 >= 10 || Number.isInteger(v * 100) ? String(Math.round(v * 100)) : (v * 100).toFixed(1);
+    return k.label(k.lo).replace(/[\d.]+%/, `${pct(k.lo)}–${pct(k.hi)}%`);
+  }
+  function techRider(techId) {
+    const m = state && state.techRiders;
+    return m && techId && m[techId] || null;
+  }
+  function riderValue(techId, kind) {
+    const r = techRider(techId);
+    return r && r.kind === kind ? r.value : 0;
+  }
+  function riderLabel(r) {
+    return r && RIDER_KINDS[r.kind] ? RIDER_KINDS[r.kind].label(r.value) : "";
+  }
+  function canImbueRider(techId, el) {
+    const t = TECHNIQUES[techId];
+    return !!t && !t.passive && !!RIDER_POOL[el] && attunedHeld(el) >= RIDER_COST;
+  }
+  function imbueRider(techId, el) {
+    if (!canImbueRider(techId, el)) return null;
+    spendAttuned(el, RIDER_COST);
+    const pool = RIDER_POOL[el], roll = Math.random();
+    const kind = roll < 0.6 ? pool[0] : roll < 0.8 ? pool[1] : pool[2];
+    const k = RIDER_KINDS[kind];
+    const value = Math.round((k.lo + Math.random() * (k.hi - k.lo)) * 1e3) / 1e3;
+    if (!state.techRiders) state.techRiders = {};
+    state.techRiders[techId] = { kind, el, value };
+    saveChar();
+    return state.techRiders[techId];
+  }
+  function applyCastRiders(p, techId) {
+    const r = techRider(techId);
+    if (!r) return;
+    if (r.kind === "mend") {
+      const _hw = heavensWeight();
+      const heal = Math.round(p.hpMax * r.value * tribHealMult() * (_hw ? _hw.healMult : 1));
+      const b = p.hp;
+      p.hp = Math.min(p.hpMax, p.hp + heal);
+      if (p.hp > b) pushLog("heal", `  → +${p.hp - b} Vitality (rider)`);
+    } else if (r.kind === "flow") {
+      const b = p.qi;
+      p.qi = Math.min(p.qiMax, p.qi + Math.round(p.qiMax * r.value));
+      if (p.qi > b) pushLog("heal", `  → +${p.qi - b} qi (rider)`);
+    }
+  }
+  var DISPATCH_MIN_TIER = 5;
+  var DISPATCH_MS = 4 * 60 * 60 * 1e3;
+  var DISPATCH_REAGENTS = 8;
+  var DISPATCH_TROPHIES = 2;
+  function dispatchCapable() {
+    return !!(state && state.realm && (state.realm.tierIdx || 0) >= DISPATCH_MIN_TIER);
+  }
+  function canDispatch(loc) {
+    return dispatchCapable() && !state.dispatch && !!loc && locationUnlocked(loc) && (!loc.demonOnly || state.demonic);
+  }
+  function startDispatch(locId) {
+    const loc = LOCATIONS.find((l) => l.id === locId);
+    if (!canDispatch(loc)) return false;
+    state.dispatch = { locId, start: Date.now(), durMs: DISPATCH_MS };
+    state.lastDispatchResult = null;
+    saveChar();
+    return true;
+  }
+  function dispatchYield(loc) {
+    const out = {};
+    const rg = locationReagent(loc);
+    if (rg) out[rg] = DISPATCH_REAGENTS;
+    const trophy = "jd_" + loc.id;
+    if (MATERIALS[trophy]) out[trophy] = DISPATCH_TROPHIES;
+    return out;
+  }
+  function tickDispatch(now) {
+    const d = state && state.dispatch;
+    if (!d || now - d.start < d.durMs) return false;
+    const loc = LOCATIONS.find((l) => l.id === d.locId);
+    const got = loc ? dispatchYield(loc) : {};
+    Object.entries(got).forEach(([m, n]) => {
+      state.base.materials[m] = (state.base.materials[m] || 0) + n;
+    });
+    const parts = Object.entries(got).map(([m, n]) => `${n}× ${MATERIALS[m] && MATERIALS[m].name || m}`);
+    state.lastDispatchResult = `Your nascent soul returned from <strong>${loc ? loc.name : "the road"}</strong>${parts.length ? ` with ${parts.join(", ")}` : " empty-handed"}.`;
+    state.dispatch = null;
+    saveChar();
+    return true;
+  }
   function slowRefineAffordable(recipeId) {
     const c = CONSUMABLES[recipeId];
     if (!c || !c.recipe || !Object.keys(c.recipe).length || !meetsRealmReq(c)) return 0;
@@ -28098,6 +28235,7 @@
     cleanupBuffs();
     if (state.base.buffs.length !== beforeBuffCount) needsRerender = true;
     if (tickFurnace(now) > 0 && activeTab === "garden" && (state.ui && state.ui.houseTab) === "alchemy") needsRerender = true;
+    tickDispatch(now);
     {
       const ft = document.getElementById("furnace-timer");
       const fj = furnaceJob();
@@ -29897,6 +30035,10 @@
     cost *= boonQiCostMult();
     const qiUp = p.effects.find((ef) => ef.kind === "qi_cost_up");
     if (qiUp) cost *= qiUp.value;
+    {
+      const rc = riderValue(techIdOf(tech), "cost");
+      if (rc) cost *= 1 - rc;
+    }
     return Math.ceil(cost);
   }
   var HP_COST_PER_POINT = 4e-3;
@@ -29922,6 +30064,10 @@
   function techBaseDamage(p, tech, techId, opts) {
     const preview = !!(opts && opts.preview);
     let dmg = p.weaponPower * (tech.damage || 0) * (p.mods.techDamageMult || 1);
+    {
+      const rd = riderValue(techId, "dmg");
+      if (rd) dmg *= 1 + rd;
+    }
     const hm0 = heritageMech();
     const sDmg = techSchoolOf(tech);
     if (hm0.schoolDamageMult && hm0.schoolDamageMult[sDmg]) dmg *= hm0.schoolDamageMult[sDmg];
@@ -30026,6 +30172,7 @@
     if (p.qi < qiCost) return;
     if (hpCost && p.hp <= hpCost) return;
     p.qi -= qiCost;
+    applyCastRiders(p, techId);
     if (hpCost) p.hp -= hpCost;
     combat._techThisTurn = true;
     if (tech.blocksMeditateTurns) p.noMeditateTurns = Math.max(p.noMeditateTurns || 0, tech.blocksMeditateTurns + 1);
@@ -30064,7 +30211,7 @@
       }
     }
     const postureBoostMult = p.buffs && p.buffs.postureBoostTurns > 0 ? p.buffs.postureBoost || 1 : 1;
-    const postureAmtBase = Math.round((tech.postureBuild || 0) * PLAYER_POSTURE_MULT * playerPostureRealmScale() * p.mods.postureMult * (hm0.postureDamageMult || 1) * postureBoostMult);
+    const postureAmtBase = Math.round((tech.postureBuild || 0) * PLAYER_POSTURE_MULT * playerPostureRealmScale() * p.mods.postureMult * (hm0.postureDamageMult || 1) * postureBoostMult * (1 + riderValue(techId, "posture")));
     const kit = schoolKit();
     let instances = tech.hits || 1;
     let perInstanceMult = 1;
@@ -34919,6 +35066,27 @@
           }
           row.appendChild(tb);
         }
+        {
+          const cur = weaponElementOf(wid), set = weaponAttunement(wid);
+          const al = document.createElement("div");
+          al.className = "consumable-desc";
+          al.style.flexBasis = "100%";
+          al.innerHTML = `<strong>Element</strong> <span style="color:${ELEMENT_CSS_COLOR[cur] || "inherit"}">${ELEMENT_NAME[cur] || "none"}</span>${set ? ` — attuned: +${Math.round(WEAPON_ATTUNE_AMP * (idx === 0 ? 1 : 0.75) * 100)}% vs ${ELEMENT_NAME[ELEMENT_DESTROYS[set]]} foes` : ' <span style="color:var(--ink-soft)">(not attuned)</span>'} · attune to: `;
+          ELEMENTS.forEach((el) => {
+            const ab = document.createElement("button");
+            ab.className = "ghost small tip";
+            ab.style.cssText = `color:${ELEMENT_CSS_COLOR[el]};padding:0.1rem 0.4rem;margin-left:0.2rem`;
+            ab.textContent = ELEMENT_ZH[el];
+            ab.disabled = !canAttuneWeapon(wid, el);
+            ab.setAttribute("data-tip", `${ELEMENT_NAME[el]}: ${WEAPON_ATTUNE_COST} ${MATERIALS[ATTUNED_MAT[el]].name} (you hold ${attunedHeld(el)}). +${Math.round(WEAPON_ATTUNE_AMP * 100)}% damage vs ${ELEMENT_NAME[ELEMENT_DESTROYS[el]]} foes; tempering breakthroughs then cost ${ELEMENT_NAME[el]} essence.`);
+            ab.onclick = () => {
+              attuneWeapon(wid, el);
+              render();
+            };
+            al.appendChild(ab);
+          });
+          row.appendChild(al);
+        }
         fP.appendChild(row);
       });
       const divider = document.createElement("div");
@@ -35312,6 +35480,39 @@
       };
     });
     appendPanel(lP, "skillload");
+    {
+      const rP = document.createElement("div");
+      rP.className = "panel";
+      rP.innerHTML = `<h3>Technique Riders <span style="font-weight:normal;color:var(--ink-soft);font-size:0.85rem">附灵</span></h3>
+      <p style="font-size:0.8rem;color:var(--ink-soft);margin:0 0 0.5rem">${RIDER_COST} essence imbues a technique with one random effect from that element's pool. Imbuing again replaces it.</p>`;
+      const act = (state.activeSkills || []).filter((tid) => TECHNIQUES[tid] && !TECHNIQUES[tid].passive);
+      act.forEach((tid) => {
+        const t = TECHNIQUES[tid], r = techRider(tid);
+        const row = document.createElement("div");
+        row.className = "consumable-row";
+        row.innerHTML = `<div style="flex:1 1 auto"><div class="consumable-name">${t.name}</div>
+        <div class="consumable-desc">${r ? `<span style="color:${ELEMENT_CSS_COLOR[r.el]}">${ELEMENT_NAME[r.el]} rider:</span> ${riderLabel(r)}` : "No rider."}</div></div>`;
+        const bx = document.createElement("div");
+        bx.className = "plot-buttons";
+        ELEMENTS.forEach((el) => {
+          const b = document.createElement("button");
+          b.className = "ghost small tip";
+          b.style.cssText = `color:${ELEMENT_CSS_COLOR[el]};padding:0.1rem 0.4rem`;
+          b.textContent = ELEMENT_ZH[el];
+          b.disabled = !canImbueRider(tid, el);
+          const pool = RIDER_POOL[el].map((k, i) => `${i === 0 ? "60%" : "20%"} ${riderRange(k)}`).join(" · ");
+          b.setAttribute("data-tip", `${ELEMENT_NAME[el]} (${attunedHeld(el)}/${RIDER_COST} ${MATERIALS[ATTUNED_MAT[el]].name}): ${pool}.`);
+          b.onclick = () => {
+            imbueRider(tid, el);
+            render();
+          };
+          bx.appendChild(b);
+        });
+        row.appendChild(bx);
+        rP.appendChild(row);
+      });
+      if (act.length) appendPanel(rP, "skillload");
+    }
     const aP = document.createElement("div");
     aP.className = "panel";
     aP.innerHTML = `<h3>Armor <span style="font-weight:normal;color:var(--ink-soft);font-size:0.85rem">防具</span></h3>
@@ -35469,6 +35670,14 @@
     locP.className = "panel";
     locP.innerHTML = `<h3>Journeys</h3>
     <p style="font-size:0.85rem;color:var(--ink-soft);margin:0 0 0.6rem">Each place holds its own dangers, and its own silences. Venture to fight. Meditate to gather insight at its full rate.</p>`;
+    tickDispatch(Date.now());
+    if (dispatchCapable()) {
+      const dp = document.createElement("p");
+      dp.style.cssText = "font-size:0.82rem;margin:0 0 0.5rem";
+      const d = state.dispatch, dl = d && LOCATIONS.find((l) => l.id === d.locId);
+      dp.innerHTML = d ? `<strong>Dispatch 出窍</strong> — your nascent soul is at <strong>${dl ? dl.name : "…"}</strong>, back in ${formatDuration(Math.max(0, d.durMs - (Date.now() - d.start)) / 1e3)}.` : `<strong>Dispatch 出窍</strong> — ${state.lastDispatchResult || `send your nascent soul to any site you have opened: ${formatDuration(DISPATCH_MS / 1e3)} for ${DISPATCH_REAGENTS} of its reagent and ${DISPATCH_TROPHIES} of its trophy.`}`;
+      locP.appendChild(dp);
+    }
     locP.appendChild(realmTabChips("journeysRealm", (t) => LOCATIONS.filter((l) => l.minTier === t).length));
     const jRealm = selectedRealmTab("journeysRealm");
     {
@@ -35529,6 +35738,20 @@
           render();
         };
         actions.appendChild(venture);
+        if (dispatchCapable()) {
+          const db = document.createElement("button");
+          db.className = "ghost tip";
+          const here = state.dispatch && state.dispatch.locId === loc.id;
+          db.textContent = here ? "Soul is here" : "Dispatch";
+          db.disabled = !canDispatch(loc);
+          const y = dispatchYield(loc);
+          db.setAttribute("data-tip", state.dispatch && !here ? "Your nascent soul is already out." : `${formatDuration(DISPATCH_MS / 1e3)}: ${Object.entries(y).map(([m, n]) => `${n}× ${MATERIALS[m] && MATERIALS[m].name || m}`).join(", ") || "nothing to gather here"}. Runs while you play or are away.`);
+          db.onclick = () => {
+            startDispatch(loc.id);
+            render();
+          };
+          actions.appendChild(db);
+        }
         if (huntCapable(state) && !loc.demonOnly && huntGrounds().some((l) => l.id === loc.id)) {
           const h2 = state.hunt, running = h2 && !huntSpent(h2);
           const hb = document.createElement("button");
@@ -37172,6 +37395,7 @@
   if (state && state.confirmed) {
     offlineReport = applyOfflineGains();
     tickFurnace(Date.now());
+    tickDispatch(Date.now());
     autoReport = applyAutoCombatCatchup();
     huntCatchUp();
     scheduleCultivationTick();
