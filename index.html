@@ -9205,6 +9205,11 @@
 
   // app/src/data/changelog.js
   var CHANGELOG = [
+    { v: "1.27.193", notes: [
+      "Blood Hunt ambushes: you still meet them at full strength wearing down 5% every twenty minutes, but never below 75% now &mdash; late ambushes in a long hunt stay winnable.",
+      "A lost ambush now costs 4% of your lifespan (was 5% plus twenty years &mdash; the twenty years hit early realms hardest). Its insight stake is unchanged.",
+      "A hunt switches itself to Avoid after 3 lost ambushes or 12.5% of your lifespan lost, whichever comes first (was 10%) &mdash; three lost ambushes alone now always fit under it."
+    ] },
     { v: "1.27.192", notes: [
       "Blood Hunt rebalanced. Ordinary hunt fights now open at 75% strength (was 50%), still wearing down 5% every twenty minutes &mdash; at half strength even a fully developed cultivator lost most of them and spent the hunt resting.",
       "Losing while you FACE ambushes now has a price in every fight: an ordinary fight lost costs 1&ndash;2% of your lifespan (a lost ambush still costs its insight and 5% + 20 years). While you AVOID ambushes, no lost fight ever costs lifespan.",
@@ -9643,10 +9648,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Max Posture, −0.5% tribulation damage taken per point (to −40%), and +2% seclusion time per point above 10 (to +100%)." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.192';
+  var GAME_VERSION = 'v1.27.193';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "c11d871";
+  var BUILD_SHA = "cd2d18d";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -25730,7 +25735,7 @@
   var updateApplying = false;
   function runningShaKnown() {
     const s = typeof window !== "undefined" && window.BUILD_SHA;
-    return !!s && s !== "c11d871" && s !== "dev" && s !== "live";
+    return !!s && s !== "cd2d18d" && s !== "dev" && s !== "live";
   }
   function verTuple(v) {
     return String(v || "").replace(/^v/, "").split(".").map((n) => parseInt(n, 10) || 0);
@@ -27636,7 +27641,7 @@
     const unpaid = t.insightCapped ? ` · ${Math.round(t.insightCapped).toLocaleString()} insight past the charge cap went unpaid` : "";
     const cost = t.insightLost || t.yearsLost ? ` · <span style="color:var(--crimson)">−${Math.round(t.insightLost || 0).toLocaleString()} insight, −${Math.round(t.yearsLost || 0).toLocaleString()} years to lost fights</span>` : "";
     const totals = `${n(t.fights, "fight")} (${(t.won || 0).toLocaleString()} won)${amb} · ${n(t.kills, "kill")} · <strong>+${Math.round(t.insight || 0).toLocaleString()}</strong> insight · +${n(t.stones, "stone")} · ${n(t.items, "item")} · ${n(t.materials, "material")}${unpaid}${cost}`;
-    const note = h.brink ? `<div style="font-size:0.8rem;color:var(--crimson)">One breath short of the end of your span, the hunt turned to Avoid — it now avoids ambushes and costs no lifespan.</div>` : h.budgetAvoided ? `<div style="font-size:0.8rem;color:var(--crimson)">This hunt has cost ${Math.round(HUNT_LIFESPAN_BUDGET * 100)}% of your lifespan — it now avoids ambushes, and no lost fight costs lifespan. Choose Face to take the risk again.</div>` : h.autoAvoided ? `<div style="font-size:0.8rem;color:var(--crimson)">${HUNT_FACE_LOSS_LIMIT} ambushes lost — the hunt now avoids them. Choose Face to take the risk again.</div>` : "";
+    const note = h.brink ? `<div style="font-size:0.8rem;color:var(--crimson)">One breath short of the end of your span, the hunt turned to Avoid — it now avoids ambushes and costs no lifespan.</div>` : h.budgetAvoided ? `<div style="font-size:0.8rem;color:var(--crimson)">This hunt has cost ${huntPctLabel(HUNT_LIFESPAN_BUDGET)} of your lifespan — it now avoids ambushes, and no lost fight costs lifespan. Choose Face to take the risk again.</div>` : h.autoAvoided ? `<div style="font-size:0.8rem;color:var(--crimson)">${HUNT_FACE_LOSS_LIMIT} ambushes lost — the hunt now avoids them. Choose Face to take the risk again.</div>` : "";
     if (huntSpent(h)) return `<div style="font-size:0.82rem">Hunt over at <strong>${where}</strong>.</div><div style="font-size:0.8rem;color:var(--ink-soft)">${totals}</div>${note}`;
     const now = Date.now();
     const left = Math.max(0, h.startedAt / 1e3 + h.windowSec - now / 1e3);
@@ -27665,8 +27670,8 @@
     const t = state.realm && state.realm.tierIdx || 0;
     const tip = `${formatDuration(HUNT_BASE_SEC)} base + ${formatDuration(HUNT_PER_REALM_SEC)} for each of ${t} realm${t === 1 ? "" : "s"}. At most one fight every ${HUNT_MIN_FIGHT_SEC} seconds. Every combat stat is cut — Vitality, weapon power, qi, damage reduction, crit, dodge, lifesteal — never your base attributes. A faced ambush is fought at full strength instead, wearing down the same way. Fights are real, rolled and played the way auto-combat plays them. Lost fights never count toward your realm's death cap.`;
     p.innerHTML = `<h3>Blood Hunt <span style="font-weight:normal;color:var(--ink-soft);font-size:0.85rem">血猎</span></h3>
-    <p style="font-size:0.82rem;margin:0 0 0.4rem"><span class="tip" data-tip="${escapeTip(tip)}">Hunts on its own for <strong>${formatDuration(win)}</strong>, game open or closed.</span> Combat stats open at <strong>${huntPctLabel(HUNT_STAT_START)}</strong> (ambushes: <strong>${huntPctLabel(HUNT_AMBUSH_STAT_START)}</strong>) and fall <strong>${Math.round((1 - HUNT_STAT_DECAY) * 100)}%</strong> every ${Math.round(HUNT_STAT_STEP_SEC / 60)} minutes. Full insight; loot on only <strong>1 kill in ${Math.round(1 / HUNT_LOOT_SHARE)}</strong>. It banks at most <strong>${Math.round(HUNT_CHARGE_SHARE * 100)}%</strong> of your current layer per charge — kills past that pay nothing — then recharges for <strong>${formatDuration(huntRechargeSec(state))}</strong> (${HUNT_RECHARGE_BASE_SEC / 60} min + ${HUNT_RECHARGE_PER_REALM_SEC / 60} min per realm; resting counts toward it).</p>
-    <p style="font-size:0.8rem;margin:0 0 0.4rem;color:var(--ink-soft)"><strong style="color:var(--crimson)">Losing is real.</strong> Any lost fight drops you to ${Math.round(DEFEAT_VITALITY_SHARE * 100)}% Vitality and stops the hunt until you rest back to ${Math.round(HUNT_REST_TO * 100)}% — that time comes out of the window. While facing ambushes, a lost ambush also costs <strong>${huntAmbushStake().toLocaleString()} insight</strong> and <strong>${Math.round(huntAmbushLifespanCost()).toLocaleString()} years</strong> (${Math.round(HUNT_AMBUSH_LIFESPAN_PCT * 100)}% of your lifespan + ${HUNT_AMBUSH_LIFESPAN_YEARS}), and any other lost fight <strong>${huntYearsLabel(huntLossLifespanRange())} years</strong> (${Math.round(HUNT_LOSS_LIFESPAN_MIN * 100)}–${Math.round(HUNT_LOSS_LIFESPAN_MAX * 100)}% of your lifespan). Avoiding, no fight costs lifespan. ${HUNT_FACE_LOSS_LIMIT} lost ambushes, or <strong>${Math.round(huntLifespanBudgetYears()).toLocaleString()} years</strong> lost (${Math.round(HUNT_LIFESPAN_BUDGET * 100)}% of your lifespan), switch the hunt to Avoid.</p>
+    <p style="font-size:0.82rem;margin:0 0 0.4rem"><span class="tip" data-tip="${escapeTip(tip)}">Hunts on its own for <strong>${formatDuration(win)}</strong>, game open or closed.</span> Combat stats open at <strong>${huntPctLabel(HUNT_STAT_START)}</strong> (ambushes: <strong>${huntPctLabel(HUNT_AMBUSH_STAT_START)}</strong>, never below ${huntPctLabel(HUNT_AMBUSH_STAT_FLOOR)}) and fall <strong>${Math.round((1 - HUNT_STAT_DECAY) * 100)}%</strong> every ${Math.round(HUNT_STAT_STEP_SEC / 60)} minutes. Full insight; loot on only <strong>1 kill in ${Math.round(1 / HUNT_LOOT_SHARE)}</strong>. It banks at most <strong>${Math.round(HUNT_CHARGE_SHARE * 100)}%</strong> of your current layer per charge — kills past that pay nothing — then recharges for <strong>${formatDuration(huntRechargeSec(state))}</strong> (${HUNT_RECHARGE_BASE_SEC / 60} min + ${HUNT_RECHARGE_PER_REALM_SEC / 60} min per realm; resting counts toward it).</p>
+    <p style="font-size:0.8rem;margin:0 0 0.4rem;color:var(--ink-soft)"><strong style="color:var(--crimson)">Losing is real.</strong> Any lost fight drops you to ${Math.round(DEFEAT_VITALITY_SHARE * 100)}% Vitality and stops the hunt until you rest back to ${Math.round(HUNT_REST_TO * 100)}% — that time comes out of the window. While facing ambushes, a lost ambush also costs <strong>${huntAmbushStake().toLocaleString()} insight</strong> and <strong>${Math.round(huntAmbushLifespanCost()).toLocaleString()} years</strong> (${huntPctLabel(HUNT_AMBUSH_LIFESPAN_PCT)} of your lifespan), and any other lost fight <strong>${huntYearsLabel(huntLossLifespanRange())} years</strong> (${Math.round(HUNT_LOSS_LIFESPAN_MIN * 100)}–${Math.round(HUNT_LOSS_LIFESPAN_MAX * 100)}% of your lifespan). Avoiding, no fight costs lifespan. ${HUNT_FACE_LOSS_LIMIT} lost ambushes, or <strong>${Math.round(huntLifespanBudgetYears()).toLocaleString()} years</strong> lost (${huntPctLabel(HUNT_LIFESPAN_BUDGET)} of your lifespan) — whichever comes first — switch the hunt to Avoid.</p>
     <div id="hunt-status">${huntStatusHTML()}</div>`;
     const ambRow = document.createElement("div");
     ambRow.className = "button-row";
@@ -27676,7 +27681,7 @@
     ambLabel.textContent = "Ambushes:";
     ambRow.appendChild(ambLabel);
     [
-      [false, `Face them — ×${HUNT_AMBUSH_POWER} as strong`, `Inquisitors and rival demons still find the hunt, at ×${HUNT_AMBUSH_POWER} their usual Vitality and weapon power. You meet them at full strength, wearing down ${Math.round((1 - HUNT_STAT_DECAY) * 100)}% every ${Math.round(HUNT_STAT_STEP_SEC / 60)} minutes like every hunt fight. Full insight. Each one lost costs ${huntAmbushStake().toLocaleString()} insight and ${Math.round(huntAmbushLifespanCost()).toLocaleString()} years; any other fight lost while facing costs ${huntYearsLabel(huntLossLifespanRange())} years.`],
+      [false, `Face them — ×${HUNT_AMBUSH_POWER} as strong`, `Inquisitors and rival demons still find the hunt, at ×${HUNT_AMBUSH_POWER} their usual Vitality and weapon power. You meet them at full strength, wearing down ${Math.round((1 - HUNT_STAT_DECAY) * 100)}% every ${Math.round(HUNT_STAT_STEP_SEC / 60)} minutes like every hunt fight, but never below ${huntPctLabel(HUNT_AMBUSH_STAT_FLOOR)}. Full insight. Each one lost costs ${huntAmbushStake().toLocaleString()} insight and ${Math.round(huntAmbushLifespanCost()).toLocaleString()} years; any other fight lost while facing costs ${huntYearsLabel(huntLossLifespanRange())} years.`],
       [true, `Avoid — ${Math.round(HUNT_AVOID_INSIGHT_MULT * 100)}% insight`, `No ambushes at all, and no lost fight ever costs lifespan — but every hunt kill pays ${Math.round(HUNT_AVOID_INSIGHT_MULT * 100)}% of its insight.`]
     ].forEach(([val, label, btip]) => {
       const b = document.createElement("button");
@@ -28528,11 +28533,11 @@
   var HUNT_AVOID_INSIGHT_MULT = 0.5;
   var HUNT_AMBUSH_POWER = 1.25;
   var HUNT_AMBUSH_STAT_START = 1;
-  var HUNT_LIFESPAN_BUDGET = 0.1;
+  var HUNT_AMBUSH_STAT_FLOOR = 0.75;
+  var HUNT_LIFESPAN_BUDGET = 0.125;
   var HUNT_LOSS_LIFESPAN_MIN = 0.01;
   var HUNT_LOSS_LIFESPAN_MAX = 0.02;
-  var HUNT_AMBUSH_LIFESPAN_PCT = 0.05;
-  var HUNT_AMBUSH_LIFESPAN_YEARS = 20;
+  var HUNT_AMBUSH_LIFESPAN_PCT = 0.04;
   var HUNT_REST_TO = 0.5;
   var HUNT_FACE_LOSS_LIMIT = 3;
   var HUNT_MAX_ACTIONS = 300;
@@ -28562,7 +28567,7 @@
     return HUNT_STAT_START * huntStatWear(h);
   }
   function huntAmbushStatMult(h) {
-    return HUNT_AMBUSH_STAT_START * huntStatWear(h);
+    return Math.max(HUNT_AMBUSH_STAT_FLOOR, HUNT_AMBUSH_STAT_START * huntStatWear(h));
   }
   function huntRechargeSec(char) {
     return HUNT_RECHARGE_BASE_SEC + HUNT_RECHARGE_PER_REALM_SEC * (char && char.realm && char.realm.tierIdx || 0);
@@ -28629,7 +28634,7 @@
     return AMBUSH_BASELINE_MULT * killInsightBaseline(false);
   }
   function huntAmbushLifespanCost() {
-    return HUNT_AMBUSH_LIFESPAN_PCT * lifespanMax() + HUNT_AMBUSH_LIFESPAN_YEARS;
+    return HUNT_AMBUSH_LIFESPAN_PCT * lifespanMax();
   }
   function huntLifespanBudgetYears() {
     return HUNT_LIFESPAN_BUDGET * lifespanMax();
