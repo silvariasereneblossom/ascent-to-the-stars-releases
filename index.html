@@ -9205,6 +9205,9 @@
 
   // app/src/data/changelog.js
   var CHANGELOG = [
+    { v: "1.27.204", notes: [
+      "THE CALAMITY BONUS CAP IS SOFT NOW, AND RISES. Your insight and cultivation bonuses used to stop dead at four times the floor. Past the cap they now still count, barely: each further &times;1 of bonus adds one thousandth, so an enormous bonus edges a little beyond the cap instead of being thrown away. The cap is &times;4 up to Golden Core, &times;5 at Nascent Soul and &times;6 at Spirit Severing."
+    ] },
     { v: "1.27.203", notes: [
       "CALAMITY PAYOUTS NOW ANSWER TO YOUR BONUSES. The 2% of your step is the floor an unbuilt cultivator gets. Your insight and cultivation bonuses lift it &mdash; through the same diminishing curve that governs every kill, so it climbs quickly at first and tops out at four times the floor. At the end of Core Formation that is about 343,000 for a bare character and around 1.3 million for a well-built one. The button&rsquo;s tooltip shows your current multiplier."
     ] },
@@ -9695,10 +9698,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Max Posture, −0.5% tribulation damage taken per point (to −40%), and +2% seclusion time per point above 10 (to +100%)." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.203';
+  var GAME_VERSION = 'v1.27.204';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "2cd00c2";
+  var BUILD_SHA = "45bea4a";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -17012,7 +17015,26 @@
     }
     return Math.max(1, Math.round((info && info.cost || 0) * CALAMITY_STEP_SHARE));
   }
-  var CALAMITY_BOOST_MAX = 4;
+  var CALAMITY_BOOST_CAP = [4, 4, 4, 4, 4, 5, 6];
+  var CALAMITY_BOOST_OVERFLOW = 1e-3;
+  function calamityBoostCap() {
+    return CALAMITY_BOOST_CAP[Math.min(CALAMITY_BOOST_CAP.length - 1, state.realm && state.realm.tierIdx || 0)];
+  }
+  function calamityCurve(raw) {
+    const base = 1e6;
+    return softCapInsight(base * raw, base) / base;
+  }
+  function calamityBoostFor(raw, cap) {
+    const c = calamityCurve(raw);
+    if (c < cap) return c;
+    let lo = 1, hi = raw;
+    for (let i = 0; i < 50; i++) {
+      const mid = (lo + hi) / 2;
+      if (calamityCurve(mid) >= cap) hi = mid;
+      else lo = mid;
+    }
+    return cap + (raw - hi) * CALAMITY_BOOST_OVERFLOW;
+  }
   function calamityBoostRaw() {
     const mods = computeMods(state);
     const sch = SCHOOLS[state.selectedSchool] && SCHOOLS[state.selectedSchool].insightFromKillsMult || 1;
@@ -17020,8 +17042,7 @@
     return Math.max(1, ins * cultivationBoostMult());
   }
   function calamityBoostMult() {
-    const base = 1e6;
-    return Math.min(CALAMITY_BOOST_MAX, softCapInsight(base * calamityBoostRaw(), base) / base);
+    return calamityBoostFor(calamityBoostRaw(), calamityBoostCap());
   }
   function calamityInsight(bossTier) {
     return Math.round(calamityBaseInsight(bossTier) * calamityBoostMult());
@@ -26045,7 +26066,7 @@
   var updateApplying = false;
   function runningShaKnown() {
     const s = typeof window !== "undefined" && window.BUILD_SHA;
-    return !!s && s !== "2cd00c2" && s !== "dev" && s !== "live";
+    return !!s && s !== "45bea4a" && s !== "dev" && s !== "live";
   }
   function verTuple(v) {
     return String(v || "").replace(/^v/, "").split(".").map((n) => parseInt(n, 10) || 0);
@@ -35896,7 +35917,7 @@
             cbtn.style.cssText = "margin-top:0.25rem;border-color:#c79cf0";
             const pay = calamityInsight(meta.tier);
             const el = ENEMIES[cid].element;
-            cbtn.setAttribute("data-tip", `Vitality ×${(CALAMITY_HP_MULT / HARD_BOSS_MULT).toFixed(0)} and damage ×${(CALAMITY_DMG_MULT / HARD_BOSS_MULT).toFixed(1)} of Heavenscourge. A bonus, not a gate. By hand only. One charge, ${Math.round(CALAMITY_RECHARGE_MS / 36e5)}h to return. Pays ${pay.toLocaleString()} insight (${Math.round(CALAMITY_STEP_SHARE * 100)}% of ${meta.tier === (state.realm.tierIdx || 0) ? "your current step" : `a ${REALMS[meta.tier].name} layer`}, ×${calamityBoostMult().toFixed(2)} from your insight and cultivation bonuses — up to ×${CALAMITY_BOOST_MAX}) and +1 ${ELEMENT_NAME[el] || ELEMENT_NAME[playerPrimaryElement()] || "element"} point.`);
+            cbtn.setAttribute("data-tip", `Vitality ×${(CALAMITY_HP_MULT / HARD_BOSS_MULT).toFixed(0)} and damage ×${(CALAMITY_DMG_MULT / HARD_BOSS_MULT).toFixed(1)} of Heavenscourge. A bonus, not a gate. By hand only. One charge, ${Math.round(CALAMITY_RECHARGE_MS / 36e5)}h to return. Pays ${pay.toLocaleString()} insight (${Math.round(CALAMITY_STEP_SHARE * 100)}% of ${meta.tier === (state.realm.tierIdx || 0) ? "your current step" : `a ${REALMS[meta.tier].name} layer`}, ×${calamityBoostMult().toFixed(2)} from your insight and cultivation bonuses — soft cap ×${calamityBoostCap()}) and +1 ${ELEMENT_NAME[el] || ELEMENT_NAME[playerPrimaryElement()] || "element"} point.`);
             if (!open) {
               cbtn.textContent = "Calamity — best the Heavenscourge first";
               cbtn.disabled = true;
