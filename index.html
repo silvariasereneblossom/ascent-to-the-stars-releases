@@ -9205,6 +9205,10 @@
 
   // app/src/data/changelog.js
   var CHANGELOG = [
+    { v: "1.27.202", notes: [
+      "CALAMITY IS A BONUS, NOT A GATE. A Calamity now has three times its Heavenscourge&rsquo;s Vitality (was twice) at the same half-again damage, and pays 2% of the step you are buying rather than 20%. That payout is a flat gift &mdash; no insight bonus multiplies it &mdash; so a fifth of a layer for one fight was far too much. The free point of the boss&rsquo;s element is unchanged.",
+      "Selling or breaking down your last copy of a weapon now forgets its tempering and its attunement. They used to wait for you to buy or find the same weapon again. A second copy still in your hands keeps them, and a boss weapon carries them through its stage upgrades, as it already carried refinement."
+    ] },
     { v: "1.27.201", notes: [
       "WEAPON ATTUNEMENT. Eight essence changes a weapon&rsquo;s elemental nature (Forge &rarr; Weapons). An attuned weapon deals +10% to foes of the element it overcomes, and its tempering breakthroughs are then paid in the new element&rsquo;s essence.",
       "TECHNIQUE RIDERS 附灵. Six essence imbues an active technique with one random bonus from that element&rsquo;s pool (Loadout &rarr; Skills): Fire leans to damage, Water to cheaper casts, Earth to mending, Wood to qi returned, Metal to posture. One rider per technique; imbue again to reroll.",
@@ -9688,10 +9692,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Max Posture, −0.5% tribulation damage taken per point (to −40%), and +2% seclusion time per point above 10 (to +100%)." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.201';
+  var GAME_VERSION = 'v1.27.202';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "753baee";
+  var BUILD_SHA = "7257e7e";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -16958,9 +16962,10 @@
     };
   });
   var CALAMITY_SUFFIX = "_calamity";
+  var CALAMITY_HP_MULT = 4.8;
   var CALAMITY_POOL_MULT = 3.2;
   var CALAMITY_DMG_MULT = 2.4;
-  var CALAMITY_STEP_SHARE = 0.2;
+  var CALAMITY_STEP_SHARE = 0.02;
   var CALAMITY_RECHARGE_MS = 8 * 60 * 60 * 1e3;
   var CALAMITY_ESSENCE_AT_CAP = 5;
   function isCalamityBoss(id) {
@@ -16976,7 +16981,7 @@
     ENEMIES[cid] = Object.assign({}, hard, {
       id: cid,
       name: `${base.name}, Calamity`,
-      hpMax: Math.round(base.hpMax * CALAMITY_POOL_MULT),
+      hpMax: Math.round(base.hpMax * CALAMITY_HP_MULT),
       qiMax: Math.round(base.qiMax * CALAMITY_POOL_MULT),
       spiritMax: Math.round(base.spiritMax * CALAMITY_POOL_MULT),
       postureMax: Math.round(base.postureMax * CALAMITY_POOL_MULT),
@@ -25191,6 +25196,7 @@
           const cidx = char.weapons.crafted.indexOf(wid);
           if (cidx >= 0) char.weapons.crafted.splice(cidx, 1);
         }
+        forgetWeaponBonuses(wid, char);
       };
       out.push({
         name: w.name,
@@ -26022,7 +26028,7 @@
   var updateApplying = false;
   function runningShaKnown() {
     const s = typeof window !== "undefined" && window.BUILD_SHA;
-    return !!s && s !== "753baee" && s !== "dev" && s !== "live";
+    return !!s && s !== "7257e7e" && s !== "dev" && s !== "live";
   }
   function verTuple(v) {
     return String(v || "").replace(/^v/, "").split(".").map((n) => parseInt(n, 10) || 0);
@@ -27676,6 +27682,18 @@
   }
   function temperMaxed(wid) {
     return temperRoom(wid) === 0 && temperStage(wid) >= TEMPER_STAGES - 1;
+  }
+  function forgetWeaponBonuses(wid, char) {
+    const c = char || state;
+    if (!c || c.weapon === wid || (c.weapons && c.weapons.owned || []).includes(wid)) return false;
+    let had = false;
+    ["weaponTemper", "weaponElement"].forEach((k) => {
+      if (c[k] && c[k][wid] != null) {
+        delete c[k][wid];
+        had = true;
+      }
+    });
+    return had;
   }
   function weaponOwnedNow(wid) {
     return !!state && (state.weapon === wid || (state.weapons && state.weapons.owned || []).includes(wid));
@@ -35858,7 +35876,7 @@
             cbtn.style.cssText = "margin-top:0.25rem;border-color:#c79cf0";
             const pay = calamityInsight(meta.tier);
             const el = ENEMIES[cid].element;
-            cbtn.setAttribute("data-tip", `Pools ×${(CALAMITY_POOL_MULT / HARD_BOSS_MULT).toFixed(1)} and damage ×${(CALAMITY_DMG_MULT / HARD_BOSS_MULT).toFixed(1)} of Heavenscourge. By hand only. One charge, ${Math.round(CALAMITY_RECHARGE_MS / 36e5)}h to return. Pays ${pay.toLocaleString()} insight (${Math.round(CALAMITY_STEP_SHARE * 100)}% of ${meta.tier === (state.realm.tierIdx || 0) ? "your current step" : `a ${REALMS[meta.tier].name} layer`}) and +1 ${ELEMENT_NAME[el] || ELEMENT_NAME[playerPrimaryElement()] || "element"} point.`);
+            cbtn.setAttribute("data-tip", `Vitality ×${(CALAMITY_HP_MULT / HARD_BOSS_MULT).toFixed(0)} and damage ×${(CALAMITY_DMG_MULT / HARD_BOSS_MULT).toFixed(1)} of Heavenscourge. A bonus, not a gate. By hand only. One charge, ${Math.round(CALAMITY_RECHARGE_MS / 36e5)}h to return. Pays ${pay.toLocaleString()} insight (${Math.round(CALAMITY_STEP_SHARE * 100)}% of ${meta.tier === (state.realm.tierIdx || 0) ? "your current step" : `a ${REALMS[meta.tier].name} layer`}) and +1 ${ELEMENT_NAME[el] || ELEMENT_NAME[playerPrimaryElement()] || "element"} point.`);
             if (!open) {
               cbtn.textContent = "Calamity — best the Heavenscourge first";
               cbtn.disabled = true;
