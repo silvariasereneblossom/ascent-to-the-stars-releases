@@ -9205,6 +9205,11 @@
 
   // app/src/data/changelog.js
   var CHANGELOG = [
+    { v: "1.27.198", notes: [
+      "WEAPON TEMPERING 淬炼. The furnace has a second job. Tempering is separate from refining: each pass takes an hour and adds +1&ndash;3% to one random stat on that weapon &mdash; strike, technique, crit, DOT, posture or spirit damage, max Vitality or qi barrier. Passes cost nothing but time.",
+      "Tempering comes in three stages of five passes. Moving to the next stage is a breakthrough, paid in the essence of the weapon&rsquo;s element (10, then 25). A weapon with no element of its own uses your school&rsquo;s.",
+      "One furnace: tempering and slow refinement cannot run together. Start it from Forge &rarr; Weapons, next to refining; the furnace row in the House shows the passes landing. An off-hand weapon gives its tempering at the usual three-quarters."
+    ] },
     { v: "1.27.197", notes: [
       "THE ELEMENTAL CIRCLE DISTILS ESSENCES. Every element you hold a level in now produces its own essence while you are away &mdash; Ember, Tide, Loam, Verdant and Keen &mdash; half a unit an hour for each level, across the same window your seclusion uses.",
       "THE DASHED RING FINALLY MATTERS. An element also feeds a quarter of what it distils to the next one around the generating ring: cultivate Wood and Ember Essence trickles in too. The Elements tab shows what you hold and what each hour away is worth.",
@@ -9669,10 +9674,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Max Posture, −0.5% tribulation damage taken per point (to −40%), and +2% seclusion time per point above 10 (to +100%)." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.197';
+  var GAME_VERSION = 'v1.27.198';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "9a1c599";
+  var BUILD_SHA = "5b3f22b";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -14596,6 +14601,10 @@
     if (!equipped.length) return;
     equipped.forEach((wid, idx) => {
       const w = WEAPONS[wid];
+      const tm = weaponTemper(wid, char);
+      if (w && tm && tm.mods) Object.entries(tm.mods).forEach(([k, v]) => {
+        if (TEMPER_POOL[k]) mods[k] = (mods[k] || 1) * (1 + v * (idx === 0 ? 1 : 0.75));
+      });
       if (!w || typeof w.apply !== "function") return;
       if (idx === 0) {
         w.apply(mods);
@@ -21073,6 +21082,12 @@
   function attunedHeld(el) {
     return state.base.materials[ATTUNED_MAT[el]] || 0;
   }
+  function spendAttuned(el, n) {
+    if (attunedHeld(el) < n) return false;
+    state.base.materials[ATTUNED_MAT[el]] -= n;
+    if (state.base.materials[ATTUNED_MAT[el]] <= 0) delete state.base.materials[ATTUNED_MAT[el]];
+    return true;
+  }
   MATERIALS[RISEN_CINDER] = {
     name: "Risen Cinder",
     zh: "复燃烬",
@@ -25917,7 +25932,7 @@
   var updateApplying = false;
   function runningShaKnown() {
     const s = typeof window !== "undefined" && window.BUILD_SHA;
-    return !!s && s !== "9a1c599" && s !== "dev" && s !== "live";
+    return !!s && s !== "5b3f22b" && s !== "dev" && s !== "live";
   }
   function verTuple(v) {
     return String(v || "").replace(/^v/, "").split(".").map((n) => parseInt(n, 10) || 0);
@@ -27532,6 +27547,130 @@
   function furnaceJob() {
     return state && state.furnace && state.furnace.job || null;
   }
+  var TEMPER_STAGES = 3;
+  var TEMPER_PER_STAGE = 5;
+  var TEMPER_BASE_MS = 60 * 60 * 1e3;
+  var TEMPER_MIN = 0.01;
+  var TEMPER_MAX = 0.03;
+  var TEMPER_BREAK_COST = [10, 25];
+  var TEMPER_POOL = {
+    strikeDamageMult: "strike damage",
+    techDamageMult: "technique damage",
+    critMult: "crit damage",
+    hpMult: "max Vitality",
+    qiShieldMult: "qi barrier",
+    postureMult: "posture damage",
+    spiritDamageMult: "spirit damage",
+    dotMult: "DOT damage"
+  };
+  function weaponTemper(wid, char) {
+    const m = (char || state).weaponTemper;
+    return m && m[wid] || null;
+  }
+  function temperStage(wid) {
+    const t = weaponTemper(wid);
+    return t ? t.stage || 0 : 0;
+  }
+  function temperCount(wid) {
+    const t = weaponTemper(wid);
+    return t ? t.count || 0 : 0;
+  }
+  function temperTotal(wid) {
+    return temperStage(wid) * TEMPER_PER_STAGE + temperCount(wid);
+  }
+  function temperRoom(wid) {
+    return Math.max(0, TEMPER_PER_STAGE - temperCount(wid));
+  }
+  function temperNeedsBreak(wid) {
+    return temperRoom(wid) === 0 && temperStage(wid) < TEMPER_STAGES - 1;
+  }
+  function temperMaxed(wid) {
+    return temperRoom(wid) === 0 && temperStage(wid) >= TEMPER_STAGES - 1;
+  }
+  function weaponOwnedNow(wid) {
+    return !!state && (state.weapon === wid || (state.weapons && state.weapons.owned || []).includes(wid));
+  }
+  function weaponElementOf(wid) {
+    return state.weaponElement && state.weaponElement[wid] || WEAPONS[wid] && WEAPONS[wid].element || playerPrimaryElement();
+  }
+  function temperBreakCost(wid) {
+    return { el: weaponElementOf(wid), n: TEMPER_BREAK_COST[Math.min(TEMPER_BREAK_COST.length - 1, temperStage(wid))] };
+  }
+  function canTemperBreak(wid) {
+    if (!temperNeedsBreak(wid) || !weaponOwnedNow(wid)) return false;
+    const c = temperBreakCost(wid);
+    return attunedHeld(c.el) >= c.n;
+  }
+  function temperBreakthrough(wid) {
+    if (!canTemperBreak(wid)) return false;
+    const c = temperBreakCost(wid);
+    spendAttuned(c.el, c.n);
+    const t = state.weaponTemper[wid];
+    t.stage = (t.stage || 0) + 1;
+    t.count = 0;
+    saveChar();
+    return true;
+  }
+  function temperUnitMs() {
+    return Math.max(REFINE_SLOW_MIN_MS, Math.round(TEMPER_BASE_MS * (computeMods(state).refineTimeMult || 1)));
+  }
+  function canStartTemper(wid) {
+    return !furnaceJob() && !!WEAPONS[wid] && weaponOwnedNow(wid) && temperRoom(wid) > 0;
+  }
+  function startTemper(wid, units) {
+    if (!canStartTemper(wid)) return false;
+    units = Math.max(1, Math.min(units || 1, temperRoom(wid)));
+    if (!state.furnace) state.furnace = {};
+    state.furnace.job = { kind: "temper", wid, total: units, done: 0, unitStart: Date.now(), made: [] };
+    state.furnace.last = null;
+    saveChar();
+    return true;
+  }
+  function applyOneTemper(wid) {
+    if (!state.weaponTemper) state.weaponTemper = {};
+    const t = state.weaponTemper[wid] || (state.weaponTemper[wid] = { stage: 0, count: 0, mods: {} });
+    const keys = Object.keys(TEMPER_POOL);
+    const key = keys[Math.floor(Math.random() * keys.length)];
+    const amt = Math.round((TEMPER_MIN + Math.random() * (TEMPER_MAX - TEMPER_MIN)) * 1e3) / 1e3;
+    t.mods[key] = +((t.mods[key] || 0) + amt).toFixed(3);
+    t.count = (t.count || 0) + 1;
+    return { key, amt };
+  }
+  function tickTemperJob(j, now) {
+    if (!WEAPONS[j.wid] || !weaponOwnedNow(j.wid)) {
+      state.furnace.job = null;
+      saveChar();
+      return 0;
+    }
+    let finished = 0;
+    while (j.done < j.total && temperRoom(j.wid) > 0) {
+      const unit = temperUnitMs();
+      if (now - j.unitStart < unit) break;
+      j.made.push(applyOneTemper(j.wid));
+      j.done++;
+      finished++;
+      j.unitStart += unit;
+    }
+    if (j.done >= j.total || temperRoom(j.wid) === 0) {
+      state.furnace.last = { wid: j.wid, made: j.made };
+      state.furnace.job = null;
+    }
+    if (finished) saveChar();
+    return finished;
+  }
+  function temperLabel(mods) {
+    return Object.keys(TEMPER_POOL).filter((k) => mods && mods[k]).map((k) => `+${(mods[k] * 100).toFixed(1)}% ${TEMPER_POOL[k]}`).join(", ");
+  }
+  function temperMadeLabel(made) {
+    const sum = {};
+    (made || []).forEach((m) => {
+      sum[m.key] = (sum[m.key] || 0) + m.amt;
+    });
+    return temperLabel(sum);
+  }
+  function furnaceUnitMs(j) {
+    return j && j.kind === "temper" ? temperUnitMs() : refineUnitMs();
+  }
   function slowRefineAffordable(recipeId) {
     const c = CONSUMABLES[recipeId];
     if (!c || !c.recipe || !Object.keys(c.recipe).length || !meetsRealmReq(c)) return 0;
@@ -27581,14 +27720,16 @@
       for (let i = j.done; i < j.total; i++) payIngredients(slowRecipe(c, (j.priceFrom || 0) + i), 1, 1);
       if (isLifespanPill(c)) state.lifespanPillsSlow = Math.max(0, slowLifespanCount() - (j.total - j.done));
     }
-    state.furnace.last = { recipeId: j.recipeId, made: j.made, cancelled: true };
+    state.furnace.last = j.kind === "temper" ? { wid: j.wid, made: j.made, cancelled: true } : { recipeId: j.recipeId, made: j.made, cancelled: true };
     state.furnace.job = null;
     saveChar();
     return true;
   }
   function tickFurnace(now) {
     const j = furnaceJob();
-    if (!j || j.kind !== "pill") return 0;
+    if (!j) return 0;
+    if (j.kind === "temper") return tickTemperJob(j, now);
+    if (j.kind !== "pill") return 0;
     const c = CONSUMABLES[j.recipeId];
     if (!c) {
       state.furnace.job = null;
@@ -27623,13 +27764,18 @@
     const chance = div > 0 ? `${div}% Divine, else Excellent` : `${exc}% Excellent`;
     const j = furnaceJob();
     let status;
-    if (j && CONSUMABLES[j.recipeId]) {
+    if (j && j.kind === "temper" && WEAPONS[j.wid]) {
+      const left = Math.max(0, temperUnitMs() - (Date.now() - j.unitStart));
+      const made = temperMadeLabel(j.made);
+      status = `Tempering <strong>${WEAPONS[j.wid].name}</strong> — pass ${Math.min(j.total, j.done + 1)} of ${j.total}, next in <span id="furnace-timer">${formatDuration(left / 1e3)}</span>${made ? ` · so far ${made}` : ""}`;
+    } else if (j && CONSUMABLES[j.recipeId]) {
       const left = Math.max(0, refineUnitMs() - (Date.now() - j.unitStart));
       const made = furnaceMadeLabel(j.made);
       status = `<strong>${CONSUMABLES[j.recipeId].name}</strong> — pill ${Math.min(j.total, j.done + 1)} of ${j.total}, next in <span id="furnace-timer">${formatDuration(left / 1e3)}</span>${made ? ` · so far ${made}` : ""}`;
     } else {
       const last = state.furnace && state.furnace.last;
-      status = `Idle.${last && CONSUMABLES[last.recipeId] && furnaceMadeLabel(last.made) ? ` Last batch: ${furnaceMadeLabel(last.made)} ${CONSUMABLES[last.recipeId].name}${last.cancelled ? " (cancelled)" : ""}.` : ""}`;
+      if (last && last.wid && WEAPONS[last.wid] && temperMadeLabel(last.made)) status = `Idle. Last tempering: ${WEAPONS[last.wid].name} gained ${temperMadeLabel(last.made)}${last.cancelled ? " (stopped early)" : ""}.`;
+      else status = `Idle.${last && CONSUMABLES[last.recipeId] && furnaceMadeLabel(last.made) ? ` Last batch: ${furnaceMadeLabel(last.made)} ${CONSUMABLES[last.recipeId].name}${last.cancelled ? " (cancelled)" : ""}.` : ""}`;
     }
     const tip = `Fast refinement is instant and always Basic. Slow refinement takes ${formatDuration(refineUnitMs() / 1e3)} per pill here, pays the base recipe, and can come out Excellent or Divine: +10% / +20% on most pills, +25% / +50% years on longevity pills, +0.40 / +0.80 pips per stat on stat pills. Slow longevity pills rise in price on their own count, apart from fast crafting. Skill rises with every pill you make; pills far below your realm teach little.`;
     return `<div class="consumable-info tip" data-tip="${escapeTip(tip)}">
@@ -27875,7 +28021,7 @@
     {
       const ft = document.getElementById("furnace-timer");
       const fj = furnaceJob();
-      if (ft && fj) ft.textContent = formatDuration(Math.max(0, refineUnitMs() - (now - fj.unitStart)) / 1e3);
+      if (ft && fj) ft.textContent = formatDuration(Math.max(0, furnaceUnitMs(fj) - (now - fj.unitStart)) / 1e3);
     }
     if (now - lastCultSaveAt > 1e4) {
       saveChar();
@@ -34290,7 +34436,7 @@
         const cb = document.createElement("button");
         cb.className = "ghost small tip";
         cb.textContent = "Cancel";
-        cb.setAttribute("data-tip", "Stops the batch and returns the ingredients for every pill not yet finished.");
+        cb.setAttribute("data-tip", furnaceJob().kind === "temper" ? "Stops the tempering. Passes already finished are kept." : "Stops the batch and returns the ingredients for every pill not yet finished.");
         cb.onclick = () => {
           cancelFurnaceJob();
           render();
@@ -34592,6 +34738,42 @@
             render();
           };
           row.appendChild(sBtn);
+        }
+        {
+          const tm = weaponTemper(wid), done = temperTotal(wid), cap2 = TEMPER_STAGES * TEMPER_PER_STAGE;
+          const line = document.createElement("div");
+          line.className = "consumable-desc";
+          line.style.flexBasis = "100%";
+          line.innerHTML = `<strong>Tempering</strong> ${done}/${cap2} · stage ${temperStage(wid) + 1} of ${TEMPER_STAGES}${tm && temperLabel(tm.mods) ? ` · <span style="color:var(--gold)">${temperLabel(tm.mods)}</span>${idx === 0 ? "" : ' <span style="color:var(--ink-soft)">(×0.75 off-hand)</span>'}` : ""}`;
+          row.style.flexWrap = "wrap";
+          row.appendChild(line);
+          const tb = document.createElement("button");
+          if (temperMaxed(wid)) {
+            tb.className = "ghost small";
+            tb.textContent = "Fully tempered";
+            tb.disabled = true;
+          } else if (temperNeedsBreak(wid)) {
+            const bc = temperBreakCost(wid);
+            tb.className = "small tip " + (canTemperBreak(wid) ? "gold" : "ghost");
+            tb.textContent = `Breakthrough (${bc.n} ${MATERIALS[ATTUNED_MAT[bc.el]].name})`;
+            tb.disabled = !canTemperBreak(wid);
+            tb.setAttribute("data-tip", `Opens stage ${temperStage(wid) + 2}: ${TEMPER_PER_STAGE} more passes. You hold ${attunedHeld(bc.el)}. Essences are distilled by your elements while you are away.`);
+            tb.onclick = () => {
+              temperBreakthrough(wid);
+              render();
+            };
+          } else {
+            const n = temperRoom(wid), busy = !!furnaceJob();
+            tb.className = "small tip " + (busy ? "ghost" : "gold");
+            tb.textContent = `Temper ×${n}`;
+            tb.disabled = busy;
+            tb.setAttribute("data-tip", busy ? "The furnace is busy." : `${formatDuration(temperUnitMs() / 1e3)} a pass, time only. Each adds +${Math.round(TEMPER_MIN * 100)}–${Math.round(TEMPER_MAX * 100)}% to one random stat. Uses the furnace — no pills meanwhile.`);
+            tb.onclick = () => {
+              startTemper(wid, n);
+              render();
+            };
+          }
+          row.appendChild(tb);
         }
         fP.appendChild(row);
       });
