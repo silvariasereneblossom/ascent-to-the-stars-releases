@@ -9205,6 +9205,12 @@
 
   // app/src/data/changelog.js
   var CHANGELOG = [
+    { v: "1.27.205", notes: [
+      "EVERY NAMED BOSS HAS ITS OWN MUSIC NOW, WRITTEN FOR IT. Each of the fourteen has a theme composed for this game and built around that boss: the Mine-Heart Golem&rsquo;s is in three beats to the bar, anvil, anvil, crash; a bell tolls on every bar of the Bell-Tower Abbot&rsquo;s; the Tide-Queen&rsquo;s rolls over harp with the sea between phrases; the Sovereign of the First Dawn has the only theme in a major mode. The later bosses bring a choir.",
+      "HEAVENSCOURGE AND CALAMITY FIGHTS HAVE THEMES TOO. They used to share the general boss playlist. Each now plays its boss&rsquo;s own tunes in a new arrangement: a Heavenscourge is lower, slower and heavier, and longer; a Calamity is the same tunes with nothing held back.",
+      "SIX NEW BATTLE THEMES in the same spirit &mdash; orchestra, war drums, zither and flute &mdash; join Wuxia, Wuxia II and Into the Wilds. Four older battle tracks step down.",
+      "This music is new and will keep being worked on. Credits for the instruments are in Config."
+    ] },
     { v: "1.27.204", notes: [
       "THE CALAMITY BONUS CAP IS SOFT NOW, AND RISES. Your insight and cultivation bonuses used to stop dead at four times the floor. Past the cap they now still count, barely: each further &times;1 of bonus adds one thousandth, so an enormous bonus edges a little beyond the cap instead of being thrown away. The cap is &times;4 up to Golden Core, &times;5 at Nascent Soul and &times;6 at Spirit Severing."
     ] },
@@ -9698,10 +9704,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Max Posture, −0.5% tribulation damage taken per point (to −40%), and +2% seclusion time per point above 10 (to +100%)." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.204';
+  var GAME_VERSION = 'v1.27.205';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "ad88bfe";
+  var BUILD_SHA = "f1509ce";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -25820,11 +25826,17 @@
       { file: "Wuxia.mp3", title: "Wuxia", note: "heroic erhu & orchestra" },
       { file: "Wuxia2.mp3", title: "Wuxia II", note: "driving, martial" },
       { file: "IntoTheWilds.mp3", title: "Into the Wilds", note: "heroic orchestral" },
-      // v0.85: Kevin MacLeod (incompetech.com), CC BY 4.0
-      { file: "km_heroicage.mp3", title: "Heroic Age", note: "martial, rising" },
-      { file: "km_fivearmies.mp3", title: "Five Armies", note: "driving battle" },
-      { file: "km_riteofpassage.mp3", title: "Rite of Passage", note: "tense, building" },
-      { file: "km_preludeaction.mp3", title: "Prelude and Action", note: "urgent action" }
+      // v1.27.205 (operator: battle music is "orchestral epic with Chinese flavor", along the lines of
+      // Wuxia and Into the Wilds; "most other themes would be deprecated"): six themes composed for the
+      // game (tools/music/, profiles battle_01..06). The four Kevin MacLeod battle tracks of v0.85
+      // (km_heroicage / km_fivearmies / km_riteofpassage / km_preludeaction) are retired from this
+      // list; the files stay hosted and nothing references them.
+      { file: "ats_battle_01.mp3", title: "Vanguard", note: "original score — the charge" },
+      { file: "ats_battle_02.mp3", title: "Iron Oath", note: "original score — the charge, second theme" },
+      { file: "ats_battle_03.mp3", title: "Riders at the Pass", note: "original score — galloping, drums first" },
+      { file: "ats_battle_04.mp3", title: "Blades Under Banner", note: "original score — brass march" },
+      { file: "ats_battle_05.mp3", title: "Storm Over the Ridge", note: "original score — fast, trembling strings" },
+      { file: "ats_battle_06.mp3", title: "Nine Steps, One Strike", note: "original score — the pulse, then the blow" }
     ],
     boss: [
       { file: "Wuxia3.mp3", title: "Wuxia III", note: "grand, climactic" },
@@ -25847,36 +25859,25 @@
       { file: "ImperialChinaCinematic.mp3", title: "Imperial China Cinematic", note: "v0.95 (operator): Shane Ivers, CC BY 4.0 — grand epic orchestral, builds to climax" }
     ]
   };
-  var BOSS_THEMES = {
-    boar_king: "TheFallOfChongzhen.mp3",
-    // v0.95 (operator): Alexander Nakarada "The Fall Of Chongzhen" (CC BY 4.0) — eastern taiko, dramatic
-    kiln_mother: "Tatari.mp3",
-    // J-horror ritual: hichiriki, sho, wails — alive in the fire
-    fox_saint: "WitchByTheSea.mp3",
-    // v0.93 (operator): Darren-Curtis "Witch By The Sea" (CC BY 3.0) — eerie, hypnotic shrine
-    mine_golem: "Titan.mp3",
-    // v0.93 (operator): Alex-Productions "Titan" (CC BY 3.0) — iron, colossal, relentless
-    bell_abbot: "Amenoshita3.mp3",
-    // stately taiko/tsuzumi/gong — measured judgment
-    tide_queen: "TheGreatSea.mp3",
-    // sweeping oceanic orchestra — drowning grandeur
-    cinder_abbot: "Undertaker.mp3",
-    // patient funereal march — unhurried, unending
-    prison_warden: "Kengeki.mp3",
-    // sword-clash duel music, coiled and fast
-    vein_matriarch: "Ametsuchi.mp3",
-    // heaven-and-earth koto + orchestra — buried majesty
-    mirage_emperor: "Puppeteer.mp3",
-    // theatrical gothic — the court is a puppet show
-    war_court_lord: "EpicBattle_J.mp3",
-    // Japanese epic cinematic battle — tribunal scale
-    moon_eater: "Thunderclap.mp3",
-    // pipe organ + choir dread — devouring
-    heavenly_executioner: "EpicBattle_Deity.mp3",
-    // grand orchestral deity-battle — heaven's verdict
-    dawn_sovereign: "Helios.mp3"
-    // rising-sun build to choir climax — finale-grade
-  };
+  var BOSS_THEMES = {};
+  [
+    "boar_king",
+    "kiln_mother",
+    "fox_saint",
+    "mine_golem",
+    "bell_abbot",
+    "tide_queen",
+    "cinder_abbot",
+    "prison_warden",
+    "vein_matriarch",
+    "mirage_emperor",
+    "war_court_lord",
+    "moon_eater",
+    "heavenly_executioner",
+    "dawn_sovereign"
+  ].forEach((id) => ["", "_hard", "_calamity"].forEach((form) => {
+    BOSS_THEMES[id + form] = `ats_${id}${form}.mp3`;
+  }));
   var MUSIC = { el: null, cat: "menu", idx: 0, started: false, fails: 0, wasPlaying: false };
   function musicActuallyPlaying() {
     return !!(MUSIC.el && !MUSIC.el.paused);
@@ -26066,7 +26067,7 @@
   var updateApplying = false;
   function runningShaKnown() {
     const s = typeof window !== "undefined" && window.BUILD_SHA;
-    return !!s && s !== "ad88bfe" && s !== "dev" && s !== "live";
+    return !!s && s !== "f1509ce" && s !== "dev" && s !== "live";
   }
   function verTuple(v) {
     return String(v || "").replace(/^v/, "").split(".").map((n) => parseInt(n, 10) || 0);
@@ -33318,7 +33319,7 @@
     cfgP.appendChild(volWrap);
     const cred = document.createElement("p");
     cred.style.cssText = "font-size:0.72rem;color:var(--ink-soft);margin:0.3rem 0 0;line-height:1.45";
-    cred.innerHTML = `<strong>Music credits.</strong> Menu/title/market: <a href="https://peritune.com" style="color:var(--ink-soft)">PeriTune</a> (CC BY 4.0), <a href="https://incompetech.com" style="color:var(--ink-soft)">Kevin MacLeod</a> (CC BY), Zhang Peijian via <a href="https://commons.wikimedia.org" style="color:var(--ink-soft)">Wikimedia Commons</a> (CC BY-SA 4.0), Shane Ivers / <a href="https://www.silvermansound.com" style="color:var(--ink-soft)">Silverman Sound</a> (CC BY 4.0), and Darren-Curtis, Alex-Productions &amp; FSM Team via <a href="https://www.free-stock-music.com" style="color:var(--ink-soft)">Free Stock Music</a> (CC BY), and John Bartmann (CC0). Battle/boss/tribulation: PeriTune, Kevin MacLeod, <a href="https://www.scottbuckley.com.au" style="color:var(--ink-soft)">Scott Buckley</a>, Darren-Curtis, Alex-Productions, Alexander Nakarada &amp; Shane Ivers (CC BY). Files unmodified.`;
+    cred.innerHTML = `<strong>Music credits.</strong> Menu/title/market: <a href="https://peritune.com" style="color:var(--ink-soft)">PeriTune</a> (CC BY 4.0), <a href="https://incompetech.com" style="color:var(--ink-soft)">Kevin MacLeod</a> (CC BY), Zhang Peijian via <a href="https://commons.wikimedia.org" style="color:var(--ink-soft)">Wikimedia Commons</a> (CC BY-SA 4.0), Shane Ivers / <a href="https://www.silvermansound.com" style="color:var(--ink-soft)">Silverman Sound</a> (CC BY 4.0), and Darren-Curtis, Alex-Productions &amp; FSM Team via <a href="https://www.free-stock-music.com" style="color:var(--ink-soft)">Free Stock Music</a> (CC BY), and John Bartmann (CC0). Battle/boss/tribulation: PeriTune, Kevin MacLeod, <a href="https://www.scottbuckley.com.au" style="color:var(--ink-soft)">Scott Buckley</a> &amp; Shane Ivers (CC BY). These files are unmodified. <strong>Original score</strong> (battle themes marked so, and every named boss&rsquo;s theme with its Heavenscourge and Calamity versions): composed for this game and played on recorded instruments from <a href="https://github.com/sgossner/VSCO-2-CE" style="color:var(--ink-soft)">VSCO 2 Community Edition</a> and <a href="https://github.com/sgossner/VCSL" style="color:var(--ink-soft)">VCSL</a> by Versilian Studios (CC0), with the chorus of the <a href="https://github.com/peastman/sso" style="color:var(--ink-soft)">Sonatina Symphonic Orchestra</a> by Mattias Westlund (<a href="https://creativecommons.org/licenses/sampling+/1.0/" style="color:var(--ink-soft)">CC Sampling Plus 1.0</a>).`;
     cfgP.appendChild(cred);
   }
   function renderLanding() {
