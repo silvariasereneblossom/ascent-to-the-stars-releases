@@ -9205,6 +9205,10 @@
 
   // app/src/data/changelog.js
   var CHANGELOG = [
+    { v: "1.27.200", notes: [
+      "SECLUSION EVENTS, for the righteous. Come out of a seclusion of an hour or more and up to two things may have happened while you sat &mdash; a cache, a patch of herbs, a stele, a spring. The longer the seclusion (up to your window) the likelier they are, and what you did before going in tilts them: boss kills pull toward insight, a long stretch of fighting toward spoils.",
+      "DIGESTION, for the demonic. Every ambush you win by hand &mdash; not on auto, and not in the unseen Blood Hunt &mdash; has a 35% chance to give back 1&ndash;3% of your lifespan. It is the counterweight to what lost ambushes and lost hunts take, and it applies to Demon-Heart too."
+    ] },
     { v: "1.27.199", notes: [
       "CALAMITY 劫. Every boss has a third form above Heavenscourge, open once you have bested that boss&rsquo;s Heavenscourge: twice its pools and half again its damage. It holds a single charge that takes eight hours to return, and it must be fought by hand &mdash; auto-combat stands down.",
       "A Calamity pays 20% of the step you are buying, whatever that step is: a layer, or the breakthrough at the end of a realm. A Calamity from a realm you have left pays 20% of one of that realm&rsquo;s layers instead.",
@@ -9679,10 +9683,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Max Posture, −0.5% tribulation damage taken per point (to −40%), and +2% seclusion time per point above 10 (to +100%)." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.199';
+  var GAME_VERSION = 'v1.27.200';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "0ddffa3";
+  var BUILD_SHA = "85883e2";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -26008,7 +26012,7 @@
   var updateApplying = false;
   function runningShaKnown() {
     const s = typeof window !== "undefined" && window.BUILD_SHA;
-    return !!s && s !== "0ddffa3" && s !== "dev" && s !== "live";
+    return !!s && s !== "85883e2" && s !== "dev" && s !== "live";
   }
   function verTuple(v) {
     return String(v || "").replace(/^v/, "").split(".").map((n) => parseInt(n, 10) || 0);
@@ -28201,6 +28205,7 @@
     const gain = rateDuring * taxedSec + rateAfter * (plan.effectiveSec - taxedSec);
     addInsight(gain);
     const essences = accrueAttuned(plan.effectiveSec);
+    const events = opts && opts.inFight ? [] : rollSeclusionEvents(plan);
     const vitBefore = getVitality();
     if (!(opts && opts.inFight)) {
       if (state.cultivating) tickVitalityCultivation(plan.effectiveSec, true);
@@ -28211,7 +28216,53 @@
     if (state.cultivating) state.cultivating.lastTick = now;
     state.passiveTick = now;
     saveChar();
-    return Object.assign({ gain, vitGain, essences, elapsed: plan.effectiveSec, rawElapsed: rawSec, capped: rawSec > plan.setPoint }, plan);
+    return Object.assign({ gain, vitGain, essences, events, elapsed: plan.effectiveSec, rawElapsed: rawSec, capped: rawSec > plan.setPoint }, plan);
+  }
+  var SECLUSION_EVENT_MIN_SEC = 3600;
+  var SECLUSION_EVENT_CHANCE = [0.85, 0.4];
+  var SECLUSION_EVENT_IDS = /* @__PURE__ */ new Set(["stones", "materials", "insight", "herbs", "spring", "essence_motes", "elixir_cache"]);
+  var DIGEST_CHANCE = 0.35;
+  var DIGEST_MIN = 0.01;
+  var DIGEST_MAX = 0.03;
+  function noteActivity(kind) {
+    if (!state) return;
+    if (!state.sinceSeclusion) state.sinceSeclusion = { kills: 0, bosses: 0 };
+    state.sinceSeclusion[kind] = (state.sinceSeclusion[kind] || 0) + 1;
+  }
+  function rollSeclusionEvents(plan) {
+    if (!state || state.demonic || !seclusionCapable() || plan.rawSec < SECLUSION_EVENT_MIN_SEC) return [];
+    const frac = Math.min(1, plan.effectiveSec / Math.max(1, plan.natural));
+    const luck = state.finalStats && state.finalStats.luck || 0;
+    const act = state.sinceSeclusion || { kills: 0, bosses: 0 };
+    const tilt = { insight: 1 + 2 * Math.min(3, act.bosses || 0), materials: 1 + Math.min(2, (act.kills || 0) / 25), stones: 1 + Math.min(1, (act.kills || 0) / 50) };
+    const lines = [], used = /* @__PURE__ */ new Set();
+    SECLUSION_EVENT_CHANCE.forEach((ch) => {
+      if (Math.random() >= ch * frac) return;
+      const pool = FORTUNE_EVENTS.filter((ev) => ev.good && SECLUSION_EVENT_IDS.has(ev.id) && !used.has(ev.id) && (!ev.luckGate || luck >= ev.luckGate));
+      if (!pool.length) return;
+      const weighted = pool.map((ev) => ({ ev, w: ev.base * (1 + luck * 0.05) * (tilt[ev.id] || 1) }));
+      let r = Math.random() * weighted.reduce((a, x) => a + x.w, 0), pick = weighted[weighted.length - 1].ev;
+      for (const x of weighted) {
+        r -= x.w;
+        if (r <= 0) {
+          pick = x.ev;
+          break;
+        }
+      }
+      used.add(pick.id);
+      lines.push(pick.resolve());
+    });
+    state.sinceSeclusion = { kills: 0, bosses: 0 };
+    return lines;
+  }
+  function rollDigestion(e) {
+    if (!state || !state.demonic || !combat || combat.hunt || combat.autoUsed) return 0;
+    if (!/^(righteous_hunter_t|demonic_rival_t)/.test(String(e && e.id || ""))) return 0;
+    if (Math.random() >= DIGEST_CHANCE) return 0;
+    const years = (DIGEST_MIN + Math.random() * (DIGEST_MAX - DIGEST_MIN)) * lifespanMax();
+    const before = state.age || 16;
+    state.age = Math.max(16, before - years);
+    return before - state.age;
   }
   function buildSeclusionPanel() {
     const p = document.createElement("div");
@@ -28366,6 +28417,7 @@
     ["gain", "vitGain", "rawElapsed", "elapsed", "fullSec", "taperSec", "lostSec", "burnYears"].forEach((k) => {
       out[k] = (a[k] || 0) + (b[k] || 0);
     });
+    out.events = (a.events || []).concat(b.events || []);
     out.essences = {};
     [a.essences, b.essences].forEach((e) => Object.entries(e || {}).forEach(([el, n]) => {
       out.essences[el] = (out.essences[el] || 0) + n;
@@ -30541,6 +30593,11 @@
     const _floored = Math.max(_capped, Math.round(_insightBaseline * demonicKillFloorShare(state)));
     const insight = huntPayInsight(Math.round(_floored * sectCombatInsightMult() * huntInsightMult()));
     addInsight(insight);
+    if (!(combat && combat.hunt)) noteActivity(enemyData.isBoss ? "bosses" : "kills");
+    {
+      const dy = rollDigestion(e);
+      if (dy > 0) pushLog("reward", `You digest what hunted you: <strong>+${Math.round(dy).toLocaleString()} years</strong> of lifespan restored.`);
+    }
     const _huntLoot = huntLootRoll();
     if (_huntLoot) state.sectKills = (state.sectKills || 0) + 1;
     if (_huntLoot && sectWeaponEquipped()) {
@@ -33587,6 +33644,9 @@
         const ess = Object.entries(r.essences || {}).filter(([, n]) => n > 0).map(([el, n]) => `${n} ${MATERIALS[ATTUNED_MAT[el]].name}`);
         if (ess.length) bits.push(`distilled ${ess.join(", ")}`);
         detail = `<p style="margin:0 0 0.4rem;font-size:0.8rem;color:var(--ink-soft)">Seclusion: ${bits.join(" · ")}.</p>`;
+        (r.events || []).forEach((line) => {
+          detail += `<p style="margin:0 0 0.3rem;font-size:0.82rem"><span style="color:var(--gold)">While you sat —</span> ${line}</p>`;
+        });
       }
       banner.innerHTML = `
       <strong>You emerge from seclusion.</strong>
