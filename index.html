@@ -9205,6 +9205,9 @@
 
   // app/src/data/changelog.js
   var CHANGELOG = [
+    { v: "1.27.203", notes: [
+      "CALAMITY PAYOUTS NOW ANSWER TO YOUR BONUSES. The 2% of your step is the floor an unbuilt cultivator gets. Your insight and cultivation bonuses lift it &mdash; through the same diminishing curve that governs every kill, so it climbs quickly at first and tops out at four times the floor. At the end of Core Formation that is about 343,000 for a bare character and around 1.3 million for a well-built one. The button&rsquo;s tooltip shows your current multiplier."
+    ] },
     { v: "1.27.202", notes: [
       "CALAMITY IS A BONUS, NOT A GATE. A Calamity now has three times its Heavenscourge&rsquo;s Vitality (was twice) at the same half-again damage, and pays 2% of the step you are buying rather than 20%. That payout is a flat gift &mdash; no insight bonus multiplies it &mdash; so a fifth of a layer for one fight was far too much. The free point of the boss&rsquo;s element is unchanged.",
       "Selling or breaking down your last copy of a weapon now forgets its tempering and its attunement. They used to wait for you to buy or find the same weapon again. A second copy still in your hands keeps them, and a boss weapon carries them through its stage upgrades, as it already carried refinement."
@@ -9692,10 +9695,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Max Posture, −0.5% tribulation damage taken per point (to −40%), and +2% seclusion time per point above 10 (to +100%)." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.202';
+  var GAME_VERSION = 'v1.27.203';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "7257e7e";
+  var BUILD_SHA = "2cd00c2";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -16999,7 +17002,7 @@
       blurb: `Calamity — ${base.name} as the heavens would have sent it. Fought by hand, for a share of the step you are climbing.`
     };
   });
-  function calamityInsight(bossTier) {
+  function calamityBaseInsight(bossTier) {
     const t = state.realm && state.realm.tierIdx || 0;
     let info = null;
     if (bossTier === t) info = advanceInfo(state);
@@ -17008,6 +17011,20 @@
       info = advanceInfo({ realm: { tierIdx: bossTier, layer: Math.max(1, L - 1) } });
     }
     return Math.max(1, Math.round((info && info.cost || 0) * CALAMITY_STEP_SHARE));
+  }
+  var CALAMITY_BOOST_MAX = 4;
+  function calamityBoostRaw() {
+    const mods = computeMods(state);
+    const sch = SCHOOLS[state.selectedSchool] && SCHOOLS[state.selectedSchool].insightFromKillsMult || 1;
+    const ins = boonInsightMult() * skillCombatInsightMult() * (mods.insightMult || 1) * sch * (heritageMech().combatInsightMult || 1) * metaInsightMult() * sectCombatInsightMult();
+    return Math.max(1, ins * cultivationBoostMult());
+  }
+  function calamityBoostMult() {
+    const base = 1e6;
+    return Math.min(CALAMITY_BOOST_MAX, softCapInsight(base * calamityBoostRaw(), base) / base);
+  }
+  function calamityInsight(bossTier) {
+    return Math.round(calamityBaseInsight(bossTier) * calamityBoostMult());
   }
   function grantCalamityElement(el) {
     if (!el || ELEMENTS.indexOf(el) < 0) el = playerPrimaryElement();
@@ -26028,7 +26045,7 @@
   var updateApplying = false;
   function runningShaKnown() {
     const s = typeof window !== "undefined" && window.BUILD_SHA;
-    return !!s && s !== "7257e7e" && s !== "dev" && s !== "live";
+    return !!s && s !== "2cd00c2" && s !== "dev" && s !== "live";
   }
   function verTuple(v) {
     return String(v || "").replace(/^v/, "").split(".").map((n) => parseInt(n, 10) || 0);
@@ -30794,7 +30811,10 @@
       if (enemyData.isCalamity) {
         const ci = calamityInsight(bossTierIns);
         addInsight(ci);
-        pushLog("reward", `You outlast a calamity: +${ci.toLocaleString()} insight — ${Math.round(CALAMITY_STEP_SHARE * 100)}% of ${bossTierIns === (state.realm.tierIdx || 0) ? "the step before you" : `a ${REALMS[bossTierIns].name} layer`}.`);
+        {
+          const bm = calamityBoostMult();
+          pushLog("reward", `You outlast a calamity: +${ci.toLocaleString()} insight — ${Math.round(CALAMITY_STEP_SHARE * 100)}% of ${bossTierIns === (state.realm.tierIdx || 0) ? "the step before you" : `a ${REALMS[bossTierIns].name} layer`}${bm > 1.005 ? `, ×${bm.toFixed(2)} from your insight and cultivation bonuses` : ""}.`);
+        }
         const ge = grantCalamityElement(enemyData.element);
         if (ge) pushLog("reward", ge.point ? `Its ${ELEMENT_NAME[ge.el]} nature settles in you: +1 ${ELEMENT_NAME[ge.el]} point.` : `Its ${ELEMENT_NAME[ge.el]} nature has nowhere left to settle: +${ge.essence} ${MATERIALS[ATTUNED_MAT[ge.el]].name}.`);
       }
@@ -35876,7 +35896,7 @@
             cbtn.style.cssText = "margin-top:0.25rem;border-color:#c79cf0";
             const pay = calamityInsight(meta.tier);
             const el = ENEMIES[cid].element;
-            cbtn.setAttribute("data-tip", `Vitality ×${(CALAMITY_HP_MULT / HARD_BOSS_MULT).toFixed(0)} and damage ×${(CALAMITY_DMG_MULT / HARD_BOSS_MULT).toFixed(1)} of Heavenscourge. A bonus, not a gate. By hand only. One charge, ${Math.round(CALAMITY_RECHARGE_MS / 36e5)}h to return. Pays ${pay.toLocaleString()} insight (${Math.round(CALAMITY_STEP_SHARE * 100)}% of ${meta.tier === (state.realm.tierIdx || 0) ? "your current step" : `a ${REALMS[meta.tier].name} layer`}) and +1 ${ELEMENT_NAME[el] || ELEMENT_NAME[playerPrimaryElement()] || "element"} point.`);
+            cbtn.setAttribute("data-tip", `Vitality ×${(CALAMITY_HP_MULT / HARD_BOSS_MULT).toFixed(0)} and damage ×${(CALAMITY_DMG_MULT / HARD_BOSS_MULT).toFixed(1)} of Heavenscourge. A bonus, not a gate. By hand only. One charge, ${Math.round(CALAMITY_RECHARGE_MS / 36e5)}h to return. Pays ${pay.toLocaleString()} insight (${Math.round(CALAMITY_STEP_SHARE * 100)}% of ${meta.tier === (state.realm.tierIdx || 0) ? "your current step" : `a ${REALMS[meta.tier].name} layer`}, ×${calamityBoostMult().toFixed(2)} from your insight and cultivation bonuses — up to ×${CALAMITY_BOOST_MAX}) and +1 ${ELEMENT_NAME[el] || ELEMENT_NAME[playerPrimaryElement()] || "element"} point.`);
             if (!open) {
               cbtn.textContent = "Calamity — best the Heavenscourge first";
               cbtn.disabled = true;
