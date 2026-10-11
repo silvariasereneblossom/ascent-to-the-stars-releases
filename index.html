@@ -9205,6 +9205,11 @@
 
   // app/src/data/changelog.js
   var CHANGELOG = [
+    { v: "1.27.196", notes: [
+      "ARRAY LIMIT BREAK 破限. An array at its realm cap can now be pushed one level past it, up to three times. It costs the usual stones and a development timer &mdash; 4, 8, then 16 hours &mdash; and the timer only runs while you pay the upkeep.",
+      "The upkeep is your path&rsquo;s own engine. The righteous give up 30% of their cultivation gain while they channel. The demonic lose 15% of max Vitality, stop resting naturally, and bleed 15% of their Vitality an hour &mdash; at a quarter Vitality the channelling stops by itself, so a heretic feeds an array by going out and fighting.",
+      "Channel and stop whenever you like; the timer keeps your progress, and it runs while you are away just as it does in play. Abandoning returns the stones but not the time. One array at a time."
+    ] },
     { v: "1.27.195", notes: [
       "GRADED STAT PILLS give a flat extra, not a percentage: an Excellent stat pill adds 0.40 pips to each stat it raises and a Divine one 0.80, on top of the pill itself. The soft cap applies as it does to every pip, so that extra reads 0.20 past the first rung and 0.10 past the second.",
       "GRADED LONGEVITY PILLS are worth more: +25% years at Excellent, +50% at Divine.",
@@ -9659,10 +9664,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Max Posture, −0.5% tribulation damage taken per point (to −40%), and +2% seclusion time per point above 10 (to +100%)." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.195';
+  var GAME_VERSION = 'v1.27.196';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "682a9a9";
+  var BUILD_SHA = "1953524";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -24566,9 +24571,102 @@
     if (keys.some((k) => ARRAY_DEFENSE_KEYS.has(k))) return "defensive";
     return "utility";
   }
+  var ARRAY_BREAK_MAX = 3;
+  var ARRAY_DEV_HOURS = [4, 8, 16];
+  var ARRAY_DEV_CULT_MULT = 0.7;
+  var ARRAY_DEV_VIT_MALUS = 0.85;
+  var ARRAY_DEV_VIT_DRAIN_PER_H = 0.15;
+  var ARRAY_DEV_VIT_FLOOR = 0.25;
+  function arrayBreaks(aid) {
+    return state.base.arrayBreaks && state.base.arrayBreaks[aid] || 0;
+  }
+  function arrayLevelCap(aid) {
+    return arrayMaxLevel() + arrayBreaks(aid);
+  }
+  function arrayDev() {
+    return state && state.base && state.base.arrayDev || null;
+  }
+  function arrayDevChannelling() {
+    const d = arrayDev();
+    return !!(d && d.active);
+  }
+  function arrayDevCultMult() {
+    return arrayDevChannelling() && !state.demonic ? ARRAY_DEV_CULT_MULT : 1;
+  }
+  function arrayDevNeedMs(aid) {
+    return ARRAY_DEV_HOURS[Math.min(ARRAY_DEV_HOURS.length - 1, arrayBreaks(aid))] * 3600 * 1e3;
+  }
+  function canStartArrayBreak(aid) {
+    if (arrayDev() || !activeArrays(state).includes(aid)) return false;
+    if (arrayLevel(aid) < arrayLevelCap(aid) || arrayBreaks(aid) >= ARRAY_BREAK_MAX) return false;
+    return (state.base.materials.spirit_stone || 0) >= arrayUpgradeCost(aid);
+  }
+  function startArrayBreak(aid) {
+    if (!canStartArrayBreak(aid)) return false;
+    const cost = arrayUpgradeCost(aid);
+    state.base.materials.spirit_stone -= cost;
+    if (state.base.materials.spirit_stone <= 0) delete state.base.materials.spirit_stone;
+    state.base.arrayDev = { aid, needMs: arrayDevNeedMs(aid), doneMs: 0, active: false, last: Date.now(), stones: cost };
+    saveChar();
+    return true;
+  }
+  function setArrayDevChannelling(on) {
+    const d = arrayDev();
+    if (!d) return false;
+    tickArrayDev(Date.now());
+    if (!arrayDev()) return false;
+    if (on && state.demonic && getVitality() <= maxVitality() * ARRAY_DEV_VIT_FLOOR) return false;
+    d.active = !!on;
+    d.last = Date.now();
+    d.stalled = false;
+    saveChar();
+    return true;
+  }
+  function abandonArrayBreak() {
+    const d = arrayDev();
+    if (!d) return false;
+    state.base.materials.spirit_stone = (state.base.materials.spirit_stone || 0) + (d.stones || 0);
+    state.base.arrayDev = null;
+    saveChar();
+    return true;
+  }
+  function tickArrayDev(now, opts) {
+    const d = arrayDev();
+    if (!d) return 0;
+    if (!d.active || opts && opts.hold) {
+      d.last = now;
+      return 0;
+    }
+    let ms = Math.max(0, Math.min(now - (d.last || now), d.needMs - d.doneMs));
+    if (state.demonic) {
+      const max = Math.max(1, maxVitality());
+      const perMs = ARRAY_DEV_VIT_DRAIN_PER_H / 36e5;
+      const roomMs = Math.max(0, getVitality() / max - ARRAY_DEV_VIT_FLOOR) / perMs;
+      if (roomMs < ms) {
+        ms = roomMs;
+        d.active = false;
+        d.stalled = true;
+      }
+      setVitality(getVitality() - max * perMs * ms);
+    }
+    d.doneMs += ms;
+    d.last = now;
+    if (d.doneMs >= d.needMs - 1) {
+      if (!state.base.arrayBreaks) state.base.arrayBreaks = {};
+      if (!state.base.arrayLevels) state.base.arrayLevels = {};
+      state.base.arrayBreaks[d.aid] = arrayBreaks(d.aid) + 1;
+      state.base.arrayLevels[d.aid] = arrayLevel(d.aid) + 1;
+      state.base.arrayDevDone = { aid: d.aid, level: arrayLevel(d.aid) };
+      state.base.arrayDev = null;
+    }
+    return ms / 1e3;
+  }
+  function arrayDevUpkeepLabel() {
+    return state.demonic ? `max Vitality −${Math.round((1 - ARRAY_DEV_VIT_MALUS) * 100)}%, no natural rest, and −${Math.round(ARRAY_DEV_VIT_DRAIN_PER_H * 100)}% Vitality an hour (stops at ${Math.round(ARRAY_DEV_VIT_FLOOR * 100)}%)` : `cultivation gain −${Math.round((1 - ARRAY_DEV_CULT_MULT) * 100)}%`;
+  }
   function canUpgradeArray(aid) {
     if (!activeArrays(state).includes(aid)) return false;
-    if (arrayLevel(aid) >= arrayMaxLevel()) return false;
+    if (arrayLevel(aid) >= arrayLevelCap(aid)) return false;
     return (state.base.materials.spirit_stone || 0) >= arrayUpgradeCost(aid);
   }
   function upgradeArray(aid) {
@@ -24598,6 +24696,7 @@
       const a = ARRAYS[id];
       if (a && a.mods) mergeMods(mods, char === state ? effectiveArrayMods(id) : a.mods);
     });
+    if (char === state && state.demonic && arrayDevChannelling()) mods.hpMult = (mods.hpMult || 1) * ARRAY_DEV_VIT_MALUS;
   }
   function canBuildArray(arrayId) {
     if (!state || !state.confirmed) return false;
@@ -24628,6 +24727,7 @@
     if (!state || !state.base || !state.base.arrays) return false;
     const idx = state.base.arrays.indexOf(arrayId);
     if (idx < 0) return false;
+    if (arrayDev() && arrayDev().aid === arrayId) abandonArrayBreak();
     state.base.arrays.splice(idx, 1);
     saveChar();
     return true;
@@ -25757,7 +25857,7 @@
   var updateApplying = false;
   function runningShaKnown() {
     const s = typeof window !== "undefined" && window.BUILD_SHA;
-    return !!s && s !== "682a9a9" && s !== "dev" && s !== "live";
+    return !!s && s !== "1953524" && s !== "dev" && s !== "live";
   }
   function verTuple(v) {
     return String(v || "").replace(/^v/, "").split(".").map((n) => parseInt(n, 10) || 0);
@@ -27630,7 +27730,7 @@
     const rootGrade = state.spiritRoot && state.spiritRoot.grade || 1;
     const foundation = state.foundationQuality || 1;
     const demonCult = isDemonHeart(state) ? 0 : state.demonic ? 0.5 : 2;
-    return (base + statBonus) * method.mult * locMult * realmMult * cultBuff * brazierBuff * veinBuff * boonCultivationMult() * skillCultivationMult() * heritageCult * gearCult * rootGrade * foundation * sectRankMult() * metaCultMult() * demonCult * (1 + 0.2 * goldenCoreLevel()) * sectCultInsightMult();
+    return arrayDevCultMult() * (base + statBonus) * method.mult * locMult * realmMult * cultBuff * brazierBuff * veinBuff * boonCultivationMult() * skillCultivationMult() * heritageCult * gearCult * rootGrade * foundation * sectRankMult() * metaCultMult() * demonCult * (1 + 0.2 * goldenCoreLevel()) * sectCultInsightMult();
   }
   function cultConvertsToInsight() {
     return !!(state && state.demonic);
@@ -27682,6 +27782,7 @@
     const elapsed = (now - lastTick) / 1e3;
     if (combat) {
       if (elapsed >= SECLUSION_GAP_SEC) publishSeclusionReport(settleSeclusion(elapsed, now, { inFight: !combat.over }), false);
+      tickArrayDev(now, { hold: true });
       if (state.cultivating) state.cultivating.lastTick = now;
       state.passiveTick = now;
       return;
@@ -27691,6 +27792,7 @@
       publishSeclusionReport(settleSeclusion(elapsed, now), true);
     } else if (elapsed >= 0.1) {
       const gain = cultivationRate() * elapsed;
+      const devSec = tickArrayDev(now);
       addInsight(gain);
       state.passiveTick = now;
       if (state.cultivating) {
@@ -27699,7 +27801,7 @@
         if (combat) return;
         advanceAge(elapsed);
         if (!state) return;
-      } else tickVitalityRecovery(elapsed);
+      } else tickVitalityRecovery(Math.max(0, elapsed - (state.demonic ? devSec : 0)));
     }
     const _onGardenTab = activeTab === "garden" && (state.ui && state.ui.houseTab || "garden") === "garden";
     let needsRerender = false;
@@ -27809,12 +27911,17 @@
   }
   function settleSeclusion(rawSec, now, opts) {
     const plan = seclusionPlan(rawSec);
-    const gain = cultivationRate() * plan.effectiveSec;
+    const devCult = arrayDevCultMult();
+    const rateDuring = cultivationRate();
+    const devSec = opts && opts.inFight ? (tickArrayDev(now, { hold: true }), 0) : tickArrayDev(now);
+    const rateAfter = cultivationRate();
+    const taxedSec = devCult < 1 ? Math.min(plan.effectiveSec, devSec) : 0;
+    const gain = rateDuring * taxedSec + rateAfter * (plan.effectiveSec - taxedSec);
     addInsight(gain);
     const vitBefore = getVitality();
     if (!(opts && opts.inFight)) {
       if (state.cultivating) tickVitalityCultivation(plan.effectiveSec, true);
-      else tickVitalityRecovery(rawSec);
+      else tickVitalityRecovery(Math.max(0, rawSec - (state.demonic ? devSec : 0)));
     }
     const vitGain = getVitality() - vitBefore;
     if (plan.burnYears > 0) state.age = (state.age || 16) + plan.burnYears;
@@ -34145,6 +34252,50 @@
       const arrCap = arrayCapacity(state);
       arraysHeader.innerHTML = `<strong>Arrays</strong> <span style="color:var(--ink-soft);font-weight:normal;font-size:0.75rem">— fixtures built into the house. ${active.length}/${arrCap} active.</span>`;
       gP.appendChild(arraysHeader);
+      tickArrayDev(Date.now());
+      {
+        const dv = arrayDev(), fin = state.base.arrayDevDone;
+        if (dv && ARRAYS[dv.aid]) {
+          const dRow = document.createElement("div");
+          dRow.className = "consumable-row";
+          const pct = Math.min(100, Math.round(100 * dv.doneMs / dv.needMs));
+          const left = formatDuration(Math.max(0, dv.needMs - dv.doneMs) / 1e3);
+          const stateLine = dv.active ? `Channelling — ${arrayDevUpkeepLabel()}.` : dv.stalled ? `Stopped: your Vitality fell to ${Math.round(ARRAY_DEV_VIT_FLOOR * 100)}%. Restore it and channel again.` : `Paused. It only advances while you pay: ${arrayDevUpkeepLabel()}.`;
+          dRow.innerHTML = `<div class="consumable-info">
+          <div class="consumable-name">Limit break: ${ARRAYS[dv.aid].name} <span style="color:var(--ink-soft);font-weight:normal;font-size:0.8rem">· ${pct}% · ${left} of channelling left</span></div>
+          <div style="height:8px;background:rgba(120,120,120,0.18);border-radius:3px;overflow:hidden;margin:0.25rem 0"><div style="height:100%;width:${pct}%;background:var(--gold)"></div></div>
+          <div class="consumable-desc" style="color:${dv.active ? "var(--gold)" : dv.stalled ? "var(--crimson)" : "var(--ink-soft)"}">${stateLine}</div>
+        </div>`;
+          const db = document.createElement("div");
+          db.className = "consumable-buttons";
+          const tg = document.createElement("button");
+          tg.className = "small " + (dv.active ? "ghost" : "gold");
+          tg.textContent = dv.active ? "Stop" : "Channel";
+          tg.onclick = () => {
+            setArrayDevChannelling(!dv.active);
+            render();
+          };
+          const ab = document.createElement("button");
+          ab.className = "ghost small tip";
+          ab.textContent = "Abandon";
+          ab.setAttribute("data-tip", `Returns the ${dv.stones} stones. The time spent is lost.`);
+          ab.onclick = () => {
+            abandonArrayBreak();
+            render();
+          };
+          db.appendChild(tg);
+          db.appendChild(ab);
+          dRow.appendChild(db);
+          gP.appendChild(dRow);
+        } else if (fin && ARRAYS[fin.aid]) {
+          const dRow = document.createElement("div");
+          dRow.className = "consumable-desc";
+          dRow.style.color = "var(--jade)";
+          dRow.textContent = `Limit break complete: ${ARRAYS[fin.aid].name} is now +${fin.level}.`;
+          gP.appendChild(dRow);
+          state.base.arrayDevDone = null;
+        }
+      }
       {
         if (!state.ui) state.ui = {};
         const myTier = state.realm.tierIdx || 0;
@@ -34237,7 +34388,7 @@
         btns.className = "consumable-buttons";
         if (isActive) {
           const lvl = arrayLevel(aid);
-          if (lvl < arrayMaxLevel()) {
+          if (lvl < arrayLevelCap(aid)) {
             const up = document.createElement("button");
             up.className = "small " + (canUpgradeArray(aid) ? "gold" : "ghost");
             up.textContent = `Upgrade${lvl ? " +" + lvl : ""} (${arrayUpgradeCost(aid)} stones)`;
@@ -34250,8 +34401,27 @@
           } else {
             const max = document.createElement("span");
             max.className = "rarity-tag rarity-legendary";
-            max.textContent = `+${lvl} (realm cap)`;
+            const brk = arrayBreaks(aid);
+            max.textContent = `+${lvl} (${brk ? `cap, ${brk} break${brk === 1 ? "" : "s"}` : "realm cap"})`;
             btns.appendChild(max);
+            const dv = arrayDev();
+            if (dv && dv.aid === aid) {
+              const tag = document.createElement("span");
+              tag.className = "rarity-tag rarity-rare";
+              tag.textContent = "developing";
+              btns.appendChild(tag);
+            } else if (brk < ARRAY_BREAK_MAX) {
+              const lb = document.createElement("button");
+              lb.className = "small tip " + (canStartArrayBreak(aid) ? "gold" : "ghost");
+              lb.textContent = `Limit Break (${arrayUpgradeCost(aid)} stones)`;
+              lb.disabled = !canStartArrayBreak(aid);
+              lb.setAttribute("data-tip", dv ? "Another array is already being developed." : `+1 level past the cap. ${ARRAY_DEV_HOURS[brk]}h of development, which only runs while you pay the upkeep: ${arrayDevUpkeepLabel()}.`);
+              lb.onclick = () => {
+                startArrayBreak(aid);
+                render();
+              };
+              btns.appendChild(lb);
+            }
           }
           const dis = document.createElement("button");
           dis.className = "ghost";
