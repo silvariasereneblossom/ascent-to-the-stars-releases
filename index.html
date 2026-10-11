@@ -9205,6 +9205,11 @@
 
   // app/src/data/changelog.js
   var CHANGELOG = [
+    { v: "1.27.199", notes: [
+      "CALAMITY 劫. Every boss has a third form above Heavenscourge, open once you have bested that boss&rsquo;s Heavenscourge: twice its pools and half again its damage. It holds a single charge that takes eight hours to return, and it must be fought by hand &mdash; auto-combat stands down.",
+      "A Calamity pays 20% of the step you are buying, whatever that step is: a layer, or the breakthrough at the end of a realm. A Calamity from a realm you have left pays 20% of one of that realm&rsquo;s layers instead.",
+      "Each one also leaves a point of its element in you, free. If that element is already at your realm&rsquo;s cap, it leaves five of its essence instead."
+    ] },
     { v: "1.27.198", notes: [
       "WEAPON TEMPERING 淬炼. The furnace has a second job. Tempering is separate from refining: each pass takes an hour and adds +1&ndash;3% to one random stat on that weapon &mdash; strike, technique, crit, DOT, posture or spirit damage, max Vitality or qi barrier. Passes cost nothing but time.",
       "Tempering comes in three stages of five passes. Moving to the next stage is a breakthrough, paid in the essence of the weapon&rsquo;s element (10, then 25). A weapon with no element of its own uses your school&rsquo;s.",
@@ -9674,10 +9679,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Max Posture, −0.5% tribulation damage taken per point (to −40%), and +2% seclusion time per point above 10 (to +100%)." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.198';
+  var GAME_VERSION = 'v1.27.199';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "5b3f22b";
+  var BUILD_SHA = "0ddffa3";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -16938,6 +16943,67 @@
       blurb: `Heavenscourge rite — ${base.name} pushed to the threshold of the next realm. Best it for an ascendant set.`
     };
   });
+  var CALAMITY_SUFFIX = "_calamity";
+  var CALAMITY_POOL_MULT = 3.2;
+  var CALAMITY_DMG_MULT = 2.4;
+  var CALAMITY_STEP_SHARE = 0.2;
+  var CALAMITY_RECHARGE_MS = 8 * 60 * 60 * 1e3;
+  var CALAMITY_ESSENCE_AT_CAP = 5;
+  function isCalamityBoss(id) {
+    return String(id || "").endsWith(CALAMITY_SUFFIX);
+  }
+  function bossBaseId(id) {
+    return String(id || "").replace(CALAMITY_SUFFIX, "").replace(HARD_BOSS_SUFFIX, "");
+  }
+  Object.keys(BOSSES).filter((b) => !BOSSES[b].hard).forEach((bid) => {
+    const base = ENEMIES[bid], hard = ENEMIES[bid + HARD_BOSS_SUFFIX];
+    if (!base || !base.isBoss || !hard) return;
+    const cid = bid + CALAMITY_SUFFIX;
+    ENEMIES[cid] = Object.assign({}, hard, {
+      id: cid,
+      name: `${base.name}, Calamity`,
+      hpMax: Math.round(base.hpMax * CALAMITY_POOL_MULT),
+      qiMax: Math.round(base.qiMax * CALAMITY_POOL_MULT),
+      spiritMax: Math.round(base.spiritMax * CALAMITY_POOL_MULT),
+      postureMax: Math.round(base.postureMax * CALAMITY_POOL_MULT),
+      weaponPower: Math.round(base.weaponPower * CALAMITY_DMG_MULT),
+      insightReward: Math.round(base.insightReward * 2.4),
+      isHardBoss: false,
+      isCalamity: true
+    });
+    ENEMY_ARCHETYPES[cid] = base.archetype;
+    BOSSES[cid] = {
+      tier: BOSSES[bid].tier,
+      calamity: true,
+      baseBoss: bid,
+      mech: BOSSES[bid].mech,
+      blurb: `Calamity — ${base.name} as the heavens would have sent it. Fought by hand, for a share of the step you are climbing.`
+    };
+  });
+  function calamityInsight(bossTier) {
+    const t = state.realm && state.realm.tierIdx || 0;
+    let info = null;
+    if (bossTier === t) info = advanceInfo(state);
+    if (!info) {
+      const L = REALMS[bossTier] && REALMS[bossTier].layers || 1;
+      info = advanceInfo({ realm: { tierIdx: bossTier, layer: Math.max(1, L - 1) } });
+    }
+    return Math.max(1, Math.round((info && info.cost || 0) * CALAMITY_STEP_SHARE));
+  }
+  function grantCalamityElement(el) {
+    if (!el || ELEMENTS.indexOf(el) < 0) el = playerPrimaryElement();
+    if (!el) return null;
+    if (elementNextPointCost(el) != null) {
+      const e = elementsState();
+      e[el] = (e[el] || 0) + 1;
+      return { el, point: 1 };
+    }
+    state.base.materials[ATTUNED_MAT[el]] = (state.base.materials[ATTUNED_MAT[el]] || 0) + CALAMITY_ESSENCE_AT_CAP;
+    return { el, essence: CALAMITY_ESSENCE_AT_CAP };
+  }
+  function calamityUnlocked(bid) {
+    return bossKillCount(bid + HARD_BOSS_SUFFIX) >= 1;
+  }
   var BOSS_DIFFICULTY_MULT = 2.25;
   var BOSS_RAMP_MAX = 2;
   var BOSS_RAMP_PER_KILL = 0.1;
@@ -16964,35 +17030,42 @@
   function settleBossCharges(bossId) {
     if (!state.bossCharges) state.bossCharges = {};
     let rec = state.bossCharges[bossId];
+    const max = bossChargeMax(bossId);
     if (!rec) {
-      rec = { c: BOSS_CHARGE_MAX, t: Date.now() };
+      rec = { c: max, t: Date.now() };
       state.bossCharges[bossId] = rec;
       return rec;
     }
     const mult = bossCdMult();
     let guard = 0;
-    while (rec.c < BOSS_CHARGE_MAX && guard++ < 100) {
-      const need = BOSS_CHARGE_INTERVALS_MS[rec.c] * mult;
+    while (rec.c < max && guard++ < 100) {
+      const need = bossChargeIntervalMs(bossId, rec.c) * mult;
       if (Date.now() - rec.t >= need) {
         rec.c++;
         rec.t += need;
       } else break;
     }
-    if (rec.c >= BOSS_CHARGE_MAX) rec.t = Date.now();
+    if (rec.c >= max) rec.t = Date.now();
     return rec;
+  }
+  function bossChargeMax(bossId) {
+    return isCalamityBoss(bossId) ? 1 : BOSS_CHARGE_MAX;
+  }
+  function bossChargeIntervalMs(bossId, c) {
+    return isCalamityBoss(bossId) ? CALAMITY_RECHARGE_MS : BOSS_CHARGE_INTERVALS_MS[c];
   }
   function bossChargeCount(bossId) {
     return settleBossCharges(bossId).c;
   }
   function bossNextChargeMs(bossId) {
     const rec = settleBossCharges(bossId);
-    if (rec.c >= BOSS_CHARGE_MAX) return 0;
-    return Math.max(0, BOSS_CHARGE_INTERVALS_MS[rec.c] * bossCdMult() - (Date.now() - rec.t));
+    if (rec.c >= bossChargeMax(bossId)) return 0;
+    return Math.max(0, bossChargeIntervalMs(bossId, rec.c) * bossCdMult() - (Date.now() - rec.t));
   }
   function consumeBossCharge(bossId) {
     const rec = settleBossCharges(bossId);
     if (rec.c <= 0) return;
-    const wasFull = rec.c >= BOSS_CHARGE_MAX;
+    const wasFull = rec.c >= bossChargeMax(bossId);
     rec.c--;
     if (wasFull) rec.t = Date.now();
   }
@@ -17015,11 +17088,14 @@
     if (!meta || !ENEMIES[bossId]) return;
     if ((state.realm.tierIdx || 0) < meta.tier) return;
     if (bossChargeCount(bossId) < 1) return;
-    const baseBoss = bossId.replace(HARD_BOSS_SUFFIX, "");
+    if (isCalamityBoss(bossId) && !calamityUnlocked(bossBaseId(bossId))) return;
+    if (isCalamityBoss(bossId)) setAutoCombat(false);
+    const baseBoss = bossBaseId(bossId);
     const adds = meta.tier >= 4 && BOSS_ADDS[baseBoss] ? BOSS_ADDS[baseBoss].filter((a) => ENEMIES[a]) : [];
     initCombat([bossId].concat(adds), 1);
     if (combat) {
       combat.bossFight = true;
+      if (isCalamityBoss(bossId)) combat.calamity = true;
       const rampKills = state.bossRampKills && state.bossRampKills[bossId] || 0;
       let ramp;
       if (bossId !== baseBoss) {
@@ -25932,7 +26008,7 @@
   var updateApplying = false;
   function runningShaKnown() {
     const s = typeof window !== "undefined" && window.BUILD_SHA;
-    return !!s && s !== "5b3f22b" && s !== "dev" && s !== "live";
+    return !!s && s !== "0ddffa3" && s !== "dev" && s !== "live";
   }
   function verTuple(v) {
     return String(v || "").replace(/^v/, "").split(".").map((n) => parseInt(n, 10) || 0);
@@ -29007,6 +29083,7 @@
       return;
     }
     if (combat.tribulation && combat.tribulation.kind === "survival") return;
+    if (combat.calamity) return;
     tickAutoCombatReset();
     if (state.autoCombat.dailyMinutes >= AUTO_DAILY_CAP_MIN) {
       setAutoCombat(false);
@@ -30492,6 +30569,13 @@
       const bossInsight = Math.max(50, Math.round(realmTotalInsight(bossTierIns) * (0.02 + Math.random() * 0.01)));
       addInsight(bossInsight);
       pushLog("reward", `The fall of something this old teaches: +${bossInsight.toLocaleString()} insight.`);
+      if (enemyData.isCalamity) {
+        const ci = calamityInsight(bossTierIns);
+        addInsight(ci);
+        pushLog("reward", `You outlast a calamity: +${ci.toLocaleString()} insight — ${Math.round(CALAMITY_STEP_SHARE * 100)}% of ${bossTierIns === (state.realm.tierIdx || 0) ? "the step before you" : `a ${REALMS[bossTierIns].name} layer`}.`);
+        const ge = grantCalamityElement(enemyData.element);
+        if (ge) pushLog("reward", ge.point ? `Its ${ELEMENT_NAME[ge.el]} nature settles in you: +1 ${ELEMENT_NAME[ge.el]} point.` : `Its ${ELEMENT_NAME[ge.el]} nature has nowhere left to settle: +${ge.essence} ${MATERIALS[ATTUNED_MAT[ge.el]].name}.`);
+      }
       if (!state.foundBooks) state.foundBooks = [];
       const bossBooks = [];
       const _hardBk = String(e.id).indexOf(HARD_BOSS_SUFFIX) >= 0;
@@ -35432,9 +35516,9 @@
     bossP.className = "panel";
     bossP.innerHTML = `<h3>Bosses <span style="font-weight:normal;color:var(--ink-soft);font-size:0.85rem">魁首</span></h3>
     <p style="font-size:0.85rem;color:var(--ink-soft);margin:0 0 0.6rem">Named terrors of each realm. They hit harder than anything else at their tier, and <strong style="color:var(--crimson)">losing to a boss costs DOUBLE lifespan</strong>. First kill grants a bonus material cache; they can be re-fought for their drops.</p>`;
-    bossP.appendChild(realmTabChips("bossesRealm", (t) => Object.values(BOSSES).filter((b) => b.tier === t && !b.hard).length));
+    bossP.appendChild(realmTabChips("bossesRealm", (t) => Object.values(BOSSES).filter((b) => b.tier === t && !b.hard && !b.calamity).length));
     const bRealm = selectedRealmTab("bossesRealm");
-    Object.entries(BOSSES).filter(([, b]) => !b.hard && realmTabShows("bossesRealm", b.tier)).forEach(([bid, meta]) => {
+    Object.entries(BOSSES).filter(([, b]) => !b.hard && !b.calamity && realmTabShows("bossesRealm", b.tier)).forEach(([bid, meta]) => {
       const en = ENEMIES[bid];
       if (!en) return;
       const kills2 = bossKillCount(bid);
@@ -35482,6 +35566,29 @@
           hb.onclick = () => startBossFight(hid);
         }
         card.querySelector(".location-actions").appendChild(hb);
+        {
+          const cid = bid + CALAMITY_SUFFIX;
+          if (ENEMIES[cid]) {
+            const cbtn = document.createElement("button");
+            const open = calamityUnlocked(bid), cCharges = open ? bossChargeCount(cid) : 0, cKills = bossKillCount(cid);
+            cbtn.className = "small tip " + (open && cCharges >= 1 ? "gold" : "ghost");
+            cbtn.style.cssText = "margin-top:0.25rem;border-color:#c79cf0";
+            const pay = calamityInsight(meta.tier);
+            const el = ENEMIES[cid].element;
+            cbtn.setAttribute("data-tip", `Pools ×${(CALAMITY_POOL_MULT / HARD_BOSS_MULT).toFixed(1)} and damage ×${(CALAMITY_DMG_MULT / HARD_BOSS_MULT).toFixed(1)} of Heavenscourge. By hand only. One charge, ${Math.round(CALAMITY_RECHARGE_MS / 36e5)}h to return. Pays ${pay.toLocaleString()} insight (${Math.round(CALAMITY_STEP_SHARE * 100)}% of ${meta.tier === (state.realm.tierIdx || 0) ? "your current step" : `a ${REALMS[meta.tier].name} layer`}) and +1 ${ELEMENT_NAME[el] || ELEMENT_NAME[playerPrimaryElement()] || "element"} point.`);
+            if (!open) {
+              cbtn.textContent = "Calamity — best the Heavenscourge first";
+              cbtn.disabled = true;
+            } else if (cCharges < 1) {
+              cbtn.textContent = `Calamity — returns in ${formatDuration(bossNextChargeMs(cid) / 1e3)}`;
+              cbtn.disabled = true;
+            } else {
+              cbtn.textContent = `Calamity${cKills > 0 ? ` · outlasted ×${cKills}` : ""}`;
+              cbtn.onclick = () => startBossFight(cid);
+            }
+            card.querySelector(".location-actions").appendChild(cbtn);
+          }
+        }
       } else {
         card.querySelector(".location-actions").innerHTML = `<span style="font-size:0.78rem;color:var(--crimson)">Requires ${REALMS[meta.tier].name}.</span>`;
       }
