@@ -9205,6 +9205,9 @@
 
   // app/src/data/changelog.js
   var CHANGELOG = [
+    { v: "1.27.208", notes: [
+      "THE GATES TO NASCENT SOUL AND SPIRIT SEVERING ARE WALLS NOW. Breaking out of Core Formation has always cost far more than everything else in that realm put together &mdash; about five and a half times the other eight steps. The two gates after it cost only about half of their realm&rsquo;s other steps. They now match Core Formation&rsquo;s: breaking into Nascent Soul costs about 4.28 billion insight (was 438 million), and into Spirit Severing about 21.4 billion (was 2.19 billion). Insight you have already banked toward a gate is kept. Rewards that pay a share of the step you are buying &mdash; a Blood Hunt charge, a Calamity, an immortal&rsquo;s inheritance &mdash; grow with the gate."
+    ] },
     { v: "1.27.207", notes: [
       "AMBUSHES NO LONGER PAY A THIRD OF A STEP FOR FREE. Every inquisitor or rival demon you put down used to pay at least 5% of your whole realm&rsquo;s insight, whatever your build &mdash; and from Golden Core up that guaranteed minimum was the entire payout, thousands of ordinary kills&rsquo; worth from one fight. The minimum is now 1.5% of the realm. Nothing else about an ambush changed: a build strong enough to out-earn the minimum still takes ten ordinary kills&rsquo; worth, as before.",
       "The Blood Hunt&rsquo;s price for a lost ambush was always &ldquo;what the win would have paid at the least&rdquo;, so it falls with it: 1.5% of the realm&rsquo;s insight, down from 5%. The lifespan cost is unchanged."
@@ -9713,10 +9716,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Max Posture, −0.5% tribulation damage taken per point (to −40%), and +2% seclusion time per point above 10 (to +100%)." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.207';
+  var GAME_VERSION = 'v1.27.208';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "b021ee8";
+  var BUILD_SHA = "bd8cc6c";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -26117,7 +26120,7 @@
   var updateApplying = false;
   function runningShaKnown() {
     const s = typeof window !== "undefined" && window.BUILD_SHA;
-    return !!s && s !== "b021ee8" && s !== "dev" && s !== "live";
+    return !!s && s !== "bd8cc6c" && s !== "dev" && s !== "live";
   }
   function verTuple(v) {
     return String(v || "").replace(/^v/, "").split(".").map((n) => parseInt(n, 10) || 0);
@@ -27116,16 +27119,24 @@
       return { kind: "within", cost, label: `${tier.name} Layer ${nextLayer}` };
     }
     const next = REALMS[char.realm.tierIdx + 1];
-    if (next) {
-      const icm = Math.max(1.5, 4 - 2.5 / 6 * (char.realm.tierIdx || 0));
-      const lastLayer = Math.max(1, tier.layers - 1);
-      const linearLast = tier.insightPerLayer + lastLayer * (tier.insightPerLayerStep || 0);
-      const compounding = tier.layers >= 9 ? 1.2 : tier.layers >= 5 ? 1.3 : 1.4;
-      const lastLayerCost = linearLast * Math.pow(compounding, lastLayer - 1) * icm;
-      const cost = Math.max(Math.round(lastLayerCost * 2), Math.round(next.insightPerLayer * icm));
-      return { kind: "breakthrough", cost, label: `Break into ${next.name}` };
-    }
+    if (next) return { kind: "breakthrough", cost: realmGateCost(char.realm.tierIdx || 0), label: `Break into ${next.name}` };
     return null;
+  }
+  function realmLastStepCost(tierIdx) {
+    const tier = REALMS[tierIdx], icm = Math.max(1.5, 4 - 2.5 / 6 * tierIdx);
+    const lastLayer = Math.max(1, tier.layers - 1);
+    const linearLast = tier.insightPerLayer + lastLayer * (tier.insightPerLayerStep || 0);
+    const compounding = tier.layers >= 9 ? 1.2 : tier.layers >= 5 ? 1.3 : 1.4;
+    return linearLast * Math.pow(compounding, lastLayer - 1) * icm;
+  }
+  function realmGateRule(tierIdx) {
+    const next = REALMS[tierIdx + 1], icm = Math.max(1.5, 4 - 2.5 / 6 * tierIdx);
+    return Math.max(Math.round(realmLastStepCost(tierIdx) * 2), Math.round(next.insightPerLayer * icm));
+  }
+  var GATE_WALL_TIER = 3;
+  function realmGateCost(tierIdx) {
+    if (tierIdx <= GATE_WALL_TIER) return realmGateRule(tierIdx);
+    return Math.round(realmLastStepCost(tierIdx) * realmGateRule(GATE_WALL_TIER) / realmLastStepCost(GATE_WALL_TIER));
   }
   function realmLabel(char) {
     const tier = REALMS[char.realm.tierIdx];
