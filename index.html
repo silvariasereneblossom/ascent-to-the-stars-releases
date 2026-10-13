@@ -9205,6 +9205,10 @@
 
   // app/src/data/changelog.js
   var CHANGELOG = [
+    { v: "1.27.207", notes: [
+      "AMBUSHES NO LONGER PAY A THIRD OF A STEP FOR FREE. Every inquisitor or rival demon you put down used to pay at least 5% of your whole realm&rsquo;s insight, whatever your build &mdash; and from Golden Core up that guaranteed minimum was the entire payout, thousands of ordinary kills&rsquo; worth from one fight. The minimum is now 1.5% of the realm. Nothing else about an ambush changed: a build strong enough to out-earn the minimum still takes ten ordinary kills&rsquo; worth, as before.",
+      "The Blood Hunt&rsquo;s price for a lost ambush was always &ldquo;what the win would have paid at the least&rdquo;, so it falls with it: 1.5% of the realm&rsquo;s insight, down from 5%. The lifespan cost is unchanged."
+    ] },
     { v: "1.27.206", notes: [
       "ALL THE MUSIC PLAYS AT ONE LEVEL NOW. The tracks were as much as thirteen decibels apart, so the volume lurched whenever one ended &mdash; Wuxia, for one, was far louder than everything around it. Each track is now brought to the same loudness. Loud ones come down exactly. The quietest old recordings come up as far as your music volume leaves room for: fully at the default setting or below, less if you have the slider at maximum.",
       "TWO MORE BATTLE THEMES &mdash; Crane Over the Spears, led by a flute, and Three Cuts, in three beats to the bar.",
@@ -9709,10 +9713,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Max Posture, −0.5% tribulation damage taken per point (to −40%), and +2% seclusion time per point above 10 (to +100%)." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.206';
+  var GAME_VERSION = 'v1.27.207';
   var SNAPSHOT_RELAY_URL = "https://147-182-130-97.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "cbbba02";
+  var BUILD_SHA = "b021ee8";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -26113,7 +26117,7 @@
   var updateApplying = false;
   function runningShaKnown() {
     const s = typeof window !== "undefined" && window.BUILD_SHA;
-    return !!s && s !== "cbbba02" && s !== "dev" && s !== "live";
+    return !!s && s !== "b021ee8" && s !== "dev" && s !== "live";
   }
   function verTuple(v) {
     return String(v || "").replace(/^v/, "").split(".").map((n) => parseInt(n, 10) || 0);
@@ -29555,7 +29559,7 @@
     saveChar();
   }
   function huntAmbushStake() {
-    return AMBUSH_BASELINE_MULT * killInsightBaseline(false);
+    return AMBUSH_FLOOR_MULT * killInsightBaseline(false);
   }
   function huntAmbushLifespanCost() {
     return HUNT_AMBUSH_LIFESPAN_PCT * lifespanMax();
@@ -30674,6 +30678,7 @@
     return isDemonHeart(char) ? DEMON_HEART_KILL_FLOOR : DEMONIC_KILL_FLOOR;
   }
   var AMBUSH_BASELINE_MULT = 10;
+  var AMBUSH_FLOOR_MULT = 3;
   function killInsightBaseline(isBoss) {
     return Math.round(realmTotalInsight(state && state.realm && state.realm.tierIdx || 0) * (isBoss ? 0.015 : 5e-3));
   }
@@ -30839,7 +30844,7 @@
     const _insightBaseline = killInsightBaseline(!!enemyData.isBoss);
     const _isAmbush = /^(righteous_hunter_t|demonic_rival_t)/.test(String(e.id || ""));
     const _ambBaseline = AMBUSH_BASELINE_MULT * _insightBaseline;
-    const _capped = _isAmbush ? Math.max(_ambBaseline, softCapInsight(rawInsight, _ambBaseline)) : softCapInsight(rawInsight, _insightBaseline);
+    const _capped = _isAmbush ? Math.max(AMBUSH_FLOOR_MULT * _insightBaseline, softCapInsight(rawInsight, _ambBaseline)) : softCapInsight(rawInsight, _insightBaseline);
     const _floored = Math.max(_capped, Math.round(_insightBaseline * demonicKillFloorShare(state)));
     const insight = huntPayInsight(Math.round(_floored * sectCombatInsightMult() * huntInsightMult()));
     addInsight(insight);
