@@ -9205,6 +9205,10 @@
 
   // app/src/data/changelog.js
   var CHANGELOG = [
+    { v: "1.27.210", notes: [
+      "AN AMBUSH CAN NO LONGER PAY MOST OF A LAYER. What an inquisitor or rival demon pays is now also measured against the step you are buying. Up to a tenth of that step it is paid in full. Between a tenth and a fifth, you get 60% of the extra. Past a fifth, very little more: an ambush worth half a step pays about 17%, and even the largest possible ambush only about 21%. At Golden Core layer 1, an 11.4 million ambush now pays 3.6 million. Later in a realm the steps are bigger, so the same ambush is trimmed less or not at all.",
+      "Ordinary kills are unchanged. A lost Blood Hunt ambush still costs exactly what the smallest win would pay, which this change lowers slightly at the first layer of a realm."
+    ] },
     { v: "1.27.209", notes: [
       "UPLOAD SNAPSHOT AND UPLOAD FIGHT LOGS WORK AGAIN. The server they send to was shut down a month ago, so every upload since has failed. They now go to a new one. Copy and download were never affected."
     ] },
@@ -9719,10 +9723,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Max Posture, −0.5% tribulation damage taken per point (to −40%), and +2% seclusion time per point above 10 (to +100%)." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.209';
+  var GAME_VERSION = 'v1.27.210';
   var SNAPSHOT_RELAY_URL = "https://172-234-134-140.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "95922b2";
+  var BUILD_SHA = "35a68de";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -26123,7 +26127,7 @@
   var updateApplying = false;
   function runningShaKnown() {
     const s = typeof window !== "undefined" && window.BUILD_SHA;
-    return !!s && s !== "95922b2" && s !== "dev" && s !== "live";
+    return !!s && s !== "35a68de" && s !== "dev" && s !== "live";
   }
   function verTuple(v) {
     return String(v || "").replace(/^v/, "").split(".").map((n) => parseInt(n, 10) || 0);
@@ -29573,7 +29577,7 @@
     saveChar();
   }
   function huntAmbushStake() {
-    return AMBUSH_FLOOR_MULT * killInsightBaseline(false);
+    return ambushStepCurve(AMBUSH_FLOOR_MULT * killInsightBaseline(false));
   }
   function huntAmbushLifespanCost() {
     return HUNT_AMBUSH_LIFESPAN_PCT * lifespanMax();
@@ -30708,6 +30712,17 @@
     if (over > 0) result += baseline * SOFTCAP_TAIL_K * Math.log(1 + over / baseline);
     return Math.round(Math.min(result, baseline * SOFTCAP_MAX_MULT));
   }
+  var AMBUSH_STEP_SOFT = 0.1;
+  var AMBUSH_STEP_HARD = 0.2;
+  var AMBUSH_STEP_MILD_RATE = 0.6;
+  var AMBUSH_STEP_TAIL_K = 0.05;
+  function ambushStepCurve(amount) {
+    const step = huntLayerCost(state);
+    if (!(step > 0) || amount <= AMBUSH_STEP_SOFT * step) return Math.round(amount);
+    const soft = AMBUSH_STEP_SOFT * step, hard = AMBUSH_STEP_HARD * step;
+    if (amount <= hard) return Math.round(soft + AMBUSH_STEP_MILD_RATE * (amount - soft));
+    return Math.round(soft + AMBUSH_STEP_MILD_RATE * (hard - soft) + AMBUSH_STEP_TAIL_K * step * Math.log(1 + (amount - hard) / step));
+  }
   function rollBossGenWeapon(rarity, tier) {
     const pool = Object.keys(WEAPONS).filter((id) => {
       const m = id.match(/^genr?_[a-z]+_(\d+)_/);
@@ -30860,7 +30875,8 @@
     const _ambBaseline = AMBUSH_BASELINE_MULT * _insightBaseline;
     const _capped = _isAmbush ? Math.max(AMBUSH_FLOOR_MULT * _insightBaseline, softCapInsight(rawInsight, _ambBaseline)) : softCapInsight(rawInsight, _insightBaseline);
     const _floored = Math.max(_capped, Math.round(_insightBaseline * demonicKillFloorShare(state)));
-    const insight = huntPayInsight(Math.round(_floored * sectCombatInsightMult() * huntInsightMult()));
+    const _paid = Math.round(_floored * sectCombatInsightMult() * huntInsightMult());
+    const insight = huntPayInsight(_isAmbush ? ambushStepCurve(_paid) : _paid);
     addInsight(insight);
     if (!(combat && combat.hunt)) noteActivity(enemyData.isBoss ? "bosses" : "kills");
     {
