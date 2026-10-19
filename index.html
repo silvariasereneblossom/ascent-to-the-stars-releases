@@ -9170,6 +9170,13 @@
 
   // app/src/data/changelog.js
   var CHANGELOG = [
+    { v: "1.27.214", notes: [
+      "GOLDEN CORE BOSSES FIGHT BACK. Every named boss from Golden Core up now has a signature move that hits for a share of your maximum Vitality, straight past your qi shield (your damage reduction still counts), and leaves you Wounded: half healing for 2 turns. Its finisher hits for a larger share and carries a status of its own: the Matriarch&rsquo;s bleeds run deep, the Mirage Emperor and the War-Court Lord silence your techniques, the Moon-Eater drinks your qi, the Executioner admits no reply, and first light burns. Heavenscourge forms hit harder still, and Calamity hardest. Boss damage is up 20%, more for the two Golden Core bosses.",
+      "A BOSS CAN NO LONGER BE BURNED DOWN PAST ITS GUARD. From Golden Core up, damage over time now counts toward the most a boss can lose in one round, the same as your blows. Fast builds face a proper fight; slow ones are not affected.",
+      "STACKING DAMAGE OVER TIME IS FLAT NOW. Hellfire used to burn a share of a foe&rsquo;s missing Vitality per stack, so it grew as the foe weakened and was far stronger against a boss&rsquo;s huge pool than against anything else. Each stack now burns a set amount that grows with your realm, and still with your Golden Core quality, a broken foe and your damage-over-time bonuses. The same goes for a soul-broken foe&rsquo;s damage over time and for Sovereign Parasite. Tribulations keep the old rule.",
+      "CRIT HAS A CURVE. Up to 50% crit chance counts in full. Above that each point is worth less, and 100% takes 150% from your gear and skills. Your stat chips show the chance you really have, with the raw total in the tooltip.",
+      "Tuned against real Golden Core builds: a strong Golden Core 1 cultivator should now win most normal boss fights with a good share of Vitality gone, about a third of Heavenscourge fights, and a Calamity only rarely."
+    ] },
     { v: "1.27.213", notes: [
       "FROM GOLDEN CORE ON, EVERYTHING COSTS TEN TIMES THE INSIGHT. Layers, the breakthroughs into Nascent Soul and Spirit Severing, skills, manuals, Endless Path ranks, element levels 2 and 3, and Five Color are all ten times their old price. Nascent Soul and Spirit Severing keep the same proportion to Golden Core as before. The breakthrough into Golden Core is unchanged.",
       "What you earn has not changed. A kill pays exactly what it did, so it is now a tenth as large a share of a layer: at Golden Core layer 2, one ordinary kill is about a quarter of a percent of the step. Rewards that pay a share of the step you are buying (a Blood Hunt charge, a Calamity, an inheritance, the harder bosses) grow with it. Cultivation speed is unchanged too, so idle progress at Golden Core and above is a tenth as fast.",
@@ -9701,10 +9708,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Max Posture, −0.5% tribulation damage taken per point (to −40%), and +2% seclusion time per point above 10 (to +100%)." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.213';
+  var GAME_VERSION = 'v1.27.214';
   var SNAPSHOT_RELAY_URL = "https://172-234-134-140.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "3d9f40e";
+  var BUILD_SHA = "3b0e65c";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -10567,7 +10574,7 @@
       weapon: "demon_claws",
       // v1.6: unarmed demon-claw moveset
       techniques: ["demon_reap", "demon_devour", "demon_seal", "demon_ascendant", "demon_parasite"],
-      specialty: "You walk the demonic path so far that you BECOME a demon. No cultivation at all (insight comes only from battle and the rift-gate) and no lifespan to spend, but 1.5x the demonic bonuses, a Hungry-Dao lifesteal on every hit (25%, rising to 30% at Golden Core), and hellfire that burns a share of MISSING health per stack (0.5-0.75% by Golden Core quality, x1.5 the plain-demonic rate, more on a broken foe). At FULL hellfire every hit also rends a share of its damage straight into the foe's spirit (15%, 20% at Golden Core). Soul-break them for +30% damage taken. The price: tribulations that hit 25% softer but mend themselves and drag on, sect hunters always a realm above you (rarely two), and a mounting hunt that ends you if their defeats stack to the realm cap. Purge the hunt at your sect, at the cost of falling to the bottom of your realm.",
+      specialty: "You walk the demonic path so far that you BECOME a demon. No cultivation at all (insight comes only from battle and the rift-gate) and no lifespan to spend, but 1.5x the demonic bonuses, a Hungry-Dao lifesteal on every hit (25%, rising to 30% at Golden Core), and hellfire whose every stack burns a set amount each turn, growing with your realm and your Golden Core quality (x1.5 the plain-demonic rate, more on a broken foe). At FULL hellfire every hit also rends a share of its damage straight into the foe's spirit (15%, 20% at Golden Core). Soul-break them for +30% damage taken. The price: tribulations that hit 25% softer but mend themselves and drag on, sect hunters always a realm above you (rarely two), and a mounting hunt that ends you if their defeats stack to the realm cap. Purge the hunt at your sect, at the cost of falling to the bottom of your realm.",
       bestStats: ["spirit", "will"],
       flavor: "High on a black stone plateau where no birds fly. The palace has no doors. Students arrive by conviction.",
       isDemon: true
@@ -13599,7 +13606,7 @@
     dragonforge: {
       passiveName: "Moltenwake",
       passiveZh: "熔迹",
-      passiveDesc: "EVERY hit, strikes included, Sunders: +6% damage taken AND +10% posture damage taken per stack (max 5), and a Sundered foe&rsquo;s flat damage reduction is ignored. Moltenwake also bites +45% harder into a foe's qi barrier. EVERY TECHNIQUE brands 3 stacks of forge-fire (burns a share of the target's MISSING Vitality each turn) and pierces 5% of the qi barrier. THE PRICE: the forge must be fed. On any turn you do NOT use a technique, you burn 15% of your own Vitality, and every technique cools down 1-2 turns slower than another school's.",
+      passiveDesc: "EVERY hit, strikes included, Sunders: +6% damage taken AND +10% posture damage taken per stack (max 5), and a Sundered foe&rsquo;s flat damage reduction is ignored. Moltenwake also bites +45% harder into a foe's qi barrier. EVERY TECHNIQUE brands 3 stacks of forge-fire (each stack burns a set amount each turn, growing with your realm) and pierces 5% of the qi barrier. THE PRICE: the forge must be fed. On any turn you do NOT use a technique, you burn 15% of your own Vitality, and every technique cools down 1-2 turns slower than another school's.",
       onTechHit: { kind: "sunder", value: 0.06, turns: 3 },
       strikeAppliesOnHit: true,
       // v0.68: basic strikes sunder too (operator)
@@ -14093,7 +14100,8 @@
     oathbound: { label: "oath-bound", tip: (ef) => `Oath-bound: takes ${ef.value} backlash damage whenever it uses a technique. ${ef.turns} turn(s) left.` },
     infest: { label: "infested", tip: (ef) => `Infested: gains a Hellfire stack at the start of each of its turns. ${ef.turns} turn(s) left.` },
     blind: { label: "blinded", tip: (ef) => `Blinded: ${Math.round(ef.value * 100)}% chance to miss entirely each time it attacks. ${ef.turns} turn(s) left.` },
-    hellfire: { label: "hellfire", tip: (ef) => `Demonic hellfire x${ef.stacks || 1}: burns ~0.5-0.75% of MISSING health PER STACK each turn (scales with Golden Core quality, rises when the foe is posture/soul-broken, ignores qi shield). ${ef.turns} turn(s) left.` }
+    hellfire: { label: "hellfire", tip: (ef) => `Demonic hellfire x${ef.stacks || 1}: ${ef.lastBurn ? `burned ${ef.lastBurn.toLocaleString()} Vitality last turn` : `burns about ${Math.round(hellfirePerStack(null) * (ef.stacks || 1)).toLocaleString()} Vitality a turn`}, ignoring the qi shield. More on a posture- or soul-broken foe. ${ef.turns} turn(s) left.` },
+    wound: { label: "wounded", tip: (ef) => `Wounded: healing received -${Math.round(ef.value * 100)}%. ${ef.turns} turn(s) left.` }
   };
   var STATUS_STACK_CAP = { burn: 5, poison: 8, sunder: 5, bleed: 3, hellfire: 10, black_ice: 5 };
   function playerStackCap(kind) {
@@ -16187,7 +16195,15 @@
     return (combat.turn || 1) - (combat._bellTollFrom || 1) + 1;
   }
   var ENEMY_BARRIER_PIERCE = [0, 0, 0, 0, 0.06, 0.12, 0.2];
+  function woundHealMult() {
+    if (typeof combat === "undefined" || !combat || !combat.player) return 1;
+    const w = (combat.player.effects || []).find((ef) => ef.kind === "wound");
+    return w ? Math.max(0, 1 - (w.value || 0)) : 1;
+  }
   function tribHealMult() {
+    return tribOnlyHealMult() * woundHealMult();
+  }
+  function tribOnlyHealMult() {
     if (typeof combat === "undefined" || !combat || !combat.tribulation) return 1;
     if (!state || !state.demonic || typeof pendingTribulation === "undefined" || !pendingTribulation || !pendingTribulation.targetTier) return 1;
     const m = DEMON_TRIB_HEAL_MULT[pendingTribulation.targetTier];
@@ -16770,6 +16786,39 @@
       logHit: (a, t) => `${a} steps aside, and for one instant the gate of heaven answers in its own voice. ${t} hears the first word and the last.`
     }]
   };
+  var BOSS_PRESSURE_FROM_TIER = 4;
+  var BOSS_WOUND = { value: 0.5, turns: 2 };
+  var BOSS_PRESSURE_FORM_MULT = { "": 1, _hard: 1.2, _calamity: 1.4 };
+  var BOSS_PRESSURE = {
+    vein_matriarch: { dmg: 1.1, sigVit: 0.08, finVit: 0.18, sig: { effectPctHp: 0.025 }, fin: { effectPctHp: 0.04 } },
+    // the bleeds go deep
+    mirage_emperor: { dmg: 1.25, sigVit: 0.1, finVit: 0.2, fin: { also: [{ kind: "silence", value: 0, turns: 2 }] } },
+    // the city takes your techniques
+    war_court_lord: { sigVit: 0.09, finVit: 0.2, fin: { also: [{ kind: "silence", value: 0, turns: 2 }] } },
+    // the verdict strikes your tongue
+    moon_eater: { sigVit: 0.09, finVit: 0.2, fin: { effectValue: 60 } },
+    // the tide drinks your qi hard
+    heavenly_executioner: { sigVit: 0.06, finVit: 0.16, fin: { also: [{ kind: "silence", value: 0, turns: 1 }] } },
+    // the sentence admits no reply
+    dawn_sovereign: { sigVit: 0.06, finVit: 0.15, fin: { effectPctHp: 0.06 } }
+    // first light burns
+  };
+  Object.entries(BOSS_PRESSURE).forEach(([bid, bp]) => {
+    const sig = BOSS_SIGNATURE_TECHS[bid], fin = BOSS_FINISHER_TECHS[bid];
+    if (sig) Object.assign(sig[1], bp.sig || {}, { maxVitPct: bp.sigVit, wound: BOSS_WOUND });
+    if (fin) Object.assign(fin[1], bp.fin || {}, { maxVitPct: bp.finVit });
+  });
+  function bossPressureFormMult(e) {
+    const m = String(e && e.id || "").match(/(_hard|_calamity)$/);
+    return BOSS_PRESSURE_FORM_MULT[m ? m[1] : ""] || 1;
+  }
+  var BOSS_PRESSURE_DMG_MULT = 1.2;
+  var BOSS_PRESSURE_HP_MULT = { 4: 1, 5: 1, 6: 1 };
+  var BOSS_PRESSURE_FORM_HP = { "": 1, _hard: 1.1, _calamity: 0.7 };
+  function bossPressureTier(enemyId) {
+    const b = BOSSES[enemyId];
+    return b && b.tier >= BOSS_PRESSURE_FROM_TIER ? b.tier : 0;
+  }
   Object.keys(BOSS_FINISHER_TECHS).forEach((bid) => {
     const E = ENEMIES[bid];
     if (!E) return;
@@ -24153,7 +24202,7 @@
       chip("Qi", computeMaxQi(state).toLocaleString(), "Max qi, your technique fuel and barrier.")
     ];
     if (mods.flatDR) chips.push(chip("DR", Math.round(mods.flatDR), "Flat damage reduction on every hit taken."));
-    if (mods.critChance) chips.push(chip("Crit", pct(mods.critChance), "Critical-hit chance."));
+    if (mods.critChance) chips.push(chip("Crit", pct(critCurve(mods.critChance)), `Critical-hit chance (${pct(mods.critChance)} before the crit curve: full to 50%, then harder to raise, 100% at 150%).`));
     if (mods.dodgeChance) chips.push(chip("Dodge", pct(mods.dodgeChance), "Chance to avoid a hit entirely."));
     if (mods.lifestealPct) chips.push(chip("Lifesteal", pct(mods.lifestealPct), "Vitality restored as a share of damage dealt."));
     p.innerHTML = `<div class="dock-title">Loadout Summary <span style="font-weight:normal;color:var(--ink-soft);font-size:0.75rem">总览</span></div>
@@ -26107,7 +26156,7 @@
   var updateApplying = false;
   function runningShaKnown() {
     const s = typeof window !== "undefined" && window.BUILD_SHA;
-    return !!s && s !== "3d9f40e" && s !== "dev" && s !== "live";
+    return !!s && s !== "3b0e65c" && s !== "dev" && s !== "live";
   }
   function verTuple(v) {
     return String(v || "").replace(/^v/, "").split(".").map((n) => parseInt(n, 10) || 0);
@@ -27302,6 +27351,26 @@
   function goldenCoreLevel() {
     return state && state.goldenCoreQuality || 0;
   }
+  var DOT_STACK_BASE = [5, 20, 100, 210, 520, 1400, 3100];
+  var SOULBREAK_DOT_STACK_MULT = 4;
+  var PARASITE_STACK_MULT = 2;
+  function dotStacksArePoolShare() {
+    return !!(typeof combat !== "undefined" && combat && combat.tribulation);
+  }
+  function dotStackBase() {
+    const t = state && state.realm && state.realm.tierIdx || 0;
+    return DOT_STACK_BASE[Math.max(0, Math.min(DOT_STACK_BASE.length - 1, t))];
+  }
+  function hellfirePerStack(c) {
+    const base = c && dotStacksArePoolShare() ? Math.max(0, (c.hpMax || 0) - c.hp) * hellfireBaseMag() : dotStackBase() * (hellfireBaseMag() / 5e-3);
+    const _blood = heritageIs("Demonic Bloodline");
+    const _dhStrength = isDemonHeart(state) || _blood && state.demonic;
+    const _nativeBrand = !!schoolKit().techHellfireStacks;
+    const _potency = _dhStrength ? 1.5 : _blood && !_nativeBrand ? 0.75 : 1;
+    const _pBroken = !!c && (c.broken || 0) > 0, _sBroken = !!c && ((c.spiritMax || 0) > 0 && c.spirit <= 0);
+    const _breakMult = _pBroken && _sBroken ? 2 : _pBroken ? 1.5 : 1;
+    return base * _breakMult * _potency;
+  }
   function hellfireBaseMag() {
     const gc = goldenCoreLevel();
     if (gc <= 0) return 5e-3;
@@ -27358,6 +27427,10 @@
     return eff + over * tail;
   }
   var DEF_BANDS = [[0.1, 0.5], [0.1, 0.25]];
+  var CRIT_CURVE_BANDS = [[0.5, 0.6], [0.5, 0.4]];
+  function critCurve(raw) {
+    return Math.min(1, bandedSoftCap(raw || 0, 0.5, CRIT_CURVE_BANDS, 0));
+  }
   function softCapLifesteal(raw) {
     return bandedSoftCap(raw || 0, 0.3, DEF_BANDS, 0.125);
   }
@@ -28901,12 +28974,16 @@
     const tribHpMult = isTribFight ? 1.8 * (demonTribTier ? DEMON_TRIB_HP_CURVE[demonTribTier] : 1) : 1;
     const tribDmgMult = isTribFight ? 0.75 * (demonTribTier ? DEMON_TRIB_DMG_CURVE[demonTribTier] : 1) : 1;
     const overScale = enemyOverInvestScale(enemyData, enemyId, isTribFight, isElite);
-    const scaledHpMax = Math.round(enemyData.hpMax * scale.stats * 2.5 * hpBoost * eliteHpExtra * realmHpBuff * normalHpMult * inqHpMult * tribHpMult * backHalf * DIFFICULTY_TICK * mortalBossMult * overScale.hp * (ENEMY_HP_SCALE[state.realm.tierIdx || 0] || 1));
+    const _bpTier = enemyData.isBoss && typeof bossPressureTier === "function" ? bossPressureTier(enemyId) : 0;
+    const _bpBase = String(enemyId).replace(/(_hard|_calamity)$/, "");
+    const _bpForm = (String(enemyId).match(/(_hard|_calamity)$/) || ["", ""])[1];
+    const bossPressureHp = _bpTier ? (BOSS_PRESSURE_HP_MULT[_bpTier] || 1) * (BOSS_PRESSURE_FORM_HP[_bpForm] || 1) * (BOSS_PRESSURE[_bpBase] && BOSS_PRESSURE[_bpBase].hp || 1) : 1, bossPressureDmg = _bpTier ? BOSS_PRESSURE_DMG_MULT * (BOSS_PRESSURE[_bpBase] && BOSS_PRESSURE[_bpBase].dmg || 1) : 1;
+    const scaledHpMax = Math.round(bossPressureHp * enemyData.hpMax * scale.stats * 2.5 * hpBoost * eliteHpExtra * realmHpBuff * normalHpMult * inqHpMult * tribHpMult * backHalf * DIFFICULTY_TICK * mortalBossMult * overScale.hp * (ENEMY_HP_SCALE[state.realm.tierIdx || 0] || 1));
     const scaledQiMax = Math.round(enemyData.qiMax * scale.stats * 2 * qiBoost * (ENEMY_QI_SCALE[state.realm.tierIdx || 0] || 1));
     const scaledSpiritMax = Math.round(enemyData.spiritMax * scale.stats * 2 * qiBoost);
     const posMult = enemyData.isBoss ? 0.4 : 0.75;
     const scaledPostureMax = Math.round(enemyData.postureMax * scale.stats * 2 * postureBoost * posMult);
-    const scaledWeaponPower = Math.max(1, Math.round(enemyData.weaponPower * scale.stats * 2 * wpnBoost * realmDmgBuff * normalDmgMult * inqDmgMult * tribDmgMult * backHalf * DIFFICULTY_TICK * mortalBossMult * overScale.dmg * (ENEMY_DMG_SCALE[state.realm.tierIdx || 0] || 1)));
+    const scaledWeaponPower = Math.max(1, Math.round(bossPressureDmg * enemyData.weaponPower * scale.stats * 2 * wpnBoost * realmDmgBuff * normalDmgMult * inqDmgMult * tribDmgMult * backHalf * DIFFICULTY_TICK * mortalBossMult * overScale.dmg * (ENEMY_DMG_SCALE[state.realm.tierIdx || 0] || 1)));
     const tierIdx = state.realm.tierIdx || 0;
     const baseFlatDR = isElite ? Math.round(8 * (1 + tierIdx * 0.5)) : Math.round(2 * (1 + tierIdx * 0.4));
     const eliteFlatDR = baseFlatDR;
@@ -29885,6 +29962,7 @@
       critChance += 0.15 + 0.05 * tierC + (0.03 + 0.02 * tierC) * (combat.celestialHits || 0);
       if (!_preview) combat.celestialHits = (combat.celestialHits || 0) + 1;
     }
+    critChance = critCurve(critChance);
     if (ctx) ctx.critChance = critChance;
     if (!_preview && critChance > 0 && Math.random() < critChance) {
       dmg *= m.critMult || 1.5;
@@ -29919,7 +29997,6 @@
     }
   }
   var STATUS_WP_FLOOR = { bleed: 0.1, burn: 0.14, poison: 0.1, leech: 0.15, qi_drain: 0.5, entangle: 0.5, resonance: 1.4 };
-  var SOULBREAK_DOT_PCT_HP = 0.01;
   function statusWpFloor(p, kind, dotAmp) {
     const coef = STATUS_WP_FLOOR[kind];
     if (!coef || !p) return 0;
@@ -31246,22 +31323,23 @@
         const before = c.hp;
         let dmg = (ef.value || 0) + Math.round((ef.pctHp || 0) * (c.hpMax || 0));
         if (combat && c !== combat.player && c.spiritMax > 0 && c.spirit <= 0) {
-          dmg = Math.max(dmg, Math.round((c.hpMax || 0) * SOULBREAK_DOT_PCT_HP * (ef.stacks || 1)));
+          const perStack = dotStacksArePoolShare() ? (c.hpMax || 0) * 0.01 : dotStackBase() * SOULBREAK_DOT_STACK_MULT;
+          dmg = Math.max(dmg, Math.round(perStack * (ef.stacks || 1)));
         }
         if (ef.kind === "leech" && ef.name === "Sovereign Parasite") {
           const hf = (c.effects || []).find((x) => x.kind === "hellfire");
-          if (hf) dmg += Math.round((c.hpMax || 0) * 0.01 * (hf.stacks || 1));
+          if (hf) dmg += Math.round((dotStacksArePoolShare() ? (c.hpMax || 0) * 0.01 : dotStackBase() * PARASITE_STACK_MULT) * (hf.stacks || 1));
         }
         c.hp = Math.max(0, c.hp - dmg);
         const lost = before - c.hp;
         if (lost > 0) {
           const label = STATUS_INFO[ef.kind] && STATUS_INFO[ef.kind].label || ef.kind;
-          pushLog("hurt", `  → ${c.name} loses ${lost} Vitality to ${ef.name} (${label}${ef.stacks > 1 ? ` ×${ef.stacks}` : ""}).`);
+          pushLog("hurt", `  → ${c.name} loses ${Math.round(lost)} Vitality to ${ef.name} (${label}${ef.stacks > 1 ? ` ×${ef.stacks}` : ""}).`);
           if (combat && c === combat.player) c.lastHpHit = Math.max(c.lastHpHit || 0, lost);
           if (ef.kind === "leech" && opts.healTarget && opts.healTarget.hp > 0) {
             const ht = opts.healTarget;
             const beforeHeal = ht.hp;
-            ht.hp = Math.min(ht.hpMax, ht.hp + lost);
+            ht.hp = Math.min(ht.hpMax, ht.hp + Math.round(lost * (combat && ht === combat.player ? woundHealMult() : 1)));
             if (ht.hp > beforeHeal) pushLog("heal", `  → +${ht.hp - beforeHeal} Vitality drained through ${ef.name}.`);
             if (combat && ht === combat.player) demonHeartQiFromBody(ht, ht.hp - beforeHeal);
           }
@@ -31273,17 +31351,11 @@
         }
       }
       if (ef.kind === "hellfire") {
-        const _blood = heritageIs("Demonic Bloodline");
-        const _dhStrength = isDemonHeart(state) || _blood && state.demonic;
-        const hfBase = Math.max(0, (c.hpMax || 0) - c.hp);
-        const _nativeBrand = !!schoolKit().techHellfireStacks;
-        const _potency = _dhStrength ? 1.5 : _blood && !_nativeBrand ? 0.75 : 1;
-        const _pBroken = (c.broken || 0) > 0, _sBroken = (c.spiritMax || 0) > 0 && c.spirit <= 0;
-        const _breakMult = _pBroken && _sBroken ? 2 : _pBroken ? 1.5 : 1;
-        const hfMag = hellfireBaseMag() * _breakMult * _potency;
-        let burn = Math.max(1, Math.round(hfBase * hfMag * (ef.stacks || 1)));
+        const perStack = hellfirePerStack(c);
+        let burn = Math.max(1, Math.round(perStack * (ef.stacks || 1)));
         if (combat && combat.player && c !== combat.player) burn = Math.max(1, Math.round(burn * (combat.player.mods && combat.player.mods.dotMult || 1)));
-        if (c.hp > 0 && hfBase > 0) {
+        ef.lastBurn = burn;
+        if (c.hp > 0) {
           c.hp = Math.max(0, c.hp - burn);
           c._hfBurnThisTick = (c._hfBurnThisTick || 0) + burn;
           pushLog("hurt", `  → ${c.name} loses ${burn} Vitality to hellfire (x${ef.stacks || 1}).`);
@@ -31437,8 +31509,9 @@
     if (dmg > 0 || tech.directHP || tech.directSpirit) {
       const cm = chillMult(e) * enr;
       const bellSpirit = e.id === "bell_abbot" ? 10 * Math.max(0, (combat.turn || 1) - 1) : 0;
+      const vitShare = tech.maxVitPct ? tech.maxVitPct * (p.hpMax || 0) * bossPressureFormMult(e) : 0;
       const res = dealDamage(p, dmg, {
-        directHP: (tech.directHP || 0) * cm,
+        directHP: (tech.directHP || 0) * cm + vitShare,
         directSpirit: ((tech.directSpirit || 0) + bellSpirit) * cm,
         pierceQi: tech.pierceQi || 0,
         attacker: e,
@@ -31478,6 +31551,16 @@
       if (tech.effect === "qi_drain") pushLog("flavor", `A glyph sticks to you, drinking your qi.`);
       if (tech.effect === "bleed") pushLog("flavor", `The wound will not close on its own.`);
     }
+    for (const x of tech.also || []) {
+      p.effects = (p.effects || []).filter((ef) => ef.kind !== x.kind);
+      p.effects.push({ kind: x.kind, value: x.value, turns: x.turns, name: tech.name });
+      if (x.kind === "silence") pushLog("posture", `  → ${p.name} is silenced: no techniques for ${x.turns} turn${x.turns === 1 ? "" : "s"}.`);
+    }
+    if (tech.wound) {
+      p.effects = (p.effects || []).filter((ef) => ef.kind !== "wound");
+      p.effects.push({ kind: "wound", value: tech.wound.value, turns: tech.wound.turns, name: tech.name });
+      pushLog("posture", `  → ${p.name} is wounded: healing received -${Math.round(tech.wound.value * 100)}% for ${tech.wound.turns} turns.`);
+    }
   }
   function isBossOrTribTarget(en) {
     if (!en || typeof combat === "undefined" || !combat) return false;
@@ -31507,7 +31590,8 @@
     combat.enemies.forEach((en) => {
       if (!isBossOrTribTarget(en)) return;
       if (en._capStartHp == null) en._capStartHp = en.hpMax;
-      const floor = Math.max(0, en._capStartHp - capPct * en.hpMax - (en._dotDmgThisRound || 0));
+      const dotBypass = bossPressureTier(en.id) ? 0 : en._dotDmgThisRound || 0;
+      const floor = Math.max(0, en._capStartHp - capPct * en.hpMax - dotBypass);
       if (en.hp < floor) en.hp = floor;
     });
   }
@@ -33763,7 +33847,7 @@
     const twistLine = state.selectedSchool && DEMONIC_TWISTS[state.selectedSchool] ? `<div style="font-size:0.8rem;margin-top:0.3rem"><strong>Your school's demonic form${demonLore ? ` (${demonLore.name} ${demonLore.zh})` : ""}:</strong> ${DEMONIC_TWISTS[state.selectedSchool].twistDesc}${demonLore ? `<div style="color:var(--ink-soft);margin-top:0.15rem">${demonLore.flavor}</div>` : ""}</div>` : "";
     dP.innerHTML = `<strong>The Demonic Path</strong> <span style="color:var(--ink-soft);font-size:0.85rem">魔道</span>
     <p style="font-size:0.85rem;color:var(--ink-soft);margin:0.3rem 0 0.4rem">Any school can be walked as heresy, since each has a demonic mirror of itself. The demonic dao grows by SLAUGHTER, not stillness.</p>
-    <div style="font-size:0.82rem"><strong style="color:var(--gold)">Gains:</strong> +4 to every stat · +20% to ALL damage · every landed blow brands HELLFIRE (stacks to 5, and each stack burns 1% of the target's MISSING health per turn) · +50% insight from kills, and righteous hunters who ambush you are worth TRIPLE · your school's passive sharpened · six demon-only grounds.</div>
+    <div style="font-size:0.82rem"><strong style="color:var(--gold)">Gains:</strong> +4 to every stat · +20% to ALL damage · every landed blow brands HELLFIRE (stacks to ${playerStackCap("hellfire")}, each stack burning about ${Math.max(1, Math.round(hellfirePerStack(null))).toLocaleString()} Vitality a turn at your realm) · +50% insight from kills, and righteous hunters who ambush you are worth TRIPLE · your school's passive sharpened · six demon-only grounds.</div>
     <div style="font-size:0.82rem;margin-top:0.25rem"><strong style="color:var(--crimson)">Price:</strong> cultivation crawls at a QUARTER of a righteous cultivator's pace (this dao is fed, not sat with) · you carry ~8% LESS Vitality than the righteous and a weaker qi barrier · you rest less than half as fast between fights, and lean on lifesteal instead · tribulations temper your flesh far less · the sect never discounts a heretic (full contribution for every rank and technique) · a heavenly tribulation bars EVERY breakthrough, against executioners far above your realm · righteous sects hunt you on the road.</div>
     ${twistLine}`;
     const dBtnRow = document.createElement("div");
