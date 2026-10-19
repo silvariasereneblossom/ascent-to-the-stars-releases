@@ -9170,6 +9170,9 @@
 
   // app/src/data/changelog.js
   var CHANGELOG = [
+    { v: "1.27.215", notes: [
+      "EVERY CALAMITY HAS ITS OWN SIGNATURE AND FINISHER NOW, at every realm: the boss&rsquo;s two great moves, Unbound. They hit harder and for a bigger share of your maximum Vitality, leave a deeper Wound (healing -75% for 3 turns, from the finisher as well), and their bleeds, burns, chills, drains and silences are half again as strong and last a turn longer. The Calamities below Golden Core get these moves for the first time."
+    ] },
     { v: "1.27.214", notes: [
       "GOLDEN CORE BOSSES FIGHT BACK. Every named boss from Golden Core up now has a signature move that hits for a share of your maximum Vitality, straight past your qi shield (your damage reduction still counts), and leaves you Wounded: half healing for 2 turns. Its finisher hits for a larger share and carries a status of its own: the Matriarch&rsquo;s bleeds run deep, the Mirage Emperor and the War-Court Lord silence your techniques, the Moon-Eater drinks your qi, the Executioner admits no reply, and first light burns. Heavenscourge forms hit harder still, and Calamity hardest. Boss damage is up 20%, more for the two Golden Core bosses.",
       "A BOSS CAN NO LONGER BE BURNED DOWN PAST ITS GUARD. From Golden Core up, damage over time now counts toward the most a boss can lose in one round, the same as your blows. Fast builds face a proper fight; slow ones are not affected.",
@@ -9708,10 +9711,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Max Posture, −0.5% tribulation damage taken per point (to −40%), and +2% seclusion time per point above 10 (to +100%)." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.214';
+  var GAME_VERSION = 'v1.27.215';
   var SNAPSHOT_RELAY_URL = "https://172-234-134-140.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "3b0e65c";
+  var BUILD_SHA = "86842da";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -17056,6 +17059,53 @@
       baseBoss: bid,
       mech: BOSSES[bid].mech,
       blurb: `Calamity: ${base.name} as the heavens would have sent it. Fought by hand, for a share of the step you are climbing.`
+    };
+  });
+  var CALAMITY_WOUND = { value: 0.75, turns: 3 };
+  var CALAMITY_TECH_UPGRADE = { vit: 1.25, effect: 1.5, damage: 1.25, turns: 1, baseSigVit: 0.06, baseFinVit: 0.15 };
+  function calamityEffectValue(kind, v) {
+    if (typeof v !== "number" || !v) return v;
+    if (kind === "qi_cost_up") return 1 + (v - 1) * CALAMITY_TECH_UPGRADE.effect;
+    if (kind === "chill" || kind === "sunder" || kind === "blind") return Math.min(0.6, v * 1.3);
+    return Math.round(v * CALAMITY_TECH_UPGRADE.effect * 1e3) / 1e3;
+  }
+  function calamityTech(t, isFinisher, bossVit) {
+    const U = CALAMITY_TECH_UPGRADE, out = Object.assign({}, t);
+    out.name = `${t.name}, Unbound`;
+    if (t.damage) out.damage = t.damage * U.damage;
+    out.maxVitPct = (bossVit != null ? bossVit : isFinisher ? U.baseFinVit : U.baseSigVit) * U.vit;
+    out.wound = CALAMITY_WOUND;
+    if (t.effect) {
+      out.effectValue = calamityEffectValue(t.effect, t.effectValue);
+      for (const k of ["effectPctHp", "effectPctQi", "effectPctSpirit"]) if (t[k]) out[k] = t[k] * U.effect;
+      if (t.effectTurns) out.effectTurns = t.effectTurns + U.turns;
+    }
+    if (t.also) out.also = t.also.map((x) => Object.assign({}, x, { turns: x.turns + U.turns }));
+    return out;
+  }
+  Object.keys(ENEMIES).filter(isCalamityBoss).forEach((cid) => {
+    const bid = bossBaseId(cid), E = ENEMIES[cid], bp = BOSS_PRESSURE[bid];
+    const swap = {};
+    const sig = BOSS_SIGNATURE_TECHS[bid], fin = BOSS_FINISHER_TECHS[bid];
+    if (sig) {
+      swap[sig[0]] = sig[0] + CALAMITY_SUFFIX;
+      ENEMY_TECHS[swap[sig[0]]] = calamityTech(sig[1], false, bp ? bp.sigVit : null);
+    }
+    if (fin) {
+      swap[fin[0]] = fin[0] + CALAMITY_SUFFIX;
+      ENEMY_TECHS[swap[fin[0]]] = calamityTech(fin[1], true, bp ? bp.finVit : null);
+    }
+    const techIds = (E.techIds || []).map((id) => swap[id] || id);
+    const finId = fin ? swap[fin[0]] : null;
+    E.techIds = techIds;
+    E._finisher = finId;
+    E.ai = (e, p) => {
+      enemyTickCDs(e);
+      const desperate = p.hp <= p.hpMax * 0.4 || e.hp <= e.hpMax * 0.33;
+      if (finId && desperate && enemyCanUse(e, finId)) return enemyUseTech(e, p, finId);
+      for (const t of techIds) if (t !== finId && enemyCanUse(e, t)) return enemyUseTech(e, p, t);
+      if (e.qi < 14) return enemyMeditate(e);
+      return enemyBasicStrike(e, p);
     };
   });
   function calamityBaseInsight(bossTier) {
@@ -26156,7 +26206,7 @@
   var updateApplying = false;
   function runningShaKnown() {
     const s = typeof window !== "undefined" && window.BUILD_SHA;
-    return !!s && s !== "3b0e65c" && s !== "dev" && s !== "live";
+    return !!s && s !== "86842da" && s !== "dev" && s !== "live";
   }
   function verTuple(v) {
     return String(v || "").replace(/^v/, "").split(".").map((n) => parseInt(n, 10) || 0);
