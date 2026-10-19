@@ -9170,6 +9170,11 @@
 
   // app/src/data/changelog.js
   var CHANGELOG = [
+    { v: "1.27.213", notes: [
+      "FROM GOLDEN CORE ON, EVERYTHING COSTS TEN TIMES THE INSIGHT. Layers, the breakthroughs into Nascent Soul and Spirit Severing, skills, manuals, Endless Path ranks, element levels 2 and 3, and Five Color are all ten times their old price. Nascent Soul and Spirit Severing keep the same proportion to Golden Core as before. The breakthrough into Golden Core is unchanged.",
+      "What you earn has not changed. A kill pays exactly what it did, so it is now a tenth as large a share of a layer: at Golden Core layer 2, one ordinary kill is about a quarter of a percent of the step. Rewards that pay a share of the step you are buying (a Blood Hunt charge, a Calamity, an inheritance, the harder bosses) grow with it. Cultivation speed is unchanged too, so idle progress at Golden Core and above is a tenth as fast.",
+      "Insight you have banked is kept. If you are partway through a Golden Core or later layer, the rest of it now costs ten times as much."
+    ] },
     { v: "1.27.212", notes: [
       "A NEW LIFE IS ROLLED BEFORE ITS CHILDHOOD. Your stats, bonus points, spirit root and heritage offers now come first, on a new Fate step, with your rerolls. You choose your heritage there, and your childhood is told after it. Childhood stories written for your heritage are more likely to be offered.",
       "CHILDHOOD CHOICES ARE SIDEGRADES NOW. Every choice in a stage is worth the same total: +2 stats at birth, +2 in childhood, +3 at coming of age. They differ in which stats they favor and in the passive or keepsake they bring. Each card shows exactly what it gives, and a gamble shows its range. The few childhood fates that ended a cultivator before play began are gone."
@@ -9696,10 +9701,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Max Posture, −0.5% tribulation damage taken per point (to −40%), and +2% seclusion time per point above 10 (to +100%)." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.212';
+  var GAME_VERSION = 'v1.27.213';
   var SNAPSHOT_RELAY_URL = "https://172-234-134-140.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "0555fba";
+  var BUILD_SHA = "eaa35ae";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -9862,7 +9867,8 @@
     const band = Math.floor(cur / ELEMENT_LEVEL_POINTS) + 1;
     if (band > ELEMENT_MAX_LEVEL) return null;
     if (band > elementRealmCap()) return null;
-    return Math.max(1, Math.round(ELEMENT_BAND_COST[band] / ELEMENT_LEVEL_POINTS * elementCostMult(el)));
+    const realmX = band >= 2 ? realmCostMult(ELEMENT_LEVEL_MIN_TIER[band]) : 1;
+    return Math.max(1, Math.round(ELEMENT_BAND_COST[band] * realmX / ELEMENT_LEVEL_POINTS * elementCostMult(el)));
   }
   function canInvestElement(el) {
     const c = elementNextPointCost(el);
@@ -9904,7 +9910,7 @@
     if (fc >= 1 && fiveColorUniversalOvercome() > 0 && defenderEl) best *= 1 + fiveColorUniversalOvercome();
     return best;
   }
-  var FIVE_COLOR_TOTAL = 266e7;
+  var FIVE_COLOR_TOTAL = 266e8;
   var FIVE_COLOR_MIN_TIER = 6;
   function fiveColorState() {
     if (typeof state.fiveColor !== "number" || !isFinite(state.fiveColor)) state.fiveColor = 0;
@@ -19157,7 +19163,8 @@
     return (state.skills || []).filter((id) => SKILL_BOOKS[id] && !SKILLS.find((x) => x.id === id)).length;
   }
   function skillCostMult() {
-    const realmMult = (state.realm && state.realm.tierIdx || 0) >= 4 ? 5 : 1;
+    const tierIdx = state.realm && state.realm.tierIdx || 0;
+    const realmMult = (tierIdx >= 4 ? 5 : 1) * realmCostMult(tierIdx);
     return realmMult * (1 + 0.05 * Math.floor(learnedManualCount() / 10));
   }
   function effectiveSkillCost(skill) {
@@ -26100,7 +26107,7 @@
   var updateApplying = false;
   function runningShaKnown() {
     const s = typeof window !== "undefined" && window.BUILD_SHA;
-    return !!s && s !== "0555fba" && s !== "dev" && s !== "live";
+    return !!s && s !== "eaa35ae" && s !== "dev" && s !== "live";
   }
   function verTuple(v) {
     return String(v || "").replace(/^v/, "").split(".").map((n) => parseInt(n, 10) || 0);
@@ -27121,6 +27128,11 @@
     const tierBoost = 1 + 0.25 * Math.max(0, char.realm.tierIdx - 2);
     return { stats: 1 + LAYER_SCALE_COEF * t * tierBoost, reward: 1 + 1 * t };
   }
+  var REALM_COST_MULT_FROM_TIER = 4;
+  var REALM_COST_MULT = 10;
+  function realmCostMult(tierIdx) {
+    return (tierIdx || 0) >= REALM_COST_MULT_FROM_TIER ? REALM_COST_MULT : 1;
+  }
   function advanceInfo(char) {
     const tier = REALMS[char.realm.tierIdx];
     if (char.realm.layer < tier.layers) {
@@ -27128,7 +27140,7 @@
       const linear = tier.insightPerLayer + char.realm.layer * (tier.insightPerLayerStep || 0);
       const compounding = tier.layers >= 9 ? 1.2 : tier.layers >= 5 ? 1.3 : 1.4;
       const icm = Math.max(1.5, 4 - 2.5 / 6 * (char.realm.tierIdx || 0));
-      const cost = Math.round(linear * Math.pow(compounding, char.realm.layer - 1) * icm);
+      const cost = Math.round(linear * Math.pow(compounding, char.realm.layer - 1) * icm * realmCostMult(char.realm.tierIdx));
       return { kind: "within", cost, label: `${tier.name} Layer ${nextLayer}` };
     }
     const next = REALMS[char.realm.tierIdx + 1];
@@ -27140,7 +27152,7 @@
     const lastLayer = Math.max(1, tier.layers - 1);
     const linearLast = tier.insightPerLayer + lastLayer * (tier.insightPerLayerStep || 0);
     const compounding = tier.layers >= 9 ? 1.2 : tier.layers >= 5 ? 1.3 : 1.4;
-    return linearLast * Math.pow(compounding, lastLayer - 1) * icm;
+    return linearLast * Math.pow(compounding, lastLayer - 1) * icm * realmCostMult(tierIdx);
   }
   function realmGateRule(tierIdx) {
     const next = REALMS[tierIdx + 1], icm = Math.max(1.5, 4 - 2.5 / 6 * tierIdx);
