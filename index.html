@@ -8884,187 +8884,166 @@
       born_iron_star: {
         name: "Born Beneath the Iron Star",
         prose: "A red star burned overhead the night you came into the world. Village shamans whispered of war and waste, but your mother only saw your fierce, unbroken eyes.",
-        statRanges: { body: [1, 3], will: [0, 2] },
+        statMods: { body: 1, will: 1 },
         flag: "ironstar"
       },
       cradled_snow: {
         name: "Cradled in Mountain Snow",
         prose: "You were left at the gate of a high temple in winter, swaddled in old silk and a name stitched in fading thread. The snow did not kill you, and the monks did not turn you away.",
-        statRanges: { mind: [0, 2], will: [0, 2], spirit: [0, 2] },
+        statMods: { mind: 1, will: 1 },
         flag: "temple_orphan"
       },
       plum_branch: {
         name: "The Plum-Branch Cry",
         prose: "You were born under a flowering plum tree at midspring, and the petals fell as you drew your first breath. A wandering daoist passed once, glanced at you, and walked on saying nothing.",
-        statRanges: { spirit: [1, 3], luck: [0, 2] },
+        statMods: { spirit: 1, luck: 1 },
         flag: "dao_seen"
       },
       fox_marked: {
         name: "Fox-Marked at Birth",
         prose: "A fox-spirit was passing through the village the hour you came. They say you smiled before you cried.",
-        statRanges: { sense: [0, 2], luck: [1, 3], body: [-2, 0] },
+        statMods: { sense: 1, luck: 2, body: -1 },
         flag: "fox_marked",
         heritageBias: ["Jade Phoenix Descendant"]
       },
       fallen_house: {
         name: "Last Child of a Fallen House",
         prose: "Born to a sword-clan retainer in a borrowed bed, the family scrolls already burning in the courtyard. Your name was the last thing on the seal-list.",
-        statRanges: { mind: [1, 3], spirit: [0, 2] },
+        statMods: { mind: 1, spirit: 1 },
         flag: "noble_blood",
         heritageBias: ["Last of the Old Sect", "Sword-Ink Soul"]
       },
       ditch_birth: {
         name: "A Ditch, A Year No One Counted",
         prose: "Born in a ditch behind the rice paddies. No omens, no priests, no one to write down the day.",
-        statRanges: { body: [0, 2], luck: [-2, 0] },
+        statMods: { body: 3, luck: -1 },
         flag: "lowborn"
       },
       winter_ash: {
         name: "Born from the Embers",
         prose: "Your village burned the year you came. They pulled you from your mother in the smoke and named you for the soot on her hands.",
-        statRanges: { body: [0, 2], will: [0, 2], mind: [-2, 0] },
+        statMods: { body: 2, will: 1, mind: -1 },
         flag: "ash_child",
         heritageBias: ["Child of Calamity"]
       },
       star_fall: {
         name: "A Sky That Wept Light",
         prose: "A meteor crossed the sky as your mother labored. The village shaman wept without saying why.",
-        statRanges: { sense: [1, 3], spirit: [0, 2] },
+        statMods: { sense: 1, spirit: 1 },
         flag: "star_birthed",
         heritageBias: ["Starborn", "Heaven's Chosen"]
       },
       corpse_mother: {
         name: "Cut from the Dying",
         prose: "The famine took your mother before you could open your eyes. The midwife refused payment and would not look at your face again.",
-        statRanges: { will: [1, 3], sense: [-2, 0], luck: [-2, 0] },
+        statMods: { will: 4, sense: -1, luck: -1 },
         flag: "born_in_death",
         heritageBias: ["Karmic Debtor"]
       },
       unmarked: {
         name: "A Year the Heavens Looked Away",
         prose: "Nothing happened. A baby cried, ate, slept. The omens were spent on someone else.",
-        statRanges: { body: [0, 2] },
+        statMods: { body: 2 },
         flag: "nofate"
       },
       comet_dragged_close: {
         name: "A Streak Across the Sky",
         prose: "The night you came, something fell. Not all the way, but not nowhere either. Half the village called it a blessing. The other half buried their dogs at noon for a week.",
-        statRanges: { spirit: [-2, 4], luck: [-3, 5], will: [-1, 2] },
+        statRanges: { spirit: [-2, 4], luck: [-3, 5], will: [-1, 1] },
         flag: "comet_marked",
         risky: true
       },
       wandering_immortal_blessed: {
         name: "An Immortal's Stone, Left in Your Hand",
         prose: "A man passed through. He stopped at your cradle. He pressed something cold into your fist and walked on. The stone has been in your possession for as long as you have existed. You have never asked it what it is.",
-        statRanges: { sense: [-2, 5], mind: [-1, 4], luck: [-3, 4] },
+        statRanges: { sense: [-2, 5], mind: [-1, 2], luck: [-4, 4] },
         flag: "immortal_blessed",
         risky: true
-      },
-      heavens_took_back: {
-        name: "The Heavens Took You Back",
-        prose: "You were born once, and only once. The cord wrapped around your throat in the deep of winter, and the midwife wept, and the snow fell, and that was all of it.",
-        fatal: true,
-        deathCause: "A child who never opened their eyes",
-        deathProse: "There is no cultivator in this story. There never was. The dao continues elsewhere."
       }
     },
     event: {
       witness_moon_eater: {
         name: "You Saw What Should Not Be Seen",
         prose: 'One summer night, behind the village shrine, you watched a thin old man eat a moonbeam off a still pond. He turned, met your eyes, and said only: "You will remember this when it matters."',
-        statRanges: { mind: [1, 3], sense: [0, 2] },
+        statMods: { mind: 1, sense: 1 },
         flag: "witness_dao"
       },
       stood_for_jiangshi: {
         name: "The Beast Came, and You Did Not Run",
         prose: "A jiangshi staggered through the wheat fields and a dozen children scattered. You stood. They say a swordsman cut it down, but you remember its eyes more clearly than his blade.",
-        statRanges: { body: [1, 3], will: [0, 2], luck: [-2, 0] },
+        statMods: { body: 2, will: 1, luck: -1 },
         flag: "beast_witness"
       },
       blood_debt: {
         name: "A Friend, A Wound, A Promise",
         prose: "You bled into the dirt for a friend who was not worth bleeding for. They forgot your name within a year. The heavens collect some debts. This one you carry alone.",
-        statRanges: { will: [1, 3], body: [0, 2], luck: [-2, 0] },
+        statMods: { will: 2, body: 1, luck: -1 },
         flag: "blood_debt"
       },
       fox_friend: {
         name: "The Fox Who Walked With You",
         prose: "A fox-spirit took human shape and walked with you for a season, asking strange questions. You answered honestly. One morning she was gone.",
-        statRanges: { sense: [1, 3], luck: [0, 2] },
+        statMods: { sense: 1, luck: 1 },
         flag: "fox_friend",
         heritageBias: ["Twilight-Born"]
       },
       starving_year: {
         name: "The Year of Weeds",
         prose: "Famine took half the village. You ate weeds and learned not to weep. Hunger is a discipline, and you graduated early.",
-        statRanges: { body: [0, 2], will: [1, 3], spirit: [-2, 0] },
+        statMods: { body: 1, will: 2, spirit: -1 },
         flag: "starveborn"
       },
       herbalist_apprentice: {
         name: "Two Summers in a Garden",
         prose: "You weeded an old herbalist's plot for two years in exchange for thin congee. She never thanked you. She did, eventually, teach you to read.",
-        statRanges: { mind: [0, 2], spirit: [0, 2] },
+        statMods: { mind: 1, spirit: 1 },
         flag: "herbalist_apprentice",
         items: { herbs: { qi_grass: 3, body_root: 2 } }
       },
       shrine_thief: {
         name: "Shrine Offerings, Pilfered",
         prose: "You stole rice cakes from the village shrine for a hungry winter. The gods did not strike you. Neither did they bless you.",
-        statRanges: { sense: [0, 2], luck: [0, 2], will: [-2, 0] },
+        statMods: { sense: 2, luck: 1, will: -1 },
         flag: "thief_child"
       },
       lake_drowned: {
         name: "The Hand Without Fingers",
         prose: "You went under in spring melt. Whatever pulled you up did not have a hand.",
-        statRanges: { spirit: [1, 3], sense: [0, 2], body: [-2, 0] },
+        statMods: { spirit: 2, sense: 1, body: -1 },
         flag: "water_marked"
       },
       nothing_special: {
         name: "A Field, A Bowl, A Decade",
         prose: "You worked the field. You ate your bowl. You did not love anyone, and no one loved you. The years passed like water.",
-        statRanges: { body: [0, 2], will: [0, 2] },
+        statMods: { body: 1, will: 1 },
         flag: "ordinary"
       },
       wrong_book: {
         name: "The Manual You Should Not Have Read",
         prose: "You found a tattered scroll in your grandfather's chest. You read it before you understood what reading it would do. Your meridians twisted before they had finished forming.",
-        statRanges: { mind: [0, 2], spirit: [-3, -1] },
+        statMods: { mind: 4, spirit: -2 },
         flag: "meridian_warped"
       },
       cliff_dare: {
         name: "The Cliff Path at Dusk",
         prose: "A boy three years older dared you to walk the cliff path at the wrong hour. You did. Something between the trees watched the back of your head all the way home, and never quite stopped.",
-        statRanges: { will: [-1, 4], luck: [-3, 5], sense: [-1, 3] },
+        statRanges: { will: [-1, 3], luck: [-3, 5], sense: [-2, 2] },
         flag: "cliff_walker",
         risky: true
       },
       cave_pact: {
         name: "A Cave You Should Not Have Entered",
         prose: "You found a cave you should not have entered. Inside it, a voice asked a question. You answered. You have always wondered what your honest answer cost.",
-        statRanges: { spirit: [-3, 5], sense: [-2, 4], will: [-2, 3] },
+        statRanges: { spirit: [-3, 5], sense: [-2, 4], will: [-2, 2] },
         flag: "cave_pacted",
         risky: true
-      },
-      jiangshi_ate: {
-        name: "The Beast Came, and No One Came After",
-        prose: "A jiangshi staggered through the wheat fields and a dozen children scattered. You stood. The swordsman did not arrive. The wheat closed over the place where you had been, and your name passed out of the village by harvest.",
-        fatal: true,
-        deathCause: "Taken by a hungry corpse in the wheat fields",
-        deathProse: "You were brave at the wrong moment. The dao remembers the brave, even when the world does not."
-      },
-      drowning_final: {
-        name: "The Pool Did Not Let Go",
-        prose: "You went under in spring melt. Whatever held you below stayed silent until the cold finished its work. The pool was found empty by morning.",
-        fatal: true,
-        deathCause: "Drowned in a spring-melt pool",
-        deathProse: "Some waters are older than the realm. They drink slowly. Some debts are paid before the cultivator ever opens their eyes."
       }
     },
     youth: {
       refused_master: {
         name: "The Master Who Refused You",
         prose: `You knelt outside a cultivator's gate for nine days. On the tenth he came out, kicked over your rice bowl, and said "You wanted it for the wrong reasons." Then he taught you anyway, for one season.`,
-        statRanges: { spirit: [0, 2], mind: [1, 3], will: [0, 2] },
+        statMods: { spirit: 1, mind: 1, will: 1 },
         flag: "refused_master",
         passive: { label: "Hard Lesson", mods: { techDamageMult: 1.05 } },
         items: { inscriptions: ["meridian_clearing"] }
@@ -9072,7 +9051,7 @@
       sword_in_the_reeds: {
         name: "A Sword Was Left in Your Hand",
         prose: "You found a corpse in the reeds, an old man at peace, eyes closed and hand still on the hilt. The blade was older than three dynasties. You never saw who closed his fingers around it before you arrived.",
-        statRanges: { sense: [1, 3], spirit: [0, 2], will: [0, 2] },
+        statMods: { sense: 1, spirit: 1, will: 1 },
         flag: "sword_inheritor",
         passive: { label: "Dead Man's Edge", mods: { weaponBonus: 3 } },
         items: { inscriptions: ["bloodbond"] }
@@ -9080,7 +9059,7 @@
       heart_demon_stream: {
         name: "Heart-Demon's Whisper at the Stream",
         prose: 'You looked into a still pool at dusk and a face that was not yours looked back. It said, "Will you?" You said neither yes nor no. It is still waiting.',
-        statRanges: { sense: [2, 4], mind: [0, 2], will: [-3, -1] },
+        statMods: { sense: 4, mind: 1, will: -2 },
         flag: "demon_courted",
         passive: { label: "Whisper at the Edge", mods: { lifestealPct: 0.05 } },
         heritageBias: ["Demonic Bloodline", "Abyss-Born"]
@@ -9088,7 +9067,7 @@
       nun_martyred: {
         name: "The Nun Who Died for You",
         prose: "A wandering nun took a sword for you on a road no one else was on. Her dying words were a sutra you have memorized for years. You still do not know its meaning.",
-        statRanges: { will: [1, 3], mind: [1, 3], sense: [0, 2] },
+        statMods: { will: 1, mind: 1, sense: 1 },
         flag: "sutra_memory",
         passive: { label: "The Sutra Holds", mods: { incomingMult: 0.96 } },
         items: { inscriptions: ["jade_heart"] }
@@ -9096,7 +9075,7 @@
       mountain_climbed: {
         name: "The Peak No One Returns From",
         prose: "You climbed a mountain that swallowed everyone who climbed it. You came back. You will not say what was at the top.",
-        statRanges: { body: [1, 3], will: [1, 3], spirit: [0, 2] },
+        statMods: { body: 1, will: 1, spirit: 1 },
         flag: "peak_witness",
         passive: { label: "What the Peak Showed", mods: { critChance: 0.05 } },
         heritageBias: ["Hidden Dragon"]
@@ -9104,7 +9083,7 @@
       forge_apprentice: {
         name: "Hands Burned by a Spirit-Forge",
         prose: "You worked under an old smith for a season. He paid you in scraps and silence. You burned your hands often. You have not forgotten the rhythm of the hammer.",
-        statRanges: { body: [0, 2], mind: [0, 2] },
+        statMods: { body: 2, mind: 1 },
         flag: "forge_touched",
         passive: { label: "Hammer-Rhythm", mods: { weaponBonus: 2, flatDR: 3 } },
         items: { materials: { spirit_iron: 4, spirit_stone: 2 } }
@@ -9112,14 +9091,14 @@
       dao_dreamer: {
         name: "The Verse That Came in Sleep",
         prose: "You dreamed a verse and woke speaking it. You do not know who put it there. Sometimes you write it down. The ink fades within a day.",
-        statRanges: { mind: [1, 3], spirit: [1, 3] },
+        statMods: { mind: 2, spirit: 1 },
         flag: "dao_dreamer",
         passive: { label: "Sleeping Verse", mods: { techDamageMult: 1.06 } }
       },
       star_witness: {
         name: "A Star Fell, and You Were First",
         prose: "A star fell into the millet field one night and you reached the crater before any elder. The thing within is no longer there. You think of it more often than you should.",
-        statRanges: { sense: [1, 3], luck: [1, 3], spirit: [0, 2] },
+        statMods: { sense: 1, luck: 1, spirit: 1 },
         flag: "star_witness",
         passive: { label: "Star in the Field", mods: { dodgeChance: 0.04, critChance: 0.02 } },
         heritageBias: ["Starborn", "Heaven's Chosen"]
@@ -9127,21 +9106,21 @@
       sect_rejected: {
         name: "A Door That Did Not Open",
         prose: "You took the entrance trial of a small sect on the eastern slope. You failed. They sent you home with a scar across your cheek and no further word.",
-        statRanges: { will: [0, 2], body: [0, 2], mind: [-2, 0], luck: [-2, 0] },
+        statMods: { will: 3, body: 2, mind: -1, luck: -1 },
         flag: "sect_rejected",
         passive: { label: "Spite the Door", mods: { lowHpBonus: 0.08 } }
       },
       waste_year: {
         name: "A Year of Plum Wine",
         prose: "You spent a year drunk on plum wine, nursing a heart that no one named. You learned little. Some lessons are still inside the hangover, waiting.",
-        statRanges: { sense: [0, 2], will: [0, 2], body: [-2, 0] },
+        statMods: { sense: 2, will: 2, body: -1 },
         flag: "misspent_youth",
         passive: { label: "Lessons in the Hangover", mods: { qiRegenBonus: 2, dodgeChance: 0.02 } }
       },
       caught_a_star: {
         name: "You Caught the Star You Should Not Have",
         prose: "A star fell. You did the impossible thing: you reached out, and your hands closed. Your palms were not the same after, and neither was the field, and neither, you suspect, were you.",
-        statRanges: { spirit: [-2, 6], sense: [-2, 5], luck: [-3, 4], body: [-3, 2] },
+        statRanges: { spirit: [-2, 6], sense: [-2, 5], luck: [-3, 3], body: [-3, 2] },
         flag: "star_held",
         risky: true,
         passive: { label: "A Star in the Palm", mods: { critChance: 0.06, strikeDamageMult: 1.08 } }
@@ -9149,7 +9128,7 @@
       traded_a_year: {
         name: "A Year for a Lesson",
         prose: "A robed stranger offered to teach you what no master would, in exchange for a year you would not get back. You said yes. You think you remember which year it was.",
-        statRanges: { mind: [-1, 5], spirit: [-1, 4], will: [-3, 2], body: [-3, 1] },
+        statRanges: { mind: [-1, 5], spirit: [-1, 4], will: [-2, 2], body: [-2, 1] },
         flag: "year_traded",
         risky: true,
         passive: { label: "The Year's Worth", mods: { techDamageMult: 1.08 } }
@@ -9157,30 +9136,16 @@
       ghost_market: {
         name: "The Market That Wasn't There",
         prose: "One night you followed lantern-light down an alley that is on no map, and bought something from a stall with no seller. You still have it. You think.",
-        statRanges: { sense: [1, 3], luck: [1, 3], mind: [0, 2] },
+        statMods: { sense: 1, luck: 1, mind: 1 },
         flag: "ghost_market",
         passive: { label: "Ghost-Market Eye", mods: { dodgeChance: 0.04, qiRegenBonus: 2 } }
       },
       lightning_seen: {
         name: "You Stood Beneath the Lightning",
         prose: "You were too close when an elder drew their tribulation. The heavens' fire missed you by an arm's width, and something in you has never feared it quite the same since.",
-        statRanges: { will: [1, 3], spirit: [1, 3], body: [0, 2] },
+        statMods: { will: 1, spirit: 1, body: 1 },
         flag: "lightning_seen",
         passive: { label: "Seen the Lightning", mods: { critChance: 0.04, incomingMult: 0.97 } }
-      },
-      heart_demon_took: {
-        name: "You Said Yes",
-        prose: 'You looked into a still pool at dusk and a face that was not yours looked back. It said, "Will you?" You said yes. Your eyes were the last yours.',
-        fatal: true,
-        deathCause: "Consumed by a heart-demon at the stream",
-        deathProse: "There is a cultivator now wearing your skin. They are very promising. You are not anywhere the world can find you."
-      },
-      peak_claimed: {
-        name: "The Peak Kept You",
-        prose: "You climbed the peak no one returned from. The mountain was honest in its name.",
-        fatal: true,
-        deathCause: "Lost on the unreturned peak",
-        deathProse: "Some mountains do not give back what they take. The wind at the summit still tastes faintly of you, on certain mornings, but no one is left who would recognize it."
       }
     }
   };
@@ -9205,6 +9170,10 @@
 
   // app/src/data/changelog.js
   var CHANGELOG = [
+    { v: "1.27.212", notes: [
+      "A NEW LIFE IS ROLLED BEFORE ITS CHILDHOOD. Your stats, bonus points, spirit root and heritage offers now come first, on a new Fate step, with your rerolls. You choose your heritage there, and your childhood is told after it. Childhood stories written for your heritage are more likely to be offered.",
+      "CHILDHOOD CHOICES ARE SIDEGRADES NOW. Every choice in a stage is worth the same total: +2 stats at birth, +2 in childhood, +3 at coming of age. They differ in which stats they favor and in the passive or keepsake they bring. Each card shows exactly what it gives, and a gamble shows its range. The few childhood fates that ended a cultivator before play began are gone."
+    ] },
     { v: "1.27.211", notes: [
       "THE WHOLE GAME HAS BEEN REWORDED. Every tooltip, combat line, description and changelog entry was edited to read more like a person wrote it: far fewer dashes and semicolons, shorter sentences, and no more stock phrasing. Nothing about how the game plays changed. Every number, name and effect is exactly as it was.",
       "The Vitality bar&rsquo;s tooltip said &ldquo;Vitality vitality&rdquo;. It now says what it means."
@@ -9727,10 +9696,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Max Posture, −0.5% tribulation damage taken per point (to −40%), and +2% seclusion time per point above 10 (to +100%)." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.211';
+  var GAME_VERSION = 'v1.27.212';
   var SNAPSHOT_RELAY_URL = "https://172-234-134-140.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "78b58a9";
+  var BUILD_SHA = "2b4a5bd";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -26131,7 +26100,7 @@
   var updateApplying = false;
   function runningShaKnown() {
     const s = typeof window !== "undefined" && window.BUILD_SHA;
-    return !!s && s !== "78b58a9" && s !== "dev" && s !== "live";
+    return !!s && s !== "2b4a5bd" && s !== "dev" && s !== "live";
   }
   function verTuple(v) {
     return String(v || "").replace(/^v/, "").split(".").map((n) => parseInt(n, 10) || 0);
@@ -26369,20 +26338,19 @@
   }
   var CHILDHOOD_OFFER_COUNT = 4;
   function newChildhoodState(seed) {
-    const rng = makeRng(seed);
     return {
-      step: "birth",
+      step: "fate",
       picks: {},
       flags: [],
       statMods: {},
       items: { inscriptions: [], weapons: [], materials: {}, herbs: {} },
-      offer: rollChildhoodOffer("birth", [], rng)
+      offer: []
     };
   }
-  function rollChildhoodOffer(stage, _flags, rng) {
+  function rollChildhoodOffer(stage, _flags, rng, heritageName) {
     const remaining = Object.keys(CHILDHOOD_BEATS[stage]).map((id) => ({
       id,
-      w: CHILDHOOD_BEATS[stage][id].fatal ? 0.2 : 1
+      w: heritageName && (CHILDHOOD_BEATS[stage][id].heritageBias || []).includes(heritageName) ? 3 : 1
     }));
     const result = [];
     while (result.length < CHILDHOOD_OFFER_COUNT && remaining.length) {
@@ -26460,7 +26428,41 @@
     return pool[pool.length - 1];
   }
   function newPreCharacter(seed) {
-    return { seed, confirmed: false, childhood: newChildhoodState(seed) };
+    const c = newCharacter(seed, null);
+    c.childhood = newChildhoodState(seed);
+    c.rolledStats = { ...c.baseStats };
+    return c;
+  }
+  function rerollFate() {
+    if (!state || state.rerollsLeft <= 0) return;
+    const keep = {
+      name: state.name,
+      school: state.selectedSchool,
+      rerolls: state.rerollsLeft - 1,
+      childhood: state.childhood,
+      reincarn: state.reincarnStartInsight,
+      reincarnFrom: state.reincarnatedFrom,
+      onFate: state.childhood && state.childhood.step === "fate"
+    };
+    const seed = (Date.now() ^ Math.floor(Math.random() * 1e9)) >>> 0;
+    state = newCharacter(seed, keep.onFate ? null : keep.childhood);
+    if (keep.onFate) {
+      state.childhood = keep.childhood;
+      state.rolledStats = { ...state.baseStats };
+    }
+    state.name = keep.name;
+    state.selectedSchool = keep.school;
+    state.rerollsLeft = keep.rerolls;
+    if (keep.reincarn) state.reincarnStartInsight = keep.reincarn;
+    if (keep.reincarnFrom) state.reincarnatedFrom = keep.reincarnFrom;
+    render();
+  }
+  function acceptFate() {
+    if (!state || !state.childhood || state.childhood.step !== "fate" || state.selectedHeritage == null) return;
+    const h = state.heritages[state.selectedHeritage];
+    state.childhood.step = "birth";
+    state.childhood.offer = rollChildhoodOffer("birth", [], makeRng((state.seed ^ Date.now()) >>> 0), h && h.name);
+    render();
   }
   function newCharacter(seed, childhood = null) {
     const rng = makeRng(seed);
@@ -33463,19 +33465,112 @@
     };
     if (!lastDeath) appendSoulAltar();
   }
+  function childhoodStatLine(beat) {
+    const name = (k) => (STATS.find((s) => s.key === k) || { name: k }).name;
+    if (beat.statMods) return Object.entries(beat.statMods).map(([k, v]) => `${v > 0 ? "+" : "&minus;"}${Math.abs(v)} ${name(k)}`).join(" &middot; ");
+    if (beat.statRanges) return "Uncertain: " + Object.entries(beat.statRanges).map(([k, [lo, hi]]) => `${name(k)} ${lo < 0 ? "&minus;" + Math.abs(lo) : "+" + lo} to ${hi < 0 ? "&minus;" + Math.abs(hi) : "+" + hi}`).join(" &middot; ");
+    return "";
+  }
+  function renderFate() {
+    const intro = document.createElement("div");
+    intro.className = "panel";
+    intro.innerHTML = `<div class="roll-header">
+      <strong>Fate</strong>
+      <span style="color:var(--ink-soft);font-size:0.85rem">Step 1 of ${CHILDHOOD_STAGE_ORDER.length + 1}</span>
+    </div>
+    <p style="margin:0.6rem 0 0.3rem">What did heaven hand you before you drew breath?</p>
+    <p style="font-size:0.85rem;color:var(--ink-soft);margin:0">Your bones, your root and your blood are set before your story begins. Reroll them here if you can. Your childhood will be told around what you keep.</p>`;
+    app.appendChild(intro);
+    const stP = document.createElement("div");
+    stP.className = "panel";
+    const poolLabel = state.poolTier === "legend" ? " (HEAVEN-BLESSED)" : state.poolTier === "big" ? " (exceptional)" : state.poolTier === "spike" ? " (fortunate)" : "";
+    const sr = state.spiritRoot;
+    const rootLine = sr ? `${(sr.elements && sr.elements.length ? sr.elements : [sr.element]).map(elementLabel).join(" / ")} &middot; ${sr.gradeName || "Common"} (+${Math.round(((sr.grade || 1) - 1) * 100)}% cultivation speed)` : "";
+    stP.innerHTML = `<div class="roll-header"><strong>Roots &amp; Bones</strong>
+      <div class="pool-display">Bonus points: <span class="pool-number">${state.pool}</span>${poolLabel}</div></div>
+    ${rootLine ? `<p style="font-size:0.85rem;margin:0.3rem 0"><strong>Spirit root:</strong> ${rootLine}</p>` : ""}
+    ${STATS.map((s) => `<div class="stat-row"><div style="flex:1;min-width:0"><span class="stat-name">${s.name}</span><span class="stat-zh">${s.zh}</span></div><div class="stat-controls"><span class="stat-value">${state.baseStats[s.key]}</span></div></div>`).join("")}
+    <p style="font-size:0.78rem;color:var(--ink-soft);margin:0.4rem 0 0">You spend the bonus points after your childhood.</p>`;
+    app.appendChild(stP);
+    appendFateRerollPanel();
+    appendHeritagePanel(false);
+    const go = document.createElement("div");
+    go.className = "panel";
+    go.innerHTML = `<div class="button-row"><button id="accept-fate" ${state.selectedHeritage == null ? "disabled" : ""}>Accept this fate</button><button class="ghost" id="abandon-fate">Abandon</button></div>
+    ${state.selectedHeritage == null ? '<p style="font-size:0.8rem;color:var(--ink-soft);margin-top:0.5rem">Choose a heritage first.</p>' : ""}`;
+    app.appendChild(go);
+    document.getElementById("accept-fate").onclick = acceptFate;
+    document.getElementById("abandon-fate").onclick = () => {
+      state = null;
+      render();
+    };
+  }
+  function appendFateRerollPanel() {
+    const rP = document.createElement("div");
+    rP.className = "panel";
+    rP.innerHTML = `<div class="roll-header">
+      <strong>Reroll Fate</strong>
+      <span>${state.rerollsLeft} remaining</span>
+    </div>
+    <p style="font-size:0.85rem;color:var(--ink-soft);margin:0.3rem 0 0.6rem">Rerolls base stats, bonus pool, spirit root and heritage offerings. Your name and school are kept.</p>
+    <button id="reroll" ${state.rerollsLeft <= 0 ? "disabled" : ""}>Reroll</button>`;
+    app.appendChild(rP);
+    document.getElementById("reroll").onclick = rerollFate;
+  }
+  function appendHeritagePanel(sealed) {
+    const hP = document.createElement("div");
+    hP.className = "panel";
+    hP.innerHTML = sealed ? `<strong>Heritage</strong>` : `<strong>Heritage</strong>
+    <p style="font-size:0.85rem;color:var(--ink-soft);margin:0.3rem 0 0.6rem">Three fates offer themselves. Choose one.</p>`;
+    state.heritages.forEach((h, i) => {
+      if (sealed && i !== state.selectedHeritage) return;
+      const card = document.createElement("div");
+      card.className = "heritage-card" + (state.selectedHeritage === i ? " selected" : "");
+      const modStr = Object.entries(h.mods).map(([k, v]) => {
+        const s = STATS.find((x) => x.key === k);
+        return `${v > 0 ? "+" : ""}${v} ${s.name}`;
+      }).join(", ");
+      card.innerHTML = `
+      <div class="heritage-name">${h.name}<span class="rarity-tag rarity-${h.rarity}">${h.rarity}</span></div>
+      <div class="heritage-mods">${modStr}</div>
+      <div class="heritage-mods">${h.extra}</div>
+      ${HERITAGE_PASSIVES[h.name] ? `<div class="heritage-mods" style="color:var(--gold)"><strong>Passive — ${HERITAGE_PASSIVES[h.name].label}</strong>: ${modSummary(HERITAGE_PASSIVES[h.name].mods)}</div>` : ""}
+      <div class="heritage-flavor">${h.flavor}</div>`;
+      if (!sealed) card.onclick = () => {
+        const prev = state.selectedHeritage;
+        if (prev != null && prev !== i) {
+          const prevMech = HERITAGE_MECHANICS[state.heritages[prev].name];
+          if (prevMech) {
+            if (prevMech.extraRerolls) state.rerollsLeft = Math.max(0, state.rerollsLeft - prevMech.extraRerolls);
+            if (prevMech.extraStatPool) state.pool = Math.max(0, state.pool - prevMech.extraStatPool);
+          }
+        }
+        state.selectedHeritage = i;
+        const mech = HERITAGE_MECHANICS[h.name];
+        if (mech && prev !== i) {
+          if (mech.extraRerolls) state.rerollsLeft += mech.extraRerolls;
+          if (mech.extraStatPool) state.pool += mech.extraStatPool;
+        }
+        render();
+      };
+      hP.appendChild(card);
+    });
+    app.appendChild(hP);
+  }
   function renderChildhood() {
     const stage = state.childhood.step;
+    if (stage === "fate") return renderFate();
     const info = CHILDHOOD_STAGE_INFO[stage];
     const stepIdx = CHILDHOOD_STAGE_ORDER.indexOf(stage);
     const intro = document.createElement("div");
     intro.className = "panel";
     intro.innerHTML = `<div class="roll-header">
       <strong>${info.title}</strong>
-      <span style="color:var(--ink-soft);font-size:0.85rem">Step ${stepIdx + 1} of ${CHILDHOOD_STAGE_ORDER.length}</span>
+      <span style="color:var(--ink-soft);font-size:0.85rem">Step ${stepIdx + 2} of ${CHILDHOOD_STAGE_ORDER.length + 1}</span>
     </div>
     <p style="margin:0.6rem 0 0.3rem">${info.heading}</p>
     <p style="font-size:0.85rem;color:var(--ink-soft);margin:0">${info.flavor}</p>
-    <p style="font-size:0.78rem;color:var(--ink-soft);margin-top:0.5rem;font-style:italic">Fate offers itself. Choose once. There is no rerolling a life.</p>`;
+    <p style="font-size:0.78rem;color:var(--ink-soft);margin-top:0.5rem;font-style:italic">Every road gives something different, and none is better than another. Choose once.</p>`;
     app.appendChild(intro);
     state.childhood.offer.forEach((beatId) => {
       const beat = CHILDHOOD_BEATS[stage][beatId];
@@ -33483,6 +33578,8 @@
       const card = document.createElement("div");
       card.className = "school-card";
       const extras = [];
+      const statLine = childhoodStatLine(beat);
+      if (statLine) extras.push(statLine);
       if (beat.items) {
         if (beat.items.inscriptions && beat.items.inscriptions.length) {
           const names = beat.items.inscriptions.map((id) => INSCRIPTIONS[id] ? INSCRIPTIONS[id].name : id).join(", ");
@@ -33501,11 +33598,10 @@
           extras.push(`<em>Pouch:</em> ${list}`);
         }
       }
-      const fatalBadge = beat.fatal ? `<div class="heritage-mods" style="color:#c44;margin-top:0.3rem"><strong>This fate ends here.</strong> No cultivator emerges from this story.</div>` : "";
+      if (beat.passive) extras.push(`<span style="color:var(--gold)"><strong>${beat.passive.label}:</strong> ${modSummary(beat.passive.mods)}</span>`);
       card.innerHTML = `<div class="school-name">${beat.name}</div>
       <div class="heritage-flavor" style="margin:0.5rem 0">${beat.prose}</div>
-      ${extras.map((e) => `<div class="heritage-mods" style="font-size:0.78rem;margin-top:0.2rem">${e}</div>`).join("")}
-      ${fatalBadge}`;
+      ${extras.map((e) => `<div class="heritage-mods" style="font-size:0.78rem;margin-top:0.2rem">${e}</div>`).join("")}`;
       card.onclick = () => pickChildhoodBeat(stage, beatId);
       app.appendChild(card);
     });
@@ -33519,25 +33615,21 @@
     };
   }
   function pickChildhoodBeat(stage, beatId) {
-    const beat = CHILDHOOD_BEATS[stage][beatId];
-    if (beat && beat.fatal) {
-      if (state && state.childhood) {
-        state.childhood.picks = state.childhood.picks || {};
-        state.childhood.picks[stage] = beatId;
-      }
-      dieRun(beat.deathCause, beat.deathProse, "A would-be cultivator");
-      return;
-    }
+    if (!CHILDHOOD_BEATS[stage] || !CHILDHOOD_BEATS[stage][beatId]) return;
     applyChildhoodBeatToState(state, stage, beatId);
     const i = CHILDHOOD_STAGE_ORDER.indexOf(stage);
     if (i < CHILDHOOD_STAGE_ORDER.length - 1) {
       const nextStage = CHILDHOOD_STAGE_ORDER[i + 1];
       state.childhood.step = nextStage;
       const rng = makeRng((state.seed ^ Date.now() ^ Math.floor(Math.random() * 1e9)) >>> 0);
-      state.childhood.offer = rollChildhoodOffer(nextStage, state.childhood.flags, rng);
+      const h = state.heritages && state.selectedHeritage != null ? state.heritages[state.selectedHeritage] : null;
+      state.childhood.offer = rollChildhoodOffer(nextStage, state.childhood.flags, rng, h && h.name);
     } else {
-      const finishedChildhood = state.childhood;
-      state = newCharacter((Date.now() ^ Math.floor(Math.random() * 1e9)) >>> 0, finishedChildhood);
+      Object.entries(state.childhood.statMods || {}).forEach(([k, v]) => {
+        if (STAT_KEYS.includes(k)) state.baseStats[k] = Math.max(10, state.baseStats[k] + v);
+      });
+      state.childhood.step = "complete";
+      state.fateSealed = true;
     }
     render();
   }
@@ -33582,6 +33674,8 @@
       const hMod = state.selectedHeritage != null ? state.heritages[state.selectedHeritage].mods[s.key] || 0 : 0;
       const total = Math.max(6, base + alloc + hMod);
       const hStr = hMod ? ` <span style="color:var(--gold)">${hMod > 0 ? "+" : ""}${hMod}</span>` : "";
+      const cMod = state.rolledStats ? base - state.rolledStats[s.key] : 0;
+      const rolledStr = cMod ? `${state.rolledStats[s.key]} <span class="tip" style="color:var(--jade)" data-tip="From your childhood">${cMod > 0 ? "+" : "&minus;"}${Math.abs(cMod)}</span>` : `${base}`;
       const row = document.createElement("div");
       row.className = "stat-row";
       row.innerHTML = `
@@ -33594,7 +33688,7 @@
         <span class="stat-value">${total}</span>
         <button data-key="${s.key}" data-delta="1" ${remaining <= 0 || alloc >= statCap ? "disabled" : ""}>+</button>
       </div>
-      <div class="stat-breakdown">${base}${alloc ? ` +${alloc}` : ""}${hStr}</div>
+      <div class="stat-breakdown">${rolledStr}${alloc ? ` +${alloc}` : ""}${hStr}</div>
     `;
       stP.appendChild(row);
     });
@@ -33608,68 +33702,8 @@
       };
     });
     app.appendChild(stP);
-    const rP = document.createElement("div");
-    rP.className = "panel";
-    rP.innerHTML = `<div class="roll-header">
-      <strong>Reroll Fate</strong>
-      <span>${state.rerollsLeft} remaining</span>
-    </div>
-    <p style="font-size:0.85rem;color:var(--ink-soft);margin:0.3rem 0 0.6rem">Rerolls base stats, bonus pool, and heritage offerings. Your name and school are preserved.</p>
-    <button id="reroll" ${state.rerollsLeft <= 0 ? "disabled" : ""}>Reroll</button>`;
-    app.appendChild(rP);
-    document.getElementById("reroll").onclick = () => {
-      if (state.rerollsLeft <= 0) return;
-      const keepName = state.name;
-      const keepSchool = state.selectedSchool;
-      const keepRerolls = state.rerollsLeft - 1;
-      const keepChildhood = state.childhood;
-      const keepReincarn = state.reincarnStartInsight;
-      const keepReincarnFrom = state.reincarnatedFrom;
-      state = newCharacter((Date.now() ^ Math.floor(Math.random() * 1e9)) >>> 0, keepChildhood);
-      state.name = keepName;
-      state.selectedSchool = keepSchool;
-      state.rerollsLeft = keepRerolls;
-      if (keepReincarn) state.reincarnStartInsight = keepReincarn;
-      if (keepReincarnFrom) state.reincarnatedFrom = keepReincarnFrom;
-      render();
-    };
-    const hP = document.createElement("div");
-    hP.className = "panel";
-    hP.innerHTML = `<strong>Heritage</strong>
-    <p style="font-size:0.85rem;color:var(--ink-soft);margin:0.3rem 0 0.6rem">Three fates offer themselves. Choose one.</p>`;
-    state.heritages.forEach((h, i) => {
-      const card = document.createElement("div");
-      card.className = "heritage-card" + (state.selectedHeritage === i ? " selected" : "");
-      const modStr = Object.entries(h.mods).map(([k, v]) => {
-        const s = STATS.find((x) => x.key === k);
-        return `${v > 0 ? "+" : ""}${v} ${s.name}`;
-      }).join(", ");
-      card.innerHTML = `
-      <div class="heritage-name">${h.name}<span class="rarity-tag rarity-${h.rarity}">${h.rarity}</span></div>
-      <div class="heritage-mods">${modStr}</div>
-      <div class="heritage-mods">${h.extra}</div>
-      ${HERITAGE_PASSIVES[h.name] ? `<div class="heritage-mods" style="color:var(--gold)"><strong>Passive — ${HERITAGE_PASSIVES[h.name].label}</strong>: ${modSummary(HERITAGE_PASSIVES[h.name].mods)}</div>` : ""}
-      <div class="heritage-flavor">${h.flavor}</div>`;
-      card.onclick = () => {
-        const prev = state.selectedHeritage;
-        if (prev != null && prev !== i) {
-          const prevMech = HERITAGE_MECHANICS[state.heritages[prev].name];
-          if (prevMech) {
-            if (prevMech.extraRerolls) state.rerollsLeft = Math.max(0, state.rerollsLeft - prevMech.extraRerolls);
-            if (prevMech.extraStatPool) state.pool = Math.max(0, state.pool - prevMech.extraStatPool);
-          }
-        }
-        state.selectedHeritage = i;
-        const mech = HERITAGE_MECHANICS[h.name];
-        if (mech && prev !== i) {
-          if (mech.extraRerolls) state.rerollsLeft += mech.extraRerolls;
-          if (mech.extraStatPool) state.pool += mech.extraStatPool;
-        }
-        render();
-      };
-      hP.appendChild(card);
-    });
-    app.appendChild(hP);
+    if (!state.fateSealed) appendFateRerollPanel();
+    appendHeritagePanel(!!state.fateSealed);
     const sP = document.createElement("div");
     sP.className = "panel";
     sP.innerHTML = `<strong>School</strong>
