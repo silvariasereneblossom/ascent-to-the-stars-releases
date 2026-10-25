@@ -9170,6 +9170,10 @@
 
   // app/src/data/changelog.js
   var CHANGELOG = [
+    { v: "1.27.216", notes: [
+      "CLOUD SAVES. Your cultivators can now follow you across the browser, Android and Windows. In Config, press Create a sync code, then Use this code with the same code on your other devices. There is no account and nothing personal is stored; keep the code private, because it is the key to your cloud saves. Your music and other settings stay on each device.",
+      "The game syncs when it opens, every few minutes and when you leave, and Sync now forces it. If you played the same slot on two devices since they last synced, it asks which one to keep. It never overwrites a save on its own. Delete my cloud saves erases everything stored under your code."
+    ] },
     { v: "1.27.215", notes: [
       "EVERY CALAMITY HAS ITS OWN SIGNATURE AND FINISHER NOW, at every realm: the boss&rsquo;s two great moves, Unbound. They hit harder and for a bigger share of your maximum Vitality, leave a deeper Wound (healing -75% for 3 turns, from the finisher as well), and their bleeds, burns, chills, drains and silences are half again as strong and last a turn longer. The Calamities below Golden Core get these moves for the first time."
     ] },
@@ -9711,10 +9715,10 @@
     { key: "will", name: "Dao Heart", zh: "道心", desc: "Max Posture, −0.5% tribulation damage taken per point (to −40%), and +2% seclusion time per point above 10 (to +100%)." }
   ];
   var STAT_KEYS = STATS.map((s) => s.key);
-  var GAME_VERSION = 'v1.27.215';
+  var GAME_VERSION = 'v1.27.216';
   var SNAPSHOT_RELAY_URL = "https://172-234-134-140.sslip.io";
   var SNAPSHOT_RELAY_KEY = "";
-  var BUILD_SHA = "74c6858";
+  var BUILD_SHA = "57e6cf6";
   if (typeof window !== "undefined") window.BUILD_SHA = BUILD_SHA;
   var ELEMENTS = ["metal", "wood", "water", "fire", "earth"];
   var ELEMENT_NAME = { metal: "Metal", wood: "Wood", water: "Water", fire: "Fire", earth: "Earth" };
@@ -25823,6 +25827,7 @@
     }
   }
   function saveMeta() {
+    if (cloudReloading) return;
     try {
       localStorage.setItem(metaKey(), JSON.stringify(META));
     } catch (e) {
@@ -26206,7 +26211,7 @@
   var updateApplying = false;
   function runningShaKnown() {
     const s = typeof window !== "undefined" && window.BUILD_SHA;
-    return !!s && s !== "74c6858" && s !== "dev" && s !== "live";
+    return !!s && s !== "57e6cf6" && s !== "dev" && s !== "live";
   }
   function verTuple(v) {
     return String(v || "").replace(/^v/, "").split(".").map((n) => parseInt(n, 10) || 0);
@@ -32777,6 +32782,7 @@
       imP.appendChild(fileInput);
       cfgP.appendChild(imP);
     }
+    cfgP.appendChild(buildCloudPanel());
     {
       const updRow = document.createElement("div");
       updRow.className = "button-row";
@@ -37564,8 +37570,460 @@
     <div class="bar ${cls}"><div class="bar-fill" style="width:${pct}%"></div></div>
   </div>`;
   }
+  var CLOUD_URL = "https://172-234-134-140.sslip.io/cloud/v1";
+  var CLOUD_DEVICE_KEY = "atts-cloud";
+  var CLOUD_AUTO_MS = 5 * 60 * 1e3;
+  var cloudBusy = false;
+  var cloudPendingPull = false;
+  var cloudCodeShown = null;
+  var cloudReloading = false;
+  function cloudReload() {
+    cloudReloading = true;
+    if (typeof location !== "undefined" && location.reload) location.reload();
+  }
+  function cloudDevice() {
+    try {
+      const d = JSON.parse(localStorage.getItem(CLOUD_DEVICE_KEY) || "null");
+      if (d && typeof d === "object") {
+        d.slots = d.slots || {};
+        d.conflicts = d.conflicts || [];
+        return d;
+      }
+    } catch (e) {
+    }
+    return { code: null, slots: {}, conflicts: [] };
+  }
+  function saveCloudDevice(d) {
+    try {
+      localStorage.setItem(CLOUD_DEVICE_KEY, JSON.stringify(d));
+    } catch (e) {
+    }
+  }
+  function cloudHash(str) {
+    let h = 2166136261;
+    for (let i = 0; i < str.length; i++) {
+      h ^= str.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    return (h >>> 0).toString(16);
+  }
+  function cloudSlotData(n, raw) {
+    const r = raw || { char: localStorage.getItem(charKey(n)), meta: localStorage.getItem(metaKey(n)), death: localStorage.getItem(deathKey(n)) };
+    let meta = r.meta;
+    if (meta) {
+      try {
+        const m = JSON.parse(meta);
+        if (m && typeof m === "object") {
+          delete m.settings;
+          meta = JSON.stringify(m);
+        }
+      } catch (e) {
+      }
+    }
+    return { char: r.char || null, meta: meta || null, death: r.death || null };
+  }
+  function cloudSlotHash(d) {
+    return d.char || d.meta ? cloudHash(JSON.stringify(d)) : null;
+  }
+  function cloudCanReload() {
+    if (typeof combat !== "undefined" && combat) return false;
+    if (state && state.childhood && state.childhood.step && state.childhood.step !== "complete") return false;
+    const ae = typeof document !== "undefined" ? document.activeElement : null;
+    return !(ae && (ae.tagName === "INPUT" || ae.tagName === "TEXTAREA"));
+  }
+  function cloudSummary(n, d) {
+    const info = slotInfo(n);
+    let souls = null, lifetime = null;
+    try {
+      souls = d.meta ? JSON.parse(d.meta).souls || 0 : null;
+    } catch (e) {
+    }
+    try {
+      lifetime = d.char ? Math.floor(JSON.parse(d.char).lifetimeInsight || 0) : null;
+    } catch (e) {
+    }
+    return { name: info.empty ? null : info.name, realm: info.empty ? null : info.realm, souls, lifetimeInsight: lifetime, playedAt: Date.now(), version: GAME_VERSION };
+  }
+  function cloudApply(n, data) {
+    if (n === ACTIVE_SLOT) cloudReloading = true;
+    if (data.char) localStorage.setItem(charKey(n), data.char);
+    else localStorage.removeItem(charKey(n));
+    if (data.meta) {
+      let merged = data.meta;
+      try {
+        const m = JSON.parse(data.meta), local = JSON.parse(localStorage.getItem(metaKey(n)) || "null");
+        if (local && local.settings) m.settings = local.settings;
+        merged = JSON.stringify(m);
+      } catch (e) {
+      }
+      localStorage.setItem(metaKey(n), merged);
+    }
+    if (data.death) localStorage.setItem(deathKey(n), data.death);
+    else localStorage.removeItem(deathKey(n));
+  }
+  async function cloudFetch(method, path, body, opts) {
+    const dev = cloudDevice();
+    const ctrl = typeof AbortController !== "undefined" ? new AbortController() : null;
+    const timer = setTimeout(() => {
+      if (ctrl) ctrl.abort();
+    }, 15e3);
+    try {
+      const headers = { "content-type": "application/json" };
+      if (dev.code) headers["x-atts-sync"] = dev.code;
+      const r = await fetch(CLOUD_URL + path, { method, headers, body: body ? JSON.stringify(body) : void 0, signal: ctrl ? ctrl.signal : void 0, keepalive: !!(opts && opts.keepalive) });
+      return { status: r.status, json: await r.json().catch(() => null) };
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+  function cloudFlushActive() {
+    if (cloudReloading) return;
+    try {
+      if (state && state.confirmed) saveChar();
+      saveMeta();
+    } catch (e) {
+    }
+  }
+  async function cloudSync(opts) {
+    opts = opts || {};
+    const dev = cloudDevice();
+    if (!dev.code || cloudBusy || typeof fetch === "undefined") return null;
+    cloudBusy = true;
+    const out = { pushed: 0, pulled: 0, conflicts: [], reload: false };
+    try {
+      cloudFlushActive();
+      const list = await cloudFetch("GET", "/slots");
+      if (list.status === 401) {
+        dev.lastError = "This sync code is not recognised. It may have been deleted.";
+        saveCloudDevice(dev);
+        return out;
+      }
+      if (list.status !== 200 || !list.json) {
+        dev.lastError = "The cloud could not be reached.";
+        saveCloudDevice(dev);
+        return out;
+      }
+      const remote = {};
+      (list.json.slots || []).forEach((s) => {
+        remote[s.slot] = s;
+      });
+      for (let n = 0; n < SAVE_SLOTS; n++) {
+        const local = cloudSlotData(n), lh = cloudSlotHash(local);
+        const known = dev.slots[n] || null, r = remote[n] || null, rrev = r ? r.rev : 0;
+        const localChanged = known ? !!known.touched : lh !== null;
+        const remoteChanged = known ? rrev !== known.rev : rrev > 0;
+        if (!localChanged && !remoteChanged) continue;
+        if (localChanged && !remoteChanged) {
+          if (lh === null) continue;
+          const put = await cloudFetch("PUT", `/slots/${n}`, { baseRev: rrev, summary: cloudSummary(n, local), data: local });
+          if (put.status === 200) {
+            dev.slots[n] = { rev: put.json.rev, hash: lh };
+            out.pushed++;
+          } else if (put.status === 409) out.conflicts.push(n);
+          continue;
+        }
+        if (!localChanged && remoteChanged) {
+          if (n === ACTIVE_SLOT && !(opts.pullActive && cloudCanReload())) {
+            cloudPendingPull = true;
+            continue;
+          }
+          const got2 = await cloudFetch("GET", `/slots/${n}`);
+          if (got2.status !== 200 || !got2.json) continue;
+          cloudApply(n, got2.json.data);
+          dev.slots[n] = { rev: got2.json.rev, hash: cloudSlotHash(cloudSlotData(n)) };
+          out.pulled++;
+          if (n === ACTIVE_SLOT) out.reload = true;
+          continue;
+        }
+        const got = await cloudFetch("GET", `/slots/${n}`);
+        if (got.status === 200 && got.json && cloudSlotHash(cloudSlotData(n, got.json.data)) === lh) {
+          dev.slots[n] = { rev: got.json.rev, hash: lh };
+          continue;
+        }
+        if (lh === null && got.status === 200) {
+          if (n === ACTIVE_SLOT && !(opts.pullActive && cloudCanReload())) {
+            cloudPendingPull = true;
+            continue;
+          }
+          cloudApply(n, got.json.data);
+          dev.slots[n] = { rev: got.json.rev, hash: cloudSlotHash(cloudSlotData(n)) };
+          out.pulled++;
+          if (n === ACTIVE_SLOT) out.reload = true;
+          continue;
+        }
+        out.conflicts.push(n);
+      }
+      dev.conflicts = out.conflicts;
+      dev.lastSyncAt = Date.now();
+      dev.lastError = null;
+      if (!out.reload) cloudPendingPull = cloudPendingPull && !out.pulled;
+      saveCloudDevice(dev);
+      if (out.reload) {
+        cloudReload();
+        return out;
+      }
+    } catch (e) {
+      dev.lastError = "The cloud could not be reached.";
+      saveCloudDevice(dev);
+    } finally {
+      cloudBusy = false;
+    }
+    if (typeof document !== "undefined" && document.getElementById("cloud-panel")) render();
+    return out;
+  }
+  async function cloudResolve(n, keep) {
+    const dev = cloudDevice();
+    if (!dev.code) return;
+    cloudFlushActive();
+    if (keep === "local") {
+      const local = cloudSlotData(n), list = await cloudFetch("GET", "/slots");
+      const r = list.json && (list.json.slots || []).find((s) => s.slot === n);
+      const put = await cloudFetch("PUT", `/slots/${n}`, { baseRev: r ? r.rev : 0, summary: cloudSummary(n, local), data: local });
+      if (put.status === 200) dev.slots[n] = { rev: put.json.rev, hash: cloudSlotHash(local) };
+    } else {
+      const got = await cloudFetch("GET", `/slots/${n}`);
+      if (got.status === 200 && got.json) {
+        cloudApply(n, got.json.data);
+        dev.slots[n] = { rev: got.json.rev, hash: cloudSlotHash(cloudSlotData(n)) };
+        if (n === ACTIVE_SLOT) {
+          dev.conflicts = (dev.conflicts || []).filter((x) => x !== n);
+          saveCloudDevice(dev);
+          cloudReload();
+          return;
+        }
+      }
+    }
+    dev.conflicts = (dev.conflicts || []).filter((x) => x !== n);
+    saveCloudDevice(dev);
+    render();
+  }
+  function cloudPushOnLeave() {
+    const dev = cloudDevice();
+    if (!dev.code || cloudBusy || cloudReloading) return;
+    try {
+      cloudFlushActive();
+      const n = ACTIVE_SLOT, local = cloudSlotData(n), lh = cloudSlotHash(local), known = dev.slots[n];
+      if (!lh || known && !known.touched) return;
+      const body = { baseRev: known ? known.rev : 0, summary: cloudSummary(n, local), data: local };
+      if (JSON.stringify(body).length > 6e4) return;
+      cloudFetch("PUT", `/slots/${n}`, body, { keepalive: true }).then((r) => {
+        if (r.status === 200) {
+          const d = cloudDevice();
+          d.slots[n] = { rev: r.json.rev, hash: lh };
+          saveCloudDevice(d);
+        }
+      }, () => {
+      });
+    } catch (e) {
+    }
+  }
+  var cloudTouchSaved = 0;
+  function cloudMarkTouched(e) {
+    if (!(state && state.confirmed)) return;
+    if (e && e.target && e.target.closest && e.target.closest("#cloud-panel")) return;
+    const now = Date.now();
+    if (now - cloudTouchSaved < 5e3) return;
+    cloudTouchSaved = now;
+    const d = cloudDevice();
+    if (!d.code) return;
+    const k = d.slots[ACTIVE_SLOT] || { rev: 0, hash: null };
+    if (k.touched) return;
+    k.touched = true;
+    d.slots[ACTIVE_SLOT] = k;
+    saveCloudDevice(d);
+  }
+  function cloudStartAuto() {
+    if (typeof window === "undefined" || typeof document === "undefined") return;
+    document.addEventListener("pointerdown", cloudMarkTouched, true);
+    document.addEventListener("keydown", cloudMarkTouched, true);
+    setTimeout(() => cloudSync({ pullActive: true }), 1500);
+    setInterval(() => cloudSync({}), CLOUD_AUTO_MS);
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "hidden") cloudPushOnLeave();
+    });
+    window.addEventListener("pagehide", cloudPushOnLeave);
+  }
+  function cloudWhen(t) {
+    if (!t) return "never";
+    const s = Math.round((Date.now() - t) / 1e3);
+    return s < 60 ? "just now" : s < 3600 ? `${Math.round(s / 60)} min ago` : s < 86400 ? `${Math.round(s / 3600)} h ago` : new Date(t).toLocaleDateString();
+  }
+  function buildCloudPanel() {
+    const dev = cloudDevice();
+    const p = document.createElement("div");
+    p.id = "cloud-panel";
+    p.style.cssText = "margin-top:0.6rem;border-top:1px solid rgba(120,120,120,0.3);padding-top:0.4rem";
+    const head = `<div style="font-weight:bold;font-size:0.9rem">Cloud Saves <span style="color:var(--ink-soft);font-weight:normal;font-size:0.8rem">云存档</span></div>`;
+    const status = document.createElement("p");
+    status.style.cssText = "font-size:0.76rem;color:var(--ink-soft);margin:0.2rem 0 0";
+    if (!dev.code) {
+      p.innerHTML = `${head}<p style="font-size:0.78rem;color:var(--ink-soft);margin:0.15rem 0 0.3rem">Keep your cultivators in step across the browser, Android and Windows. A sync code links your devices: no account, and nothing personal is stored. Anyone with the code can change your cloud saves, so keep it private. Your settings stay on each device.</p>`;
+      const row3 = document.createElement("div");
+      row3.className = "button-row";
+      const mk = document.createElement("button");
+      mk.className = "gold small";
+      mk.textContent = "Create a sync code";
+      mk.onclick = async () => {
+        mk.disabled = true;
+        status.textContent = "Creating…";
+        try {
+          const r = await cloudFetch("POST", "/codes");
+          if (r.status !== 201 || !r.json || !r.json.code) {
+            status.textContent = r.json && r.json.error || "Could not create a code. Try again later.";
+            mk.disabled = false;
+            return;
+          }
+          const d = cloudDevice();
+          d.code = r.json.code;
+          d.slots = {};
+          d.conflicts = [];
+          saveCloudDevice(d);
+          cloudCodeShown = r.json.code;
+          await cloudSync({ pullActive: true });
+          render();
+        } catch (e) {
+          status.textContent = "The cloud could not be reached.";
+          mk.disabled = false;
+        }
+      };
+      row3.appendChild(mk);
+      const inp = document.createElement("input");
+      inp.type = "text";
+      inp.placeholder = "XXXXX-XXXXX-XXXXX-XXXXX";
+      inp.maxLength = 32;
+      inp.style.cssText = "width:100%;margin-top:0.4rem;font-family:monospace";
+      const use = document.createElement("button");
+      use.className = "ghost small";
+      use.textContent = "Use this code";
+      use.onclick = async () => {
+        const c = String(inp.value || "").toUpperCase().replace(/[\s-]/g, "");
+        if (!/^[0-9A-Z]{20}$/.test(c)) {
+          status.textContent = "A sync code is 20 letters and numbers, in four groups of five.";
+          return;
+        }
+        const d = cloudDevice();
+        d.code = c.match(/.{5}/g).join("-");
+        d.slots = {};
+        d.conflicts = [];
+        saveCloudDevice(d);
+        use.disabled = true;
+        status.textContent = "Linking…";
+        const out = await cloudSync({ pullActive: true });
+        if (cloudDevice().lastError) {
+          const e = cloudDevice();
+          status.textContent = e.lastError;
+          if (/not recognised/.test(e.lastError)) {
+            e.code = null;
+            saveCloudDevice(e);
+          }
+          use.disabled = false;
+          return;
+        }
+        render();
+      };
+      const row22 = document.createElement("div");
+      row22.className = "button-row";
+      row22.appendChild(use);
+      p.appendChild(row3);
+      p.appendChild(inp);
+      p.appendChild(row22);
+      p.appendChild(status);
+      return p;
+    }
+    const masked = cloudCodeShown === dev.code ? dev.code : dev.code.slice(0, 5) + "-•••••-•••••-" + dev.code.slice(-5);
+    p.innerHTML = `${head}<p style="font-size:0.78rem;margin:0.15rem 0 0.2rem">Linked with <span style="font-family:monospace">${masked}</span>. Last synced ${cloudWhen(dev.lastSyncAt)}.</p>
+    ${cloudCodeShown === dev.code ? '<p style="font-size:0.76rem;color:var(--crimson);margin:0 0 0.3rem">Write this code down or copy it now. Enter it on your other devices to link them. It is the only key to your cloud saves.</p>' : ""}
+    ${dev.lastError ? `<p style="font-size:0.76rem;color:var(--crimson);margin:0 0 0.3rem">${dev.lastError}</p>` : ""}
+    ${cloudPendingPull ? '<p style="font-size:0.76rem;color:var(--gold);margin:0 0 0.3rem">A newer save for this slot is in the cloud. Press Sync now when you are out of combat to load it.</p>' : ""}`;
+    for (const n of dev.conflicts || []) {
+      const info = slotInfo(n);
+      const box = document.createElement("div");
+      box.style.cssText = "border:1px solid var(--crimson);padding:0.35rem;margin:0.3rem 0;font-size:0.78rem";
+      box.innerHTML = `<strong>Slot ${n + 1} changed on two devices.</strong> This device has ${info.empty ? "no cultivator" : `${info.name} (${info.realm})`}. Choose which one to keep; the other is replaced.`;
+      const r = document.createElement("div");
+      r.className = "button-row";
+      const kl = document.createElement("button");
+      kl.className = "ghost small";
+      kl.textContent = "Keep this device's";
+      armDestructiveButton(kl, "Tap again: the cloud's copy is replaced", () => cloudResolve(n, "local"));
+      const kc = document.createElement("button");
+      kc.className = "ghost small";
+      kc.textContent = "Keep the cloud's";
+      armDestructiveButton(kc, "Tap again: this device's copy is replaced", () => cloudResolve(n, "cloud"));
+      r.appendChild(kl);
+      r.appendChild(kc);
+      box.appendChild(r);
+      p.appendChild(box);
+    }
+    const row = document.createElement("div");
+    row.className = "button-row";
+    const sync = document.createElement("button");
+    sync.className = "gold small";
+    sync.textContent = cloudBusy ? "Syncing…" : "Sync now";
+    sync.disabled = cloudBusy;
+    sync.onclick = async () => {
+      sync.disabled = true;
+      sync.textContent = "Syncing…";
+      await cloudSync({ pullActive: true });
+      render();
+    };
+    const copy = document.createElement("button");
+    copy.className = "ghost small";
+    copy.textContent = "Copy code";
+    copy.onclick = () => {
+      const done = () => {
+        status.textContent = "Sync code copied.";
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(dev.code).then(done).catch(() => {
+        cloudCodeShown = dev.code;
+        render();
+      });
+      else {
+        cloudCodeShown = dev.code;
+        render();
+      }
+    };
+    row.appendChild(sync);
+    row.appendChild(copy);
+    const row2 = document.createElement("div");
+    row2.className = "button-row";
+    const unlink = document.createElement("button");
+    unlink.className = "ghost small";
+    unlink.textContent = "Unlink this device";
+    armDestructiveButton(unlink, "Tap again: stop syncing here (saves stay)", () => {
+      const d = cloudDevice();
+      d.code = null;
+      d.slots = {};
+      d.conflicts = [];
+      saveCloudDevice(d);
+      cloudCodeShown = null;
+      render();
+    });
+    const del = document.createElement("button");
+    del.className = "ghost small";
+    del.textContent = "Delete my cloud saves";
+    armDestructiveButton(del, "Tap again: erase every cloud save and this code", async () => {
+      const r = await cloudFetch("DELETE", "/data");
+      if (r.status === 200 || r.status === 401) {
+        const d = cloudDevice();
+        d.code = null;
+        d.slots = {};
+        d.conflicts = [];
+        saveCloudDevice(d);
+        cloudCodeShown = null;
+      }
+      render();
+    });
+    row2.appendChild(unlink);
+    row2.appendChild(del);
+    p.appendChild(row);
+    p.appendChild(row2);
+    p.appendChild(status);
+    return p;
+  }
   function saveChar() {
     if (huntSimActive) return;
+    if (cloudReloading) return;
     try {
       localStorage.setItem(charKey(), JSON.stringify(state));
     } catch (e) {
@@ -37726,6 +38184,7 @@
     scheduleCultivationTick();
   }
   render();
+  cloudStartAuto();
 })();
 </script>
 </body>
